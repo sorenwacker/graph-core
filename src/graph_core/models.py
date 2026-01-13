@@ -59,15 +59,14 @@ class NodeUpdate(BaseModel):
 class Node(NodeBase):
     """Full node with database fields."""
 
+    model_config = {"from_attributes": True}
+
     id: int
     depth: int = 0
     path: str = ""
     created_at: datetime
     updated_at: datetime
     deleted_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
 
 
 class NodeWithChildren(Node):
