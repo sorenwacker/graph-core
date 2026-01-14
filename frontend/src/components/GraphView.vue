@@ -11,18 +11,13 @@ import 'tippy.js/dist/tippy.css'
 import 'tippy.js/themes/translucent.css'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 
-// Register extensions only once (use flag to prevent re-registration on HMR)
-let extensionsRegistered = false
-if (!extensionsRegistered) {
-  try {
-    cytoscape.use(coseBilkent)
-    cytoscape.use(cola)
-    cytoscape.use(dagre)
-    nodeHtmlLabel(cytoscape)
-  } catch (e) {
-    // Extensions already registered
-  }
-  extensionsRegistered = true
+// Register extensions only once (use global flag to survive HMR)
+if (!window.__cytoscapeExtensionsRegistered) {
+  cytoscape.use(coseBilkent)
+  cytoscape.use(cola)
+  cytoscape.use(dagre)
+  nodeHtmlLabel(cytoscape)
+  window.__cytoscapeExtensionsRegistered = true
 }
 
 // Configure marked for notes rendering
@@ -307,10 +302,15 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
     }
 
     // Build tooltip HTML with full details
-    let tooltip = `<div class="tt-title">${node.title}</div>`
+    let tooltip = `<div class="tt-header">`
+    tooltip += `<div class="tt-title">${node.title}</div>`
+    // Add checkbox for all types except person
+    if (node.type !== 'person') {
+      tooltip += `<label class="tt-checkbox"><input type="checkbox" data-node-id="${node.id}" ${isCompleted ? 'checked' : ''} /><span>Done</span></label>`
+    }
+    tooltip += `</div>`
     tooltip += `<div class="tt-meta">`
     tooltip += `<span class="tt-type ${node.type}">${node.type}</span>`
-    if (isCompleted) tooltip += `<span class="tt-completed">Done</span>`
     if (childCount > 0) tooltip += `<span class="tt-children">${childCount} items</span>`
     if (node.importance) tooltip += `<span class="tt-priority">P${node.importance}</span>`
     tooltip += `</div>`
@@ -708,6 +708,22 @@ function initGraph() {
         theme: 'graph-tooltip',
         maxWidth: 400,
         trigger: 'manual',
+        onShown: (instance) => {
+          // Attach event listener to checkbox in tooltip
+          const checkbox = instance.popper.querySelector('input[type="checkbox"][data-node-id]')
+          if (checkbox) {
+            checkbox.addEventListener('change', (e) => {
+              const nodeId = parseInt(e.target.dataset.nodeId)
+              const completed = e.target.checked
+              const node = props.nodes.flatMap(function flatten(n) {
+                return [n, ...(n.children || []).flatMap(flatten)]
+              }).find(n => n.id === nodeId) || (props.parent?.id === nodeId ? props.parent : null)
+              if (node) {
+                emit('update', { ...node, completed })
+              }
+            })
+          }
+        },
         onHidden: () => {
           if (activeTippyInstance) {
             activeTippyInstance.destroy()
@@ -925,13 +941,22 @@ function updateGraph() {
   const elements = buildElements(props.nodes, props.parent, savedPositions, props.detailThreshold)
   const hasPositions = Object.keys(savedPositions).length > 0
 
+  // Build a map of element positions for quick lookup
+  const elementPositions = {}
+  elements.forEach(el => {
+    if (!el.data.source && el.position) {
+      elementPositions[el.data.id] = el.position
+    }
+  })
+
   // Find new nodes (no saved position) and assign smart positions
-  // Check for edges by looking at data.source (edges have source/target, nodes don't)
   elements.forEach(el => {
     if (!el.data.source && !el.position) {
       const nodeData = el.data.nodeData
       const parentId = nodeData?.parent_id
-      el.position = findSmartPosition(el.data.id, parentId, savedPositions)
+      // First check element positions (current graph), then savedPositions
+      const allPositions = { ...savedPositions, ...elementPositions }
+      el.position = findSmartPosition(el.data.id, parentId, allPositions)
     }
   })
 
@@ -1830,12 +1855,40 @@ onUnmounted(() => {
   color: #333;
 }
 
+.tippy-box[data-theme~='graph-tooltip'] .tt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid #333;
+  gap: 12px;
+}
+
 .tippy-box[data-theme~='graph-tooltip'] .tt-title {
   font-size: 18px;
   font-weight: 600;
-  padding: 14px 16px 10px;
   color: #fff;
-  border-bottom: 1px solid #333;
+  flex: 1;
+}
+
+.tippy-box[data-theme~='graph-tooltip'] .tt-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #aaa;
+  white-space: nowrap;
+}
+
+.tippy-box[data-theme~='graph-tooltip'] .tt-checkbox input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.tippy-box[data-theme~='graph-tooltip'] .tt-checkbox:hover {
+  color: #fff;
 }
 
 .tippy-box[data-theme~='graph-tooltip'] .tt-meta {
