@@ -917,8 +917,9 @@ function updateGraph() {
   const hasPositions = Object.keys(savedPositions).length > 0
 
   // Find new nodes (no saved position) and assign smart positions
+  // Check for edges by looking at data.source (edges have source/target, nodes don't)
   elements.forEach(el => {
-    if (el.group !== 'edges' && !el.position) {
+    if (!el.data.source && !el.position) {
       const nodeData = el.data.nodeData
       const parentId = nodeData?.parent_id
       el.position = findSmartPosition(el.data.id, parentId, savedPositions)
