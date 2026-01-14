@@ -4,9 +4,10 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 
 from .database import Database
-from .models import Node, NodeCreate, NodeType, NodeUpdate
+from .models import MoveRequest, Node, NodeCreate, NodeType, NodeUpdate
 
 db = Database()
 
@@ -24,6 +25,14 @@ app = FastAPI(
     description="Unified node-based graph data structure with tree hierarchy",
     version="0.1.0",
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -98,10 +107,10 @@ def get_ancestors(node_id: int):
     return db.get_ancestors(node_id)
 
 
-@app.post("/nodes/{node_id}/move")
-def move_node(node_id: int, new_parent_id: Optional[int] = Query(None)):
+@app.post("/nodes/{node_id}/move", response_model=Node)
+def move_node(node_id: int, request: MoveRequest):
     """Move a node to a new parent."""
-    node = db.move_node(node_id, new_parent_id)
+    node = db.move_node(node_id, request.new_parent_id)
     if not node:
         raise HTTPException(status_code=404, detail="Node not found")
     return node
@@ -154,3 +163,28 @@ def unlink_nodes(source_id: int, target_id: int):
 def get_linked_nodes(node_id: int):
     """Get all nodes linked to a given node."""
     return db.get_linked_nodes(node_id)
+
+
+# Search
+
+
+@app.get("/search", response_model=list[Node])
+def search_nodes(
+    q: str = Query(..., description="Search query"),
+    type: Optional[NodeType] = Query(None, description="Filter by node type"),
+):
+    """Search nodes by title or notes."""
+    return db.search_nodes(q, node_type=type)
+
+
+@app.post("/nodes/{node_id}/reorder", response_model=Node)
+def reorder_node(
+    node_id: int,
+    target_id: int = Query(..., description="Target node ID"),
+    position: str = Query(..., description="'before' or 'after' the target"),
+):
+    """Reorder a node relative to another node."""
+    node = db.reorder_node(node_id, target_id, position)
+    if not node:
+        raise HTTPException(status_code=404, detail="Node not found")
+    return node

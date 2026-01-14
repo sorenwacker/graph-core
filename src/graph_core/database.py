@@ -1,6 +1,7 @@
 """SQLite database operations for nodes."""
 
 import sqlite3
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -14,6 +15,7 @@ class Database:
     def __init__(self, db_path: str = "graph.db"):
         self.db_path = Path(db_path)
         self.conn: Optional[sqlite3.Connection] = None
+        self._lock = threading.Lock()
 
     def connect(self) -> None:
         """Connect to the database."""
@@ -32,7 +34,7 @@ class Database:
         self.conn.executescript("""
             CREATE TABLE IF NOT EXISTS nodes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                type TEXT NOT NULL DEFAULT 'todo',
+                type TEXT NOT NULL DEFAULT 'task',
                 title TEXT NOT NULL,
                 parent_id INTEGER REFERENCES nodes(id) ON DELETE SET NULL,
                 depth INTEGER DEFAULT 0,
@@ -45,6 +47,13 @@ class Database:
                 start_date TEXT,
                 end_date TEXT,
                 due_date TEXT,
+                -- Person-specific fields
+                email TEXT,
+                phone TEXT,
+                organization TEXT,
+                role TEXT,
+                address TEXT,
+                website TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 deleted_at TEXT
@@ -63,11 +72,43 @@ class Database:
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(source_id, target_id)
             );
+
+            CREATE TABLE IF NOT EXISTS categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                color TEXT DEFAULT '#3498db',
+                symbol TEXT DEFAULT '*',
+                sort_order INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS statuses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                color TEXT DEFAULT '#3498db',
+                sort_order INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
         """)
+
+        # Add category_id and status_id columns to nodes if not exist
+        try:
+            self.conn.execute("ALTER TABLE nodes ADD COLUMN category_id INTEGER REFERENCES categories(id)")
+        except:
+            pass
+        try:
+            self.conn.execute("ALTER TABLE nodes ADD COLUMN status_id INTEGER REFERENCES statuses(id)")
+        except:
+            pass
+        try:
+            self.conn.execute("ALTER TABLE nodes ADD COLUMN notes_sensitive INTEGER DEFAULT 0")
+        except:
+            pass
         self.conn.commit()
 
     def _row_to_node(self, row: sqlite3.Row) -> Node:
         """Convert a database row to a Node object."""
+        keys = row.keys()
         return Node(
             id=row["id"],
             type=NodeType(row["type"]),
@@ -76,6 +117,7 @@ class Database:
             depth=row["depth"],
             path=row["path"] or "",
             notes=row["notes"] or "",
+            notes_sensitive=bool(row["notes_sensitive"]) if "notes_sensitive" in keys else False,
             completed=bool(row["completed"]),
             color=row["color"],
             sort_order=row["sort_order"],
@@ -83,13 +125,20 @@ class Database:
             start_date=row["start_date"],
             end_date=row["end_date"],
             due_date=row["due_date"],
+            # Person-specific fields
+            email=row["email"] if "email" in keys else None,
+            phone=row["phone"] if "phone" in keys else None,
+            organization=row["organization"] if "organization" in keys else None,
+            role=row["role"] if "role" in keys else None,
+            address=row["address"] if "address" in keys else None,
+            website=row["website"] if "website" in keys else None,
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
             deleted_at=datetime.fromisoformat(row["deleted_at"]) if row["deleted_at"] else None,
         )
 
     def _update_path_and_depth(self, node_id: int) -> None:
-        """Update path and depth for a node based on its parent."""
+        """Update path and depth for a node and all its descendants."""
         cursor = self.conn.execute("SELECT parent_id FROM nodes WHERE id = ?", (node_id,))
         row = cursor.fetchone()
         if not row:
@@ -112,6 +161,14 @@ class Database:
             (path, depth, node_id),
         )
 
+        # Recursively update all descendants
+        cursor = self.conn.execute(
+            "SELECT id FROM nodes WHERE parent_id = ? AND deleted_at IS NULL",
+            (node_id,)
+        )
+        for child_row in cursor.fetchall():
+            self._update_path_and_depth(child_row["id"])
+
     # CRUD Operations
 
     def create_node(self, node: NodeCreate) -> Node:
@@ -119,16 +176,17 @@ class Database:
         now = datetime.now().isoformat()
         cursor = self.conn.execute(
             """
-            INSERT INTO nodes (type, title, parent_id, notes, completed, color,
+            INSERT INTO nodes (type, title, parent_id, notes, notes_sensitive, completed, color,
                              sort_order, importance, start_date, end_date, due_date,
                              created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 node.type.value,
                 node.title,
                 node.parent_id,
                 node.notes,
+                int(node.notes_sensitive),
                 int(node.completed),
                 node.color,
                 node.sort_order,
@@ -148,10 +206,11 @@ class Database:
 
     def get_node(self, node_id: int) -> Optional[Node]:
         """Get a node by ID."""
-        cursor = self.conn.execute(
-            "SELECT * FROM nodes WHERE id = ? AND deleted_at IS NULL", (node_id,)
-        )
-        row = cursor.fetchone()
+        with self._lock:
+            cursor = self.conn.execute(
+                "SELECT * FROM nodes WHERE id = ? AND deleted_at IS NULL", (node_id,)
+            )
+            row = cursor.fetchone()
         return self._row_to_node(row) if row else None
 
     def get_nodes(
@@ -174,8 +233,10 @@ class Database:
             params.append(parent_id)
 
         query += " ORDER BY sort_order, created_at"
-        cursor = self.conn.execute(query, params)
-        return [self._row_to_node(row) for row in cursor.fetchall()]
+        with self._lock:
+            cursor = self.conn.execute(query, params)
+            rows = cursor.fetchall()
+        return [self._row_to_node(row) for row in rows]
 
     def get_children(
         self, parent_id: int, node_type: Optional[NodeType] = None
@@ -189,8 +250,10 @@ class Database:
             params.append(node_type.value)
 
         query += " ORDER BY sort_order, created_at"
-        cursor = self.conn.execute(query, params)
-        return [self._row_to_node(row) for row in cursor.fetchall()]
+        with self._lock:
+            cursor = self.conn.execute(query, params)
+            rows = cursor.fetchall()
+        return [self._row_to_node(row) for row in rows]
 
     def get_descendants(
         self, parent_id: int, max_depth: Optional[int] = None
@@ -212,8 +275,10 @@ class Database:
             params.append(parent.depth + max_depth)
 
         query += " ORDER BY depth, sort_order, created_at"
-        cursor = self.conn.execute(query, params)
-        return [self._row_to_node(row) for row in cursor.fetchall()]
+        with self._lock:
+            cursor = self.conn.execute(query, params)
+            rows = cursor.fetchall()
+        return [self._row_to_node(row) for row in rows]
 
     def get_ancestors(self, node_id: int) -> list[Node]:
         """Get all ancestors of a node."""
@@ -226,11 +291,13 @@ class Database:
             return []
 
         placeholders = ",".join("?" * len(ancestor_ids))
-        cursor = self.conn.execute(
-            f"SELECT * FROM nodes WHERE id IN ({placeholders}) ORDER BY depth",
-            ancestor_ids,
-        )
-        return [self._row_to_node(row) for row in cursor.fetchall()]
+        with self._lock:
+            cursor = self.conn.execute(
+                f"SELECT * FROM nodes WHERE id IN ({placeholders}) ORDER BY depth",
+                ancestor_ids,
+            )
+            rows = cursor.fetchall()
+        return [self._row_to_node(row) for row in rows]
 
     def get_root_nodes(self, node_type: Optional[NodeType] = None) -> list[Node]:
         """Get nodes without parents."""
@@ -242,8 +309,10 @@ class Database:
             params.append(node_type.value)
 
         query += " ORDER BY sort_order, created_at"
-        cursor = self.conn.execute(query, params)
-        return [self._row_to_node(row) for row in cursor.fetchall()]
+        with self._lock:
+            cursor = self.conn.execute(query, params)
+            rows = cursor.fetchall()
+        return [self._row_to_node(row) for row in rows]
 
     def update_node(self, node_id: int, update: NodeUpdate) -> Optional[Node]:
         """Update a node."""
@@ -254,6 +323,8 @@ class Database:
             if field == "type" and value:
                 value = value.value
             if field == "completed":
+                value = int(value)
+            if field == "notes_sensitive":
                 value = int(value)
             updates.append(f"{field} = ?")
             params.append(value)
@@ -331,3 +402,94 @@ class Database:
             (node_id, node_id),
         )
         return [self._row_to_node(row) for row in cursor.fetchall()]
+
+    def search_nodes(self, query: str, node_type: Optional[NodeType] = None) -> list[Node]:
+        """Search nodes by title or notes."""
+        search_pattern = f"%{query}%"
+        sql = """
+            SELECT * FROM nodes
+            WHERE deleted_at IS NULL
+            AND (title LIKE ? OR notes LIKE ?)
+        """
+        params = [search_pattern, search_pattern]
+
+        if node_type:
+            sql += " AND type = ?"
+            params.append(node_type.value)
+
+        sql += " ORDER BY updated_at DESC LIMIT 50"
+
+        with self._lock:
+            cursor = self.conn.execute(sql, params)
+            rows = cursor.fetchall()
+        return [self._row_to_node(row) for row in rows]
+
+    def reorder_node(self, node_id: int, target_id: int, position: str) -> Optional[Node]:
+        """Reorder a node relative to a target node.
+
+        Args:
+            node_id: The node to move
+            target_id: The reference node
+            position: 'before' or 'after' the target
+        """
+        with self._lock:
+            # Get the target node to find its parent and sort_order
+            cursor = self.conn.execute(
+                "SELECT parent_id, sort_order FROM nodes WHERE id = ?", (target_id,)
+            )
+            target = cursor.fetchone()
+            if not target:
+                return None
+
+            target_parent_id = target["parent_id"]
+            target_sort = target["sort_order"] or 0
+
+            # Get all siblings (nodes with same parent), ordered by sort_order
+            if target_parent_id is None:
+                cursor = self.conn.execute(
+                    "SELECT id, sort_order FROM nodes WHERE parent_id IS NULL AND deleted_at IS NULL ORDER BY sort_order, id"
+                )
+            else:
+                cursor = self.conn.execute(
+                    "SELECT id, sort_order FROM nodes WHERE parent_id = ? AND deleted_at IS NULL ORDER BY sort_order, id",
+                    (target_parent_id,)
+                )
+            siblings = cursor.fetchall()
+
+            # Find target position and calculate new sort_order
+            target_idx = None
+            for i, sib in enumerate(siblings):
+                if sib["id"] == target_id:
+                    target_idx = i
+                    break
+
+            if target_idx is None:
+                return None
+
+            # Calculate new sort order
+            if position == 'before':
+                if target_idx == 0:
+                    new_sort = target_sort - 1000
+                else:
+                    prev_sort = siblings[target_idx - 1]["sort_order"] or 0
+                    new_sort = (prev_sort + target_sort) / 2
+            else:  # after
+                if target_idx == len(siblings) - 1:
+                    new_sort = target_sort + 1000
+                else:
+                    next_sort = siblings[target_idx + 1]["sort_order"] or 0
+                    new_sort = (target_sort + next_sort) / 2
+
+            # Update the node
+            now = datetime.now().isoformat()
+            self.conn.execute(
+                "UPDATE nodes SET parent_id = ?, sort_order = ?, updated_at = ? WHERE id = ?",
+                (target_parent_id, new_sort, now, node_id)
+            )
+            self.conn.commit()
+
+            # Update path if parent changed
+            self._update_path_and_depth(node_id)
+            self.conn.commit()
+
+        return self.get_node(node_id)

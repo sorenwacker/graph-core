@@ -11,20 +11,22 @@ class NodeType(str, Enum):
     """Types of nodes in the graph."""
 
     PROJECT = "project"
-    TODO = "todo"
+    TASK = "task"
     NOTE = "note"
     MILESTONE = "milestone"
     TOPIC = "topic"
     FOLDER = "folder"
+    PERSON = "person"
 
 
 class NodeBase(BaseModel):
     """Base node fields."""
 
     title: str
-    type: NodeType = NodeType.TODO
+    type: NodeType = NodeType.TASK
     parent_id: Optional[int] = None
     notes: str = ""
+    notes_sensitive: bool = False
     completed: bool = False
     color: Optional[str] = None
     sort_order: int = 0
@@ -32,6 +34,13 @@ class NodeBase(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     due_date: Optional[str] = None
+    # Person-specific fields
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    organization: Optional[str] = None
+    role: Optional[str] = None
+    address: Optional[str] = None
+    website: Optional[str] = None
 
 
 class NodeCreate(NodeBase):
@@ -47,6 +56,7 @@ class NodeUpdate(BaseModel):
     type: Optional[NodeType] = None
     parent_id: Optional[int] = None
     notes: Optional[str] = None
+    notes_sensitive: Optional[bool] = None
     completed: Optional[bool] = None
     color: Optional[str] = None
     sort_order: Optional[int] = None
@@ -54,6 +64,13 @@ class NodeUpdate(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     due_date: Optional[str] = None
+    # Person-specific fields
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    organization: Optional[str] = None
+    role: Optional[str] = None
+    address: Optional[str] = None
+    website: Optional[str] = None
 
 
 class Node(NodeBase):
@@ -73,3 +90,9 @@ class NodeWithChildren(Node):
     """Node with nested children for tree responses."""
 
     children: list["NodeWithChildren"] = Field(default_factory=list)
+
+
+class MoveRequest(BaseModel):
+    """Schema for moving a node to a new parent."""
+
+    new_parent_id: Optional[int] = None

@@ -47,7 +47,7 @@ def serve(
 @app.command()
 def add(
     title: str = typer.Argument(..., help="Node title"),
-    node_type: NodeType = typer.Option(NodeType.TODO, "--type", "-t", help="Node type"),
+    node_type: NodeType = typer.Option(NodeType.TASK, "--type", "-t", help="Node type"),
     parent: Optional[int] = typer.Option(None, "--parent", "-p", help="Parent node ID"),
     db_path: str = typer.Option("graph.db", "--db", help="Database path"),
 ):
@@ -103,7 +103,7 @@ def tree(
     def build_tree(parent_id: Optional[int], tree_node: Tree):
         children = db.get_children(parent_id) if parent_id else db.get_root_nodes()
         for child in children:
-            icon = {"project": "[blue]P[/blue]", "todo": "[yellow]T[/yellow]",
+            icon = {"project": "[blue]P[/blue]", "task": "[yellow]T[/yellow]",
                     "note": "[green]N[/green]", "milestone": "[red]M[/red]",
                     "topic": "[cyan]C[/cyan]", "folder": "[dim]F[/dim]"}.get(child.type.value, "?")
             done = "[dim][x][/dim] " if child.completed else ""
