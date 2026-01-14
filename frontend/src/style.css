@@ -390,9 +390,16 @@ input::placeholder {
 input[type="checkbox"] {
   width: var(--checkbox-size);
   height: var(--checkbox-size);
+  min-width: var(--checkbox-size);
+  min-height: var(--checkbox-size);
+  max-width: var(--checkbox-size);
+  max-height: var(--checkbox-size);
+  aspect-ratio: 1 / 1;
+  box-sizing: border-box;
   cursor: pointer;
   flex-shrink: 0;
   appearance: none;
+  -webkit-appearance: none;
   border: 1px solid var(--checkbox-border);
   border-radius: 0;
   background: var(--checkbox-bg);
