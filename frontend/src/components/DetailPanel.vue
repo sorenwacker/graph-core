@@ -67,7 +67,7 @@ function wrapWithParent() {
         </select>
       </div>
 
-      <div class="detail-field" v-if="editedNode.type === 'task'">
+      <div class="detail-field" v-if="editedNode.type !== 'person'">
         <label>
           <input
             type="checkbox"

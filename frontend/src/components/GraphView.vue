@@ -1205,8 +1205,8 @@ onUnmounted(() => {
             </select>
           </div>
 
-          <!-- Completed (for todos) -->
-          <div v-if="editModal.editedNode.type === 'task'" class="edit-field checkbox-field">
+          <!-- Completed (all types except person) -->
+          <div v-if="editModal.editedNode.type !== 'person'" class="edit-field checkbox-field">
             <label>
               <input type="checkbox" v-model="editModal.editedNode.completed" />
               Completed
