@@ -11,18 +11,18 @@ import 'tippy.js/dist/tippy.css'
 import 'tippy.js/themes/translucent.css'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 
-// Register extensions only once
-if (!cytoscape.prototype.coseBilkent) {
-  cytoscape.use(coseBilkent)
-}
-if (!cytoscape.prototype.cola) {
-  cytoscape.use(cola)
-}
-if (!cytoscape.prototype.dagre) {
-  cytoscape.use(dagre)
-}
-if (!cytoscape.prototype.nodeHtmlLabel) {
-  nodeHtmlLabel(cytoscape)
+// Register extensions only once (use flag to prevent re-registration on HMR)
+let extensionsRegistered = false
+if (!extensionsRegistered) {
+  try {
+    cytoscape.use(coseBilkent)
+    cytoscape.use(cola)
+    cytoscape.use(dagre)
+    nodeHtmlLabel(cytoscape)
+  } catch (e) {
+    // Extensions already registered
+  }
+  extensionsRegistered = true
 }
 
 // Configure marked for notes rendering
@@ -268,9 +268,10 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
     if (node.type === 'person') {
       colors = { ...colors, border: getPersonColor(node.id) }
     }
-    // Custom color override
+    // Custom color as subtle background tint (preserves type-based border)
+    let customBgTint = null
     if (node.color && node.color !== '#0f4c75') {
-      colors = { ...colors, border: node.color }
+      customBgTint = node.color
     }
     // Root node glow: current container when drilling in, or top-level nodes in current view
     const isCurrentContainer = parentNode && node.id === parentNode.id
@@ -340,6 +341,7 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
         bgColor,
         borderColor: colors.border,
         textColor,
+        customBgTint,
         hasChildren,
         isCurrentContainer,
         shouldGlow,
@@ -565,6 +567,7 @@ function initGraph() {
       const node = data.nodeData
       if (!node) return ''
       const borderColor = data.borderColor || '#1a6fab'
+      const customBgTint = data.customBgTint
       const showDetails = data.showDetails
       const totalNodes = data.totalNodes || 0
       const isCompleted = node.completed
@@ -579,8 +582,13 @@ function initGraph() {
         notesHtml = renderMarkdownHtml(node.notes, maxLen)
       }
 
+      // Custom color as subtle background gradient
+      const bgStyle = customBgTint
+        ? `background: linear-gradient(135deg, ${customBgTint}22 0%, #0d0d0d 60%);`
+        : ''
+
       return `
-        <div class="node-html ${completedClass} ${glowClass}" style="border-color: ${borderColor}; --glow-color: ${borderColor}">
+        <div class="node-html ${completedClass} ${glowClass}" style="border-color: ${borderColor}; --glow-color: ${borderColor}; ${bgStyle}">
           <div class="node-html-title">${node.title || 'Untitled'}</div>
           ${notesHtml ? `<div class="node-html-notes">${notesHtml}</div>` : ''}
         </div>
@@ -847,7 +855,7 @@ function findSmartPosition(nodeId, parentId, savedPositions) {
     const parentPos = savedPositions[parentKey]
     // Place close to parent
     const angle = Math.random() * Math.PI * 2
-    const distance = 80 + Math.random() * 40
+    const distance = 40 + Math.random() * 30
     return {
       x: parentPos.x + Math.cos(angle) * distance,
       y: parentPos.y + Math.sin(angle) * distance
@@ -860,7 +868,7 @@ function findSmartPosition(nodeId, parentId, savedPositions) {
     if (parentNode.length > 0) {
       const parentPos = parentNode.position()
       const angle = Math.random() * Math.PI * 2
-      const distance = 80 + Math.random() * 40
+      const distance = 40 + Math.random() * 30
       return {
         x: parentPos.x + Math.cos(angle) * distance,
         y: parentPos.y + Math.sin(angle) * distance
@@ -874,7 +882,7 @@ function findSmartPosition(nodeId, parentId, savedPositions) {
     const centerX = positions.reduce((sum, p) => sum + p.x, 0) / positions.length
     const centerY = positions.reduce((sum, p) => sum + p.y, 0) / positions.length
     const angle = Math.random() * Math.PI * 2
-    const distance = 100 + Math.random() * 50
+    const distance = 50 + Math.random() * 40
     return {
       x: centerX + Math.cos(angle) * distance,
       y: centerY + Math.sin(angle) * distance
@@ -887,7 +895,7 @@ function findSmartPosition(nodeId, parentId, savedPositions) {
     const centerX = (bb.x1 + bb.x2) / 2
     const centerY = (bb.y1 + bb.y2) / 2
     const angle = Math.random() * Math.PI * 2
-    const distance = 100 + Math.random() * 50
+    const distance = 50 + Math.random() * 40
     return {
       x: centerX + Math.cos(angle) * distance,
       y: centerY + Math.sin(angle) * distance
@@ -931,6 +939,7 @@ function updateGraph() {
       const node = data.nodeData
       if (!node) return ''
       const borderColor = data.borderColor || '#1a6fab'
+      const customBgTint = data.customBgTint
       const showDetails = data.showDetails
       const totalNodes = data.totalNodes || 0
       const isCompleted = node.completed
@@ -945,8 +954,13 @@ function updateGraph() {
         notesHtml = renderMarkdownHtml(node.notes, maxLen)
       }
 
+      // Custom color as subtle background gradient
+      const bgStyle = customBgTint
+        ? `background: linear-gradient(135deg, ${customBgTint}22 0%, #0d0d0d 60%);`
+        : ''
+
       return `
-        <div class="node-html ${completedClass} ${glowClass}" style="border-color: ${borderColor}; --glow-color: ${borderColor}">
+        <div class="node-html ${completedClass} ${glowClass}" style="border-color: ${borderColor}; --glow-color: ${borderColor}; ${bgStyle}">
           <div class="node-html-title">${node.title || 'Untitled'}</div>
           ${notesHtml ? `<div class="node-html-notes">${notesHtml}</div>` : ''}
         </div>
