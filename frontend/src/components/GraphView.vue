@@ -913,6 +913,15 @@ function updateGraph() {
   }
 
   const savedPositions = loadNodePositions()
+
+  // Get current positions from cytoscape BEFORE removing elements
+  if (cy) {
+    cy.nodes().forEach(node => {
+      const pos = node.position()
+      savedPositions[node.id()] = { x: pos.x, y: pos.y }
+    })
+  }
+
   const elements = buildElements(props.nodes, props.parent, savedPositions, props.detailThreshold)
   const hasPositions = Object.keys(savedPositions).length > 0
 
