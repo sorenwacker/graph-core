@@ -1008,9 +1008,7 @@ function updateGraph() {
     cy.layout(getLayoutOptions()).run()
   } else if (hasNewNodes) {
     // Trigger relax when new nodes are added to settle layout
-    setTimeout(() => {
-      relaxLayout()
-    }, 50)
+    setTimeout(relaxLayout, 50)
   }
 
   // Save positions for new nodes and auto-fit
