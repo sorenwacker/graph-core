@@ -871,7 +871,7 @@ function findSmartPosition(nodeId, parentId, savedPositions) {
     const parentPos = savedPositions[parentKey]
     // Place close to parent
     const angle = Math.random() * Math.PI * 2
-    const distance = 40 + Math.random() * 30
+    const distance = 20 + Math.random() * 20
     return {
       x: parentPos.x + Math.cos(angle) * distance,
       y: parentPos.y + Math.sin(angle) * distance
@@ -884,7 +884,7 @@ function findSmartPosition(nodeId, parentId, savedPositions) {
     if (parentNode.length > 0) {
       const parentPos = parentNode.position()
       const angle = Math.random() * Math.PI * 2
-      const distance = 40 + Math.random() * 30
+      const distance = 20 + Math.random() * 20
       return {
         x: parentPos.x + Math.cos(angle) * distance,
         y: parentPos.y + Math.sin(angle) * distance
@@ -898,7 +898,7 @@ function findSmartPosition(nodeId, parentId, savedPositions) {
     const centerX = positions.reduce((sum, p) => sum + p.x, 0) / positions.length
     const centerY = positions.reduce((sum, p) => sum + p.y, 0) / positions.length
     const angle = Math.random() * Math.PI * 2
-    const distance = 50 + Math.random() * 40
+    const distance = 30 + Math.random() * 30
     return {
       x: centerX + Math.cos(angle) * distance,
       y: centerY + Math.sin(angle) * distance
@@ -911,7 +911,7 @@ function findSmartPosition(nodeId, parentId, savedPositions) {
     const centerX = (bb.x1 + bb.x2) / 2
     const centerY = (bb.y1 + bb.y2) / 2
     const angle = Math.random() * Math.PI * 2
-    const distance = 50 + Math.random() * 40
+    const distance = 30 + Math.random() * 30
     return {
       x: centerX + Math.cos(angle) * distance,
       y: centerY + Math.sin(angle) * distance
@@ -950,8 +950,10 @@ function updateGraph() {
   })
 
   // Find new nodes (no saved position) and assign smart positions
+  let hasNewNodes = false
   elements.forEach(el => {
     if (!el.data.source && !el.position) {
+      hasNewNodes = true
       const nodeData = el.data.nodeData
       const parentId = nodeData?.parent_id
       // First check element positions (current graph), then savedPositions
@@ -1004,6 +1006,11 @@ function updateGraph() {
   }])
   if (!hasPositions) {
     cy.layout(getLayoutOptions()).run()
+  } else if (hasNewNodes) {
+    // Trigger relax when new nodes are added to settle layout
+    setTimeout(() => {
+      relaxLayout()
+    }, 50)
   }
 
   // Save positions for new nodes and auto-fit
