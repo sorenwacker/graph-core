@@ -1574,6 +1574,8 @@ onUnmounted(() => {
   width: 18px;
   height: 18px;
   cursor: pointer;
+  accent-color: var(--accent-color);
+  color-scheme: dark;
 }
 
 .field-hint {
@@ -1894,6 +1896,8 @@ onUnmounted(() => {
   width: 16px;
   height: 16px;
   cursor: pointer;
+  accent-color: var(--accent-color);
+  color-scheme: dark;
 }
 
 .tippy-box[data-theme~='graph-tooltip'] .tt-checkbox:hover {

@@ -296,6 +296,8 @@ input[type="color"] {
   width: 16px;
   height: 16px;
   margin: 0;
+  accent-color: var(--accent-color);
+  color-scheme: dark;
 }
 
 .field-hint {
