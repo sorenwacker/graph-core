@@ -949,11 +949,12 @@ function updateGraph() {
     }
   })
 
+  // Track previous node count to detect additions
+  const prevNodeCount = cy ? cy.nodes().length : 0
+
   // Find new nodes (no saved position) and assign smart positions
-  let hasNewNodes = false
   elements.forEach(el => {
     if (!el.data.source && !el.position) {
-      hasNewNodes = true
       const nodeData = el.data.nodeData
       const parentId = nodeData?.parent_id
       // First check element positions (current graph), then savedPositions
@@ -961,6 +962,9 @@ function updateGraph() {
       el.position = findSmartPosition(el.data.id, parentId, allPositions)
     }
   })
+
+  const newNodeCount = elements.filter(el => !el.data.source).length
+  const hasNewNodes = newNodeCount > prevNodeCount
 
   cy.elements().remove()
   cy.add(elements)
