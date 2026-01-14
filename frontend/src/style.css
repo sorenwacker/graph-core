@@ -386,12 +386,13 @@ input::placeholder {
   color: var(--text-tertiary);
 }
 
-/* Checkbox - use native styling */
+/* Checkbox - native square with accent color */
 input[type="checkbox"] {
   width: var(--checkbox-size);
   height: var(--checkbox-size);
   cursor: pointer;
   flex-shrink: 0;
+  accent-color: var(--accent-color);
 }
 
 /* Node Tree */
