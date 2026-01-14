@@ -386,7 +386,7 @@ input::placeholder {
   color: var(--text-tertiary);
 }
 
-/* Checkbox */
+/* Checkbox - square */
 input[type="checkbox"] {
   width: var(--checkbox-size);
   height: var(--checkbox-size);
@@ -394,7 +394,7 @@ input[type="checkbox"] {
   flex-shrink: 0;
   appearance: none;
   border: 1px solid var(--checkbox-border);
-  border-radius: 3px;
+  border-radius: 0;
   background: var(--checkbox-bg);
   position: relative;
 }
