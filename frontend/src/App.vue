@@ -1,8 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { api } from './services/api.js'
-import NodeTree from './components/NodeTree.vue'
-import NodeCard from './components/NodeCard.vue'
 import DetailPanel from './components/DetailPanel.vue'
 import GraphView from './components/GraphView.vue'
 import TableView from './components/TableView.vue'
@@ -244,26 +242,20 @@ function toggleSidebarExpand(nodeId) {
 }
 
 let isLoadingChildren = false
-let loadCount = 0
 let lastLoadTime = 0
 let lastLoadedContainerId = null
 
 async function loadChildren(containerId = null) {
-  loadCount++
   const now = Date.now()
   const timeSinceLastLoad = now - lastLoadTime
 
-  console.log(`loadChildren #${loadCount}, containerId=${containerId}, timeSince=${timeSinceLastLoad}ms`, new Error().stack)
-
   // Strict guard against re-entry
   if (isLoadingChildren) {
-    console.log('loadChildren already in progress, skipping')
     return
   }
 
   // Debounce: skip if called within 200ms for same container
   if (timeSinceLastLoad < 200 && lastLoadedContainerId === containerId) {
-    console.log('loadChildren debounced, skipping')
     return
   }
 
@@ -1441,6 +1433,7 @@ onUnmounted(() => {
           :parent="currentContainer"
           :selected-id="selectedNode?.id"
           :detail-threshold="graphDetailThreshold"
+          :hide-completed="hideCompleted"
           @select="selectNode"
           @enter="enterContainer"
           @move="moveNode"
@@ -2289,6 +2282,42 @@ onUnmounted(() => {
   text-align: center;
   color: #666;
   font-size: 14px;
+}
+
+/* Toolbar separator and icon button */
+.toolbar-separator {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  margin: 0 4px;
+}
+
+.icon-btn {
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  border-radius: 4px;
+}
+
+.icon-btn:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.icon-btn.active {
+  background: #1a3a5a;
+  border-color: #4a9eff;
+  color: #4a9eff;
+}
+
+.icon-btn svg {
+  display: block;
 }
 
 /* Settings dropdown */

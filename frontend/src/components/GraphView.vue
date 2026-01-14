@@ -2,7 +2,6 @@
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import cytoscape from 'cytoscape'
 import coseBilkent from 'cytoscape-cose-bilkent'
-import d3Force from 'cytoscape-d3-force'
 import cola from 'cytoscape-cola'
 import dagre from 'cytoscape-dagre'
 import nodeHtmlLabel from 'cytoscape-node-html-label'
@@ -12,11 +11,19 @@ import 'tippy.js/dist/tippy.css'
 import 'tippy.js/themes/translucent.css'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 
-cytoscape.use(coseBilkent)
-cytoscape.use(d3Force)
-cytoscape.use(cola)
-cytoscape.use(dagre)
-nodeHtmlLabel(cytoscape)
+// Register extensions only once
+if (!cytoscape.prototype.coseBilkent) {
+  cytoscape.use(coseBilkent)
+}
+if (!cytoscape.prototype.cola) {
+  cytoscape.use(cola)
+}
+if (!cytoscape.prototype.dagre) {
+  cytoscape.use(dagre)
+}
+if (!cytoscape.prototype.nodeHtmlLabel) {
+  nodeHtmlLabel(cytoscape)
+}
 
 // Configure marked for notes rendering
 marked.setOptions({
@@ -35,7 +42,8 @@ const props = defineProps({
   nodes: { type: Array, default: () => [] },
   parent: { type: Object, default: null },
   selectedId: Number,
-  detailThreshold: { type: Number, default: 30 }
+  detailThreshold: { type: Number, default: 30 },
+  hideCompleted: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['select', 'enter', 'move', 'add-child', 'insert-between', 'update', 'create', 'delete', 'wrap-with-parent'])
@@ -45,7 +53,6 @@ const editModalEl = ref(null)
 const editTitleInput = ref(null)
 const dropHighlightEl = ref(null)
 const layoutMode = ref(localStorage.getItem('graph-layout-mode') || 'tree')
-const hideCompleted = ref(localStorage.getItem('graph-hide-completed') === 'true')
 const relaxLocked = ref(false)
 let relaxClickTimeout = null
 let cy = null
@@ -85,15 +92,6 @@ watch(layoutMode, (mode) => {
   localStorage.setItem('graph-layout-mode', mode)
 })
 
-// Persist hide completed setting
-watch(hideCompleted, (hide) => {
-  localStorage.setItem('graph-hide-completed', hide)
-})
-
-function toggleHideCompleted() {
-  hideCompleted.value = !hideCompleted.value
-  updateGraph()
-}
 
 // Edit modal state
 const editModal = ref({
@@ -247,13 +245,13 @@ function formatDate(dateStr) {
 
 function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshold = 30) {
   // Filter completed nodes and their children if hideCompleted is enabled
-  const filteredList = hideCompleted.value
+  const filteredList = props.hideCompleted
     ? filterCompletedNodes(nodeList)
     : nodeList
   const flat = flattenNodes(filteredList)
 
   // Include parent unless it's completed and we're hiding completed
-  const includeParent = parentNode && !(hideCompleted.value && parentNode.completed)
+  const includeParent = parentNode && !(props.hideCompleted && parentNode.completed)
   const allNodes = includeParent ? [{ ...parentNode, children: filteredList }, ...flat] : flat
   const totalNodes = allNodes.length
   const showDetails = totalNodes <= detailThreshold
@@ -269,6 +267,10 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
     // Persons get unique colors based on their ID
     if (node.type === 'person') {
       colors = { ...colors, border: getPersonColor(node.id) }
+    }
+    // Custom color override
+    if (node.color && node.color !== '#0f4c75') {
+      colors = { ...colors, border: node.color }
     }
     // Root node glow: current container when drilling in, or top-level nodes in current view
     const isCurrentContainer = parentNode && node.id === parentNode.id
@@ -546,8 +548,7 @@ function initGraph() {
         }
       }
     ],
-    layout: hasPositions ? { name: 'preset' } : getLayoutOptions(),
-    wheelSensitivity: 0.3
+    layout: hasPositions ? { name: 'preset' } : getLayoutOptions()
   })
 
   // Enable node dragging
@@ -629,12 +630,6 @@ function initGraph() {
         emit('create', { title, x: pos.x, y: pos.y })
       }
     }
-  })
-
-  // Double-click on node to enter
-  cy.on('dbltap', 'node', (e) => {
-    const node = e.target.data('nodeData')
-    if (node) emit('enter', node)
   })
 
   // Save positions after drag
@@ -1063,6 +1058,11 @@ function fitView() {
 watch(() => props.nodes, updateGraph)
 watch(() => props.parent, updateGraph)
 watch(() => props.detailThreshold, updateGraph)
+watch(() => props.hideCompleted, () => {
+  updateGraph()
+  // Trigger relayout after filtering
+  setTimeout(reLayout, 100)
+})
 watch(() => props.selectedId, (newId) => {
   if (cy && newId) {
     cy.nodes().unselect()
@@ -1145,22 +1145,6 @@ onUnmounted(() => {
         {{ relaxLocked ? 'Relax [ON]' : 'Relax' }}
       </button>
       <button @click="fitView" title="Fit to view">Fit</button>
-      <span class="controls-separator"></span>
-      <button
-        @click="toggleHideCompleted"
-        :class="{ active: hideCompleted }"
-        class="icon-btn"
-        title="Toggle completed items visibility"
-      >
-        <svg v-if="!hideCompleted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-          <circle cx="12" cy="12" r="3"></circle>
-        </svg>
-        <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-          <line x1="1" y1="1" x2="23" y2="23"></line>
-        </svg>
-      </button>
     </div>
     <div class="graph-container" ref="container">
       <div v-if="nodes.length === 0" class="graph-empty">
@@ -1331,17 +1315,6 @@ onUnmounted(() => {
   background: #1a3a5a;
   border-color: #4a9eff;
   color: #4a9eff;
-}
-
-.graph-controls button.icon-btn {
-  padding: 6px 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.graph-controls button.icon-btn svg {
-  display: block;
 }
 
 .graph-controls button.relax-locked {
