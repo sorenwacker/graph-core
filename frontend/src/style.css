@@ -386,41 +386,12 @@ input::placeholder {
   color: var(--text-tertiary);
 }
 
-/* Checkbox - square */
+/* Checkbox - use native styling */
 input[type="checkbox"] {
   width: var(--checkbox-size);
   height: var(--checkbox-size);
-  min-width: var(--checkbox-size);
-  min-height: var(--checkbox-size);
-  max-width: var(--checkbox-size);
-  max-height: var(--checkbox-size);
-  aspect-ratio: 1 / 1;
-  box-sizing: border-box;
   cursor: pointer;
   flex-shrink: 0;
-  appearance: none;
-  -webkit-appearance: none;
-  border: 1px solid var(--checkbox-border);
-  border-radius: 0;
-  background: var(--checkbox-bg);
-  position: relative;
-}
-
-input[type="checkbox"]:checked {
-  background: var(--checkbox-checked-bg);
-  border-color: var(--checkbox-checked-bg);
-}
-
-input[type="checkbox"]:checked::after {
-  content: '';
-  position: absolute;
-  left: 4px;
-  top: 1px;
-  width: 4px;
-  height: 8px;
-  border: solid white;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
 }
 
 /* Node Tree */
