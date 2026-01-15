@@ -543,6 +543,7 @@ input[type="checkbox"] {
     0 8px 16px rgba(0, 0, 0, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
   position: relative;
+  height: 100%;
 }
 
 .node-card::before {
@@ -649,6 +650,8 @@ input[type="checkbox"] {
   background: rgba(0, 0, 0, 0.25);
   border-radius: var(--radius-md);
   padding: 6px;
+  flex: 1;
+  min-height: 0;
   /* Grid layout set via inline style */
 }
 
@@ -704,12 +707,32 @@ input[type="checkbox"] {
   cursor: grabbing;
 }
 
+.child-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.child-card-checkbox {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: var(--accent-color);
+}
+
 .child-card-title {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text-primary);
   font-weight: 500;
+}
+
+.child-card-title.completed {
+  text-decoration: line-through;
+  color: var(--text-tertiary);
 }
 
 .child-card-count {
@@ -738,9 +761,6 @@ input[type="checkbox"] {
   cursor: text;
   padding: 2px 4px;
   border-radius: 3px;
-  min-height: 1.2em;
-  max-height: 3em;
-  overflow: hidden;
 }
 
 .child-notes-display:hover {
@@ -905,6 +925,72 @@ input[type="checkbox"] {
 
 .grandchild-notes-indicator:hover:not(.lock) {
   opacity: 1;
+}
+
+/* Grandchild header wrapper */
+.grandchild-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* Great-grandchildren row */
+.great-grandchild-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.great-grandchild-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  padding: 2px 5px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  cursor: pointer;
+  border-left: 2px solid var(--border-color);
+  transition: background 0.15s;
+}
+
+.great-grandchild-item:hover {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.great-grandchild-item.completed {
+  opacity: 0.6;
+}
+
+/* Great-grandchild type colors */
+.great-grandchild-item.project { border-left-color: #3b82f6; }
+.great-grandchild-item.task { border-left-color: #eab308; }
+.great-grandchild-item.note { border-left-color: #22c55e; }
+.great-grandchild-item.milestone { border-left-color: #a855f7; }
+.great-grandchild-item.topic { border-left-color: #06b6d4; }
+.great-grandchild-item.folder { border-left-color: #64748b; }
+.great-grandchild-item.person { border-left-color: #f97316; }
+
+.great-grandchild-checkbox {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: var(--accent-color);
+}
+
+.great-grandchild-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
+
+.great-grandchild-title.completed {
+  text-decoration: line-through;
+  color: var(--text-tertiary);
 }
 
 /* Detail Panel */

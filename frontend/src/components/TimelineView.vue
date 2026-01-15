@@ -17,7 +17,7 @@ const maxZoom = 100
 
 // Throttle zoom to reduce sensitivity and flickering
 let lastZoomTime = 0
-const zoomThrottle = 100 // ms between zoom steps
+const zoomThrottle = 50 // ms between zoom steps
 let pendingScrollUpdate = null
 
 function handleWheel(e) {
@@ -42,9 +42,9 @@ function handleWheel(e) {
     const oldZoom = zoomLevel.value
     let newZoom
     if (e.deltaY < 0) {
-      newZoom = Math.min(maxZoom, oldZoom * 1.1)
+      newZoom = Math.min(maxZoom, oldZoom * 1.08)
     } else {
-      newZoom = Math.max(minZoom, oldZoom / 1.1)
+      newZoom = Math.max(minZoom, oldZoom / 1.08)
     }
 
     // Skip if no change
@@ -347,8 +347,19 @@ const todayPosition = computed(() => {
   return pos
 })
 
-// Ref for scrollable container
+// Refs for scrollable containers
 const scrollableRef = ref(null)
+const labelsRef = ref(null)
+
+// Sync vertical scroll between labels and timeline
+function syncScroll(source) {
+  if (!scrollableRef.value || !labelsRef.value) return
+  if (source === 'timeline') {
+    labelsRef.value.scrollTop = scrollableRef.value.scrollTop
+  } else {
+    scrollableRef.value.scrollTop = labelsRef.value.scrollTop
+  }
+}
 
 // Scroll to today on mount
 function scrollToToday() {
@@ -392,25 +403,27 @@ watch(() => props.nodes, () => {
       <!-- Scrollable timeline container -->
       <div class="timeline-scroll-container">
         <!-- Fixed row labels column -->
-        <div class="timeline-labels">
+        <div ref="labelsRef" class="timeline-labels" @scroll="syncScroll('labels')">
           <div class="label-header">Items</div>
-          <div
-            v-for="node in timelineNodes"
-            :key="'label-' + node.id"
-            class="row-label"
-            :class="{ selected: selectedId === node.id }"
-            @click="emit('select', node)"
-            @mouseenter="emit('show-tooltip', $event, node)"
-            @mouseleave="emit('hide-tooltip')"
-          >
-            <span class="tree-indent" :style="{ width: (node.depth * 5) + 'px' }"></span>
-            <span class="type-badge" :class="node.type">{{ node.type[0].toUpperCase() }}</span>
-            <span class="node-title">{{ node.title }}</span>
+          <div class="labels-body">
+            <div
+              v-for="node in timelineNodes"
+              :key="'label-' + node.id"
+              class="row-label"
+              :class="{ selected: selectedId === node.id }"
+              @click="emit('select', node)"
+              @mouseenter="emit('show-tooltip', $event, node)"
+              @mouseleave="emit('hide-tooltip')"
+            >
+              <span class="tree-indent" :style="{ width: (node.depth * 5) + 'px' }"></span>
+              <span class="type-badge" :class="node.type">{{ node.type[0].toUpperCase() }}</span>
+              <span class="node-title">{{ node.title }}</span>
+            </div>
           </div>
         </div>
 
         <!-- Scrollable timeline area -->
-        <div ref="scrollableRef" class="timeline-scrollable">
+        <div ref="scrollableRef" class="timeline-scrollable" @scroll="syncScroll('timeline')">
           <!-- Time scale header -->
           <div class="timeline-header" :style="{ width: timelineWidth + 'px' }">
             <!-- Year markers -->
@@ -492,22 +505,24 @@ watch(() => props.nodes, () => {
               </div>
             </div>
 
-            <div
-              v-for="node in timelineNodes"
-              :key="node.id"
-              class="timeline-row"
-            >
-              <div class="row-track">
-                <div
-                  class="timeline-bar"
-                  :class="{ selected: selectedId === node.id, completed: node.completed }"
-                  :style="getBarStyle(node)"
-                  @click="emit('select', node)"
-                  @dblclick="emit('enter', node)"
-                  @mouseenter="emit('show-tooltip', $event, node)"
-                  @mouseleave="emit('hide-tooltip')"
-                >
-                  <span class="bar-label">{{ node.title }}</span>
+            <div class="rows-body">
+              <div
+                v-for="node in timelineNodes"
+                :key="node.id"
+                class="timeline-row"
+              >
+                <div class="row-track">
+                  <div
+                    class="timeline-bar"
+                    :class="{ selected: selectedId === node.id, completed: node.completed }"
+                    :style="getBarStyle(node)"
+                    @click="emit('select', node)"
+                    @dblclick="emit('enter', node)"
+                    @mouseenter="emit('show-tooltip', $event, node)"
+                    @mouseleave="emit('hide-tooltip')"
+                  >
+                    <span class="bar-label">{{ node.title }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -523,6 +538,7 @@ watch(() => props.nodes, () => {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -584,6 +600,7 @@ watch(() => props.nodes, () => {
   flex: 1;
   display: flex;
   overflow: hidden;
+  min-height: 0;
 }
 
 .timeline-labels {
@@ -592,23 +609,36 @@ watch(() => props.nodes, () => {
   background: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
   overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.labels-body {
+  /* Just a container for fixed-height row labels */
 }
 
 .label-header {
+  position: sticky;
+  top: 0;
   height: 44px;
+  flex-shrink: 0;
   border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
   display: flex;
   align-items: center;
   padding: 0 12px;
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-secondary);
+  z-index: 1;
 }
 
 .timeline-scrollable {
   flex: 1;
   overflow: auto;
-  contain: strict;
+  min-height: 0;
+  contain: layout;
 }
 
 .timeline-header {
@@ -663,6 +693,13 @@ watch(() => props.nodes, () => {
   position: relative;
   min-width: 100%;
   contain: layout style;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.rows-body {
+  /* Just a container for fixed-height timeline rows */
 }
 
 .timeline-grid {
@@ -745,6 +782,7 @@ watch(() => props.nodes, () => {
 .timeline-row {
   height: 36px;
   border-bottom: 1px solid var(--border-color);
+  position: relative;
 }
 
 .timeline-row:hover {
@@ -795,7 +833,8 @@ watch(() => props.nodes, () => {
 
 .timeline-bar {
   position: absolute;
-  top: 6px;
+  top: 50%;
+  transform: translateY(-50%);
   height: 24px;
   border-radius: 0 4px 4px 0;
   cursor: pointer;

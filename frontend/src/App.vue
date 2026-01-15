@@ -242,6 +242,8 @@ async function undo() {
       await api.updateNode(action.nodeId, action.oldValues)
     } else if (action.type === 'reorder') {
       await api.reorderNode(action.nodeId, action.oldTargetId, action.oldPosition)
+    } else if (action.type === 'complete') {
+      await api.updateNode(action.nodeId, { completed: action.oldCompleted })
     }
     // Push same action to redo stack (redo will re-apply the original action)
     redoStack.value.push(action)
@@ -273,6 +275,8 @@ async function redo() {
       await api.updateNode(action.nodeId, action.newValues)
     } else if (action.type === 'reorder') {
       await api.reorderNode(action.nodeId, action.newTargetId, action.newPosition)
+    } else if (action.type === 'complete') {
+      await api.updateNode(action.nodeId, { completed: action.newCompleted })
     }
     // Push same action back to undo stack
     undoStack.value.push(action)
@@ -352,17 +356,25 @@ const cardsGridStyle = computed(() => {
   // Use smaller min widths to favor more columns (more square-ish cards)
   const minCardWidth = count <= 4 ? 240 : count <= 9 ? 200 : count <= 16 ? 160 : 130
   const maxCols = Math.floor(containerWidth.value / minCardWidth)
-  // Favor more columns for square-ish layout
+  // Favor more columns for square-ish layout, but never more than count
   const idealCols = Math.ceil(Math.sqrt(count * 1.5))
-  const cols = Math.max(1, Math.min(idealCols, maxCols, 8))
+  const cols = Math.max(1, Math.min(idealCols, maxCols, count, 8))
+
+  const rows = Math.ceil(count / cols)
+  const minRowHeight = count <= 4 ? 250 : count <= 9 ? 200 : 150
+
+  // For few cards (1-2 rows), fill the space with 1fr
+  // For many cards, use minimum heights and align to top
+  const useStretch = rows <= 2 && count <= 6
 
   return {
     display: 'grid',
     gridTemplateColumns: `repeat(${cols}, 1fr)`,
-    gridAutoRows: 'minmax(200px, 1fr)',
+    gridTemplateRows: useStretch ? `repeat(${rows}, 1fr)` : undefined,
+    gridAutoRows: useStretch ? undefined : `minmax(${minRowHeight}px, auto)`,
     gap: '10px',
     height: '100%',
-    alignContent: 'start'
+    alignContent: useStretch ? 'stretch' : 'start'
   }
 })
 
@@ -1032,7 +1044,9 @@ async function wrapWithParent({ nodeId, parentTitle }) {
 
 async function toggleComplete(node) {
   try {
-    await api.updateNode(node.id, { completed: !node.completed })
+    const oldCompleted = node.completed
+    await api.updateNode(node.id, { completed: !oldCompleted })
+    pushUndo({ type: 'complete', nodeId: node.id, oldCompleted, newCompleted: !oldCompleted })
     await loadChildren(currentContainerId.value)
   } catch (e) {
     error.value = e.message
@@ -1402,7 +1416,13 @@ async function startInlineNotes(node, e) {
   inlineNotesId.value = node.id
   inlineNotesText.value = node.notes || ''
   await nextTick()
-  inlineNotesRef.value?.focus()
+  // Handle both single ref and array of refs (when multiple textareas exist)
+  const ref = inlineNotesRef.value
+  if (Array.isArray(ref)) {
+    ref[0]?.focus()
+  } else {
+    ref?.focus()
+  }
 }
 
 async function saveInlineNotes() {
@@ -1524,10 +1544,14 @@ function showCardTooltip(event, node) {
             const targetNode = flatChildren.value.find(n => n.id === nodeId)
             if (targetNode) {
               await toggleComplete(targetNode)
-              instance.destroy()
-              activeCardTippy = null
             }
           })
+        }
+      },
+      onHidden: () => {
+        if (activeCardTippy) {
+          activeCardTippy.destroy()
+          activeCardTippy = null
         }
       }
     })
@@ -1537,14 +1561,10 @@ function showCardTooltip(event, node) {
 }
 
 function hideCardTooltip() {
-  // Clear pending tooltip
+  // Clear pending tooltip (but don't destroy active tooltip - let it hide naturally)
   if (cardTooltipTimeout) {
     clearTimeout(cardTooltipTimeout)
     cardTooltipTimeout = null
-  }
-  if (activeCardTippy) {
-    activeCardTippy.destroy()
-    activeCardTippy = null
   }
 }
 
@@ -2160,10 +2180,11 @@ onUnmounted(() => {
                 @dblclick.stop="(cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg') && startEditing(node, $event)"
               >{{ node.title }}</div>
 
-              <!-- Interactive notes area - xl/lg/md -->
+              <!-- Interactive notes area - xl/lg/md - only show if has notes or editing -->
               <div
-                v-if="cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg' || cardSizeClass === 'card-md'"
+                v-if="(cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg' || cardSizeClass === 'card-md') && (hasNotes(node) || isSensitiveNode(node) || inlineNotesId === node.id)"
                 class="node-card-notes-area"
+                :class="{ 'no-children': !node.children?.length }"
                 @click.stop
               >
                 <textarea
@@ -2178,18 +2199,13 @@ onUnmounted(() => {
                 <div
                   v-else
                   class="inline-notes-display"
-                  :class="{
-                    empty: !hasNotes(node),
-                    sensitive: isSensitiveNode(node),
-                    truncate: cardSizeClass === 'card-md'
-                  }"
+                  :class="{ sensitive: isSensitiveNode(node) }"
                   @click="startInlineNotes(node, $event)"
                 >
                   <template v-if="isSensitiveNode(node)"><span class="lock-icon-display">&#128274;</span></template>
-                  <template v-else-if="hasNotes(node)">
+                  <template v-else>
                     <div class="markdown-content" v-html="renderMarkdown(node.notes)"></div>
                   </template>
-                  <template v-else>Add notes...</template>
                 </div>
               </div>
 
@@ -2231,7 +2247,17 @@ onUnmounted(() => {
                 @mouseenter="showCardTooltip($event, child)"
                 @mouseleave="hideCardTooltip"
               >
-                <span class="child-card-title">{{ child.title }}</span>
+                <div class="child-card-header">
+                  <input
+                    v-if="child.type === 'task'"
+                    type="checkbox"
+                    class="child-card-checkbox"
+                    :checked="child.completed"
+                    @click.stop
+                    @change.stop="toggleComplete(child)"
+                  />
+                  <span class="child-card-title" :class="{ completed: child.completed }">{{ child.title }}</span>
+                </div>
                 <!-- Interactive notes for child cards -->
                 <div
                   v-if="['child-lg', 'child-md'].includes(getNestedCardSize(node.children.length, 1))"
@@ -2283,19 +2309,45 @@ onUnmounted(() => {
                     @mouseenter="showCardTooltip($event, grandchild)"
                     @mouseleave="hideCardTooltip"
                   >
-                    <input
-                      v-if="grandchild.type === 'task'"
-                      type="checkbox"
-                      class="grandchild-checkbox"
-                      :checked="grandchild.completed"
-                      @click.stop
-                      @change.stop="toggleComplete(grandchild)"
-                    />
-                    <span class="grandchild-title" :class="{ completed: grandchild.completed }">{{ grandchild.title }}</span>
-                    <!-- Notes indicator for grandchild -->
-                    <span v-if="isSensitiveNode(grandchild)" class="grandchild-notes-indicator lock">&#128274;</span>
-                    <span v-else-if="hasNotes(grandchild)" class="grandchild-notes-indicator has-notes" @click.stop="startInlineNotes(grandchild, $event)">&#128221;</span>
-                    <span v-else class="grandchild-notes-indicator add-notes" @click.stop="startInlineNotes(grandchild, $event)">+</span>
+                    <div class="grandchild-header">
+                      <input
+                        v-if="grandchild.type === 'task'"
+                        type="checkbox"
+                        class="grandchild-checkbox"
+                        :checked="grandchild.completed"
+                        @click.stop
+                        @change.stop="toggleComplete(grandchild)"
+                      />
+                      <span class="grandchild-title" :class="{ completed: grandchild.completed }">{{ grandchild.title }}</span>
+                      <!-- Notes indicator for grandchild -->
+                      <span v-if="isSensitiveNode(grandchild)" class="grandchild-notes-indicator lock">&#128274;</span>
+                      <span v-else-if="hasNotes(grandchild)" class="grandchild-notes-indicator has-notes" @click.stop="startInlineNotes(grandchild, $event)">&#128221;</span>
+                      <span v-else class="grandchild-notes-indicator add-notes" @click.stop="startInlineNotes(grandchild, $event)">+</span>
+                    </div>
+                    <!-- Great-grandchildren - only for xl cards -->
+                    <div
+                      v-if="grandchild.children?.length && cardSizeClass === 'card-xl'"
+                      class="great-grandchild-row"
+                    >
+                      <div
+                        v-for="ggchild in grandchild.children"
+                        :key="ggchild.id"
+                        class="great-grandchild-item"
+                        :class="[ggchild.type, { completed: ggchild.completed }]"
+                        @click.stop="selectNode(ggchild)"
+                        @dblclick.stop="enterContainer(ggchild)"
+                      >
+                        <input
+                          v-if="ggchild.type === 'task'"
+                          type="checkbox"
+                          class="great-grandchild-checkbox"
+                          :checked="ggchild.completed"
+                          @click.stop
+                          @change.stop="toggleComplete(ggchild)"
+                        />
+                        <span class="great-grandchild-title" :class="{ completed: ggchild.completed }">{{ ggchild.title }}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2702,22 +2754,42 @@ onUnmounted(() => {
 
 /* Inline notes area */
 .node-card-notes-area {
-  margin: 8px 16px;
+  margin: 8px 16px 16px 16px;
   width: calc(100% - 32px);
+}
+
+.node-card-notes-area.no-children {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.node-card-notes-area.no-children .inline-notes-display {
+  flex: 1;
+  max-height: none;
 }
 
 .inline-notes-display {
   font-size: 13px;
+  line-height: 1.5;
   color: var(--text-secondary);
   cursor: text;
   padding: 4px 8px;
   border-radius: 4px;
-  min-height: 1.4em;
+  transition: background 0.15s;
   max-height: 150px;
   overflow-y: auto;
-  white-space: pre-wrap;
-  transition: background 0.15s;
 }
+
+/* Larger max-height for bigger cards */
+.node-card.card-xl .inline-notes-display { max-height: 250px; }
+.node-card.card-lg .inline-notes-display { max-height: 180px; }
+
+/* Scale notes font size with card size */
+.node-card.card-xl .inline-notes-display { font-size: 15px; }
+.node-card.card-lg .inline-notes-display { font-size: 14px; }
+.node-card.card-md .inline-notes-display { font-size: 12px; }
 
 .inline-notes-display:hover {
   background: rgba(255, 255, 255, 0.05);
@@ -2739,15 +2811,6 @@ onUnmounted(() => {
 .lock-icon-display {
   font-size: 18px;
   opacity: 0.5;
-}
-
-.inline-notes-display.truncate {
-  max-height: 2.8em;
-  overflow: hidden;
-  white-space: normal;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
 }
 
 .inline-notes-textarea {
@@ -2773,7 +2836,7 @@ onUnmounted(() => {
 
 /* Markdown content in notes */
 .markdown-content {
-  font-size: 13px;
+  font-size: inherit;
   line-height: 1.5;
 }
 
@@ -2820,6 +2883,35 @@ onUnmounted(() => {
 
 .markdown-content strong {
   color: var(--text-primary);
+}
+
+.markdown-content h1, .markdown-content h2, .markdown-content h3,
+.markdown-content h4, .markdown-content h5, .markdown-content h6 {
+  margin: 0.5em 0 0.25em 0;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.markdown-content h1 { font-size: 1.3em; }
+.markdown-content h2 { font-size: 1.2em; }
+.markdown-content h3 { font-size: 1.1em; }
+
+.markdown-content blockquote {
+  margin: 0.5em 0;
+  padding-left: 1em;
+  border-left: 3px solid var(--border-color);
+  color: var(--text-tertiary);
+}
+
+.markdown-content hr {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 0.5em 0;
+}
+
+.markdown-content img {
+  max-width: 100%;
+  border-radius: 4px;
 }
 
 .card-edit-actions {
