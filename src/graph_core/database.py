@@ -135,6 +135,10 @@ class Database:
             self.conn.execute("ALTER TABLE nodes ADD COLUMN favorite INTEGER DEFAULT 0")
         except:
             pass
+        try:
+            self.conn.execute("ALTER TABLE nodes ADD COLUMN location TEXT")
+        except:
+            pass
         self.conn.commit()
 
     def _row_to_node(self, row: sqlite3.Row) -> Node:
@@ -476,6 +480,44 @@ class Database:
             )
             rows = cursor.fetchall()
         return [self._row_to_node(row) for row in rows]
+
+    # Trash Operations
+
+    def get_deleted_nodes(self, limit: int = 100) -> list[Node]:
+        """Get soft-deleted nodes, most recently deleted first."""
+        with self._lock:
+            cursor = self.conn.execute(
+                """
+                SELECT * FROM nodes
+                WHERE deleted_at IS NOT NULL
+                ORDER BY deleted_at DESC
+                LIMIT ?
+                """,
+                (limit,)
+            )
+            rows = cursor.fetchall()
+        return [self._row_to_node(row) for row in rows]
+
+    def restore_node(self, node_id: int) -> Optional[Node]:
+        """Restore a soft-deleted node by clearing deleted_at."""
+        with self._lock:
+            self.conn.execute(
+                "UPDATE nodes SET deleted_at = NULL, updated_at = ? WHERE id = ?",
+                (datetime.now().isoformat(), node_id)
+            )
+            self.conn.commit()
+        return self.get_node(node_id)
+
+    def empty_trash(self) -> int:
+        """Permanently delete all trashed nodes. Returns count deleted."""
+        with self._lock:
+            cursor = self.conn.execute(
+                "SELECT COUNT(*) as count FROM nodes WHERE deleted_at IS NOT NULL"
+            )
+            count = cursor.fetchone()["count"]
+            self.conn.execute("DELETE FROM nodes WHERE deleted_at IS NOT NULL")
+            self.conn.commit()
+        return count
 
     def reorder_node(self, node_id: int, target_id: int, position: str) -> Optional[Node]:
         """Reorder a node relative to a target node.

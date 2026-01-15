@@ -226,3 +226,30 @@ def export_node_markdown(node_id: int):
 
     markdown = to_markdown(node.title, node.notes, tree, 1)
     return {"markdown": markdown}
+
+
+# Trash operations
+
+
+@app.get("/trash", response_model=list[Node])
+def get_trash(
+    limit: int = Query(100, description="Maximum number of items to return"),
+):
+    """Get soft-deleted nodes."""
+    return db.get_deleted_nodes(limit=limit)
+
+
+@app.post("/nodes/{node_id}/restore", response_model=Node)
+def restore_node(node_id: int):
+    """Restore a soft-deleted node."""
+    node = db.restore_node(node_id)
+    if not node:
+        raise HTTPException(status_code=404, detail="Node not found")
+    return node
+
+
+@app.delete("/trash")
+def empty_trash():
+    """Permanently delete all trashed nodes."""
+    count = db.empty_trash()
+    return {"ok": True, "deleted": count}

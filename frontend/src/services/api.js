@@ -126,4 +126,21 @@ export const api = {
   async exportMarkdown(nodeId) {
     return request(`/nodes/${nodeId}/export`)
   },
+
+  // Trash
+  async getTrash(limit = 100) {
+    return request(`/trash?limit=${limit}`)
+  },
+
+  async restoreNode(id) {
+    return request(`/nodes/${id}/restore`, {
+      method: 'POST',
+    })
+  },
+
+  async emptyTrash() {
+    return request('/trash', {
+      method: 'DELETE',
+    })
+  },
 }

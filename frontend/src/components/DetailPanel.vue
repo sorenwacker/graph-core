@@ -138,9 +138,7 @@ function saveChanges() {
 }
 
 function deleteNode() {
-  if (confirm('Delete this node?')) {
-    emit('delete', props.node.id)
-  }
+  emit('delete', props.node.id)
 }
 
 function wrapWithParent() {

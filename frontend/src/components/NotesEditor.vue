@@ -1,154 +1,125 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { EditorState } from '@codemirror/state'
-import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from '@codemirror/view'
+import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
 
 const props = defineProps({
-  modelValue: { type: String, default: '' },
-  placeholder: { type: String, default: 'Add notes (Markdown supported)...' }
+  modelValue: { type: String, default: '' }
 })
 
 const emit = defineEmits(['update:modelValue', 'blur'])
 
-const editorContainer = ref(null)
-let editorView = null
+const container = ref(null)
+let editor = null
 
-// Custom dark theme to match app
-const appTheme = EditorView.theme({
+const theme = EditorView.theme({
   '&': {
     height: '100%',
-    fontSize: '13px',
-    backgroundColor: 'var(--bg-primary)',
-    color: 'var(--text-primary)'
+    fontSize: '13px'
+  },
+  '.cm-scroller': {
+    overflow: 'auto',
+    fontFamily: 'inherit'
   },
   '.cm-content': {
-    fontFamily: 'inherit',
-    lineHeight: '1.5',
     padding: '8px',
-    caretColor: 'var(--accent-color)'
+    caretColor: '#3b82f6'
   },
-  '.cm-cursor': {
-    borderLeftColor: 'var(--accent-color)'
-  },
-  '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
-    backgroundColor: 'rgba(59, 130, 246, 0.4) !important'
-  },
-  '.cm-gutters': {
-    backgroundColor: 'var(--bg-secondary)',
-    color: 'var(--text-tertiary)',
-    border: 'none',
-    borderRight: '1px solid var(--border-color)'
-  },
-  '.cm-activeLineGutter': {
-    backgroundColor: 'var(--bg-hover)'
-  },
-  '.cm-activeLine': {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)'
-  },
-  '.cm-placeholder': {
-    color: 'var(--text-tertiary)',
-    fontStyle: 'italic'
+  '.cm-line': {
+    padding: '0 4px'
   },
   '&.cm-focused': {
     outline: 'none'
   },
-  '.cm-scroller': {
-    overflow: 'auto'
+  '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
+    backgroundColor: 'rgba(59, 130, 246, 0.3) !important'
+  },
+  '.cm-cursor': {
+    borderLeftColor: '#3b82f6',
+    borderLeftWidth: '2px'
+  },
+  '.cm-gutters': {
+    backgroundColor: '#1a1a1a',
+    color: '#666',
+    border: 'none'
   }
 }, { dark: true })
 
-function initEditor() {
-  if (!editorContainer.value || editorView) return
+function setupEditor() {
+  if (!container.value) return
 
-  const updateListener = EditorView.updateListener.of((update) => {
-    if (update.docChanged) {
-      const newContent = update.state.doc.toString()
-      emit('update:modelValue', newContent)
-    }
-    if (update.focusChanged && !update.view.hasFocus) {
-      emit('blur')
-    }
-  })
-
-  const state = EditorState.create({
-    doc: props.modelValue || '',
-    extensions: [
-      lineNumbers(),
-      highlightActiveLine(),
-      highlightActiveLineGutter(),
-      history(),
-      markdown(),
-      keymap.of([
-        ...defaultKeymap,
-        ...historyKeymap
-      ]),
-      appTheme,
-      EditorView.placeholder(props.placeholder),
-      updateListener,
-      EditorView.lineWrapping
-    ]
-  })
-
-  editorView = new EditorView({
-    state,
-    parent: editorContainer.value
-  })
-}
-
-function destroyEditor() {
-  if (editorView) {
-    editorView.destroy()
-    editorView = null
+  if (editor) {
+    editor.destroy()
+    editor = null
   }
+
+  const startDoc = props.modelValue || ''
+
+  editor = new EditorView({
+    parent: container.value,
+    state: EditorState.create({
+      doc: startDoc,
+      extensions: [
+        lineNumbers(),
+        highlightActiveLine(),
+        history(),
+        markdown(),
+        keymap.of([...defaultKeymap, ...historyKeymap]),
+        theme,
+        EditorView.lineWrapping,
+        EditorView.updateListener.of(update => {
+          if (update.docChanged) {
+            emit('update:modelValue', update.state.doc.toString())
+          }
+          if (update.focusChanged && !update.view.hasFocus) {
+            emit('blur')
+          }
+        })
+      ]
+    })
+  })
 }
 
-// Update content when modelValue changes externally
-watch(() => props.modelValue, (newValue) => {
-  if (!editorView) return
-  const currentContent = editorView.state.doc.toString()
-  const newContent = newValue || ''
-  if (currentContent !== newContent) {
-    editorView.dispatch({
-      changes: {
-        from: 0,
-        to: editorView.state.doc.length,
-        insert: newContent
-      }
+watch(() => props.modelValue, (newVal) => {
+  if (!editor) return
+  const current = editor.state.doc.toString()
+  if (newVal !== current) {
+    editor.dispatch({
+      changes: { from: 0, to: editor.state.doc.length, insert: newVal || '' }
     })
   }
 })
 
 onMounted(() => {
-  nextTick(() => {
-    initEditor()
-  })
+  nextTick(setupEditor)
 })
 
 onUnmounted(() => {
-  destroyEditor()
+  if (editor) {
+    editor.destroy()
+    editor = null
+  }
 })
 </script>
 
 <template>
-  <div ref="editorContainer" class="notes-editor-container"></div>
+  <div ref="container" class="cm-container"></div>
 </template>
 
 <style scoped>
-.notes-editor-container {
-  width: 100%;
+.cm-container {
   height: 100%;
+  min-height: 150px;
+  background: #0d0d0d;
   border-radius: 4px;
   overflow: hidden;
-  background: var(--bg-primary);
 }
 
-.notes-editor-container :deep(.cm-editor) {
+.cm-container :deep(.cm-editor) {
   height: 100%;
-}
-
-.notes-editor-container :deep(.cm-scroller) {
-  font-family: inherit;
+  background: #0d0d0d;
+  color: #e0e0e0;
 }
 </style>

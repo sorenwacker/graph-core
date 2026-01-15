@@ -28,6 +28,8 @@ const emit = defineEmits(['select', 'select-multiple', 'enter', 'toggle-complete
 const draggedNode = ref(null)
 const dropTarget = ref(null)
 const dropPosition = ref(null) // 'before', 'after', 'inside'
+const isDragging = ref(false)
+const dragGhost = ref(null)
 
 function formatDate(dateStr) {
   if (!dateStr) return ''
@@ -65,113 +67,154 @@ function getDepthRowClass(node) {
 }
 
 function confirmDelete(nodeId) {
-  if (confirm('Delete this node?')) {
-    emit('delete', nodeId)
-  }
+  emit('delete', nodeId)
 }
 
-// Drag and Drop
-function onDragStart(e, node) {
+// Mouse-based Drag and Drop
+function onMouseDown(e, node) {
+  // Only start drag from the drag handle
+  if (!e.target.closest('.drag-handle')) return
+
+  e.preventDefault()
   draggedNode.value = node
-  e.dataTransfer.effectAllowed = 'move'
-  e.dataTransfer.setData('text/plain', node.id)
-  e.target.classList.add('dragging')
+
+  // Create ghost element
+  const ghost = document.createElement('div')
+  ghost.className = 'drag-ghost'
+  ghost.textContent = node.title
+  ghost.style.cssText = `
+    position: fixed;
+    left: ${e.clientX + 10}px;
+    top: ${e.clientY + 10}px;
+    background: #1a3a5a;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 9999;
+    font-size: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  `
+  document.body.appendChild(ghost)
+  dragGhost.value = ghost
+  isDragging.value = true
+
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
 }
 
-function onDragEnd(e) {
-  e.target.classList.remove('dragging')
+function onMouseMove(e) {
+  if (!isDragging.value || !dragGhost.value) return
+
+  // Move ghost
+  dragGhost.value.style.left = `${e.clientX + 10}px`
+  dragGhost.value.style.top = `${e.clientY + 10}px`
+
+  // Find drop target
+  const elemBelow = document.elementFromPoint(e.clientX, e.clientY)
+  const row = elemBelow?.closest('tr.node-row')
+  const table = elemBelow?.closest('.table-view')
+
+  if (row) {
+    const nodeId = parseInt(row.dataset.nodeId)
+    if (nodeId && nodeId !== draggedNode.value?.id) {
+      // Find the node object
+      const targetNode = findNodeById(nodeId)
+      if (targetNode) {
+        dropTarget.value = targetNode
+
+        // Determine position
+        const rect = row.getBoundingClientRect()
+        const y = e.clientY - rect.top
+        const height = rect.height
+
+        if (y < height * 0.25) {
+          dropPosition.value = 'before'
+        } else if (y > height * 0.75) {
+          dropPosition.value = 'after'
+        } else {
+          dropPosition.value = 'inside'
+        }
+        // Update ghost text
+        if (dragGhost.value) {
+          dragGhost.value.textContent = draggedNode.value.title
+        }
+      }
+    }
+  } else if (table) {
+    // Over table but not on a row - drop to root
+    dropTarget.value = 'root'
+    dropPosition.value = null
+    if (dragGhost.value) {
+      dragGhost.value.textContent = draggedNode.value.title + ' → root'
+    }
+  } else {
+    dropTarget.value = null
+    dropPosition.value = null
+  }
+}
+
+function onMouseUp(e) {
+  document.removeEventListener('mousemove', onMouseMove)
+  document.removeEventListener('mouseup', onMouseUp)
+
+  if (dragGhost.value) {
+    dragGhost.value.remove()
+    dragGhost.value = null
+  }
+
+  if (draggedNode.value && dropTarget.value) {
+    const sourceNode = draggedNode.value
+    const targetNode = dropTarget.value
+
+    // Check if we're moving multiple selected items
+    const hasMultipleSelected = props.selectedIds?.size > 1 && props.selectedIds.has(sourceNode.id)
+
+    if (targetNode === 'root') {
+      // Move to root (no parent)
+      if (hasMultipleSelected) {
+        emit('move-multiple', { nodeIds: Array.from(props.selectedIds), newParentId: null })
+      } else {
+        emit('move', { nodeId: sourceNode.id, oldParentId: sourceNode.parent_id, newParentId: null })
+      }
+    } else if (dropPosition.value === 'inside') {
+      // Move as child of target
+      if (hasMultipleSelected) {
+        emit('move-multiple', { nodeIds: Array.from(props.selectedIds), newParentId: targetNode.id })
+      } else {
+        emit('move', { nodeId: sourceNode.id, oldParentId: sourceNode.parent_id, newParentId: targetNode.id })
+      }
+    } else {
+      // Reorder: move before or after target
+      emit('reorder', {
+        nodeId: sourceNode.id,
+        targetId: targetNode.id,
+        position: dropPosition.value
+      })
+    }
+  }
+
+  isDragging.value = false
   draggedNode.value = null
   dropTarget.value = null
   dropPosition.value = null
 }
 
-function onDragOver(e, node) {
-  if (!draggedNode.value || draggedNode.value.id === node.id) return
-  e.preventDefault()
-  e.dataTransfer.dropEffect = 'move'
-
-  dropTarget.value = node
-
-  // Determine drop position based on mouse Y position within row
-  const rect = e.currentTarget.getBoundingClientRect()
-  const y = e.clientY - rect.top
-  const height = rect.height
-
-  if (y < height * 0.25) {
-    dropPosition.value = 'before'
-  } else if (y > height * 0.75) {
-    dropPosition.value = 'after'
-  } else {
-    dropPosition.value = 'inside'
-  }
-}
-
-function onDragLeave(e) {
-  // Only clear if leaving the row entirely
-  if (!e.currentTarget.contains(e.relatedTarget)) {
-    if (dropTarget.value?.id === parseInt(e.currentTarget.dataset.nodeId)) {
-      dropTarget.value = null
-      dropPosition.value = null
+// Helper to find node by ID in the tree
+function findNodeById(id) {
+  function search(nodes) {
+    for (const node of nodes) {
+      if (node.id === id) return node
+      if (node.children?.length) {
+        const found = search(node.children)
+        if (found) return found
+      }
     }
+    return null
   }
+  return search(filteredNodes.value)
 }
 
-function onDrop(e, targetNode) {
-  e.preventDefault()
-  if (!draggedNode.value) return
-  if (targetNode && draggedNode.value.id === targetNode.id) return
-
-  const sourceNode = draggedNode.value
-
-  // Check if we're moving multiple selected items
-  const hasMultipleSelected = props.selectedIds?.size > 1 && props.selectedIds.has(sourceNode.id)
-
-  if (targetNode === null) {
-    // Dropping to root
-    if (hasMultipleSelected) {
-      emit('move-multiple', { nodeIds: Array.from(props.selectedIds), newParentId: null })
-    } else {
-      emit('move', { nodeId: sourceNode.id, newParentId: null })
-    }
-  } else if (dropPosition.value === 'inside') {
-    // Move as child of target
-    if (hasMultipleSelected) {
-      emit('move-multiple', { nodeIds: Array.from(props.selectedIds), newParentId: targetNode.id })
-    } else {
-      emit('move', { nodeId: sourceNode.id, newParentId: targetNode.id })
-    }
-  } else {
-    // Reorder: move before or after target (single item only for now)
-    emit('reorder', {
-      nodeId: sourceNode.id,
-      targetId: targetNode.id,
-      position: dropPosition.value
-    })
-  }
-
-  draggedNode.value = null
-  dropTarget.value = null
-  dropPosition.value = null
-}
-
-// Drop to root (no parent)
-const rootDropActive = ref(false)
-
-function onRootDragOver(e) {
-  if (!draggedNode.value) return
-  e.preventDefault()
-  rootDropActive.value = true
-}
-
-function onRootDragLeave() {
-  rootDropActive.value = false
-}
-
-function onRootDrop(e) {
-  e.preventDefault()
-  rootDropActive.value = false
-  onDrop(e, null)
-}
 
 function getDropClass(node) {
   if (!dropTarget.value || dropTarget.value.id !== node.id) return {}
@@ -213,17 +256,6 @@ function handleClick(e, node) {
         </tr>
       </thead>
       <tbody>
-        <!-- Root drop zone -->
-        <tr
-          v-if="draggedNode"
-          class="root-drop-zone"
-          :class="{ active: rootDropActive }"
-          @dragover="onRootDragOver"
-          @dragleave="onRootDragLeave"
-          @drop="onRootDrop"
-        >
-          <td colspan="6">Drop here to move to root (no parent)</td>
-        </tr>
         <template v-for="(node, nodeIndex) in filteredNodes" :key="node.id">
           <!-- Main row -->
           <tr
@@ -238,17 +270,14 @@ function handleClick(e, node) {
                 ...getDropClass(node)
               }
             ]"
+            :style="{ '--indent': getIndentPadding(node) }"
             :data-node-id="node.id"
-            draggable="true"
+            @mousedown="onMouseDown($event, node)"
+            @dragstart.prevent
             @click="handleClick($event, node)"
             @dblclick="emit('enter', node)"
-            @dragstart="onDragStart($event, node)"
-            @dragend="onDragEnd"
-            @dragover="onDragOver($event, node)"
-            @dragleave="onDragLeave"
-            @drop="onDrop($event, node)"
           >
-            <td class="col-drag" :style="{ paddingLeft: getIndentPadding(node) }">
+            <td class="col-drag">
               <span class="drag-handle">::</span>
             </td>
             <td class="col-expand">
@@ -294,17 +323,14 @@ function handleClick(e, node) {
                     ...getDropClass(child)
                   }
                 ]"
+                :style="{ '--indent': getIndentPadding(child) }"
                 :data-node-id="child.id"
-                draggable="true"
+                @mousedown="onMouseDown($event, child)"
+                @dragstart.prevent
                 @click="handleClick($event, child)"
                 @dblclick="emit('enter', child)"
-                @dragstart="onDragStart($event, child)"
-                @dragend="onDragEnd"
-                @dragover="onDragOver($event, child)"
-                @dragleave="onDragLeave"
-                @drop="onDrop($event, child)"
               >
-                <td class="col-drag" :style="{ paddingLeft: getIndentPadding(child) }">
+                <td class="col-drag">
                   <span class="drag-handle">::</span>
                 </td>
                 <td class="col-expand">
@@ -351,17 +377,14 @@ function handleClick(e, node) {
                       ...getDropClass(grandchild)
                     }
                   ]"
+                  :style="{ '--indent': getIndentPadding(grandchild) }"
                   :data-node-id="grandchild.id"
-                  draggable="true"
+                  @mousedown="onMouseDown($event, grandchild)"
+                  @dragstart.prevent
                   @click="handleClick($event, grandchild)"
                   @dblclick="emit('enter', grandchild)"
-                  @dragstart="onDragStart($event, grandchild)"
-                  @dragend="onDragEnd"
-                  @dragover="onDragOver($event, grandchild)"
-                  @dragleave="onDragLeave"
-                  @drop="onDrop($event, grandchild)"
                 >
-                  <td class="col-drag" :style="{ paddingLeft: getIndentPadding(grandchild) }">
+                  <td class="col-drag">
                     <span class="drag-handle">::</span>
                   </td>
                   <td class="col-expand"></td>
@@ -430,13 +453,14 @@ th {
 
 td {
   padding: 4px 12px;
-  border-bottom: 1px solid #222;
 }
 
 .node-row {
   cursor: pointer;
   transition: background 0.1s;
   background: #0d0d0d;
+  -webkit-user-drag: element;
+  user-select: none;
 }
 
 .node-row:hover {
@@ -498,18 +522,6 @@ td {
   border-left: 3px solid #f39c12;
 }
 
-/* Visual separator between independent trees */
-.tree-boundary {
-  border-top: 4px solid #444;
-}
-
-.tree-boundary td {
-  padding-top: 16px;
-}
-
-.tree-boundary td:first-child {
-  border-top: none;
-}
 
 /* Depth-based row styling */
 .depth-row-0 {
@@ -565,6 +577,7 @@ td {
   font-weight: bold;
   opacity: 1;
   user-select: none;
+  -webkit-user-drag: element;
 }
 
 .drag-handle:hover {
@@ -623,6 +636,7 @@ td {
 
 .col-type {
   width: 40px;
+  padding-left: var(--indent, 8px);
 }
 
 .col-title {

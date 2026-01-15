@@ -7,7 +7,7 @@ const props = defineProps({
   hideCompleted: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['select', 'update'])
+const emit = defineEmits(['select', 'update', 'delete'])
 
 const persons = ref([])
 const personLinks = ref({})
@@ -128,17 +128,10 @@ async function savePerson() {
   }
 }
 
-async function deletePerson() {
+function deletePerson() {
   if (!editingPerson.value?.id) return
-  if (!confirm(`Delete "${editingPerson.value.title}"?`)) return
-
-  try {
-    await api.deleteNode(editingPerson.value.id)
-    editingPerson.value = null
-    await loadPersons()
-  } catch (err) {
-    console.error('Failed to delete person:', err)
-  }
+  emit('delete', editingPerson.value.id)
+  editingPerson.value = null
 }
 
 function cancelEdit() {

@@ -48,7 +48,7 @@ const props = defineProps({
   hideCompleted: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['select', 'enter', 'move', 'add-child', 'insert-between', 'update', 'create', 'delete', 'wrap-with-parent'])
+const emit = defineEmits(['select', 'enter', 'move', 'add-child', 'insert-between', 'update', 'create', 'delete', 'delete-multiple', 'wrap-with-parent'])
 
 const container = ref(null)
 const editModalEl = ref(null)
@@ -207,10 +207,34 @@ function handleGlobalKeydown(e) {
     e.preventDefault()
     showAddNodeModal()
   }
+
+  // Cmd+Delete/Backspace to delete selected nodes
+  if ((e.metaKey || e.ctrlKey) && (e.key === 'Delete' || e.key === 'Backspace') && !inModal) {
+    // Don't trigger if focus is in an input
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+
+    if (cy) {
+      const selectedNodes = cy.$('node:selected')
+      if (selectedNodes.length > 0) {
+        e.preventDefault()
+        const nodeIds = []
+        selectedNodes.forEach(node => {
+          const nodeId = parseInt(node.id())
+          if (!isNaN(nodeId)) nodeIds.push(nodeId)
+        })
+        if (nodeIds.length === 1) {
+          emit('delete', nodeIds[0])
+        } else if (nodeIds.length > 1) {
+          emit('delete-multiple', nodeIds)
+        }
+      }
+    }
+  }
 }
 
 // Track active tippy instance for cleanup
 let activeTippyInstance = null
+let tippyShowTimeout = null
 
 function showEditModal(node) {
   // Hide any active tippy tooltip when showing edit modal
@@ -253,10 +277,8 @@ function handleEditModalKeydown(e) {
 
 function deleteNodeFromModal() {
   if (!editModal.value.node) return
-  if (confirm('Delete this node?')) {
-    emit('delete', editModal.value.node.id)
-    hideEditModal()
-  }
+  emit('delete', editModal.value.node.id)
+  hideEditModal()
 }
 
 async function wrapWithParentFromModal() {
@@ -634,6 +656,7 @@ function initGraph() {
     elements,
     boxSelectionEnabled: true,
     selectionType: 'additive',
+    activeSelectionCriteria: 'center',
     style: [
       {
         selector: 'node',
@@ -659,7 +682,10 @@ function initGraph() {
       {
         selector: 'node:selected',
         style: {
-          'overlay-opacity': 0
+          'underlay-opacity': 0.5,
+          'underlay-color': '#4a9eff',
+          'underlay-padding': 15,
+          'underlay-shape': 'roundrectangle'
         }
       },
       {
@@ -840,6 +866,12 @@ function initGraph() {
     const tooltipContent = e.target.data('tooltip')
     if (!tooltipContent) return
 
+    // Clear pending timeout
+    if (tippyShowTimeout) {
+      clearTimeout(tippyShowTimeout)
+      tippyShowTimeout = null
+    }
+
     // Destroy previous
     if (activeTippyInstance) {
       activeTippyInstance.destroy()
@@ -869,47 +901,54 @@ function initGraph() {
     })
 
     if (closestEl) {
-      activeTippyInstance = tippy(closestEl, {
-        content: tooltipContent,
-        allowHTML: true,
-        interactive: true,
-        interactiveBorder: 20,
-        delay: [600, 400],
-        duration: [200, 150],
-        placement: 'right',
-        appendTo: document.body,
-        theme: 'graph-tooltip',
-        maxWidth: 400,
-        trigger: 'manual',
-        onShown: (instance) => {
-          // Attach event listener to checkbox in tooltip
-          const checkbox = instance.popper.querySelector('input[type="checkbox"][data-node-id]')
-          if (checkbox) {
-            checkbox.addEventListener('change', (e) => {
-              const nodeId = parseInt(e.target.dataset.nodeId)
-              const completed = e.target.checked
-              const node = props.nodes.flatMap(function flatten(n) {
-                return [n, ...(n.children || []).flatMap(flatten)]
-              }).find(n => n.id === nodeId) || (props.parent?.id === nodeId ? props.parent : null)
-              if (node) {
-                emit('update', { ...node, completed })
-              }
-            })
+      // Show tooltip after 1 second delay
+      tippyShowTimeout = setTimeout(() => {
+        activeTippyInstance = tippy(closestEl, {
+          content: tooltipContent,
+          allowHTML: true,
+          interactive: true,
+          interactiveBorder: 20,
+          duration: [200, 150],
+          placement: 'right',
+          appendTo: document.body,
+          theme: 'graph-tooltip',
+          maxWidth: 400,
+          trigger: 'manual',
+          onShown: (instance) => {
+            // Attach event listener to checkbox in tooltip
+            const checkbox = instance.popper.querySelector('input[type="checkbox"][data-node-id]')
+            if (checkbox) {
+              checkbox.addEventListener('change', (e) => {
+                const nodeId = parseInt(e.target.dataset.nodeId)
+                const completed = e.target.checked
+                const node = props.nodes.flatMap(function flatten(n) {
+                  return [n, ...(n.children || []).flatMap(flatten)]
+                }).find(n => n.id === nodeId) || (props.parent?.id === nodeId ? props.parent : null)
+                if (node) {
+                  emit('update', { ...node, completed })
+                }
+              })
+            }
+          },
+          onHidden: () => {
+            if (activeTippyInstance) {
+              activeTippyInstance.destroy()
+              activeTippyInstance = null
+            }
           }
-        },
-        onHidden: () => {
-          if (activeTippyInstance) {
-            activeTippyInstance.destroy()
-            activeTippyInstance = null
-          }
-        }
-      })
-      activeTippyInstance.show()
+        })
+        activeTippyInstance.show()
+        tippyShowTimeout = null
+      }, 1000)
     }
   })
 
   cy.on('mouseout', 'node', () => {
-    // Tippy handles hide delay with interactive mode
+    // Clear pending tooltip on mouseout
+    if (tippyShowTimeout) {
+      clearTimeout(tippyShowTimeout)
+      tippyShowTimeout = null
+    }
   })
 
   // Handle clicks on HTML card overlays (for Cmd+click support)
@@ -1089,6 +1128,17 @@ function initGraph() {
   // Update selection styling
   if (props.selectedId) {
     cy.$(`#${props.selectedId}`).select()
+  }
+
+  // Auto-relax if no saved positions - run layout then fit
+  if (!hasPositions && cy.nodes().length > 0) {
+    setTimeout(() => {
+      cy.layout(getLayoutOptions()).run()
+      setTimeout(() => {
+        cy.fit(50)
+        saveNodePositions()
+      }, 500)
+    }, 100)
   }
 }
 
@@ -1394,8 +1444,8 @@ function fitView() {
   }
 }
 
-watch(() => props.nodes, updateGraph)
-watch(() => props.parent, updateGraph)
+watch(() => props.nodes, updateGraph, { deep: true })
+watch(() => props.parent, updateGraph, { deep: true })
 watch(() => props.detailThreshold, updateGraph)
 watch(() => props.maxDepth, () => {
   updateGraph()

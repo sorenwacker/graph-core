@@ -25,6 +25,7 @@ marked.use({
 
 // Track active card tippy instance
 let activeCardTippy = null
+let cardTooltipTimeout = null
 
 // Navigation state - drill-down model
 const currentContainerId = ref(null)  // null = root level
@@ -50,6 +51,7 @@ const containerWidth = ref(800)
 const sidebarTree = ref([])  // Full tree for sidebar navigation
 const sidebarExpandedIds = ref(new Set())
 const recentItems = ref([])  // Recent items for sidebar
+const trashedItems = ref([])  // Deleted items for trash view
 const sidebarTreeCollapsed = ref(false)
 const sidebarFavoritesCollapsed = ref(false)
 const sidebarRecentCollapsed = ref(false)
@@ -138,9 +140,12 @@ const graphDetailThreshold = ref(parseInt(localStorage.getItem('graphcore-graphD
 const graphMaxDepth = ref(parseInt(localStorage.getItem('graphcore-graphMaxDepth')) || 0) // 0 = all
 const showSettings = ref(false)
 
-// Persist view mode changes
+// Persist view mode changes and load data when switching views
 watch(viewMode, (newMode) => {
   localStorage.setItem('graphcore-viewMode', newMode)
+  if (newMode === 'trash') {
+    loadTrashedItems()
+  }
 })
 
 // Persist current container changes
@@ -203,32 +208,61 @@ function pushUndo(action) {
 async function undo() {
   if (undoStack.value.length === 0) return
   const action = undoStack.value.pop()
-  if (action.type === 'move') {
-    await api.moveNode(action.nodeId, action.oldParentId)
-    redoStack.value.push({
-      type: 'move',
-      nodeId: action.nodeId,
-      oldParentId: action.newParentId,
-      newParentId: action.oldParentId
-    })
+  try {
+    if (action.type === 'move') {
+      await api.moveNode(action.nodeId, action.oldParentId)
+    } else if (action.type === 'create') {
+      await api.deleteNode(action.nodeId)
+    } else if (action.type === 'delete') {
+      await api.restoreNode(action.nodeData.id)
+    } else if (action.type === 'delete-multiple') {
+      // Restore all deleted nodes
+      for (const node of action.nodes) {
+        await api.restoreNode(node.id)
+      }
+    } else if (action.type === 'edit') {
+      await api.updateNode(action.nodeId, action.oldValues)
+    } else if (action.type === 'reorder') {
+      await api.reorderNode(action.nodeId, action.oldTargetId, action.oldPosition)
+    }
+    // Push same action to redo stack (redo will re-apply the original action)
+    redoStack.value.push(action)
     await loadChildren(currentContainerId.value)
     await loadSidebarTree()
+  } catch (e) {
+    console.error('Undo failed:', e)
+    undoStack.value.push(action)
   }
 }
 
 async function redo() {
   if (redoStack.value.length === 0) return
   const action = redoStack.value.pop()
-  if (action.type === 'move') {
-    await api.moveNode(action.nodeId, action.newParentId)
-    undoStack.value.push({
-      type: 'move',
-      nodeId: action.nodeId,
-      oldParentId: action.newParentId,
-      newParentId: action.oldParentId
-    })
+  try {
+    if (action.type === 'move') {
+      await api.moveNode(action.nodeId, action.newParentId)
+    } else if (action.type === 'create') {
+      const created = await api.createNode({ ...action.nodeData, parent_id: action.parentId })
+      action.nodeId = created.id  // Update nodeId in case it changed
+    } else if (action.type === 'delete') {
+      await api.deleteNode(action.nodeData.id, false)
+    } else if (action.type === 'delete-multiple') {
+      // Delete all nodes again
+      for (const node of action.nodes) {
+        await api.deleteNode(node.id, false)
+      }
+    } else if (action.type === 'edit') {
+      await api.updateNode(action.nodeId, action.newValues)
+    } else if (action.type === 'reorder') {
+      await api.reorderNode(action.nodeId, action.newTargetId, action.newPosition)
+    }
+    // Push same action back to undo stack
+    undoStack.value.push(action)
     await loadChildren(currentContainerId.value)
     await loadSidebarTree()
+  } catch (e) {
+    console.error('Redo failed:', e)
+    redoStack.value.push(action)
   }
 }
 const selectedResultIndex = ref(0)
@@ -403,6 +437,45 @@ async function loadRecentItems() {
   }
 }
 
+async function loadTrashedItems() {
+  try {
+    trashedItems.value = await api.getTrash(100)
+  } catch (e) {
+    console.error('Failed to load trashed items:', e)
+  }
+}
+
+async function restoreFromTrash(node) {
+  try {
+    await api.restoreNode(node.id)
+    await loadTrashedItems()
+    await loadSidebarTree()
+  } catch (e) {
+    console.error('Failed to restore node:', e)
+  }
+}
+
+async function permanentlyDelete(node) {
+  if (!confirm(`Permanently delete "${node.title}"? This cannot be undone.`)) return
+  try {
+    await api.deleteNode(node.id, true)
+    await loadTrashedItems()
+  } catch (e) {
+    console.error('Failed to delete node:', e)
+  }
+}
+
+async function emptyAllTrash() {
+  const count = trashedItems.value.length
+  if (!confirm(`Permanently delete all ${count} items in trash? This cannot be undone.`)) return
+  try {
+    await api.emptyTrash()
+    trashedItems.value = []
+  } catch (e) {
+    console.error('Failed to empty trash:', e)
+  }
+}
+
 function toggleSidebarExpand(nodeId) {
   if (sidebarExpandedIds.value.has(nodeId)) {
     sidebarExpandedIds.value.delete(nodeId)
@@ -473,8 +546,15 @@ async function loadChildren(containerId = null) {
     // Expand first level
     expandedIds.value = new Set(children.value.map(n => n.id))
   } catch (e) {
-    error.value = e.message
     console.error('Failed to load:', e)
+    // If node not found (404), reset to root
+    if (e.message?.includes('404') || e.message?.includes('Not found')) {
+      currentContainerId.value = null
+      localStorage.removeItem('graphcore-containerId')
+      await loadChildren(null)
+      return
+    }
+    error.value = e.message
   } finally {
     loading.value = false
     isLoadingChildren = false
@@ -602,7 +682,44 @@ function handleMultiSelect({ node, add, range }) {
 
 async function handleReorder({ nodeId, targetId, position }) {
   try {
+    // Find original position for undo - look at current siblings
+    const node = await api.getNode(nodeId)
+    const siblings = node.parent_id
+      ? (await api.getChildren(node.parent_id)).filter(n => n.id !== nodeId)
+      : children.value.filter(n => n.id !== nodeId)
+
+    // Find where this node currently sits among siblings by sort_order
+    const currentNode = children.value.find(n => n.id === nodeId) ||
+                        (await api.getNode(nodeId))
+    const sortedSiblings = [...siblings].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+
+    // Find the sibling that comes just before this node's current position
+    let prevSibling = null
+    for (const sib of sortedSiblings) {
+      if ((sib.sort_order || 0) < (currentNode.sort_order || 0)) {
+        prevSibling = sib
+      } else {
+        break
+      }
+    }
+
+    // Store undo info
+    const oldTargetId = prevSibling ? prevSibling.id : (sortedSiblings[0]?.id || null)
+    const oldPosition = prevSibling ? 'after' : 'before'
+
     await api.reorderNode(nodeId, targetId, position)
+
+    if (oldTargetId) {
+      pushUndo({
+        type: 'reorder',
+        nodeId,
+        oldTargetId,
+        oldPosition,
+        newTargetId: targetId,
+        newPosition: position
+      })
+    }
+
     await loadChildren(currentContainerId.value)
     await loadSidebarTree()
     loadRecentItems()
@@ -615,11 +732,13 @@ async function createNode() {
   if (!newNodeTitle.value.trim()) return
 
   try {
-    await api.createNode({
+    const nodeData = {
       title: newNodeTitle.value,
       type: newNodeType.value,
       parent_id: currentContainerId.value
-    })
+    }
+    const created = await api.createNode(nodeData)
+    pushUndo({ type: 'create', nodeId: created.id, nodeData, parentId: currentContainerId.value })
     newNodeTitle.value = ''
     await loadChildren(currentContainerId.value)
   } catch (e) {
@@ -629,11 +748,9 @@ async function createNode() {
 
 async function addChildNode({ parentId, title, type, x, y }) {
   try {
-    const newNode = await api.createNode({
-      title,
-      type: type || 'task',
-      parent_id: parentId
-    })
+    const nodeData = { title, type: type || 'task', parent_id: parentId }
+    const newNode = await api.createNode(nodeData)
+    pushUndo({ type: 'create', nodeId: newNode.id, nodeData, parentId })
     // Save position if provided (from graph double-click)
     if (x !== undefined && y !== undefined) {
       const viewId = currentContainerId.value || 'root'
@@ -739,9 +856,11 @@ async function createNodeAtPosition({ title, type, x, y }) {
   }
 }
 
-async function updateNode(updatedNode) {
+async function updateNode(updatedNode, trackUndo = true) {
   try {
-    await api.updateNode(updatedNode.id, {
+    // Get old values for undo
+    const oldNode = trackUndo ? await api.getNode(updatedNode.id) : null
+    const newValues = {
       title: updatedNode.title,
       type: updatedNode.type,
       notes: updatedNode.notes,
@@ -753,7 +872,24 @@ async function updateNode(updatedNode) {
       end_date: updatedNode.end_date,
       color: updatedNode.color,
       importance: updatedNode.importance
-    })
+    }
+    await api.updateNode(updatedNode.id, newValues)
+    if (trackUndo && oldNode) {
+      const oldValues = {
+        title: oldNode.title,
+        type: oldNode.type,
+        notes: oldNode.notes,
+        notes_sensitive: oldNode.notes_sensitive,
+        completed: oldNode.completed,
+        favorite: oldNode.favorite,
+        due_date: oldNode.due_date,
+        start_date: oldNode.start_date,
+        end_date: oldNode.end_date,
+        color: oldNode.color,
+        importance: oldNode.importance
+      }
+      pushUndo({ type: 'edit', nodeId: updatedNode.id, oldValues, newValues })
+    }
     await loadChildren(currentContainerId.value)
     await loadSidebarTree()
     loadRecentItems()
@@ -764,13 +900,51 @@ async function updateNode(updatedNode) {
 
 async function deleteNode(nodeId) {
   try {
+    // Get node data for undo before deleting
+    const node = await api.getNode(nodeId)
     await api.deleteNode(nodeId, false)  // Soft delete
+    if (node) {
+      pushUndo({ type: 'delete', nodeData: node, parentId: node.parent_id })
+    }
     showDetail.value = false
     selectedNode.value = null
     await loadChildren(currentContainerId.value)
     await loadSidebarTree()
-    loadRecentItems()  // Refresh sidebar
+    loadRecentItems()
   } catch (e) {
+    error.value = e.message
+  }
+}
+
+async function deleteMultipleNodes(nodeIds) {
+  if (!nodeIds || nodeIds.length === 0) return
+
+  const deletedNodes = []
+
+  try {
+    // Collect node data before deleting
+    for (const id of nodeIds) {
+      const node = await api.getNode(id)
+      if (node) deletedNodes.push(node)
+    }
+
+    // Delete all nodes
+    for (const id of nodeIds) {
+      await api.deleteNode(id, false)
+    }
+
+    // Push single undo action for all deletions
+    if (deletedNodes.length > 0) {
+      pushUndo({ type: 'delete-multiple', nodes: deletedNodes })
+    }
+
+    showDetail.value = false
+    selectedNode.value = null
+    await loadChildren(currentContainerId.value)
+    await loadSidebarTree()
+    loadRecentItems()
+  } catch (e) {
+    console.error('deleteMultipleNodes error:', e)
     error.value = e.message
   }
 }
@@ -1228,6 +1402,12 @@ function showCardTooltip(event, node) {
   // Don't show tooltip if editing
   if (editingCardId.value || inlineNotesId.value) return
 
+  // Clear any pending tooltip
+  if (cardTooltipTimeout) {
+    clearTimeout(cardTooltipTimeout)
+    cardTooltipTimeout = null
+  }
+
   // Destroy previous tooltip
   if (activeCardTippy) {
     activeCardTippy.destroy()
@@ -1237,38 +1417,45 @@ function showCardTooltip(event, node) {
   const el = event.currentTarget
   const tooltipContent = buildCardTooltip(node)
 
-  activeCardTippy = tippy(el, {
-    content: tooltipContent,
-    allowHTML: true,
-    interactive: true,
-    interactiveBorder: 20,
-    delay: [400, 100],
-    duration: [200, 150],
-    placement: 'right',
-    appendTo: document.body,
-    theme: 'graph-tooltip',
-    maxWidth: 400,
-    trigger: 'manual',
-    onShown: (instance) => {
-      const checkbox = instance.popper.querySelector('input[type="checkbox"][data-node-id]')
-      if (checkbox) {
-        checkbox.addEventListener('change', async (e) => {
-          const nodeId = parseInt(e.target.dataset.nodeId)
-          const targetNode = flatChildren.value.find(n => n.id === nodeId)
-          if (targetNode) {
-            await toggleComplete(targetNode)
-            instance.destroy()
-            activeCardTippy = null
-          }
-        })
+  // Show tooltip after 1 second delay
+  cardTooltipTimeout = setTimeout(() => {
+    activeCardTippy = tippy(el, {
+      content: tooltipContent,
+      allowHTML: true,
+      interactive: true,
+      interactiveBorder: 20,
+      duration: [200, 150],
+      placement: 'right',
+      appendTo: document.body,
+      theme: 'graph-tooltip',
+      maxWidth: 400,
+      trigger: 'manual',
+      onShown: (instance) => {
+        const checkbox = instance.popper.querySelector('input[type="checkbox"][data-node-id]')
+        if (checkbox) {
+          checkbox.addEventListener('change', async (e) => {
+            const nodeId = parseInt(e.target.dataset.nodeId)
+            const targetNode = flatChildren.value.find(n => n.id === nodeId)
+            if (targetNode) {
+              await toggleComplete(targetNode)
+              instance.destroy()
+              activeCardTippy = null
+            }
+          })
+        }
       }
-    }
-  })
-
-  activeCardTippy.show()
+    })
+    activeCardTippy.show()
+    cardTooltipTimeout = null
+  }, 1000)
 }
 
 function hideCardTooltip() {
+  // Clear pending tooltip
+  if (cardTooltipTimeout) {
+    clearTimeout(cardTooltipTimeout)
+    cardTooltipTimeout = null
+  }
   if (activeCardTippy) {
     activeCardTippy.destroy()
     activeCardTippy = null
@@ -1427,19 +1614,30 @@ async function deleteSelectedNodes() {
   if (selectedIds.value.size === 0) return
 
   const idsToDelete = [...selectedIds.value]
-  try {
-    for (const id of idsToDelete) {
-      await api.deleteNode(id, false)
-    }
-    selectedIds.value = new Set()
-    selectedNode.value = null
-    showDetail.value = false
-    await loadChildren(currentContainerId.value)
-    await loadSidebarTree()
-    loadRecentItems()
-  } catch (e) {
-    error.value = e.message
+  const deletedNodes = []
+
+  // Collect node data before deleting
+  for (const id of idsToDelete) {
+    const node = await api.getNode(id)
+    if (node) deletedNodes.push(node)
   }
+
+  // Delete all nodes
+  for (const id of idsToDelete) {
+    await api.deleteNode(id, false)
+  }
+
+  // Push single undo action for all deletions
+  if (deletedNodes.length > 0) {
+    pushUndo({ type: 'delete-multiple', nodes: deletedNodes })
+  }
+
+  selectedIds.value = new Set()
+  selectedNode.value = null
+  showDetail.value = false
+  await loadChildren(currentContainerId.value)
+  await loadSidebarTree()
+  loadRecentItems()
 }
 
 onMounted(async () => {
@@ -1658,6 +1856,7 @@ onUnmounted(() => {
           <button :class="{ primary: viewMode === 'graph' }" @click="viewMode = 'graph'">Graph</button>
           <button :class="{ primary: viewMode === 'timeline' }" @click="viewMode = 'timeline'">Timeline</button>
           <button :class="{ primary: viewMode === 'persons' }" @click="viewMode = 'persons'">Persons</button>
+          <button :class="{ primary: viewMode === 'trash' }" @click="viewMode = 'trash'">Trash</button>
           <span class="toolbar-separator"></span>
           <button
             class="icon-btn"
@@ -2027,6 +2226,7 @@ onUnmounted(() => {
           @update="updateNode"
           @create="createNodeAtPosition"
           @delete="deleteNode"
+          @delete-multiple="deleteMultipleNodes"
           @wrap-with-parent="wrapWithParent"
         />
 
@@ -2046,7 +2246,40 @@ onUnmounted(() => {
           :selected-id="selectedNode?.id"
           :hide-completed="hideCompleted"
           @select="selectNode"
+          @delete="deleteNode"
         />
+
+        <!-- Trash View -->
+        <div v-else-if="viewMode === 'trash'" class="trash-view">
+          <div class="trash-header">
+            <h2>Trash ({{ trashedItems.length }} items)</h2>
+            <button v-if="trashedItems.length > 0" class="danger" @click="emptyAllTrash">Empty Trash</button>
+          </div>
+          <div v-if="trashedItems.length === 0" class="trash-empty">
+            Trash is empty
+          </div>
+          <table v-else class="trash-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Type</th>
+                <th>Deleted</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in trashedItems" :key="item.id">
+                <td>{{ item.title }}</td>
+                <td>{{ item.type }}</td>
+                <td>{{ item.deleted_at?.split('T')[0] }}</td>
+                <td class="trash-actions">
+                  <button class="small" @click="restoreFromTrash(item)">Restore</button>
+                  <button class="small danger" @click="permanentlyDelete(item)">Delete</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </main>
 
@@ -3544,5 +3777,67 @@ onUnmounted(() => {
   background: #1a1a1a;
   color: #888;
   border-radius: 12px;
+}
+
+/* Trash View */
+.trash-view {
+  padding: 16px;
+  height: 100%;
+  overflow: auto;
+}
+
+.trash-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.trash-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.trash-empty {
+  color: #666;
+  text-align: center;
+  padding: 48px;
+}
+
+.trash-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.trash-table th,
+.trash-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid #333;
+}
+
+.trash-table th {
+  color: #888;
+  font-weight: 500;
+}
+
+.trash-actions {
+  display: flex;
+  gap: 8px;
+}
+
+button.small {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+button.danger {
+  background: #7f1d1d;
+  color: #fca5a5;
+}
+
+button.danger:hover {
+  background: #991b1b;
 }
 </style>
