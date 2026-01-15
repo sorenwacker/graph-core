@@ -35,10 +35,8 @@ const metadataCollapsed = ref(false)
 const expandedChildren = ref(new Set())
 const grandchildren = ref({}) // childId -> grandchildren array
 
-// Split view scroll sync
-const splitEditor = ref(null)
+// Split view preview ref
 const splitPreview = ref(null)
-const isSyncingScroll = ref(false)
 
 // Panel resizing
 const isResizing = ref(false)
@@ -155,9 +153,30 @@ function wrapWithParent() {
 async function copyNodeContent() {
   try {
     const result = await api.exportMarkdown(editedNode.value.id)
-    await navigator.clipboard.writeText(result.markdown)
+
+    // Generate filename: YYMMDD-nodename.md
+    const date = new Date()
+    const yy = String(date.getFullYear()).slice(-2)
+    const mm = String(date.getMonth() + 1).padStart(2, '0')
+    const dd = String(date.getDate()).padStart(2, '0')
+    const dateStr = `${yy}${mm}${dd}`
+    const safeName = editedNode.value.title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .substring(0, 50)
+    const filename = `${dateStr}-${safeName}.md`
+
+    // Download file
+    const blob = new Blob([result.markdown], { type: 'text/markdown' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
   } catch (err) {
-    console.error('Failed to copy:', err)
+    console.error('Failed to export:', err)
   }
 }
 
@@ -193,31 +212,6 @@ function selectChild(child) {
   emit('select-child', child.id)
 }
 
-function syncScroll(source) {
-  if (isSyncingScroll.value) return
-  isSyncingScroll.value = true
-
-  const editor = splitEditor.value
-  const preview = splitPreview.value
-
-  if (!editor || !preview) {
-    isSyncingScroll.value = false
-    return
-  }
-
-  if (source === 'editor') {
-    const scrollRatio = editor.scrollTop / (editor.scrollHeight - editor.clientHeight || 1)
-    preview.scrollTop = scrollRatio * (preview.scrollHeight - preview.clientHeight)
-  } else {
-    const scrollRatio = preview.scrollTop / (preview.scrollHeight - preview.clientHeight || 1)
-    editor.scrollTop = scrollRatio * (editor.scrollHeight - editor.clientHeight)
-  }
-
-  requestAnimationFrame(() => {
-    isSyncingScroll.value = false
-  })
-}
-
 // Resize handling
 function startResize(e) {
   isResizing.value = true
@@ -250,11 +244,8 @@ function updateDate(field, value) {
 
     <div class="detail-panel-header">
       <div class="header-actions">
-        <button class="copy-btn" @click="copyNodeContent" title="Copy as text">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-          </svg>
+        <button class="copy-btn" @click="copyNodeContent" title="Copy as Markdown">
+          MD
         </button>
         <button class="close-btn" @click="$emit('close')" title="Close">x</button>
       </div>
@@ -320,10 +311,9 @@ function updateDate(field, value) {
               v-if="activeTab === 'edit'"
               :value="editedNode.notes"
               placeholder="Add notes (Markdown supported)..."
-              class="notes-editor"
+              class="notes-editor notes-textarea"
               @input="editedNode.notes = $event.target.value"
               @blur="saveChanges"
-              @keydown.escape="$emit('close')"
             ></textarea>
 
             <div v-else-if="activeTab === 'preview'" class="notes-preview markdown-body">
@@ -333,19 +323,15 @@ function updateDate(field, value) {
 
             <div v-else class="notes-split">
               <textarea
-                ref="splitEditor"
                 :value="editedNode.notes"
                 placeholder="Add notes (Markdown supported)..."
-                class="notes-editor split-editor"
+                class="notes-editor notes-textarea split-editor"
                 @input="editedNode.notes = $event.target.value"
                 @blur="saveChanges"
-                @keydown.escape="$emit('close')"
-                @scroll="syncScroll('editor')"
               ></textarea>
               <div
                 ref="splitPreview"
                 class="notes-preview markdown-body split-preview"
-                @scroll="syncScroll('preview')"
               >
                 <MarkdownRenderer v-if="editedNode.notes" :content="editedNode.notes" />
                 <p v-else class="placeholder">No notes yet</p>
@@ -656,11 +642,12 @@ function updateDate(field, value) {
 }
 
 .detail-panel-header {
-  padding: 4px 8px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--border-color);
   display: flex;
   justify-content: flex-end;
   flex-shrink: 0;
+  background: var(--bg-secondary);
 }
 
 .header-actions {
@@ -669,13 +656,14 @@ function updateDate(field, value) {
 }
 
 .header-actions button {
-  background: none;
-  border: none;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   color: var(--text-secondary);
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 4px 10px;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .header-actions button:hover {
@@ -885,10 +873,10 @@ function updateDate(field, value) {
   box-sizing: border-box;
   overflow-y: auto;
   flex: 1 1 0;
-  min-height: 0;
+  min-height: 100px;
 }
 
-.notes-editor {
+.notes-textarea {
   color: var(--text-primary);
   font-family: inherit;
   font-size: 13px;
@@ -897,13 +885,14 @@ function updateDate(field, value) {
   padding: 8px;
 }
 
-.notes-editor:focus {
+.notes-textarea:focus {
   outline: none;
 }
 
 .notes-preview {
   padding: 8px;
   font-size: 13px;
+  overflow-y: auto;
   line-height: 1.5;
 }
 

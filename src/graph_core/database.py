@@ -1,5 +1,7 @@
 """SQLite database operations for nodes."""
 
+import os
+import platform
 import sqlite3
 import threading
 from datetime import datetime
@@ -9,11 +11,34 @@ from typing import Optional
 from .models import Node, NodeCreate, NodeUpdate, NodeType
 
 
+def get_data_dir() -> Path:
+    """Get the OS-appropriate data directory for graph-core."""
+    system = platform.system()
+    if system == "Darwin":  # macOS
+        base = Path.home() / "Library" / "Application Support"
+    elif system == "Windows":
+        base = Path(os.environ.get("APPDATA", Path.home()))
+    else:  # Linux and others
+        base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+
+    data_dir = base / "graph-core"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir
+
+
+def get_default_db_path() -> Path:
+    """Get the default database path."""
+    return get_data_dir() / "graph.db"
+
+
 class Database:
     """SQLite database for node storage."""
 
-    def __init__(self, db_path: str = "graph.db"):
-        self.db_path = Path(db_path)
+    def __init__(self, db_path: Optional[str] = None):
+        if db_path is None:
+            self.db_path = get_default_db_path()
+        else:
+            self.db_path = Path(db_path)
         self.conn: Optional[sqlite3.Connection] = None
         self._lock = threading.Lock()
 

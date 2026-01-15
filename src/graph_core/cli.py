@@ -7,18 +7,32 @@ from rich.console import Console
 from rich.table import Table
 from rich.tree import Tree
 
-from .database import Database
+from .database import Database, get_default_db_path, get_data_dir
 from .models import NodeCreate, NodeType, NodeUpdate
 
 app = typer.Typer(help="Graph Core CLI - Unified node-based graph management")
 console = Console()
 
 
-def get_db(db_path: str = "graph.db") -> Database:
+def get_db(db_path: Optional[str] = None) -> Database:
     """Get database connection."""
     db = Database(db_path)
     db.connect()
     return db
+
+
+@app.command()
+def info():
+    """Show database location and info."""
+    db_path = get_default_db_path()
+    data_dir = get_data_dir()
+    console.print(f"[bold]Data directory:[/bold] {data_dir}")
+    console.print(f"[bold]Database path:[/bold] {db_path}")
+    if db_path.exists():
+        size = db_path.stat().st_size
+        console.print(f"[bold]Database size:[/bold] {size / 1024:.1f} KB")
+    else:
+        console.print("[yellow]Database not created yet[/yellow]")
 
 
 # Server command
