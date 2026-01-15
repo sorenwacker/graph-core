@@ -17,6 +17,7 @@ class NodeType(str, Enum):
     TOPIC = "topic"
     FOLDER = "folder"
     PERSON = "person"
+    EVENT = "event"
 
 
 class NodeBase(BaseModel):
@@ -28,12 +29,15 @@ class NodeBase(BaseModel):
     notes: str = ""
     notes_sensitive: bool = False
     completed: bool = False
+    favorite: bool = False
     color: Optional[str] = None
     sort_order: int = 0
     importance: Optional[int] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     due_date: Optional[str] = None
+    # Event/location field
+    location: Optional[str] = None
     # Person-specific fields
     email: Optional[str] = None
     phone: Optional[str] = None
@@ -58,12 +62,15 @@ class NodeUpdate(BaseModel):
     notes: Optional[str] = None
     notes_sensitive: Optional[bool] = None
     completed: Optional[bool] = None
+    favorite: Optional[bool] = None
     color: Optional[str] = None
     sort_order: Optional[int] = None
     importance: Optional[int] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     due_date: Optional[str] = None
+    # Event/location field
+    location: Optional[str] = None
     # Person-specific fields
     email: Optional[str] = None
     phone: Optional[str] = None

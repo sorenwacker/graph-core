@@ -1,35 +1,70 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { api } from '../services/api.js'
 
 const props = defineProps({
-  selectedId: Number
+  selectedId: Number,
+  hideCompleted: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['select', 'update'])
 
 const persons = ref([])
-const personLinks = ref({}) // personId -> [linked nodes]
+const personLinks = ref({})
 const loading = ref(true)
-const newPersonName = ref('')
-const expandedPersons = ref(new Set())
 const editingPerson = ref(null)
+const viewMode = ref('cards') // 'cards' or 'table'
+const sortBy = ref('title')
+const sortDir = ref('asc')
+
+// Color palette
+const personColors = [
+  '#d93025', '#ea4335', '#ef5350', '#ff5252',
+  '#c2185b', '#e91e63', '#f06292',
+  '#ef6c00', '#ff7043', '#ff9800',
+  '#f9a825', '#ffb300', '#ffc107',
+  '#0f9d58', '#34a853', '#43a047', '#4caf50',
+  '#009688', '#00897b', '#26a69a',
+  '#00bcd4', '#00acc1',
+  '#0288d1', '#039be5', '#03a9f4', '#4285f4',
+  '#673ab7', '#5e35b1', '#7b1fa2', '#9c27b0',
+  '#455a64', '#607d8b', '#78909c'
+]
 
 onMounted(async () => {
   await loadPersons()
 })
 
+const sortedPersons = computed(() => {
+  let filtered = persons.value
+  // Filter out completed persons if hideCompleted is true
+  if (props.hideCompleted) {
+    filtered = filtered.filter(p => !p.completed)
+  }
+  const sorted = [...filtered]
+  sorted.sort((a, b) => {
+    const aVal = (a[sortBy.value] || '').toLowerCase()
+    const bVal = (b[sortBy.value] || '').toLowerCase()
+    if (aVal < bVal) return sortDir.value === 'asc' ? -1 : 1
+    if (aVal > bVal) return sortDir.value === 'asc' ? 1 : -1
+    return 0
+  })
+  return sorted
+})
+
 async function loadPersons() {
   loading.value = true
   try {
-    // Get all person nodes
-    const allNodes = await api.getRoots()
-    persons.value = allNodes.filter(n => n.type === 'person')
+    const allNodes = await api.getNodes({ type: 'person' })
+    persons.value = allNodes
 
-    // Load links for each person
     for (const person of persons.value) {
-      const links = await api.getLinkedNodes(person.id)
-      personLinks.value[person.id] = links
+      try {
+        const links = await api.getLinkedNodes(person.id)
+        personLinks.value[person.id] = links
+      } catch {
+        personLinks.value[person.id] = []
+      }
     }
   } catch (err) {
     console.error('Failed to load persons:', err)
@@ -37,71 +72,90 @@ async function loadPersons() {
   loading.value = false
 }
 
-async function addPerson() {
-  if (!newPersonName.value.trim()) return
+function getInitials(name) {
+  if (!name) return '?'
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+}
 
-  try {
-    await api.createNode({
-      title: newPersonName.value.trim(),
-      type: 'person'
-    })
-    newPersonName.value = ''
-    await loadPersons()
-  } catch (err) {
-    console.error('Failed to create person:', err)
+function getRandomColor() {
+  return personColors[Math.floor(Math.random() * personColors.length)]
+}
+
+function showAddPerson() {
+  editingPerson.value = {
+    title: '',
+    email: '',
+    phone: '',
+    organization: '',
+    role: '',
+    website: '',
+    notes: '',
+    color: getRandomColor(),
+    type: 'person'
   }
 }
 
-async function deletePerson(person) {
-  if (!confirm(`Delete "${person.title}"?`)) return
+function editPerson(person) {
+  editingPerson.value = { ...person }
+}
+
+async function savePerson() {
+  if (!editingPerson.value?.title?.trim()) return
 
   try {
-    await api.deleteNode(person.id)
+    const data = {
+      title: editingPerson.value.title,
+      type: 'person',
+      email: editingPerson.value.email || '',
+      phone: editingPerson.value.phone || '',
+      organization: editingPerson.value.organization || '',
+      role: editingPerson.value.role || '',
+      website: editingPerson.value.website || '',
+      notes: editingPerson.value.notes || '',
+      color: editingPerson.value.color || '#0f4c75'
+    }
+
+    if (editingPerson.value.id) {
+      await api.updateNode(editingPerson.value.id, data)
+    } else {
+      await api.createNode(data)
+    }
+
+    editingPerson.value = null
+    await loadPersons()
+  } catch (err) {
+    console.error('Failed to save person:', err)
+  }
+}
+
+async function deletePerson() {
+  if (!editingPerson.value?.id) return
+  if (!confirm(`Delete "${editingPerson.value.title}"?`)) return
+
+  try {
+    await api.deleteNode(editingPerson.value.id)
+    editingPerson.value = null
     await loadPersons()
   } catch (err) {
     console.error('Failed to delete person:', err)
   }
 }
 
-function toggleExpand(personId) {
-  if (expandedPersons.value.has(personId)) {
-    expandedPersons.value.delete(personId)
-  } else {
-    expandedPersons.value.add(personId)
-  }
+function cancelEdit() {
+  editingPerson.value = null
 }
 
 function selectPerson(person) {
   emit('select', person)
 }
 
-function startEdit(person) {
-  editingPerson.value = { ...person }
-}
-
-async function saveEdit() {
-  if (!editingPerson.value) return
-
-  try {
-    await api.updateNode(editingPerson.value.id, {
-      title: editingPerson.value.title,
-      email: editingPerson.value.email,
-      phone: editingPerson.value.phone,
-      organization: editingPerson.value.organization,
-      role: editingPerson.value.role,
-      address: editingPerson.value.address,
-      website: editingPerson.value.website,
-      notes: editingPerson.value.notes
-    })
-    editingPerson.value = null
-    await loadPersons()
-  } catch (err) {
-    console.error('Failed to update person:', err)
+function toggleSort(column) {
+  if (sortBy.value === column) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortBy.value = column
+    sortDir.value = 'asc'
   }
-}
-
-function cancelEdit() {
-  editingPerson.value = null
 }
 
 function getLinksForPerson(personId) {
@@ -112,151 +166,154 @@ function getLinksForPerson(personId) {
 <template>
   <div class="persons-view">
     <div class="persons-header">
-      <h3>Persons Register</h3>
-      <div class="add-person">
-        <input
-          v-model="newPersonName"
-          placeholder="Add person..."
-          @keyup.enter="addPerson"
-        />
-        <button @click="addPerson">+</button>
+      <h2>People</h2>
+      <div class="view-switcher">
+        <button :class="{ active: viewMode === 'cards' }" @click="viewMode = 'cards'">Cards</button>
+        <button :class="{ active: viewMode === 'table' }" @click="viewMode = 'table'">Table</button>
       </div>
+      <button class="add-btn" @click="showAddPerson">+ Add Person</button>
     </div>
 
     <div v-if="loading" class="loading">Loading...</div>
 
-    <div v-else-if="persons.length === 0" class="empty">
-      No persons yet. Add one above.
-    </div>
-
-    <div v-else class="persons-list">
+    <!-- Cards View -->
+    <div v-else-if="viewMode === 'cards'" class="persons-cards">
+      <div v-if="sortedPersons.length === 0" class="empty-state">No persons added yet</div>
       <div
-        v-for="person in persons"
+        v-for="person in sortedPersons"
         :key="person.id"
-        class="person-item"
-        :class="{ selected: selectedId === person.id }"
+        class="person-card"
+        :style="{ borderLeftColor: person.color || '#0f4c75' }"
+        @click="editPerson(person)"
       >
-        <div class="person-header" @click="selectPerson(person)">
-          <button
-            class="expand-btn"
-            @click.stop="toggleExpand(person.id)"
-          >
-            {{ expandedPersons.has(person.id) ? '-' : '+' }}
-          </button>
-          <span class="person-icon">U</span>
+        <div class="card-header">
+          <div class="person-avatar" :style="{ background: person.color || '#0f4c75' }">
+            {{ getInitials(person.title) }}
+          </div>
           <div class="person-info">
-            <span class="person-name">{{ person.title }}</span>
-            <span v-if="person.organization || person.role" class="person-subtitle">
-              {{ person.role }}{{ person.role && person.organization ? ' @ ' : '' }}{{ person.organization }}
-            </span>
-          </div>
-          <span class="link-count">({{ getLinksForPerson(person.id).length }})</span>
-          <button class="edit-btn" @click.stop="startEdit(person)" title="Edit">e</button>
-          <button class="delete-btn" @click.stop="deletePerson(person)" title="Delete">x</button>
-        </div>
-
-        <div v-if="expandedPersons.has(person.id)" class="person-details">
-          <!-- Contact Info -->
-          <div class="detail-section">
-            <div v-if="person.email" class="detail-row">
-              <span class="detail-label">Email</span>
-              <a :href="'mailto:' + person.email" class="detail-value link">{{ person.email }}</a>
-            </div>
-            <div v-if="person.phone" class="detail-row">
-              <span class="detail-label">Phone</span>
-              <a :href="'tel:' + person.phone" class="detail-value link">{{ person.phone }}</a>
-            </div>
-            <div v-if="person.organization" class="detail-row">
-              <span class="detail-label">Organization</span>
-              <span class="detail-value">{{ person.organization }}</span>
-            </div>
-            <div v-if="person.role" class="detail-row">
-              <span class="detail-label">Role</span>
-              <span class="detail-value">{{ person.role }}</span>
-            </div>
-            <div v-if="person.address" class="detail-row">
-              <span class="detail-label">Address</span>
-              <span class="detail-value">{{ person.address }}</span>
-            </div>
-            <div v-if="person.website" class="detail-row">
-              <span class="detail-label">Website</span>
-              <a :href="person.website" target="_blank" class="detail-value link">{{ person.website }}</a>
-            </div>
-            <div v-if="person.notes" class="detail-row notes-row">
-              <span class="detail-label">Notes</span>
-              <span class="detail-value notes">{{ person.notes }}</span>
-            </div>
-            <div v-if="!person.email && !person.phone && !person.organization && !person.role && !person.address && !person.website && !person.notes" class="no-details">
-              No contact details. Click edit to add.
-            </div>
-          </div>
-
-          <!-- Linked Nodes -->
-          <div class="links-section">
-            <div class="section-title">Linked to ({{ getLinksForPerson(person.id).length }})</div>
-            <div v-if="getLinksForPerson(person.id).length === 0" class="no-links">
-              Not linked to any nodes
-            </div>
-            <div
-              v-for="link in getLinksForPerson(person.id)"
-              :key="link.id"
-              class="link-item"
-            >
-              <span class="link-type" :class="link.type">{{ link.type[0].toUpperCase() }}</span>
-              <span class="link-title">{{ link.title }}</span>
-            </div>
+            <div class="person-name">{{ person.title }}</div>
+            <div v-if="person.role" class="person-role">{{ person.role }}</div>
           </div>
         </div>
+        <div v-if="person.organization" class="person-company">{{ person.organization }}</div>
+        <div v-if="person.email" class="person-email">{{ person.email }}</div>
+        <div v-if="person.notes" class="person-notes">{{ person.notes }}</div>
+        <div class="person-links-count">{{ getLinksForPerson(person.id).length }} linked</div>
       </div>
     </div>
 
-    <!-- Edit Modal -->
-    <div v-if="editingPerson" class="edit-modal-overlay" @click.self="cancelEdit">
-      <div class="edit-modal">
-        <div class="edit-modal-header">
-          <h3>Edit Person</h3>
-          <button class="close-btn" @click="cancelEdit">x</button>
-        </div>
-        <div class="edit-modal-body">
-          <div class="edit-field">
-            <label>Name</label>
-            <input v-model="editingPerson.title" />
+    <!-- Table View -->
+    <div v-else class="table-container">
+      <table class="persons-table">
+        <thead>
+          <tr>
+            <th class="col-color"></th>
+            <th class="col-name sortable" @click="toggleSort('title')">
+              Name
+              <span v-if="sortBy === 'title'" class="sort-icon">{{ sortDir === 'asc' ? '^' : 'v' }}</span>
+            </th>
+            <th class="col-role sortable" @click="toggleSort('role')">
+              Role
+              <span v-if="sortBy === 'role'" class="sort-icon">{{ sortDir === 'asc' ? '^' : 'v' }}</span>
+            </th>
+            <th class="col-email sortable" @click="toggleSort('email')">
+              Email
+              <span v-if="sortBy === 'email'" class="sort-icon">{{ sortDir === 'asc' ? '^' : 'v' }}</span>
+            </th>
+            <th class="col-company sortable" @click="toggleSort('organization')">
+              Organization
+              <span v-if="sortBy === 'organization'" class="sort-icon">{{ sortDir === 'asc' ? '^' : 'v' }}</span>
+            </th>
+            <th class="col-links">Links</th>
+            <th class="col-actions"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="person in sortedPersons" :key="person.id" @click="selectPerson(person)">
+            <td class="col-color">
+              <div class="color-dot" :style="{ background: person.color || '#0f4c75' }"></div>
+            </td>
+            <td class="col-name">{{ person.title }}</td>
+            <td class="col-role">{{ person.role || '-' }}</td>
+            <td class="col-email">{{ person.email || '-' }}</td>
+            <td class="col-company">{{ person.organization || '-' }}</td>
+            <td class="col-links">{{ getLinksForPerson(person.id).length }}</td>
+            <td class="col-actions">
+              <button class="edit-btn" @click.stop="editPerson(person)">Edit</button>
+            </td>
+          </tr>
+          <tr v-if="sortedPersons.length === 0">
+            <td colspan="7" class="empty-row">No persons added yet</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Edit Person Modal -->
+    <Teleport to="body">
+      <div v-if="editingPerson" class="person-modal" @click.self="cancelEdit">
+        <div class="modal-content">
+          <h3>{{ editingPerson.id ? 'Edit Person' : 'Add Person' }}</h3>
+
+          <div class="form-grid">
+            <div class="form-field">
+              <label>Name *</label>
+              <input v-model="editingPerson.title" placeholder="Full name" />
+            </div>
+
+            <div class="form-field">
+              <label>Email</label>
+              <input v-model="editingPerson.email" type="email" placeholder="email@example.com" />
+            </div>
+
+            <div class="form-field">
+              <label>Phone</label>
+              <input v-model="editingPerson.phone" type="tel" placeholder="+1 234 567 8900" />
+            </div>
+
+            <div class="form-field">
+              <label>Organization</label>
+              <input v-model="editingPerson.organization" placeholder="Company name" />
+            </div>
+
+            <div class="form-field">
+              <label>Role / Title</label>
+              <input v-model="editingPerson.role" placeholder="Job title" />
+            </div>
+
+            <div class="form-field">
+              <label>Website</label>
+              <input v-model="editingPerson.website" type="url" placeholder="https://..." />
+            </div>
+
+            <div class="form-field full-width">
+              <label>Notes</label>
+              <textarea v-model="editingPerson.notes" placeholder="Add notes..." rows="4"></textarea>
+            </div>
           </div>
-          <div class="edit-field">
-            <label>Email</label>
-            <input v-model="editingPerson.email" type="email" placeholder="email@example.com" />
+
+          <div class="color-picker">
+            <label>Color</label>
+            <div class="color-grid">
+              <div
+                v-for="color in personColors"
+                :key="color"
+                class="color-option"
+                :class="{ selected: editingPerson.color === color }"
+                :style="{ background: color }"
+                @click="editingPerson.color = color"
+              ></div>
+            </div>
           </div>
-          <div class="edit-field">
-            <label>Phone</label>
-            <input v-model="editingPerson.phone" type="tel" placeholder="+1 234 567 8900" />
+
+          <div class="modal-actions">
+            <button v-if="editingPerson.id" class="delete-btn" @click="deletePerson">Delete</button>
+            <button @click="cancelEdit">Cancel</button>
+            <button class="primary" :disabled="!editingPerson.title?.trim()" @click="savePerson">Save</button>
           </div>
-          <div class="edit-field">
-            <label>Organization</label>
-            <input v-model="editingPerson.organization" placeholder="Company name" />
-          </div>
-          <div class="edit-field">
-            <label>Role / Title</label>
-            <input v-model="editingPerson.role" placeholder="Job title" />
-          </div>
-          <div class="edit-field">
-            <label>Address</label>
-            <input v-model="editingPerson.address" placeholder="Address" />
-          </div>
-          <div class="edit-field">
-            <label>Website</label>
-            <input v-model="editingPerson.website" type="url" placeholder="https://..." />
-          </div>
-          <div class="edit-field">
-            <label>Notes</label>
-            <textarea v-model="editingPerson.notes" rows="3" placeholder="Additional notes..."></textarea>
-          </div>
-        </div>
-        <div class="edit-modal-footer">
-          <button class="cancel-btn" @click="cancelEdit">Cancel</button>
-          <button class="save-btn" @click="saveEdit">Save</button>
         </div>
       </div>
-    </div>
+    </Teleport>
   </div>
 </template>
 
@@ -266,267 +323,262 @@ function getLinksForPerson(personId) {
   display: flex;
   flex-direction: column;
   background: var(--bg-primary);
+  padding: 16px;
 }
 
 .persons-header {
-  padding: 16px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.persons-header h3 {
-  margin: 0 0 12px 0;
-  font-size: 14px;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.add-person {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
-.add-person input {
-  flex: 1;
-  padding: 8px 12px;
+.persons-header h2 {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.view-switcher {
+  display: flex;
+  gap: 4px;
   background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.view-switcher button {
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.view-switcher button:hover {
   color: var(--text-primary);
 }
 
-.add-person button {
-  padding: 8px 12px;
+.view-switcher button.active {
   background: var(--accent-color);
-  border: none;
-  border-radius: 4px;
   color: white;
-  cursor: pointer;
 }
 
-.loading, .empty {
-  padding: 24px;
+.add-btn {
+  margin-left: auto;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.add-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.loading {
   text-align: center;
+  color: var(--text-tertiary);
+  padding: 40px;
+}
+
+/* Cards View */
+.persons-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--text-tertiary);
+  padding: 40px;
+}
+
+.person-card {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+  border-left: 4px solid var(--accent-color);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.person-card:hover {
+  background: var(--bg-tertiary);
+  transform: translateY(-2px);
+}
+
+.card-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.person-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.person-info .person-name {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.person-info .person-role {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.person-company {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.person-email {
+  font-size: 13px;
   color: var(--text-tertiary);
 }
 
-.persons-list {
-  flex: 1;
-  overflow-y: auto;
+.person-notes {
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.03);
   padding: 8px;
-}
-
-.person-item {
-  margin-bottom: 8px;
-  border-radius: 8px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  max-height: 80px;
   overflow: hidden;
-  border: 1px solid var(--border-color);
 }
 
-.person-item.selected .person-header {
-  background: var(--accent-color);
+.person-links-count {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: auto;
 }
 
-.person-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px;
+/* Table View */
+.table-container {
+  flex: 1;
+  overflow: auto;
+}
+
+.persons-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.persons-table th,
+.persons-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.persons-table th {
   background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  user-select: none;
+}
+
+.persons-table th.sortable {
+  cursor: pointer;
+}
+
+.persons-table th.sortable:hover {
+  color: var(--text-primary);
+}
+
+.sort-icon {
+  margin-left: 4px;
+  font-size: 10px;
+}
+
+.persons-table tbody tr {
   cursor: pointer;
   transition: background 0.15s;
 }
 
-.person-header:hover {
-  background: var(--bg-tertiary);
+.persons-table tbody tr:hover {
+  background: var(--bg-secondary);
 }
 
-.expand-btn {
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 14px;
+.col-color {
+  width: 30px;
 }
 
-.person-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: rgba(251, 146, 60, 0.15);
-  color: #fb923c;
-  border: 1px solid rgba(251, 146, 60, 0.3);
+.color-dot {
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  font-size: 14px;
-  font-weight: 600;
 }
 
-.person-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.person-name {
-  font-weight: 600;
-  font-size: 15px;
-}
-
-.person-subtitle {
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-
-.link-count {
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-
-.edit-btn, .delete-btn {
-  opacity: 0;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: opacity 0.15s;
-}
-
-.edit-btn {
-  background: rgba(59, 130, 246, 0.15);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  color: #60a5fa;
-}
-
-.delete-btn {
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #f87171;
-}
-
-.person-header:hover .edit-btn,
-.person-header:hover .delete-btn {
-  opacity: 1;
-}
-
-.person-details {
-  padding: 16px;
-  background: var(--bg-tertiary);
-  border-top: 1px solid var(--border-color);
-}
-
-.detail-section {
-  margin-bottom: 16px;
-}
-
-.detail-row {
-  display: flex;
-  padding: 8px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.detail-label {
-  width: 100px;
-  font-size: 12px;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-}
-
-.detail-value {
-  flex: 1;
-  font-size: 14px;
+.col-name {
+  font-weight: 500;
   color: var(--text-primary);
 }
 
-.detail-value.link {
-  color: var(--accent-color);
-  text-decoration: none;
+.col-links {
+  width: 60px;
+  text-align: center;
 }
 
-.detail-value.link:hover {
-  text-decoration: underline;
+.col-actions {
+  width: 60px;
+  text-align: right;
 }
 
-.detail-value.notes {
-  white-space: pre-wrap;
-  color: var(--text-secondary);
-}
-
-.notes-row {
-  flex-direction: column;
-  gap: 4px;
-}
-
-.notes-row .detail-label {
-  width: auto;
-}
-
-.no-details {
-  font-size: 13px;
-  color: var(--text-tertiary);
-  font-style: italic;
-  padding: 8px 0;
-}
-
-.links-section {
-  border-top: 1px solid var(--border-color);
-  padding-top: 12px;
-}
-
-.section-title {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  margin-bottom: 8px;
-}
-
-.no-links {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  font-style: italic;
-}
-
-.link-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-  font-size: 13px;
-}
-
-.link-type {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
+.edit-btn {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 3px;
+  cursor: pointer;
   font-size: 11px;
-  font-weight: 600;
 }
 
-.link-type.project { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
-.link-type.task { background: rgba(234, 179, 8, 0.15); color: #fbbf24; }
-.link-type.note { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
-.link-type.milestone { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
-.link-type.topic { background: rgba(6, 182, 212, 0.15); color: #22d3ee; }
-
-.link-title {
-  color: var(--text-secondary);
+.empty-row {
+  text-align: center;
+  color: var(--text-tertiary);
+  padding: 24px !important;
 }
+</style>
 
-/* Edit Modal */
-.edit-modal-overlay {
+<style>
+/* Modal - unscoped for Teleport */
+.person-modal {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
@@ -534,109 +586,146 @@ function getLinksForPerson(personId) {
   z-index: 1000;
 }
 
-.edit-modal {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-color);
+.person-modal .modal-content {
+  background: var(--bg-elevated, #1a1f2e);
+  padding: 24px;
   border-radius: 12px;
-  width: 400px;
-  max-height: 80vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.edit-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.edit-modal-header h3 {
-  margin: 0;
-  font-size: 16px;
-}
-
-.close-btn {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.edit-modal-body {
-  padding: 16px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  border: 1px solid var(--border-color, #333);
 }
 
-.edit-field {
+.person-modal .modal-content h3 {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  color: var(--text-primary, #f0f0f0);
+}
+
+.person-modal .form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.person-modal .form-field {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.edit-field label {
+.person-modal .form-field.full-width {
+  grid-column: 1 / -1;
+}
+
+.person-modal .form-field label {
   font-size: 12px;
-  color: var(--text-secondary);
+  font-weight: 500;
+  color: var(--text-secondary, #aaa);
 }
 
-.edit-field input,
-.edit-field textarea {
-  padding: 10px 12px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
+.person-modal .form-field input,
+.person-modal .form-field textarea {
+  background: var(--bg-primary, #0d0d0d);
+  border: 1px solid var(--border-color, #333);
+  color: var(--text-primary, #f0f0f0);
+  padding: 8px 10px;
   border-radius: 6px;
-  color: var(--text-primary);
-  font-size: 14px;
+  font-size: 13px;
+  font-family: inherit;
 }
 
-.edit-field input:focus,
-.edit-field textarea:focus {
+.person-modal .form-field input:focus,
+.person-modal .form-field textarea:focus {
   outline: none;
-  border-color: var(--accent-color);
+  border-color: var(--accent-color, #0f4c75);
 }
 
-.edit-field textarea {
+.person-modal .form-field textarea {
   resize: vertical;
-  min-height: 60px;
+  min-height: 80px;
 }
 
-.edit-modal-footer {
+.person-modal .color-picker {
+  margin: 16px 0;
+}
+
+.person-modal .color-picker label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary, #aaa);
+}
+
+.person-modal .color-grid {
   display: flex;
-  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
-  padding: 16px;
-  border-top: 1px solid var(--border-color);
 }
 
-.cancel-btn {
-  padding: 10px 16px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  color: var(--text-secondary);
+.person-modal .color-option {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
   cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.15s;
 }
 
-.save-btn {
-  padding: 10px 20px;
-  background: var(--accent-color);
+.person-modal .color-option:hover {
+  transform: scale(1.1);
+}
+
+.person-modal .color-option.selected {
+  border-color: white;
+  transform: scale(1.15);
+}
+
+.person-modal .modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.person-modal .modal-actions button {
+  padding: 8px 16px;
   border: none;
   border-radius: 6px;
-  color: white;
-  font-weight: 500;
   cursor: pointer;
+  background: var(--bg-tertiary, #2a2a2a);
+  color: var(--text-primary, #f0f0f0);
+  font-size: 13px;
 }
 
-.save-btn:hover {
-  opacity: 0.9;
+.person-modal .modal-actions button:hover {
+  background: var(--bg-hover, #333);
+}
+
+.person-modal .modal-actions button.primary {
+  background: #2ecc71;
+  color: white;
+}
+
+.person-modal .modal-actions button.primary:hover {
+  background: #27ae60;
+}
+
+.person-modal .modal-actions button.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.person-modal .modal-actions button.delete-btn {
+  background: #e74c3c;
+  color: white;
+  margin-right: auto;
+}
+
+.person-modal .modal-actions button.delete-btn:hover {
+  background: #c0392b;
 }
 </style>

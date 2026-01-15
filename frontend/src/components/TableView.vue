@@ -1,14 +1,28 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 const props = defineProps({
   nodes: { type: Array, default: () => [] },
   selectedId: Number,
   selectedIds: { type: Set, default: () => new Set() },
-  expandedIds: { type: Set, default: () => new Set() }
+  expandedIds: { type: Set, default: () => new Set() },
+  hideCompleted: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['select', 'select-multiple', 'enter', 'toggle-complete', 'toggle-expand', 'add-child', 'delete', 'move', 'reorder'])
+// Filter nodes recursively to hide completed items
+function filterNodes(nodeList) {
+  if (!props.hideCompleted) return nodeList
+  return nodeList
+    .filter(node => !node.completed && !node.inheritedCompleted)
+    .map(node => ({
+      ...node,
+      children: node.children ? filterNodes(node.children) : []
+    }))
+}
+
+const filteredNodes = computed(() => filterNodes(props.nodes))
+
+const emit = defineEmits(['select', 'select-multiple', 'enter', 'toggle-complete', 'toggle-expand', 'add-child', 'delete', 'move', 'move-multiple', 'reorder'])
 
 // Drag state
 const draggedNode = ref(null)
@@ -104,15 +118,30 @@ function onDragLeave(e) {
 
 function onDrop(e, targetNode) {
   e.preventDefault()
-  if (!draggedNode.value || draggedNode.value.id === targetNode.id) return
+  if (!draggedNode.value) return
+  if (targetNode && draggedNode.value.id === targetNode.id) return
 
   const sourceNode = draggedNode.value
 
-  if (dropPosition.value === 'inside') {
+  // Check if we're moving multiple selected items
+  const hasMultipleSelected = props.selectedIds?.size > 1 && props.selectedIds.has(sourceNode.id)
+
+  if (targetNode === null) {
+    // Dropping to root
+    if (hasMultipleSelected) {
+      emit('move-multiple', { nodeIds: Array.from(props.selectedIds), newParentId: null })
+    } else {
+      emit('move', { nodeId: sourceNode.id, newParentId: null })
+    }
+  } else if (dropPosition.value === 'inside') {
     // Move as child of target
-    emit('move', { nodeId: sourceNode.id, newParentId: targetNode.id })
+    if (hasMultipleSelected) {
+      emit('move-multiple', { nodeIds: Array.from(props.selectedIds), newParentId: targetNode.id })
+    } else {
+      emit('move', { nodeId: sourceNode.id, newParentId: targetNode.id })
+    }
   } else {
-    // Reorder: move before or after target
+    // Reorder: move before or after target (single item only for now)
     emit('reorder', {
       nodeId: sourceNode.id,
       targetId: targetNode.id,
@@ -123,6 +152,25 @@ function onDrop(e, targetNode) {
   draggedNode.value = null
   dropTarget.value = null
   dropPosition.value = null
+}
+
+// Drop to root (no parent)
+const rootDropActive = ref(false)
+
+function onRootDragOver(e) {
+  if (!draggedNode.value) return
+  e.preventDefault()
+  rootDropActive.value = true
+}
+
+function onRootDragLeave() {
+  rootDropActive.value = false
+}
+
+function onRootDrop(e) {
+  e.preventDefault()
+  rootDropActive.value = false
+  onDrop(e, null)
 }
 
 function getDropClass(node) {
@@ -165,7 +213,18 @@ function handleClick(e, node) {
         </tr>
       </thead>
       <tbody>
-        <template v-for="(node, nodeIndex) in nodes" :key="node.id">
+        <!-- Root drop zone -->
+        <tr
+          v-if="draggedNode"
+          class="root-drop-zone"
+          :class="{ active: rootDropActive }"
+          @dragover="onRootDragOver"
+          @dragleave="onRootDragLeave"
+          @drop="onRootDrop"
+        >
+          <td colspan="6">Drop here to move to root (no parent)</td>
+        </tr>
+        <template v-for="(node, nodeIndex) in filteredNodes" :key="node.id">
           <!-- Main row -->
           <tr
             class="node-row"
@@ -212,7 +271,11 @@ function handleClick(e, node) {
             <td class="col-type">
               <span class="type-badge" :class="node.type">{{ getTypeIcon(node.type) }}</span>
             </td>
-            <td class="col-title">{{ node.title }}</td>
+            <td class="col-title">
+              <span v-if="node.color && node.color !== '#0f4c75'" class="node-color-dot" :style="{ background: node.color }"></span>
+              <span v-if="node.favorite" class="favorite-star">&#9733;</span>
+              {{ node.title }}
+            </td>
                                                 <td class="col-actions">
                             <button class="action-btn delete" @click.stop="confirmDelete(node.id)" title="Delete">x</button>
             </td>
@@ -264,7 +327,11 @@ function handleClick(e, node) {
                 <td class="col-type">
                   <span class="type-badge" :class="child.type">{{ getTypeIcon(child.type) }}</span>
                 </td>
-                <td class="col-title">{{ child.title }}</td>
+                <td class="col-title">
+                  <span v-if="child.color && child.color !== '#0f4c75'" class="node-color-dot" :style="{ background: child.color }"></span>
+                  <span v-if="child.favorite" class="favorite-star">&#9733;</span>
+                  {{ child.title }}
+                </td>
                                                                 <td class="col-actions">
                                     <button class="action-btn delete" @click.stop="confirmDelete(child.id)" title="Delete">x</button>
                 </td>
@@ -309,7 +376,11 @@ function handleClick(e, node) {
                   <td class="col-type">
                     <span class="type-badge" :class="grandchild.type">{{ getTypeIcon(grandchild.type) }}</span>
                   </td>
-                  <td class="col-title">{{ grandchild.title }}</td>
+                  <td class="col-title">
+                    <span v-if="grandchild.color && grandchild.color !== '#0f4c75'" class="node-color-dot" :style="{ background: grandchild.color }"></span>
+                    <span v-if="grandchild.favorite" class="favorite-star">&#9733;</span>
+                    {{ grandchild.title }}
+                  </td>
                                                                         <td class="col-actions">
                                         <button class="action-btn delete" @click.stop="confirmDelete(grandchild.id)" title="Delete">x</button>
                   </td>
@@ -320,7 +391,7 @@ function handleClick(e, node) {
         </template>
       </tbody>
     </table>
-    <div v-if="nodes.length === 0" class="empty-state">
+    <div v-if="filteredNodes.length === 0" class="empty-state">
       <p>No items</p>
     </div>
   </div>
@@ -558,6 +629,22 @@ td {
   min-width: 200px;
   font-weight: 500;
   color: #f0f0f0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.node-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.favorite-star {
+  color: #ffd700;
+  font-size: 14px;
+  flex-shrink: 0;
 }
 
 .col-children {
@@ -650,5 +737,27 @@ td {
   padding: 60px;
   color: #666;
   font-size: 1rem;
+}
+
+/* Root drop zone */
+.root-drop-zone {
+  background: #1a1a1a;
+  border: 2px dashed #444;
+}
+
+.root-drop-zone td {
+  padding: 12px;
+  text-align: center;
+  color: #666;
+  font-style: italic;
+}
+
+.root-drop-zone.active {
+  background: rgba(74, 158, 255, 0.1);
+  border-color: #4a9eff;
+}
+
+.root-drop-zone.active td {
+  color: #4a9eff;
 }
 </style>

@@ -140,6 +140,14 @@ def get_inbox():
     return [n for n in roots if n.type != NodeType.PROJECT]
 
 
+@app.get("/recent", response_model=list[Node])
+def get_recent(
+    limit: int = Query(10, description="Number of recent items to return"),
+):
+    """Get recently updated nodes."""
+    return db.get_recent_nodes(limit=limit)
+
+
 # Link operations
 
 
@@ -188,3 +196,33 @@ def reorder_node(
     if not node:
         raise HTTPException(status_code=404, detail="Node not found")
     return node
+
+
+@app.get("/nodes/{node_id}/export")
+def export_node_markdown(node_id: int):
+    """Export a node and its descendants as markdown."""
+    node = db.get_node(node_id)
+    if not node:
+        raise HTTPException(status_code=404, detail="Node not found")
+
+    descendants = db.get_descendants(node_id)
+
+    # Build tree from flat list
+    def build_tree(items, parent_id):
+        children = [item for item in items if item.parent_id == parent_id]
+        return [(child, build_tree(items, child.id)) for child in children]
+
+    tree = build_tree(descendants, node_id)
+
+    # Generate markdown
+    def to_markdown(title, notes, children, level):
+        prefix = "#" * min(level, 6)
+        md = f"{prefix} {title or 'Untitled'}\n\n"
+        if notes:
+            md += notes + "\n\n"
+        for child, grandchildren in children:
+            md += to_markdown(child.title, child.notes, grandchildren, level + 1)
+        return md
+
+    markdown = to_markdown(node.title, node.notes, tree, 1)
+    return {"markdown": markdown}

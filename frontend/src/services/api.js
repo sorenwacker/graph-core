@@ -1,4 +1,4 @@
-const API_BASE = 'http://127.0.0.1:8000'
+const API_BASE = '/api'
 
 async function request(endpoint, options = {}) {
   const url = `${API_BASE}${endpoint}`
@@ -60,6 +60,10 @@ export const api = {
     return request('/inbox')
   },
 
+  async getRecent(limit = 10) {
+    return request(`/recent?limit=${limit}`)
+  },
+
   async getChildren(id, type = null) {
     const query = type ? `?type=${type}` : ''
     return request(`/nodes/${id}/children${query}`)
@@ -116,5 +120,10 @@ export const api = {
     return request(`/nodes/${nodeId}/reorder?target_id=${targetId}&position=${position}`, {
       method: 'POST',
     })
+  },
+
+  // Export
+  async exportMarkdown(nodeId) {
+    return request(`/nodes/${nodeId}/export`)
   },
 }

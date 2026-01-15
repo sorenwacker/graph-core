@@ -47,6 +47,8 @@ class Database:
                 start_date TEXT,
                 end_date TEXT,
                 due_date TEXT,
+                -- Event/location field
+                location TEXT,
                 -- Person-specific fields
                 email TEXT,
                 phone TEXT,
@@ -104,6 +106,10 @@ class Database:
             self.conn.execute("ALTER TABLE nodes ADD COLUMN notes_sensitive INTEGER DEFAULT 0")
         except:
             pass
+        try:
+            self.conn.execute("ALTER TABLE nodes ADD COLUMN favorite INTEGER DEFAULT 0")
+        except:
+            pass
         self.conn.commit()
 
     def _row_to_node(self, row: sqlite3.Row) -> Node:
@@ -119,12 +125,15 @@ class Database:
             notes=row["notes"] or "",
             notes_sensitive=bool(row["notes_sensitive"]) if "notes_sensitive" in keys else False,
             completed=bool(row["completed"]),
+            favorite=bool(row["favorite"]) if "favorite" in keys else False,
             color=row["color"],
             sort_order=row["sort_order"],
             importance=row["importance"],
             start_date=row["start_date"],
             end_date=row["end_date"],
             due_date=row["due_date"],
+            # Event/location field
+            location=row["location"] if "location" in keys else None,
             # Person-specific fields
             email=row["email"] if "email" in keys else None,
             phone=row["phone"] if "phone" in keys else None,
@@ -176,10 +185,10 @@ class Database:
         now = datetime.now().isoformat()
         cursor = self.conn.execute(
             """
-            INSERT INTO nodes (type, title, parent_id, notes, notes_sensitive, completed, color,
-                             sort_order, importance, start_date, end_date, due_date,
+            INSERT INTO nodes (type, title, parent_id, notes, notes_sensitive, completed, favorite, color,
+                             sort_order, importance, start_date, end_date, due_date, location,
                              created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 node.type.value,
@@ -188,12 +197,14 @@ class Database:
                 node.notes,
                 int(node.notes_sensitive),
                 int(node.completed),
+                int(node.favorite),
                 node.color,
                 node.sort_order,
                 node.importance,
                 node.start_date,
                 node.end_date,
                 node.due_date,
+                node.location,
                 now,
                 now,
             ),
@@ -326,6 +337,8 @@ class Database:
                 value = int(value)
             if field == "notes_sensitive":
                 value = int(value)
+            if field == "favorite":
+                value = int(value)
             updates.append(f"{field} = ?")
             params.append(value)
 
@@ -421,6 +434,21 @@ class Database:
 
         with self._lock:
             cursor = self.conn.execute(sql, params)
+            rows = cursor.fetchall()
+        return [self._row_to_node(row) for row in rows]
+
+    def get_recent_nodes(self, limit: int = 10) -> list[Node]:
+        """Get recently updated nodes."""
+        with self._lock:
+            cursor = self.conn.execute(
+                """
+                SELECT * FROM nodes
+                WHERE deleted_at IS NULL
+                ORDER BY updated_at DESC
+                LIMIT ?
+                """,
+                (limit,)
+            )
             rows = cursor.fetchall()
         return [self._row_to_node(row) for row in rows]
 

@@ -3,7 +3,8 @@ import { computed } from 'vue'
 
 const props = defineProps({
   nodes: { type: Array, default: () => [] },
-  selectedId: Number
+  selectedId: Number,
+  hideCompleted: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['select', 'enter'])
@@ -14,6 +15,10 @@ const timelineNodes = computed(() => {
 
   function flatten(nodeList) {
     for (const node of nodeList) {
+      // Skip completed items if hideCompleted is true
+      if (props.hideCompleted && (node.completed || node.inheritedCompleted)) {
+        continue
+      }
       if (node.start_date || node.end_date || node.due_date) {
         result.push({
           ...node,

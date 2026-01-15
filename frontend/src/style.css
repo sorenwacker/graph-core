@@ -4,6 +4,12 @@
   padding: 0;
 }
 
+/* Text selection highlight */
+::selection {
+  background: rgba(59, 130, 246, 0.5);
+  color: #fff;
+}
+
 :root {
   --spacing-xs: 4px;
   --spacing-sm: 8px;
@@ -193,6 +199,67 @@ body {
   color: var(--text-tertiary);
   text-transform: uppercase;
   margin-bottom: var(--spacing-sm);
+}
+
+.sidebar-section-header {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  padding-bottom: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 0.15s;
+}
+
+.sidebar-section-header:hover {
+  color: var(--text-secondary);
+}
+
+.sidebar-section-header .collapse-btn {
+  width: 12px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.sidebar-section-header .section-count {
+  margin-left: auto;
+  font-size: 0.65rem;
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  padding: 1px 5px;
+  border-radius: 8px;
+}
+
+.collapsible-section {
+  border-top: 1px solid var(--border-color);
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+}
+
+.recent-item,
+.favorite-item {
+  font-size: 0.8rem;
+  padding: 4px var(--spacing-lg);
+}
+
+.recent-item .label,
+.favorite-item .label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+.favorite-item .favorite-star {
+  color: #ffd700;
+  font-size: 12px;
+  text-shadow: 0 0 4px rgba(255, 215, 0, 0.6);
 }
 
 .sidebar-item {
@@ -545,6 +612,7 @@ input[type="checkbox"] {
 .node-card-type.topic { background: rgba(6, 182, 212, 0.15); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.3); }
 .node-card-type.folder { background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); }
 .node-card-type.person { background: rgba(251, 146, 60, 0.15); color: #fb923c; border: 1px solid rgba(251, 146, 60, 0.3); }
+.node-card-type.event { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
 
 /* Type-colored card borders - left border indicates node type */
 .node-card.type-project { border-left: 4px solid #3b82f6; }
@@ -554,6 +622,7 @@ input[type="checkbox"] {
 .node-card.type-topic { border-left: 4px solid #06b6d4; }
 .node-card.type-folder { border-left: 4px solid #94a3b8; }
 .node-card.type-person { border-left: 4px solid #fb923c; }
+.node-card.type-event { border-left: 4px solid #ef4444; }
 
 .node-card-title {
   font-size: 18px;
@@ -657,6 +726,53 @@ input[type="checkbox"] {
 .child-card.folder { border-left: 3px solid #64748b; background: rgba(100, 116, 139, 0.1); }
 .child-card.person { border-left: 3px solid #f97316; background: rgba(249, 115, 22, 0.1); }
 
+/* Child card notes */
+.child-card-notes-area {
+  margin-top: 4px;
+  width: 100%;
+}
+
+.child-notes-display {
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: text;
+  padding: 2px 4px;
+  border-radius: 3px;
+  min-height: 1.2em;
+  max-height: 3em;
+  overflow: hidden;
+}
+
+.child-notes-display:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.child-notes-display.empty {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.child-notes-textarea {
+  width: 100%;
+  min-height: 1.4em;
+  max-height: 80px;
+  font-size: 11px;
+  font-family: inherit;
+  line-height: 1.4;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  padding: 2px 4px;
+  resize: vertical;
+  field-sizing: content;
+}
+
+.child-notes-textarea:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
 /* Grandchildren (cards within cards) */
 .grandchild-grid {
   margin-top: 6px;
@@ -666,21 +782,48 @@ input[type="checkbox"] {
   /* Grid layout set via inline style */
 }
 
+/* Row layout for grandchildren - better horizontal space for titles */
+.grandchild-row {
+  margin-top: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
 .grandchild-card {
   background: var(--bg-primary);
   border: 1px solid var(--border-subtle);
   border-radius: 4px;
-  padding: 4px 6px;
+  padding: 4px 8px;
   font-size: 11px;
   cursor: pointer;
   transition: all 0.2s ease;
   overflow: hidden;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
   min-height: 0;
   min-width: 0;
-  height: 100%;
+}
+
+.grandchild-checkbox {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: var(--accent-color);
+}
+
+.grandchild-card.completed {
+  opacity: 0.6;
+}
+
+.grandchild-title.completed {
+  text-decoration: line-through;
+  color: var(--text-tertiary);
 }
 
 .grandchild-card:hover {

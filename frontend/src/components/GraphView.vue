@@ -20,10 +20,16 @@ if (!window.__cytoscapeExtensionsRegistered) {
   window.__cytoscapeExtensionsRegistered = true
 }
 
-// Configure marked for notes rendering
-marked.setOptions({
+// Configure marked for notes rendering with links opening in new tab
+marked.use({
   breaks: true,
-  gfm: true
+  gfm: true,
+  renderer: {
+    link({ href, title, text }) {
+      const titleAttr = title ? ` title="${title}"` : ''
+      return `<a href="${href}"${titleAttr} target="_blank" rel="noopener">${text}</a>`
+    }
+  }
 })
 
 // Render markdown to HTML for tooltips
@@ -38,6 +44,7 @@ const props = defineProps({
   parent: { type: Object, default: null },
   selectedId: Number,
   detailThreshold: { type: Number, default: 30 },
+  maxDepth: { type: Number, default: 0 }, // 0 = all levels
   hideCompleted: { type: Boolean, default: false }
 })
 
@@ -53,7 +60,7 @@ let relaxClickTimeout = null
 let cy = null
 
 // Node types for dropdown
-const nodeTypes = ['project', 'task', 'note', 'milestone', 'topic', 'folder', 'person']
+const nodeTypes = ['project', 'task', 'note', 'milestone', 'topic', 'folder', 'person', 'event']
 
 // Node positions storage key
 function getPositionsKey() {
@@ -95,6 +102,112 @@ const editModal = ref({
   editedNode: {}
 })
 const showNotesPreview = ref(false)
+
+// Prompt modal state (replaces native prompt())
+const promptModal = ref({
+  visible: false,
+  title: '',
+  placeholder: '',
+  value: '',
+  resolve: null
+})
+const promptInputRef = ref(null)
+
+// Add node modal state (Cmd+Enter or Cmd+click)
+const addNodeModal = ref({
+  visible: false,
+  title: '',
+  parentId: null,  // null = current container, otherwise specific parent
+  position: null   // { x, y } for graph position
+})
+const addNodeTitleRef = ref(null)
+
+function showPrompt(title, placeholder = '') {
+  return new Promise((resolve) => {
+    promptModal.value = {
+      visible: true,
+      title,
+      placeholder,
+      value: '',
+      resolve
+    }
+    nextTick(() => {
+      promptInputRef.value?.focus()
+    })
+  })
+}
+
+function submitPrompt() {
+  const value = promptModal.value.value.trim()
+  promptModal.value.resolve(value || null)
+  promptModal.value.visible = false
+}
+
+function cancelPrompt() {
+  promptModal.value.resolve(null)
+  promptModal.value.visible = false
+}
+
+function handlePromptKeydown(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    submitPrompt()
+  } else if (e.key === 'Escape') {
+    e.preventDefault()
+    cancelPrompt()
+  }
+}
+
+// Add node modal functions
+function showAddNodeModal(parentId = null, position = null) {
+  addNodeModal.value = {
+    visible: true,
+    title: '',
+    parentId,
+    position
+  }
+  nextTick(() => {
+    addNodeTitleRef.value?.focus()
+  })
+}
+
+function hideAddNodeModal() {
+  addNodeModal.value.visible = false
+}
+
+function createNodeWithType(type) {
+  const title = addNodeModal.value.title.trim()
+  if (!title) return
+  const { parentId, position } = addNodeModal.value
+  if (parentId) {
+    // Add as child of specific node
+    emit('add-child', { parentId, title, type, x: position?.x, y: position?.y })
+  } else {
+    // Add to current container
+    emit('create', { title, type, x: position?.x, y: position?.y })
+  }
+  hideAddNodeModal()
+}
+
+function handleAddNodeKeydown(e) {
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    hideAddNodeModal()
+  }
+}
+
+// Global keyboard shortcut handler
+function handleGlobalKeydown(e) {
+  // Don't handle shortcuts if in a modal or input
+  const inModal = editModal.value.visible || promptModal.value.visible || addNodeModal.value.visible
+
+  // Cmd/Ctrl+Enter to open add node modal
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    if (inModal) return
+    e.preventDefault()
+    showAddNodeModal()
+  }
+}
 
 // Track active tippy instance for cleanup
 let activeTippyInstance = null
@@ -146,9 +259,9 @@ function deleteNodeFromModal() {
   }
 }
 
-function wrapWithParentFromModal() {
+async function wrapWithParentFromModal() {
   if (!editModal.value.node) return
-  const title = prompt('New parent title:')
+  const title = await showPrompt('New parent title', 'Enter title...')
   if (title) {
     emit('wrap-with-parent', { nodeId: editModal.value.node.id, parentTitle: title })
     hideEditModal()
@@ -163,7 +276,8 @@ const typeColors = {
   milestone: { bg: '#0d0d0d', border: '#9b59b6', text: '#ffffff' }, // purple
   topic: { bg: '#0d0d0d', border: '#00bcd4', text: '#ffffff' },    // cyan
   folder: { bg: '#0d0d0d', border: '#7f8c8d', text: '#ffffff' },   // gray
-  person: { bg: '#0d0d0d', border: '#e67e22', text: '#ffffff' }    // default orange (overridden per person)
+  person: { bg: '#0d0d0d', border: '#e67e22', text: '#ffffff' },   // default orange (overridden per person)
+  event: { bg: '#0d0d0d', border: '#e74c3c', text: '#ffffff' }     // red
 }
 
 // Generate consistent random color for a person based on their ID
@@ -172,16 +286,28 @@ function getPersonColor(personId) {
   return `hsl(${hue}, 65%, 55%)`
 }
 
-function flattenNodes(nodeList, result = [], skipCompleted = false) {
+function flattenNodes(nodeList, result = [], skipCompleted = false, maxDepth = 0, currentDepth = 1) {
   for (const node of nodeList) {
     // Skip completed nodes AND all their children
     if (skipCompleted && node.completed) continue
     result.push(node)
-    if (node.children?.length) {
-      flattenNodes(node.children, result, skipCompleted)
+    // Only recurse if within depth limit (0 = unlimited)
+    if (node.children?.length && (maxDepth === 0 || currentDepth < maxDepth)) {
+      flattenNodes(node.children, result, skipCompleted, maxDepth, currentDepth + 1)
     }
   }
   return result
+}
+
+// Filter nodes recursively by max depth
+function filterByDepth(nodeList, maxDepth, currentDepth = 1) {
+  if (maxDepth === 0) return nodeList // 0 = unlimited
+  return nodeList.map(n => ({
+    ...n,
+    children: currentDepth < maxDepth && n.children?.length
+      ? filterByDepth(n.children, maxDepth, currentDepth + 1)
+      : []
+  }))
 }
 
 // Filter nodes recursively, removing completed nodes and their children
@@ -192,6 +318,22 @@ function filterCompletedNodes(nodeList) {
       ...n,
       children: n.children ? filterCompletedNodes(n.children) : []
     }))
+}
+
+// Build inherited color map - parent colors flow to children unless overridden
+function buildInheritedColorMap(nodeList, inheritedColor = null, colorMap = {}) {
+  for (const node of nodeList) {
+    // Node's effective color: own color if set, otherwise inherited
+    const hasOwnColor = node.color && node.color !== '#0f4c75'
+    const effectiveColor = hasOwnColor ? node.color : inheritedColor
+    colorMap[node.id] = effectiveColor
+
+    // Pass effective color to children
+    if (node.children?.length) {
+      buildInheritedColorMap(node.children, effectiveColor, colorMap)
+    }
+  }
+  return colorMap
 }
 
 // Strip markdown and clean up text for display
@@ -238,12 +380,14 @@ function formatDate(dateStr) {
   return `${month} ${day}`
 }
 
-function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshold = 30) {
+function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshold = 30, maxDepth = 0) {
+  // Apply depth filter first
+  const depthFiltered = filterByDepth(nodeList, maxDepth)
   // Filter completed nodes and their children if hideCompleted is enabled
   const filteredList = props.hideCompleted
-    ? filterCompletedNodes(nodeList)
-    : nodeList
-  const flat = flattenNodes(filteredList)
+    ? filterCompletedNodes(depthFiltered)
+    : depthFiltered
+  const flat = flattenNodes(filteredList, [], false, maxDepth)
 
   // Include parent unless it's completed and we're hiding completed
   const includeParent = parentNode && !(props.hideCompleted && parentNode.completed)
@@ -252,6 +396,14 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
   const showDetails = totalNodes <= detailThreshold
   // Top-level node IDs in current view (for glow effect)
   const topLevelIds = new Set(nodeList.map(n => n.id))
+
+  // Build inherited color map - parent colors flow to children
+  const parentColor = parentNode?.color && parentNode.color !== '#0f4c75' ? parentNode.color : null
+  const inheritedColorMap = buildInheritedColorMap(filteredList, parentColor)
+  // Also add parent to the map if included
+  if (includeParent && parentNode) {
+    inheritedColorMap[parentNode.id] = parentColor
+  }
 
   const elements = []
 
@@ -263,11 +415,8 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
     if (node.type === 'person') {
       colors = { ...colors, border: getPersonColor(node.id) }
     }
-    // Custom color as subtle background tint (preserves type-based border)
-    let customBgTint = null
-    if (node.color && node.color !== '#0f4c75') {
-      customBgTint = node.color
-    }
+    // Custom color as background tint - uses inherited color from parent if no own color
+    const customBgTint = inheritedColorMap[node.id] || null
     // Root node glow: current container when drilling in, or top-level nodes in current view
     const isCurrentContainer = parentNode && node.id === parentNode.id
     const isTopLevelNode = !parentNode && topLevelIds.has(node.id)
@@ -358,9 +507,9 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
     elements.push(element)
   })
 
-  // Add edges
-  if (parentNode) {
-    nodeList.forEach(child => {
+  // Add edges - use filteredList to avoid edges to non-existent nodes
+  if (parentNode && includeParent) {
+    filteredList.forEach(child => {
       elements.push({
         data: {
           id: `e-${parentNode.id}-${child.id}`,
@@ -477,7 +626,7 @@ function initGraph() {
   if (!container.value) return
 
   const savedPositions = loadNodePositions()
-  const elements = buildElements(props.nodes, props.parent, savedPositions, props.detailThreshold)
+  const elements = buildElements(props.nodes, props.parent, savedPositions, props.detailThreshold, props.maxDepth)
   const hasPositions = Object.keys(savedPositions).length > 0
 
   cy = cytoscape({
@@ -574,6 +723,7 @@ function initGraph() {
       const completedClass = isCompleted ? 'completed' : ''
       const shouldGlow = data.shouldGlow
       const glowClass = shouldGlow ? "current-container" : ""
+      const favoriteClass = node.favorite ? "favorite" : ""
 
       // Only show notes based on detail threshold
       let notesHtml = ''
@@ -584,11 +734,11 @@ function initGraph() {
 
       // Custom color as subtle background gradient
       const bgStyle = customBgTint
-        ? `background: linear-gradient(135deg, ${customBgTint}22 0%, #0d0d0d 60%);`
+        ? `background: linear-gradient(135deg, ${customBgTint}88 0%, transparent 70%), #0d0d0d;`
         : ''
 
       return `
-        <div class="node-html ${completedClass} ${glowClass}" style="border-color: ${borderColor}; --glow-color: ${borderColor}; ${bgStyle}">
+        <div class="node-html ${completedClass} ${glowClass} ${favoriteClass}" style="border-color: ${borderColor}; --glow-color: ${borderColor}; ${bgStyle}">
           <div class="node-html-title">${node.title || 'Untitled'}</div>
           ${notesHtml ? `<div class="node-html-notes">${notesHtml}</div>` : ''}
         </div>
@@ -602,11 +752,9 @@ function initGraph() {
     if (!node) return
 
     if (e.originalEvent.metaKey || e.originalEvent.ctrlKey) {
-      // Cmd/Ctrl+click: add child node
-      const title = prompt('New child node title:')
-      if (title) {
-        emit('add-child', { parentId: node.id, title })
-      }
+      // Cmd/Ctrl+click: open add dialog for child node
+      const pos = e.target.position()
+      showAddNodeModal(node.id, { x: pos.x + 50, y: pos.y + 80 })
     } else {
       // Just select the node (sidebar detail will show)
       emit('select', node)
@@ -622,20 +770,45 @@ function initGraph() {
     }
   })
 
-  // Click on background to close edit modal
+  // Click on background to close edit modal, Cmd+click to add node
   cy.on('tap', (e) => {
     if (e.target === cy) {
-      hideEditModal()
+      if (e.originalEvent.metaKey || e.originalEvent.ctrlKey) {
+        // Cmd/Ctrl+click on background: open add dialog
+        const pos = e.position
+        showAddNodeModal(null, { x: pos.x, y: pos.y })
+      } else {
+        hideEditModal()
+      }
     }
   })
 
-  // Double-click on background to create new node
+  // Double-click on background to create new node connected to nearest node
   cy.on('dbltap', (e) => {
     if (e.target === cy) {
       const pos = e.position
-      const title = prompt('New node title:')
-      if (title) {
-        emit('create', { title, x: pos.x, y: pos.y })
+
+      // Find nearest node within threshold
+      let nearestNode = null
+      let nearestDist = Infinity
+      const threshold = 200
+
+      cy.nodes().forEach(n => {
+        const nPos = n.position()
+        const dist = Math.sqrt(Math.pow(pos.x - nPos.x, 2) + Math.pow(pos.y - nPos.y, 2))
+        if (dist < threshold && dist < nearestDist) {
+          nearestDist = dist
+          nearestNode = n
+        }
+      })
+
+      if (nearestNode) {
+        // Create as child of nearest node
+        const parentData = nearestNode.data('nodeData')
+        showAddNodeModal(parentData.id, { x: pos.x, y: pos.y })
+      } else {
+        // No nearby node - create child of current container
+        showAddNodeModal(null, { x: pos.x, y: pos.y })
       }
     }
   })
@@ -646,7 +819,7 @@ function initGraph() {
   })
 
   // Click on edge to insert node between
-  cy.on('tap', 'edge', (e) => {
+  cy.on('tap', 'edge', async (e) => {
     const edge = e.target
     const sourceId = parseInt(edge.source().id())
     const targetId = parseInt(edge.target().id())
@@ -654,7 +827,7 @@ function initGraph() {
     const targetNode = edge.target().data('nodeData')
 
     if (sourceNode && targetNode) {
-      const title = prompt(`Insert node between "${sourceNode.title}" and "${targetNode.title}":`)
+      const title = await showPrompt(`Insert between "${sourceNode.title}" and "${targetNode.title}"`, 'Enter title...')
       if (title) {
         emit('insert-between', { parentId: sourceId, childId: targetId, title })
       }
@@ -701,7 +874,7 @@ function initGraph() {
         allowHTML: true,
         interactive: true,
         interactiveBorder: 20,
-        delay: [200, 400],
+        delay: [600, 400],
         duration: [200, 150],
         placement: 'right',
         appendTo: document.body,
@@ -737,6 +910,47 @@ function initGraph() {
 
   cy.on('mouseout', 'node', () => {
     // Tippy handles hide delay with interactive mode
+  })
+
+  // Handle clicks on HTML card overlays (for Cmd+click support)
+  container.value?.addEventListener('click', (e) => {
+    const htmlLabel = e.target.closest('.node-html')
+    if (!htmlLabel) return
+
+    // Find the corresponding cytoscape node
+    const rect = htmlLabel.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+
+    // Convert to cytoscape coordinates
+    const containerRect = container.value.getBoundingClientRect()
+    const relX = centerX - containerRect.left
+    const relY = centerY - containerRect.top
+
+    // Find node at this position
+    const pan = cy.pan()
+    const zoom = cy.zoom()
+    const cyX = (relX - pan.x) / zoom
+    const cyY = (relY - pan.y) / zoom
+
+    let closestNode = null
+    let closestDist = Infinity
+    cy.nodes().forEach(n => {
+      const pos = n.position()
+      const dist = Math.sqrt(Math.pow(pos.x - cyX, 2) + Math.pow(pos.y - cyY, 2))
+      if (dist < closestDist) {
+        closestDist = dist
+        closestNode = n
+      }
+    })
+
+    if (closestNode && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault()
+      e.stopPropagation()
+      const node = closestNode.data('nodeData')
+      const pos = closestNode.position()
+      showAddNodeModal(node.id, { x: pos.x + 50, y: pos.y + 80 })
+    }
   })
 
   cy.on('drag', 'node', () => {
@@ -841,15 +1055,31 @@ function initGraph() {
       const targetNode = closestNode.data('nodeData')
       const sourceNode = draggedNode.data('nodeData')
       if (targetNode && sourceNode) {
-        // Confirm the reparent action
-        if (confirm(`Move "${sourceNode.title}" under "${targetNode.title}"?`)) {
-          emit('move', { nodeId: sourceNode.id, newParentId: targetNode.id })
-        } else {
-          // Reset position if cancelled
-          if (dragStartPos) {
-            draggedNode.position(dragStartPos)
-          }
+        // Safety check: prevent moving to self
+        if (sourceNode.id === targetNode.id) {
+          if (dragStartPos) draggedNode.position(dragStartPos)
+          dragStartPos = null
+          return
         }
+
+        // Safety check: prevent moving to own descendant (would create cycle)
+        const isDescendant = (parent, childId) => {
+          if (!parent.children) return false
+          for (const child of parent.children) {
+            if (child.id === childId) return true
+            if (isDescendant(child, childId)) return true
+          }
+          return false
+        }
+        if (isDescendant(sourceNode, targetNode.id)) {
+          alert('Cannot move a node under its own descendant')
+          if (dragStartPos) draggedNode.position(dragStartPos)
+          dragStartPos = null
+          return
+        }
+
+        // Move the node (undo tracking handled by parent)
+        emit('move', { nodeId: sourceNode.id, oldParentId: sourceNode.parent_id, newParentId: targetNode.id })
       }
     }
 
@@ -862,9 +1092,26 @@ function initGraph() {
   }
 }
 
-function findSmartPosition(nodeId, parentId, savedPositions) {
+function findSmartPosition(nodeId, parentId, savedPositions, childIds = []) {
   // Convert parentId to string for lookup (localStorage keys are strings)
   const parentKey = String(parentId)
+
+  // First priority: if this node has children with positions, position near them
+  // This handles wrap-with-parent where the new parent should be near its child
+  if (childIds.length > 0) {
+    const childPositions = childIds
+      .map(id => savedPositions[String(id)])
+      .filter(pos => pos)
+    if (childPositions.length > 0) {
+      const avgX = childPositions.reduce((sum, p) => sum + p.x, 0) / childPositions.length
+      const avgY = childPositions.reduce((sum, p) => sum + p.y, 0) / childPositions.length
+      // Place slightly above/offset from children
+      return {
+        x: avgX + (Math.random() - 0.5) * 30,
+        y: avgY - 40 - Math.random() * 20
+      }
+    }
+  }
 
   // If parent has a position, place close to parent
   if (parentId && savedPositions[parentKey]) {
@@ -930,15 +1177,17 @@ function updateGraph() {
 
   const savedPositions = loadNodePositions()
 
-  // Get current positions from cytoscape BEFORE removing elements
+  // Get current node IDs and positions from cytoscape BEFORE removing elements
+  const existingNodeIds = new Set()
   if (cy) {
     cy.nodes().forEach(node => {
+      existingNodeIds.add(node.id())
       const pos = node.position()
       savedPositions[node.id()] = { x: pos.x, y: pos.y }
     })
   }
 
-  const elements = buildElements(props.nodes, props.parent, savedPositions, props.detailThreshold)
+  const elements = buildElements(props.nodes, props.parent, savedPositions, props.detailThreshold, props.maxDepth)
   const hasPositions = Object.keys(savedPositions).length > 0
 
   // Build a map of element positions for quick lookup
@@ -949,22 +1198,47 @@ function updateGraph() {
     }
   })
 
-  // Track previous node count to detect additions
-  const prevNodeCount = cy ? cy.nodes().length : 0
+  // Detect new nodes and edge changes
+  let hasNewNodes = false
+  let hasEdgeChanges = false
+  const newElementIds = new Set()
+  const newEdges = new Set()
 
-  // Find new nodes (no saved position) and assign smart positions
+  // Collect existing edges for comparison
+  const existingEdges = new Set()
+  if (cy) {
+    cy.edges().forEach(edge => {
+      existingEdges.add(`${edge.source().id()}-${edge.target().id()}`)
+    })
+  }
+
+  // Find new nodes and edges
   elements.forEach(el => {
-    if (!el.data.source && !el.position) {
-      const nodeData = el.data.nodeData
-      const parentId = nodeData?.parent_id
-      // First check element positions (current graph), then savedPositions
-      const allPositions = { ...savedPositions, ...elementPositions }
-      el.position = findSmartPosition(el.data.id, parentId, allPositions)
+    if (el.data.source) {
+      // It's an edge
+      const edgeKey = `${el.data.source}-${el.data.target}`
+      newEdges.add(edgeKey)
+      if (!existingEdges.has(edgeKey)) {
+        hasEdgeChanges = true
+      }
+    } else {
+      // It's a node
+      newElementIds.add(el.data.id)
+      // Check if this is a truly new node (not in existing set)
+      if (!existingNodeIds.has(el.data.id)) {
+        hasNewNodes = true
+      }
+      if (!el.position) {
+        const nodeData = el.data.nodeData
+        const parentId = nodeData?.parent_id
+        // Get child IDs for this node (for positioning new parents near their children)
+        const childIds = nodeData?.children?.map(c => c.id) || []
+        // First check element positions (current graph), then savedPositions
+        const allPositions = { ...savedPositions, ...elementPositions }
+        el.position = findSmartPosition(el.data.id, parentId, allPositions, childIds)
+      }
     }
   })
-
-  const newNodeCount = elements.filter(el => !el.data.source).length
-  const hasNewNodes = newNodeCount > prevNodeCount
 
   cy.elements().remove()
   cy.add(elements)
@@ -987,6 +1261,7 @@ function updateGraph() {
       const completedClass = isCompleted ? 'completed' : ''
       const shouldGlow = data.shouldGlow
       const glowClass = shouldGlow ? "current-container" : ""
+      const favoriteClass = node.favorite ? "favorite" : ""
 
       // Only show notes based on detail threshold
       let notesHtml = ''
@@ -997,29 +1272,35 @@ function updateGraph() {
 
       // Custom color as subtle background gradient
       const bgStyle = customBgTint
-        ? `background: linear-gradient(135deg, ${customBgTint}22 0%, #0d0d0d 60%);`
+        ? `background: linear-gradient(135deg, ${customBgTint}88 0%, transparent 70%), #0d0d0d;`
         : ''
 
       return `
-        <div class="node-html ${completedClass} ${glowClass}" style="border-color: ${borderColor}; --glow-color: ${borderColor}; ${bgStyle}">
+        <div class="node-html ${completedClass} ${glowClass} ${favoriteClass}" style="border-color: ${borderColor}; --glow-color: ${borderColor}; ${bgStyle}">
           <div class="node-html-title">${node.title || 'Untitled'}</div>
           ${notesHtml ? `<div class="node-html-notes">${notesHtml}</div>` : ''}
         </div>
       `
     }
   }])
+  // Check if element count changed
+  const prevNodeCount = existingNodeIds.size
+  const newNodeCount = newElementIds.size
+  const elementsChanged = hasNewNodes || hasEdgeChanges || prevNodeCount !== newNodeCount
+
   if (!hasPositions) {
     cy.layout(getLayoutOptions()).run()
-  } else if (hasNewNodes) {
-    // Trigger relax when new nodes are added to settle layout
-    setTimeout(relaxLayout, 50)
+  } else if (elementsChanged) {
+    // Trigger relax when elements change to settle layout
+    setTimeout(() => {
+      relaxLayout()
+      // Fit after relax completes
+      setTimeout(() => cy.fit(50), 700)
+    }, 100)
   }
 
-  // Save positions for new nodes and auto-fit
-  setTimeout(() => {
-    saveNodePositions()
-    cy.fit(50)
-  }, 100)
+  // Save positions for new nodes
+  setTimeout(saveNodePositions, 100)
 }
 
 function setLayout(mode) {
@@ -1116,6 +1397,11 @@ function fitView() {
 watch(() => props.nodes, updateGraph)
 watch(() => props.parent, updateGraph)
 watch(() => props.detailThreshold, updateGraph)
+watch(() => props.maxDepth, () => {
+  updateGraph()
+  // Trigger relayout after depth change
+  setTimeout(reLayout, 100)
+})
 watch(() => props.hideCompleted, () => {
   updateGraph()
   // Trigger relayout after filtering
@@ -1156,13 +1442,22 @@ function handleCenterNodeEvent(e) {
   }
 }
 
+// Expose methods for parent to call
+defineExpose({
+  relaxLayout,
+  fitView,
+  saveNodePositions
+})
+
 onMounted(() => {
   initGraph()
   window.addEventListener('graph-center-node', handleCenterNodeEvent)
+  window.addEventListener('keydown', handleGlobalKeydown)
 })
 
 onUnmounted(() => {
   window.removeEventListener('graph-center-node', handleCenterNodeEvent)
+  window.removeEventListener('keydown', handleGlobalKeydown)
   if (cy) {
     cy.destroy()
     cy = null
@@ -1334,6 +1629,59 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Prompt Modal (styled replacement for native prompt()) -->
+    <div v-if="promptModal.visible" class="prompt-modal-overlay" @click.self="cancelPrompt">
+      <div class="prompt-modal">
+        <div class="prompt-modal-header">
+          <h3>{{ promptModal.title }}</h3>
+        </div>
+        <div class="prompt-modal-content">
+          <input
+            ref="promptInputRef"
+            v-model="promptModal.value"
+            :placeholder="promptModal.placeholder"
+            class="prompt-input"
+            @keydown="handlePromptKeydown"
+          />
+        </div>
+        <div class="prompt-modal-footer">
+          <button class="btn-secondary" @click="cancelPrompt">Cancel</button>
+          <button class="btn-primary" @click="submitPrompt">Create</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Node Modal (Cmd+Enter) -->
+    <div v-if="addNodeModal.visible" class="add-node-modal-overlay" @click.self="hideAddNodeModal">
+      <div class="add-node-modal" @keydown="handleAddNodeKeydown">
+        <div class="add-node-modal-header">
+          <h3>Add Node</h3>
+          <button class="modal-close" @click="hideAddNodeModal">x</button>
+        </div>
+        <div class="add-node-modal-content">
+          <input
+            ref="addNodeTitleRef"
+            v-model="addNodeModal.title"
+            placeholder="Enter title..."
+            class="add-node-input"
+            @keydown.enter.prevent
+          />
+          <div class="type-buttons">
+            <button
+              v-for="t in nodeTypes"
+              :key="t"
+              class="type-btn"
+              :class="t"
+              :disabled="!addNodeModal.title.trim()"
+              @click="createNodeWithType(t)"
+            >
+              {{ t }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -1373,6 +1721,16 @@ onUnmounted(() => {
   background: #1a3a5a;
   border-color: #4a9eff;
   color: #4a9eff;
+}
+
+.graph-controls button.icon-btn {
+  padding: 6px 10px;
+  font-size: 1rem;
+}
+
+.graph-controls button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .graph-controls button.relax-locked {
@@ -1707,6 +2065,181 @@ onUnmounted(() => {
   background: #5a2a2a;
 }
 
+/* Prompt Modal */
+.prompt-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+  backdrop-filter: blur(4px);
+}
+
+.prompt-modal {
+  background: #0d0d0d;
+  border: 2px solid #333;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+}
+
+.prompt-modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #333;
+}
+
+.prompt-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.prompt-modal-content {
+  padding: 20px;
+}
+
+.prompt-input {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 15px;
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: #fff;
+  box-sizing: border-box;
+}
+
+.prompt-input:focus {
+  outline: none;
+  border-color: #4a9eff;
+}
+
+.prompt-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid #333;
+}
+
+/* Add Node Modal */
+.add-node-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+  backdrop-filter: blur(4px);
+}
+
+.add-node-modal {
+  background: #0d0d0d;
+  border: 2px solid #333;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+}
+
+.add-node-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #333;
+}
+
+.add-node-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.add-node-modal-content {
+  padding: 20px;
+}
+
+.add-node-input {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 16px;
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: #fff;
+  box-sizing: border-box;
+  margin-bottom: 16px;
+}
+
+.add-node-input:focus {
+  outline: none;
+  border-color: #4a9eff;
+}
+
+.type-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.type-btn {
+  flex: 1;
+  padding: 4px 2px;
+  font-size: 10px;
+  font-weight: 600;
+  border: 1px solid;
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: capitalize;
+}
+
+.type-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.type-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.type-btn.project { border-color: #3498db; color: #5dade2; background: rgba(52, 152, 219, 0.15); }
+.type-btn.project:not(:disabled):hover { background: rgba(52, 152, 219, 0.4); }
+
+.type-btn.task { border-color: #f1c40f; color: #f4d03f; background: rgba(241, 196, 15, 0.15); }
+.type-btn.task:not(:disabled):hover { background: rgba(241, 196, 15, 0.4); }
+
+.type-btn.note { border-color: #2ecc71; color: #58d68d; background: rgba(46, 204, 113, 0.15); }
+.type-btn.note:not(:disabled):hover { background: rgba(46, 204, 113, 0.4); }
+
+.type-btn.milestone { border-color: #9b59b6; color: #bb8fce; background: rgba(155, 89, 182, 0.15); }
+.type-btn.milestone:not(:disabled):hover { background: rgba(155, 89, 182, 0.4); }
+
+.type-btn.topic { border-color: #00bcd4; color: #4dd0e1; background: rgba(0, 188, 212, 0.15); }
+.type-btn.topic:not(:disabled):hover { background: rgba(0, 188, 212, 0.4); }
+
+.type-btn.folder { border-color: #95a5a6; color: #b3c1c2; background: rgba(149, 165, 166, 0.15); }
+.type-btn.folder:not(:disabled):hover { background: rgba(149, 165, 166, 0.4); }
+
+.type-btn.person { border-color: #e67e22; color: #eb984e; background: rgba(230, 126, 34, 0.15); }
+.type-btn.person:not(:disabled):hover { background: rgba(230, 126, 34, 0.4); }
+
+.type-btn.event { border-color: #e74c3c; color: #ec7063; background: rgba(231, 76, 60, 0.15); }
+.type-btn.event:not(:disabled):hover { background: rgba(231, 76, 60, 0.4); }
+
 /* HTML Node styling - like old app */
 :global(.node-html) {
   background: #0d0d0d;
@@ -1734,6 +2267,28 @@ onUnmounted(() => {
     0 0 12px var(--glow-color),
     0 0 24px var(--glow-color),
     0 0 36px rgba(255, 255, 255, 0.15);
+}
+
+/* Favorite - golden glow (keeps original border color, stronger than root) */
+:global(.node-html.favorite) {
+  box-shadow:
+    0 0 6px rgba(255, 215, 0, 1),
+    0 0 14px rgba(255, 215, 0, 0.9),
+    0 0 24px rgba(255, 215, 0, 0.8),
+    0 0 36px rgba(255, 215, 0, 0.6),
+    0 0 50px rgba(255, 215, 0, 0.4),
+    0 0 70px rgba(255, 215, 0, 0.2);
+}
+
+:global(.node-html.favorite.current-container) {
+  box-shadow:
+    0 0 12px var(--glow-color),
+    0 0 24px var(--glow-color),
+    0 0 6px rgba(255, 215, 0, 1),
+    0 0 14px rgba(255, 215, 0, 0.9),
+    0 0 24px rgba(255, 215, 0, 0.8),
+    0 0 36px rgba(255, 215, 0, 0.6),
+    0 0 50px rgba(255, 215, 0, 0.4);
 }
 
 :global(.node-html.completed) {
@@ -1926,6 +2481,7 @@ onUnmounted(() => {
 .tippy-box[data-theme~='graph-tooltip'] .tt-type.topic { background: rgba(26, 74, 74, 0.8); color: #a0f0f0; }
 .tippy-box[data-theme~='graph-tooltip'] .tt-type.folder { background: rgba(58, 58, 58, 0.8); color: #d0d0d0; }
 .tippy-box[data-theme~='graph-tooltip'] .tt-type.person { background: rgba(90, 42, 10, 0.8); color: #ffb080; }
+.tippy-box[data-theme~='graph-tooltip'] .tt-type.event { background: rgba(90, 20, 20, 0.8); color: #ff8080; }
 
 .tippy-box[data-theme~='graph-tooltip'] .tt-children { color: #888; }
 
