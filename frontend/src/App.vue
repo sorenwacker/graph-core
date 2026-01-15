@@ -11,6 +11,21 @@ import TableView from './components/TableView.vue'
 import TimelineView from './components/TimelineView.vue'
 import PersonsView from './components/PersonsView.vue'
 
+// Click-outside directive
+const vClickOutside = {
+  mounted(el, binding) {
+    el._clickOutside = (e) => {
+      if (!el.contains(e.target)) {
+        binding.value(e)
+      }
+    }
+    document.addEventListener('click', el._clickOutside)
+  },
+  unmounted(el) {
+    document.removeEventListener('click', el._clickOutside)
+  }
+}
+
 // Configure marked for inline rendering with links opening in new tab
 marked.use({
   breaks: true,
@@ -44,6 +59,7 @@ const selectedNode = ref(null)
 const selectedIds = ref(new Set())
 const lastSelectedNode = ref(null)  // For shift-click range selection
 const showDetail = ref(false)
+const fullscreenDetail = ref(false)
 const expandedIds = ref(new Set())
 const transitioning = ref(false)
 const transitionDirection = ref('forward')
@@ -192,6 +208,8 @@ const showSearch = ref(false)
 const searchTimeout = ref(null)
 const searchInputRef = ref(null)
 const graphViewRef = ref(null)
+const searchMode = ref('normal') // 'normal' or 'link'
+const linkSourceNodeId = ref(null)
 
 // Global undo/redo stacks
 const undoStack = ref([])
@@ -331,19 +349,20 @@ const cardsGridStyle = computed(() => {
   if (count === 0) return {}
 
   // Calculate columns based on container width and card count
-  const minCardWidth = count <= 4 ? 280 : count <= 9 ? 220 : count <= 16 ? 180 : 140
+  // Use smaller min widths to favor more columns (more square-ish cards)
+  const minCardWidth = count <= 4 ? 240 : count <= 9 ? 200 : count <= 16 ? 160 : 130
   const maxCols = Math.floor(containerWidth.value / minCardWidth)
-  const idealCols = Math.ceil(Math.sqrt(count))
-  const cols = Math.max(1, Math.min(idealCols, maxCols, 6))
-  const rows = Math.ceil(count / cols)
+  // Favor more columns for square-ish layout
+  const idealCols = Math.ceil(Math.sqrt(count * 1.5))
+  const cols = Math.max(1, Math.min(idealCols, maxCols, 8))
 
   return {
     display: 'grid',
     gridTemplateColumns: `repeat(${cols}, 1fr)`,
-    gridTemplateRows: `repeat(${rows}, 1fr)`,
+    gridAutoRows: 'minmax(200px, 1fr)',
     gap: '10px',
     height: '100%',
-    minHeight: '100%'
+    alignContent: 'start'
   }
 })
 
@@ -386,14 +405,28 @@ function getNestedCardSize(parentChildCount, level) {
 }
 
 // Helper to calculate nested grid style based on count
-// 1=full, 2=halves, 4=quarters, etc.
+// Favor horizontal stacking (rows) for more square-ish child cards
 function nestedGridStyle(count, level = 1) {
   if (!count || count === 0) return {}
 
-  // Calculate square-ish grid
-  const idealCols = Math.ceil(Math.sqrt(count))
-  const cols = Math.max(1, idealCols)
-  const rows = Math.ceil(count / cols)
+  // Favor rows over columns for more square child cards
+  // 1=full, 2=stacked vertically, 3=1+2, 4=2x2, etc.
+  let cols, rows
+  if (count === 1) {
+    cols = 1; rows = 1
+  } else if (count === 2) {
+    cols = 1; rows = 2  // Stack vertically for square-ish cards
+  } else if (count === 3) {
+    cols = 1; rows = 3  // Stack vertically
+  } else if (count <= 4) {
+    cols = 2; rows = 2
+  } else if (count <= 6) {
+    cols = 2; rows = Math.ceil(count / 2)
+  } else {
+    const idealCols = Math.ceil(Math.sqrt(count))
+    cols = Math.max(1, idealCols)
+    rows = Math.ceil(count / cols)
+  }
 
   const gap = level === 1 ? '4px' : '2px'
 
@@ -541,6 +574,12 @@ async function loadChildren(containerId = null) {
       // Build breadcrumbs
       breadcrumbs.value = await api.getAncestors(containerId)
       breadcrumbs.value.push(container)
+
+      // Expand sidebar tree to show current path
+      breadcrumbs.value.forEach(crumb => {
+        sidebarExpandedIds.value.add(crumb.id)
+      })
+      sidebarExpandedIds.value = new Set(sidebarExpandedIds.value)
     }
     currentContainerId.value = containerId
     // Expand first level
@@ -613,6 +652,17 @@ async function navigateToBreadcrumb(index) {
     }
     transitioning.value = false
   }, 150)
+}
+
+function goToParent() {
+  // Navigate to parent (one level up)
+  if (breadcrumbs.value.length > 1) {
+    // Go to parent of current container
+    navigateToBreadcrumb(breadcrumbs.value.length - 2)
+  } else if (breadcrumbs.value.length === 1) {
+    // At first level, go to root
+    navigateToBreadcrumb(-1)
+  }
 }
 
 // Anchor node for shift+click range selection (like Finder)
@@ -1012,6 +1062,23 @@ function openSearch() {
   searchQuery.value = ''
   searchResults.value = []
   selectedResultIndex.value = 0
+  searchMode.value = 'normal'
+  linkSourceNodeId.value = null
+  nextTick(() => {
+    if (searchInputRef.value) {
+      searchInputRef.value.focus()
+    }
+  })
+}
+
+function openLinkSearch() {
+  if (!selectedNode.value) return
+  showSearch.value = true
+  searchQuery.value = ''
+  searchResults.value = []
+  selectedResultIndex.value = 0
+  searchMode.value = 'link'
+  linkSourceNodeId.value = selectedNode.value.id
   nextTick(() => {
     if (searchInputRef.value) {
       searchInputRef.value.focus()
@@ -1024,6 +1091,8 @@ function closeSearch() {
   searchQuery.value = ''
   searchResults.value = []
   selectedResultIndex.value = 0
+  searchMode.value = 'normal'
+  linkSourceNodeId.value = null
 }
 
 async function handleSearch() {
@@ -1071,6 +1140,23 @@ function handleSearchKeydown(e) {
 }
 
 async function goToSearchResult(node) {
+  // Handle link mode - create link instead of navigating
+  if (searchMode.value === 'link' && linkSourceNodeId.value) {
+    const sourceId = linkSourceNodeId.value
+    closeSearch()
+    try {
+      await api.linkNodes(sourceId, node.id)
+      // Refresh the selected node to update links
+      if (selectedNode.value?.id === sourceId) {
+        const updatedNode = await api.getNode(sourceId)
+        selectedNode.value = updatedNode
+      }
+    } catch (e) {
+      console.error('Failed to create link:', e)
+    }
+    return
+  }
+
   closeSearch()
 
   // Special handling for persons - switch to persons view
@@ -1518,6 +1604,10 @@ function isSensitiveNode(node) {
   return node.notes_sensitive || false
 }
 
+function hasNotes(node) {
+  return node.notes && node.notes.trim().length > 0
+}
+
 // Calculate due date status
 function getDueDateStatus(dueDate) {
   if (!dueDate) return null
@@ -1596,11 +1686,15 @@ function handleKeydown(e) {
     }
   }
 
-  // Escape - clear selection
+  // Escape - exit fullscreen or clear selection
   if (e.key === 'Escape') {
-    selectedIds.value = new Set()
-    selectedNode.value = null
-    showDetail.value = false
+    if (fullscreenDetail.value) {
+      fullscreenDetail.value = false
+    } else {
+      selectedIds.value = new Set()
+      selectedNode.value = null
+      showDetail.value = false
+    }
   }
 
   // Ctrl/Cmd+A - select all visible
@@ -1786,7 +1880,7 @@ onUnmounted(() => {
               :key="'fav-' + item.id"
               class="sidebar-item favorite-item"
               :class="{ active: selectedNode?.id === item.id }"
-              @click="selectNode(item)"
+              @click="enterContainer(item)"
             >
               <span class="favorite-star">&#9733;</span>
               <span class="type-icon" :class="item.type">{{ item.type[0].toUpperCase() }}</span>
@@ -1828,6 +1922,7 @@ onUnmounted(() => {
           <div class="legend-item"><span class="legend-badge topic">O</span> Topic</div>
           <div class="legend-item"><span class="legend-badge folder">F</span> Folder</div>
           <div class="legend-item"><span class="legend-badge person">U</span> Person</div>
+          <div class="legend-item"><span class="legend-badge event">E</span> Event</div>
         </div>
       </div>
     </aside>
@@ -1890,11 +1985,11 @@ onUnmounted(() => {
           >
             &#x21AA;
           </button>
-          <div class="settings-dropdown">
+          <div class="settings-dropdown" v-click-outside="() => showSettings = false">
             <button class="settings-btn" @click="showSettings = !showSettings" title="Settings">
               <span>...</span>
             </button>
-            <div v-if="showSettings" class="settings-panel">
+            <div v-if="showSettings" class="settings-panel" @click.stop>
               <div class="settings-item">
                 <label>Graph detail threshold</label>
                 <input type="number" v-model.number="graphDetailThreshold" min="5" max="100" />
@@ -1959,6 +2054,9 @@ onUnmounted(() => {
           :selected-ids="selectedIds"
           :expanded-ids="expandedIds"
           :hide-completed="hideCompleted"
+          :current-parent-id="currentContainerId"
+          :current-container="currentContainer"
+          :color-map="inheritedColorMap"
           @select="selectNode"
           @select-multiple="handleMultiSelect"
           @enter="enterContainer"
@@ -1968,6 +2066,7 @@ onUnmounted(() => {
           @move="moveNode"
           @move-multiple="moveMultipleNodes"
           @reorder="handleReorder"
+          @go-parent="goToParent"
         />
 
         <!-- Cards View -->
@@ -2080,14 +2179,14 @@ onUnmounted(() => {
                   v-else
                   class="inline-notes-display"
                   :class="{
-                    empty: !node.notes,
-                    sensitive: isSensitiveNode(node) && hideSensitive,
+                    empty: !hasNotes(node),
+                    sensitive: isSensitiveNode(node),
                     truncate: cardSizeClass === 'card-md'
                   }"
                   @click="startInlineNotes(node, $event)"
                 >
-                  <template v-if="isSensitiveNode(node) && hideSensitive">[Hidden]</template>
-                  <template v-else-if="node.notes">
+                  <template v-if="isSensitiveNode(node)"><span class="lock-icon-display">&#128274;</span></template>
+                  <template v-else-if="hasNotes(node)">
                     <div class="markdown-content" v-html="renderMarkdown(node.notes)"></div>
                   </template>
                   <template v-else>Add notes...</template>
@@ -2135,7 +2234,7 @@ onUnmounted(() => {
                 <span class="child-card-title">{{ child.title }}</span>
                 <!-- Interactive notes for child cards -->
                 <div
-                  v-if="getNestedCardSize(node.children.length, 1) === 'child-lg'"
+                  v-if="['child-lg', 'child-md'].includes(getNestedCardSize(node.children.length, 1))"
                   class="child-card-notes-area"
                   @click.stop
                 >
@@ -2151,10 +2250,11 @@ onUnmounted(() => {
                   <div
                     v-else
                     class="child-notes-display"
-                    :class="{ empty: !child.notes }"
+                    :class="{ empty: !hasNotes(child), sensitive: isSensitiveNode(child) }"
                     @click="startInlineNotes(child, $event)"
                   >
-                    <template v-if="child.notes">
+                    <template v-if="isSensitiveNode(child)"><span class="lock-icon-display">&#128274;</span></template>
+                    <template v-else-if="hasNotes(child)">
                       <div class="markdown-content" v-html="renderMarkdown(child.notes)"></div>
                     </template>
                     <template v-else>Add notes...</template>
@@ -2192,6 +2292,10 @@ onUnmounted(() => {
                       @change.stop="toggleComplete(grandchild)"
                     />
                     <span class="grandchild-title" :class="{ completed: grandchild.completed }">{{ grandchild.title }}</span>
+                    <!-- Notes indicator for grandchild -->
+                    <span v-if="isSensitiveNode(grandchild)" class="grandchild-notes-indicator lock">&#128274;</span>
+                    <span v-else-if="hasNotes(grandchild)" class="grandchild-notes-indicator has-notes" @click.stop="startInlineNotes(grandchild, $event)">&#128221;</span>
+                    <span v-else class="grandchild-notes-indicator add-notes" @click.stop="startInlineNotes(grandchild, $event)">+</span>
                   </div>
                 </div>
               </div>
@@ -2218,6 +2322,7 @@ onUnmounted(() => {
           :detail-threshold="graphDetailThreshold"
           :max-depth="graphMaxDepth"
           :hide-completed="hideCompleted"
+          :hide-sensitive="hideSensitive"
           @select="selectNode"
           @enter="enterContainer"
           @move="moveNode"
@@ -2236,8 +2341,11 @@ onUnmounted(() => {
           :nodes="children"
           :selected-id="selectedNode?.id"
           :hide-completed="hideCompleted"
+          :color-map="inheritedColorMap"
           @select="selectNode"
           @enter="enterContainer"
+          @show-tooltip="showCardTooltip"
+          @hide-tooltip="hideCardTooltip"
         />
 
         <!-- Persons View -->
@@ -2316,12 +2424,16 @@ onUnmounted(() => {
       v-if="showDetail && selectedNode"
       :node="selectedNode"
       :width="detailWidth"
+      :fullscreen="fullscreenDetail"
+      :hide-completed="hideCompleted"
       @update="updateNode"
       @delete="deleteNode"
       @wrap-with-parent="wrapWithParent"
       @select-child="selectChildById"
       @resize-start="onDetailResizeStart"
-      @close="showDetail = false"
+      @toggle-fullscreen="fullscreenDetail = !fullscreenDetail"
+      @close="showDetail = false; fullscreenDetail = false"
+      @open-link-search="openLinkSearch"
     />
 
     <!-- Spotlight Search Modal -->
@@ -2333,7 +2445,7 @@ onUnmounted(() => {
               ref="searchInputRef"
               v-model="searchQuery"
               type="text"
-              placeholder="Search nodes..."
+              :placeholder="searchMode === 'link' ? 'Search to link...' : 'Search nodes...'"
               class="spotlight-input"
               @input="onSearchInput"
               @keydown="handleSearchKeydown"
@@ -2347,6 +2459,7 @@ onUnmounted(() => {
 
           <div class="spotlight-results" v-if="searchResults.length > 0">
             <div class="spotlight-results-header">
+              <span v-if="searchMode === 'link'" class="link-mode-badge">Link mode</span>
               {{ searchResults.length }} result{{ searchResults.length !== 1 ? 's' : '' }}
               <span class="current-view-badge">{{ viewMode }}</span>
             </div>
@@ -2617,7 +2730,15 @@ onUnmounted(() => {
 
 .inline-notes-display.sensitive {
   color: var(--text-tertiary);
-  font-style: italic;
+  font-style: normal;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lock-icon-display {
+  font-size: 18px;
+  opacity: 0.5;
 }
 
 .inline-notes-display.truncate {
@@ -3099,6 +3220,7 @@ onUnmounted(() => {
 .legend-badge.topic { background: rgba(6, 182, 212, 0.2); color: #22d3ee; }
 .legend-badge.folder { background: rgba(148, 163, 184, 0.2); color: #94a3b8; }
 .legend-badge.person { background: rgba(251, 146, 60, 0.2); color: #fb923c; }
+.legend-badge.event { background: rgba(239, 68, 68, 0.2); color: #f87171; }
 
 /* Search */
 .search-container {
@@ -3618,6 +3740,15 @@ onUnmounted(() => {
   color: #4a9eff;
   border-radius: 10px;
   text-transform: capitalize;
+}
+
+.link-mode-badge {
+  font-size: 10px;
+  padding: 3px 8px;
+  background: rgba(46, 204, 113, 0.2);
+  color: #2ecc71;
+  border-radius: 10px;
+  margin-right: 8px;
 }
 
 .spotlight-result {

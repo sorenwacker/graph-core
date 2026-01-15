@@ -5,26 +5,33 @@ import { api } from '../services/api'
 
 const props = defineProps({
   node: Object,
-  width: { type: Number, default: 400 }
+  width: { type: Number, default: 400 },
+  fullscreen: { type: Boolean, default: false },
+  hideCompleted: { type: Boolean, default: false }
 })
 
 const emit = defineEmits([
   'update', 'delete', 'close', 'wrap-with-parent',
-  'select-child', 'resize-start', 'resize'
+  'select-child', 'resize-start', 'resize', 'toggle-fullscreen',
+  'open-link-search'
 ])
 
 const editedNode = ref({})
 const children = ref([])
 const loadingChildren = ref(false)
 
+// Filter children based on hideCompleted setting
+const filteredChildren = computed(() => {
+  if (!props.hideCompleted) return children.value
+  return children.value.filter(child => !child.completed)
+})
+
 // Links state
 const linkedNodes = ref([])
-const linkSearch = ref('')
-const linkSearchResults = ref([])
-const showLinkSearch = ref(false)
 
 // Tab state for notes
 const activeTab = ref('edit')
+const showSensitivePreview = ref(false)
 
 // Collapsible sections
 const notesCollapsed = ref(false)
@@ -46,14 +53,15 @@ watch(() => props.node, async (newNode) => {
     editedNode.value = { ...newNode }
     // Always show notes expanded by default
     notesCollapsed.value = false
+    // Set tab based on whether notes exist
+    activeTab.value = newNode.notes?.trim() ? 'preview' : 'edit'
     // Reset expanded children
     expandedChildren.value = new Set()
     grandchildren.value = {}
     // Reset links
     linkedNodes.value = []
-    linkSearch.value = ''
-    linkSearchResults.value = []
-    showLinkSearch.value = false
+    // Reset sensitive preview unlock
+    showSensitivePreview.value = false
     await Promise.all([loadChildren(), loadLinkedNodes()])
   }
 }, { immediate: true })
@@ -62,9 +70,11 @@ async function loadChildren() {
   if (!props.node?.id) return
   loadingChildren.value = true
   try {
-    children.value = await api.getChildren(props.node.id)
+    // Get all descendants and filter for tasks
+    const descendants = await api.getDescendants(props.node.id)
+    children.value = descendants.filter(d => d.type === 'task')
   } catch (err) {
-    console.error('Failed to load children:', err)
+    console.error('Failed to load descendants:', err)
     children.value = []
   } finally {
     loadingChildren.value = false
@@ -78,36 +88,6 @@ async function loadLinkedNodes() {
   } catch (err) {
     console.error('Failed to load linked nodes:', err)
     linkedNodes.value = []
-  }
-}
-
-async function searchForLink() {
-  if (!linkSearch.value.trim()) {
-    linkSearchResults.value = []
-    return
-  }
-  try {
-    const results = await api.searchNodes(linkSearch.value)
-    // Filter out current node and already linked nodes
-    const linkedIds = new Set(linkedNodes.value.map(n => n.id))
-    linkSearchResults.value = results.filter(n =>
-      n.id !== props.node.id && !linkedIds.has(n.id)
-    ).slice(0, 10)
-  } catch (err) {
-    console.error('Search failed:', err)
-    linkSearchResults.value = []
-  }
-}
-
-async function addLink(targetNode) {
-  try {
-    await api.linkNodes(props.node.id, targetNode.id)
-    await loadLinkedNodes()
-    linkSearch.value = ''
-    linkSearchResults.value = []
-    showLinkSearch.value = false
-  } catch (err) {
-    console.error('Failed to link nodes:', err)
   }
 }
 
@@ -132,6 +112,19 @@ const formattedCreatedDate = computed(() => {
   const d = new Date(editedNode.value.created_at)
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 })
+
+const formattedUpdatedDate = computed(() => {
+  if (!editedNode.value?.updated_at) return ''
+  const d = new Date(editedNode.value.updated_at)
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+})
+
+function getInitials(name) {
+  if (!name) return '?'
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
+}
 
 function saveChanges() {
   emit('update', editedNode.value)
@@ -230,54 +223,63 @@ function updateDate(field, value) {
   editedNode.value[field] = value || null
   saveChanges()
 }
+
+function toggleSensitive(event) {
+  editedNode.value.notes_sensitive = event.target.checked
+  if (event.target.checked && activeTab.value !== 'edit') {
+    activeTab.value = 'edit'
+  }
+  saveChanges()
+}
 </script>
 
 <template>
-  <aside v-if="node" class="detail-panel" :style="{ width: width + 'px' }">
+  <aside v-if="node" class="detail-panel" :class="{ fullscreen: fullscreen }" :style="fullscreen ? {} : { width: width + 'px' }">
     <div
+      v-if="!fullscreen"
       class="resize-handle"
       :class="{ dragging: isResizing }"
       @mousedown="startResize"
     ></div>
 
     <div class="detail-panel-header">
+      <input
+        v-if="editedNode.type !== 'person'"
+        type="checkbox"
+        :checked="editedNode.completed"
+        class="title-checkbox"
+        @change="editedNode.completed = $event.target.checked; saveChanges()"
+      />
+      <input
+        :value="editedNode.title"
+        class="title-input"
+        placeholder="Title"
+        @input="editedNode.title = $event.target.value"
+        @change="saveChanges"
+        @keydown.escape="$emit('close')"
+      />
+      <button
+        class="favorite-btn"
+        :class="{ active: editedNode.favorite }"
+        @click="editedNode.favorite = !editedNode.favorite; saveChanges()"
+        title="Toggle favorite"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+        </svg>
+      </button>
       <div class="header-actions">
         <button class="copy-btn" @click="copyNodeContent" title="Copy as Markdown">
           MD
+        </button>
+        <button class="fullscreen-btn" @click="$emit('toggle-fullscreen')" :title="fullscreen ? 'Exit fullscreen' : 'Fullscreen'">
+          {{ fullscreen ? '⊙' : '⛶' }}
         </button>
         <button class="close-btn" @click="$emit('close')" title="Close">x</button>
       </div>
     </div>
 
     <div class="detail-panel-content">
-      <!-- Title row -->
-      <div class="title-row">
-        <button
-          class="favorite-btn"
-          :class="{ active: editedNode.favorite }"
-          @click="editedNode.favorite = !editedNode.favorite; saveChanges()"
-          title="Toggle favorite"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1">
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-          </svg>
-        </button>
-        <input
-          v-if="editedNode.type !== 'person'"
-          type="checkbox"
-          :checked="editedNode.completed"
-          class="title-checkbox"
-          @change="editedNode.completed = $event.target.checked; saveChanges()"
-        />
-        <input
-          :value="editedNode.title"
-          class="title-input"
-          placeholder="Title"
-          @input="editedNode.title = $event.target.value"
-          @change="saveChanges"
-          @keydown.escape="$emit('close')"
-        />
-      </div>
 
       <!-- Collapsible sections container -->
       <div class="collapsible-sections" :class="{ 'all-collapsed': notesCollapsed && childrenCollapsed && metadataCollapsed }">
@@ -299,7 +301,7 @@ function updateDate(field, value) {
                 <input
                   :checked="editedNode.notes_sensitive"
                   type="checkbox"
-                  @change="editedNode.notes_sensitive = $event.target.checked; saveChanges()"
+                  @change="toggleSensitive($event)"
                 />
                 <span class="lock-icon">S</span>
               </label>
@@ -315,7 +317,11 @@ function updateDate(field, value) {
             ></textarea>
 
             <div v-else-if="activeTab === 'preview'" class="notes-preview markdown-body">
-              <MarkdownRenderer v-if="editedNode.notes" :content="editedNode.notes" />
+              <div v-if="editedNode.notes_sensitive && !showSensitivePreview" class="sensitive-hidden">
+                <p>Sensitive notes hidden</p>
+                <button class="unlock-btn" @click="showSensitivePreview = true">Unlock</button>
+              </div>
+              <MarkdownRenderer v-else-if="editedNode.notes" :content="editedNode.notes" />
               <p v-else class="placeholder">No notes yet</p>
             </div>
 
@@ -331,46 +337,59 @@ function updateDate(field, value) {
                 ref="splitPreview"
                 class="notes-preview markdown-body split-preview"
               >
-                <MarkdownRenderer v-if="editedNode.notes" :content="editedNode.notes" />
+                <div v-if="editedNode.notes_sensitive && !showSensitivePreview" class="sensitive-hidden">
+                  <p>Sensitive notes hidden</p>
+                  <button class="unlock-btn" @click="showSensitivePreview = true">Unlock</button>
+                </div>
+                <MarkdownRenderer v-else-if="editedNode.notes" :content="editedNode.notes" />
                 <p v-else class="placeholder">No notes yet</p>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Bottom sections -->
+        <!-- Bottom sections (children + links side by side in fullscreen) -->
         <div class="bottom-sections">
           <!-- Children Section -->
           <div class="children-section" :class="{ collapsed: childrenCollapsed }">
             <div class="section-header" @click="childrenCollapsed = !childrenCollapsed">
-              <span class="section-title">Children</span>
+              <span class="section-title">Tasks</span>
               <span class="collapse-indicator">{{ childrenCollapsed ? '+' : '-' }}</span>
               <span v-if="children.length" class="section-count">{{ completedChildrenCount }}/{{ children.length }}</span>
             </div>
             <div v-show="!childrenCollapsed" class="section-content">
               <div v-if="loadingChildren" class="loading">Loading...</div>
-              <div v-else-if="children.length === 0" class="empty-message">No children</div>
+              <div v-else-if="filteredChildren.length === 0" class="empty-message">No tasks</div>
               <div v-else class="children-list">
-                <template v-for="child in children" :key="child.id">
+                <template v-for="child in filteredChildren" :key="child.id">
+                  <!-- Person: circle with initials -->
                   <div
-                    class="child-item"
-                    :class="{ completed: child.completed, expanded: expandedChildren.has(child.id) }"
+                    v-if="child.type === 'person'"
+                    class="child-item person-item"
+                    :title="child.title + (child.organization ? ' - ' + child.organization : '')"
                     @click="selectChild(child)"
                   >
-                    <button
-                      v-if="child.children?.length || grandchildren[child.id]?.length"
-                      class="child-expand-btn"
-                      @click.stop="toggleChildExpand(child)"
-                    >{{ expandedChildren.has(child.id) ? '-' : '+' }}</button>
-                    <span v-else class="child-expand-placeholder"></span>
-                    <input
-                      type="checkbox"
-                      :checked="child.completed"
-                      @click.stop
-                      @change="toggleChildComplete(child)"
-                    />
-                    <span class="child-type" :class="child.type">{{ child.type[0].toUpperCase() }}</span>
-                    <span class="child-title">{{ child.title }}</span>
+                    <span class="person-avatar" :style="{ backgroundColor: child.color || '#3498db' }">
+                      {{ getInitials(child.title) }}
+                    </span>
+                  </div>
+                  <!-- Other types: color dot with checkbox -->
+                  <div
+                    v-else
+                    class="child-item"
+                    :class="{ completed: child.completed }"
+                    @click="selectChild(child)"
+                  >
+                    <span class="child-color-dot" :style="{ backgroundColor: child.color || '#0f4c75' }">
+                      <input
+                        type="checkbox"
+                        :checked="child.completed"
+                        @click.stop
+                        @change="toggleChildComplete(child)"
+                      />
+                    </span>
+                    <span class="child-title">{{ child.title?.slice(0, 30) }}{{ child.title?.length > 30 ? '...' : '' }}</span>
+                    <span v-if="child.end_date && (fullscreen || width >= 500)" class="child-end-date">{{ child.end_date.split('T')[0] }}</span>
                     <span v-if="child.due_date" class="child-due">{{ child.due_date }}</span>
                   </div>
                   <!-- Grandchildren -->
@@ -390,54 +409,9 @@ function updateDate(field, value) {
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Links Section -->
-          <div class="links-section">
-            <div class="section-header">
-              <span class="section-title">Links</span>
-              <span v-if="linkedNodes.length" class="section-count">{{ linkedNodes.length }}</span>
-              <button class="add-link-btn" @click="showLinkSearch = !showLinkSearch">+</button>
-            </div>
-            <div class="section-content">
-              <!-- Search for links -->
-              <div v-if="showLinkSearch" class="link-search">
-                <input
-                  v-model="linkSearch"
-                  type="text"
-                  placeholder="Search nodes to link..."
-                  @input="searchForLink"
-                  @keydown.escape="showLinkSearch = false"
-                />
-                <div v-if="linkSearchResults.length" class="link-search-results">
-                  <div
-                    v-for="result in linkSearchResults"
-                    :key="result.id"
-                    class="link-search-item"
-                    @click="addLink(result)"
-                  >
-                    <span class="link-type" :class="result.type">{{ result.type[0].toUpperCase() }}</span>
-                    <span class="link-title">{{ result.title }}</span>
-                  </div>
-                </div>
-              </div>
-              <!-- Linked nodes list -->
-              <div v-if="linkedNodes.length === 0 && !showLinkSearch" class="empty-message">No links</div>
-              <div v-else class="links-list">
-                <div
-                  v-for="linked in linkedNodes"
-                  :key="linked.id"
-                  class="link-item"
-                  @click="emit('select-child', linked.id)"
-                >
-                  <span class="link-type" :class="linked.type">{{ linked.type[0].toUpperCase() }}</span>
-                  <span class="link-title">{{ linked.title }}</span>
-                  <button class="remove-link-btn" @click.stop="removeLink(linked)" title="Remove link">x</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Metadata Section -->
+          <!-- Metadata Section (own row) -->
           <div class="meta-section" :class="{ collapsed: metadataCollapsed }">
             <div class="section-header" @click="metadataCollapsed = !metadataCollapsed">
               <span class="section-title">Metadata</span>
@@ -465,12 +439,6 @@ function updateDate(field, value) {
                       @click="setImportance(level)"
                     >{{ level }}</button>
                   </div>
-                </div>
-
-                <!-- Created -->
-                <div class="meta-item">
-                  <label>Created</label>
-                  <span class="created-value">{{ formattedCreatedDate }}</span>
                 </div>
 
                 <!-- Start Date -->
@@ -526,6 +494,40 @@ function updateDate(field, value) {
                     @blur="saveChanges"
                     placeholder="Address or place"
                   />
+                </div>
+
+                <!-- Links -->
+                <div class="meta-item full-width links-row">
+                  <label>Links</label>
+                  <div class="links-inline">
+                    <span
+                      v-for="linked in linkedNodes"
+                      :key="linked.id"
+                      class="link-chip"
+                      @click="emit('select-child', linked.id)"
+                    >
+                      <span class="link-type" :class="linked.type">{{ linked.type[0].toUpperCase() }}</span>
+                      {{ linked.title }}
+                      <button class="remove-link-btn" @click.stop="removeLink(linked)">x</button>
+                    </span>
+                    <button class="add-link-btn" @click="emit('open-link-search')" title="Add link (uses global search)">+</button>
+                  </div>
+                </div>
+
+                <!-- System info (at end) -->
+                <div class="meta-item">
+                  <label>ID</label>
+                  <span class="meta-value mono">{{ editedNode.id }}</span>
+                </div>
+
+                <div class="meta-item">
+                  <label>Created</label>
+                  <span class="meta-value">{{ formattedCreatedDate }}</span>
+                </div>
+
+                <div class="meta-item">
+                  <label>Modified</label>
+                  <span class="meta-value">{{ formattedUpdatedDate }}</span>
                 </div>
               </div>
 
@@ -585,17 +587,8 @@ function updateDate(field, value) {
                   </div>
                 </div>
               </template>
-
-
-              <!-- Node info -->
-              <div class="detail-meta">
-                <span>ID: {{ node.id }}</span>
-                <span>Depth: {{ node.depth }}</span>
-                <span v-if="node.path">Path: {{ node.path }}</span>
-              </div>
             </div>
           </div>
-        </div>
       </div>
 
       <!-- Actions -->
@@ -622,6 +615,39 @@ function updateDate(field, value) {
   overflow: hidden;
 }
 
+.detail-panel.fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw !important;
+  max-width: 100vw;
+  min-width: 100vw;
+  height: 100vh;
+  z-index: 1000;
+  border-left: none;
+  padding: 20px 40px;
+  box-sizing: border-box;
+}
+
+.detail-panel.fullscreen .bottom-sections {
+  flex-direction: row;
+  gap: 20px;
+}
+
+.detail-panel.fullscreen .children-section {
+  flex: 1;
+  min-width: 0;
+}
+
+.detail-panel.fullscreen .children-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 6px;
+  max-height: none;
+}
+
 .resize-handle {
   position: absolute;
   left: 0;
@@ -643,9 +669,33 @@ function updateDate(field, value) {
   padding: 8px 12px;
   border-bottom: 1px solid var(--border-color);
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
   background: var(--bg-secondary);
+}
+
+.detail-panel-header .title-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 4px 0;
+}
+
+.detail-panel-header .title-input:focus {
+  outline: none;
+  border-bottom: 1px solid var(--accent-color);
+}
+
+.detail-panel-header .title-checkbox {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--accent-color);
 }
 
 .header-actions {
@@ -684,22 +734,6 @@ function updateDate(field, value) {
   display: flex;
   flex-direction: column;
   min-height: 0;
-}
-
-/* Title row */
-.title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-  flex-shrink: 0;
-}
-
-.title-checkbox {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  accent-color: var(--accent-color);
 }
 
 .favorite-btn {
@@ -899,6 +933,36 @@ function updateDate(field, value) {
   font-style: italic;
 }
 
+.notes-preview .sensitive-hidden {
+  color: var(--text-tertiary);
+  font-style: italic;
+  text-align: center;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.notes-preview .sensitive-hidden p {
+  margin: 0;
+}
+
+.unlock-btn {
+  padding: 4px 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.unlock-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 /* Split view */
 .notes-split {
   display: flex;
@@ -929,15 +993,18 @@ function updateDate(field, value) {
 }
 
 .children-list {
-  max-height: 200px;
+  max-height: 400px;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .child-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 4px;
+  gap: 4px;
+  padding: 1px 4px 1px 1px;
   border-radius: 4px;
   cursor: pointer;
   transition: background 0.15s;
@@ -952,23 +1019,41 @@ function updateDate(field, value) {
   color: var(--text-tertiary);
 }
 
-.child-type {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 5px;
-  border-radius: 3px;
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
+.child-color-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.child-type.task { color: #f0c674; }
-.child-type.note { color: #81a2be; }
-.child-type.project { color: #b5bd68; }
-.child-type.milestone { color: #b294bb; }
-.child-type.event { color: #e74c3c; }
-.child-type.topic { color: #1abc9c; }
-.child-type.folder { color: #95a5a6; }
-.child-type.person { color: #3498db; }
+.child-color-dot input[type="checkbox"] {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  accent-color: white;
+  cursor: pointer;
+}
+
+.person-item {
+  padding: 2px;
+  background: transparent;
+}
+
+.person-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: white;
+  flex-shrink: 0;
+}
 
 .child-title {
   flex: 1;
@@ -983,97 +1068,14 @@ function updateDate(field, value) {
   color: var(--text-tertiary);
 }
 
-/* Links section */
-.links-section {
-  padding: 8px;
-  background: var(--bg-secondary);
-  border-radius: 6px;
+.child-end-date {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  opacity: 0.7;
+  flex-shrink: 0;
 }
 
-.links-section .section-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.add-link-btn {
-  margin-left: auto;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: 1px solid var(--border-color);
-  background: var(--bg-primary);
-  color: var(--text-secondary);
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.add-link-btn:hover {
-  background: var(--bg-hover);
-  color: var(--accent-color);
-}
-
-.link-search {
-  margin-bottom: 8px;
-}
-
-.link-search input {
-  width: 100%;
-  padding: 6px 8px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 12px;
-}
-
-.link-search input:focus {
-  outline: none;
-  border-color: var(--accent-color);
-}
-
-.link-search-results {
-  margin-top: 4px;
-  max-height: 150px;
-  overflow-y: auto;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--bg-primary);
-}
-
-.link-search-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.link-search-item:hover {
-  background: var(--bg-hover);
-}
-
-.links-list {
-  max-height: 150px;
-  overflow-y: auto;
-}
-
-.link-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.link-item:hover {
-  background: var(--bg-hover);
-}
-
+/* Link type colors */
 .link-type {
   font-size: 10px;
   font-weight: 600;
@@ -1091,33 +1093,6 @@ function updateDate(field, value) {
 .link-type.topic { color: #1abc9c; }
 .link-type.folder { color: #95a5a6; }
 .link-type.person { color: #3498db; }
-
-.link-title {
-  flex: 1;
-  font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.remove-link-btn {
-  background: none;
-  border: none;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  padding: 2px 6px;
-  font-size: 12px;
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-.link-item:hover .remove-link-btn {
-  opacity: 1;
-}
-
-.remove-link-btn:hover {
-  color: #e74c3c;
-}
 
 .child-expand-btn {
   width: 18px;
@@ -1228,6 +1203,88 @@ function updateDate(field, value) {
   flex: 1;
   min-width: 80px;
 }
+
+.meta-item.full-width {
+  flex-basis: 100%;
+}
+
+.links-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.links-row label {
+  min-width: 40px;
+  padding-top: 4px;
+}
+
+.links-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.link-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.link-chip:hover {
+  background: var(--bg-hover);
+}
+
+.link-chip .link-type {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.link-chip .remove-link-btn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.link-chip .remove-link-btn:hover {
+  color: #ff6b6b;
+}
+
+.links-row .add-link-btn {
+  background: transparent;
+  border: 1px dashed var(--border-color);
+  color: var(--text-tertiary);
+  padding: 2px 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+
+.links-row .add-link-btn:hover {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: #fff;
+}
+
 
 .meta-item label {
   font-size: 10px;
@@ -1387,5 +1444,14 @@ input::selection,
 textarea::selection {
   background: rgba(59, 130, 246, 0.5);
   color: #fff;
+}
+
+.meta-value {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.meta-value.mono {
+  font-family: monospace;
 }
 </style>

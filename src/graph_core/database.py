@@ -156,7 +156,7 @@ class Database:
             completed=bool(row["completed"]),
             favorite=bool(row["favorite"]) if "favorite" in keys else False,
             color=row["color"],
-            sort_order=row["sort_order"],
+            sort_order=int(row["sort_order"]) if row["sort_order"] is not None else 0,
             importance=row["importance"],
             start_date=row["start_date"],
             end_date=row["end_date"],
@@ -444,6 +444,17 @@ class Database:
             (node_id, node_id),
         )
         return [self._row_to_node(row) for row in cursor.fetchall()]
+
+    def get_all_links(self, node_ids: list[int] = None) -> list[tuple[int, int]]:
+        """Get all links, optionally filtered to only include links between given node IDs."""
+        with self._lock:
+            cursor = self.conn.execute("SELECT source_id, target_id FROM node_links")
+            all_links = [(row[0], row[1]) for row in cursor.fetchall()]
+
+        if node_ids is not None:
+            node_set = set(node_ids)
+            return [(s, t) for s, t in all_links if s in node_set and t in node_set]
+        return all_links
 
     def search_nodes(self, query: str, node_type: Optional[NodeType] = None) -> list[Node]:
         """Search nodes by title or notes."""

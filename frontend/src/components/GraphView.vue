@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { api } from '../services/api'
 import cytoscape from 'cytoscape'
 import coseBilkent from 'cytoscape-cose-bilkent'
 import cola from 'cytoscape-cola'
@@ -45,7 +46,8 @@ const props = defineProps({
   selectedId: Number,
   detailThreshold: { type: Number, default: 30 },
   maxDepth: { type: Number, default: 0 }, // 0 = all levels
-  hideCompleted: { type: Boolean, default: false }
+  hideCompleted: { type: Boolean, default: false },
+  hideSensitive: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['select', 'enter', 'move', 'add-child', 'insert-between', 'update', 'create', 'delete', 'delete-multiple', 'wrap-with-parent'])
@@ -462,7 +464,10 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
       }
 
       // Notes preview (adaptive) - cleaner separator
-      if (totalNodes <= 5 && node.notes) {
+      const isSensitive = node.notes_sensitive
+      if (isSensitive && node.notes) {
+        label += '\n\n🔒'
+      } else if (totalNodes <= 5 && node.notes) {
         label += '\n\n' + cleanMarkdown(node.notes, 200)
       } else if (totalNodes <= 10 && node.notes) {
         label += '\n\n' + cleanMarkdown(node.notes, 80)
@@ -495,8 +500,12 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
     }
 
     if (node.notes) {
-      const notesHtml = renderMarkdownHtml(node.notes, 2000)
-      tooltip += `<div class="tt-notes markdown-body">${notesHtml}</div>`
+      if (node.notes_sensitive) {
+        tooltip += `<div class="tt-notes">🔒 Sensitive content</div>`
+      } else {
+        const notesHtml = renderMarkdownHtml(node.notes, 2000)
+        tooltip += `<div class="tt-notes markdown-body">${notesHtml}</div>`
+      }
     }
 
     // Adjust colors for completed nodes and parent nodes
@@ -557,6 +566,27 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
   })
 
   return elements
+}
+
+// Add link edges (many-to-many relationships) to elements
+function addLinkEdges(elements, links) {
+  const nodeIds = new Set(elements.filter(el => !el.data.source).map(el => el.data.id))
+
+  links.forEach(link => {
+    const sourceId = String(link.source)
+    const targetId = String(link.target)
+    // Only add if both nodes are in the graph
+    if (nodeIds.has(sourceId) && nodeIds.has(targetId)) {
+      elements.push({
+        data: {
+          id: `link-${link.source}-${link.target}`,
+          source: sourceId,
+          target: targetId,
+          isLink: true
+        }
+      })
+    }
+  })
 }
 
 // ===========================================
@@ -644,11 +674,23 @@ function getLayoutOptions() {
   return LAYOUTS[layoutMode.value] || LAYOUTS.tree
 }
 
-function initGraph() {
+async function initGraph() {
   if (!container.value) return
 
   const savedPositions = loadNodePositions()
   const elements = buildElements(props.nodes, props.parent, savedPositions, props.detailThreshold, props.maxDepth)
+
+  // Fetch and add link edges
+  try {
+    const nodeIds = elements.filter(el => !el.data.source).map(el => parseInt(el.data.id))
+    if (nodeIds.length > 0) {
+      const links = await api.getAllLinks(nodeIds)
+      addLinkEdges(elements, links)
+    }
+  } catch (err) {
+    console.error('Failed to load links:', err)
+  }
+
   const hasPositions = Object.keys(savedPositions).length > 0
 
   cy = cytoscape({
@@ -723,6 +765,17 @@ function initGraph() {
           'target-arrow-color': '#3498db',
           'overlay-opacity': 0
         }
+      },
+      {
+        selector: 'edge[isLink]',
+        style: {
+          'line-style': 'dashed',
+          'line-color': '#9b59b6',
+          'target-arrow-color': '#9b59b6',
+          'target-arrow-shape': 'none',
+          'curve-style': 'bezier',
+          'opacity': 0.7
+        }
       }
     ],
     layout: hasPositions ? { name: 'preset' } : getLayoutOptions()
@@ -754,8 +807,12 @@ function initGraph() {
       // Only show notes based on detail threshold
       let notesHtml = ''
       if (showDetails && node.notes) {
-        const maxLen = totalNodes <= 5 ? 300 : totalNodes <= 10 ? 150 : 60
-        notesHtml = renderMarkdownHtml(node.notes, maxLen)
+        if (node.notes_sensitive) {
+          notesHtml = '<span style="opacity: 0.5">🔒</span>'
+        } else {
+          const maxLen = totalNodes <= 5 ? 300 : totalNodes <= 10 ? 150 : 60
+          notesHtml = renderMarkdownHtml(node.notes, maxLen)
+        }
       }
 
       // Custom color as subtle background gradient
@@ -1219,9 +1276,9 @@ function findSmartPosition(nodeId, parentId, savedPositions, childIds = []) {
   return { x: 400, y: 300 }
 }
 
-function updateGraph() {
+async function updateGraph() {
   if (!cy) {
-    initGraph()
+    await initGraph()
     return
   }
 
@@ -1238,6 +1295,17 @@ function updateGraph() {
   }
 
   const elements = buildElements(props.nodes, props.parent, savedPositions, props.detailThreshold, props.maxDepth)
+
+  // Fetch and add link edges
+  try {
+    const nodeIds = elements.filter(el => !el.data.source).map(el => parseInt(el.data.id))
+    if (nodeIds.length > 0) {
+      const links = await api.getAllLinks(nodeIds)
+      addLinkEdges(elements, links)
+    }
+  } catch (err) {
+    console.error('Failed to load links:', err)
+  }
   const hasPositions = Object.keys(savedPositions).length > 0
 
   // Build a map of element positions for quick lookup
@@ -1316,8 +1384,12 @@ function updateGraph() {
       // Only show notes based on detail threshold
       let notesHtml = ''
       if (showDetails && node.notes) {
-        const maxLen = totalNodes <= 5 ? 300 : totalNodes <= 10 ? 150 : 60
-        notesHtml = renderMarkdownHtml(node.notes, maxLen)
+        if (node.notes_sensitive) {
+          notesHtml = '<span style="opacity: 0.5">🔒</span>'
+        } else {
+          const maxLen = totalNodes <= 5 ? 300 : totalNodes <= 10 ? 150 : 60
+          notesHtml = renderMarkdownHtml(node.notes, maxLen)
+        }
       }
 
       // Custom color as subtle background gradient

@@ -717,14 +717,14 @@ input[type="checkbox"] {
   color: var(--text-tertiary);
 }
 
-/* Child card type colors */
-.child-card.project { border-left: 3px solid #3b82f6; background: rgba(59, 130, 246, 0.1); }
-.child-card.task { border-left: 3px solid #eab308; background: rgba(234, 179, 8, 0.1); }
-.child-card.note { border-left: 3px solid #22c55e; background: rgba(34, 197, 94, 0.1); }
-.child-card.milestone { border-left: 3px solid #a855f7; background: rgba(168, 85, 247, 0.1); }
-.child-card.topic { border-left: 3px solid #06b6d4; background: rgba(6, 182, 212, 0.1); }
-.child-card.folder { border-left: 3px solid #64748b; background: rgba(100, 116, 139, 0.1); }
-.child-card.person { border-left: 3px solid #f97316; background: rgba(249, 115, 22, 0.1); }
+/* Child card type colors - border only, gradient only from explicit color */
+.child-card.project { border-left: 3px solid #3b82f6; }
+.child-card.task { border-left: 3px solid #eab308; }
+.child-card.note { border-left: 3px solid #22c55e; }
+.child-card.milestone { border-left: 3px solid #a855f7; }
+.child-card.topic { border-left: 3px solid #06b6d4; }
+.child-card.folder { border-left: 3px solid #64748b; }
+.child-card.person { border-left: 3px solid #f97316; }
 
 /* Child card notes */
 .child-card-notes-area {
@@ -873,6 +873,39 @@ input[type="checkbox"] {
 .grandchild-card.topic { border-left: 2px solid #06b6d4; }
 .grandchild-card.folder { border-left: 2px solid #64748b; }
 .grandchild-card.person { border-left: 2px solid #f97316; }
+
+/* Grandchild notes indicator */
+.grandchild-notes-indicator {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: 4px;
+  font-size: 12px;
+  opacity: 0.6;
+  cursor: pointer;
+}
+
+.grandchild-notes-indicator.lock {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.grandchild-notes-indicator.has-notes {
+  opacity: 0.7;
+}
+
+.grandchild-notes-indicator.add-notes {
+  opacity: 0;
+  font-weight: bold;
+  color: var(--text-muted);
+}
+
+.grandchild-card:hover .grandchild-notes-indicator.add-notes {
+  opacity: 0.4;
+}
+
+.grandchild-notes-indicator:hover:not(.lock) {
+  opacity: 1;
+}
 
 /* Detail Panel */
 .detail-panel {

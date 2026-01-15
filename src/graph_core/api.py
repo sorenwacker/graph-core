@@ -173,6 +173,16 @@ def get_linked_nodes(node_id: int):
     return db.get_linked_nodes(node_id)
 
 
+@app.get("/links")
+def get_all_links(node_ids: str = Query(None, description="Comma-separated node IDs to filter")):
+    """Get all links, optionally filtered to nodes in the given list."""
+    ids = None
+    if node_ids:
+        ids = [int(x.strip()) for x in node_ids.split(",") if x.strip()]
+    links = db.get_all_links(ids)
+    return [{"source": s, "target": t} for s, t in links]
+
+
 # Search
 
 

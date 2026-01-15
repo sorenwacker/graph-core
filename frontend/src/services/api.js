@@ -98,6 +98,11 @@ export const api = {
     })
   },
 
+  async getAllLinks(nodeIds = null) {
+    const params = nodeIds ? `?node_ids=${nodeIds.join(',')}` : ''
+    return request(`/links${params}`)
+  },
+
   async getLinkedNodes(id) {
     return request(`/nodes/${id}/links`)
   },
