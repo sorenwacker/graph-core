@@ -2,6 +2,8 @@ const initSqlJs = require('sql.js')
 const fs = require('fs')
 const path = require('path')
 
+let SQL = null // Will be initialized once
+
 class Database {
   constructor(dbPath) {
     this.dbPath = dbPath
@@ -10,7 +12,9 @@ class Database {
   }
 
   async _init() {
-    const SQL = await initSqlJs()
+    if (!SQL) {
+      SQL = await initSqlJs()
+    }
 
     // Load existing database or create new one
     if (fs.existsSync(this.dbPath)) {
@@ -38,6 +42,139 @@ class Database {
     const data = this.db.export()
     const buffer = Buffer.from(data)
     fs.writeFileSync(this.dbPath, buffer)
+  }
+
+  // Backup database to timestamped file
+  backup(suffix = '') {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const backupPath = this.dbPath.replace('.db', `-backup-${timestamp}${suffix}.db`)
+    const data = this.db.export()
+    fs.writeFileSync(backupPath, Buffer.from(data))
+    console.log(`Database backed up to: ${backupPath}`)
+    return backupPath
+  }
+
+  // List available backups
+  listBackups() {
+    const dir = path.dirname(this.dbPath)
+    const base = path.basename(this.dbPath, '.db')
+    try {
+      return fs.readdirSync(dir)
+        .filter(f => f.startsWith(base + '-backup-') && f.endsWith('.db'))
+        .map(f => ({
+          path: path.join(dir, f),
+          name: f,
+          created: fs.statSync(path.join(dir, f)).mtime
+        }))
+        .sort((a, b) => b.created - a.created)
+    } catch (e) {
+      return []
+    }
+  }
+
+  // Restore from backup
+  restoreBackup(backupPath) {
+    if (!fs.existsSync(backupPath)) {
+      throw new Error(`Backup file not found: ${backupPath}`)
+    }
+    // Create a safety backup before restore
+    this.backup('-pre-restore')
+    const buffer = fs.readFileSync(backupPath)
+    this.db = new SQL.Database(buffer)
+    this._save()
+    console.log(`Database restored from: ${backupPath}`)
+    return { success: true, restoredFrom: backupPath }
+  }
+
+  // =========================================
+  // WORKSPACE METHODS
+  // =========================================
+
+  /**
+   * Seed default workspaces if they don't exist
+   * Called during schema initialization
+   */
+  _seedDefaultWorkspaces() {
+    const defaults = [
+      { id: 'work', name: 'Work', color: '#3498db', icon: 'briefcase', sort_order: 1 },
+      { id: 'private', name: 'Private', color: '#27ae60', icon: 'home', sort_order: 2 }
+    ]
+    for (const ws of defaults) {
+      try {
+        this.db.run(
+          `INSERT OR IGNORE INTO workspaces (id, name, color, icon, sort_order) VALUES (?, ?, ?, ?, ?)`,
+          [ws.id, ws.name, ws.color, ws.icon, ws.sort_order]
+        )
+      } catch (e) {
+        // Ignore duplicates
+      }
+    }
+  }
+
+  /**
+   * Get all workspaces sorted by sort_order
+   * @returns {Array} List of workspace objects
+   */
+  getWorkspaces() {
+    return this._query('SELECT * FROM workspaces ORDER BY sort_order, name')
+  }
+
+  /**
+   * Get a single workspace by ID
+   * @param {string} id - Workspace ID
+   * @returns {Object|null} Workspace object or null
+   */
+  getWorkspace(id) {
+    return this._get('SELECT * FROM workspaces WHERE id = ?', [id])
+  }
+
+  /**
+   * Create a new workspace
+   * @param {Object} data - Workspace data { name, color?, icon?, sort_order? }
+   * @returns {Object} Created workspace
+   */
+  createWorkspace(data) {
+    const id = data.id || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    this._run(
+      `INSERT INTO workspaces (id, name, color, icon, sort_order) VALUES (?, ?, ?, ?, ?)`,
+      [id, data.name, data.color || '#3498db', data.icon || 'folder', data.sort_order || 99]
+    )
+    return this.getWorkspace(id)
+  }
+
+  /**
+   * Update an existing workspace
+   * @param {string} id - Workspace ID
+   * @param {Object} data - Fields to update { name?, color?, icon?, sort_order? }
+   * @returns {Object} Updated workspace
+   */
+  updateWorkspace(id, data) {
+    const allowedFields = ['name', 'color', 'icon', 'sort_order', 'is_default']
+    const updates = []
+    const values = []
+    for (const [key, value] of Object.entries(data)) {
+      if (allowedFields.includes(key)) {
+        updates.push(`${key} = ?`)
+        values.push(value)
+      }
+    }
+    if (updates.length > 0) {
+      values.push(id)
+      this._run(`UPDATE workspaces SET ${updates.join(', ')} WHERE id = ?`, values)
+    }
+    return this.getWorkspace(id)
+  }
+
+  /**
+   * Delete a workspace and orphan its nodes (set workspace_id to NULL)
+   * @param {string} id - Workspace ID to delete
+   * @returns {Object} Success status
+   */
+  deleteWorkspace(id) {
+    // Move nodes to unassigned (NULL workspace = People workspace rules apply)
+    this._run('UPDATE nodes SET workspace_id = NULL WHERE workspace_id = ?', [id])
+    this._run('DELETE FROM workspaces WHERE id = ?', [id])
+    return { success: true }
   }
 
   _initSchema() {
@@ -81,6 +218,70 @@ class Database {
       // Column already exists, ignore
     }
 
+    // Migration: add tags column (JSON array of tag strings)
+    try {
+      this.db.run(`ALTER TABLE nodes ADD COLUMN tags TEXT DEFAULT '[]'`)
+    } catch (e) {
+      // Column already exists, ignore
+    }
+
+    // =========================================
+    // WORKSPACES FEATURE
+    // =========================================
+    // Workspaces provide complete data isolation. Each workspace (work, home, hobby)
+    // has its own nodes, graphs, and views. The People workspace is special - it's
+    // shared across all workspaces for @person mentions.
+    //
+    // Node.workspace_id:
+    //   - NULL = People workspace (persons only, shared across all workspaces)
+    //   - "work", "home", "hobby" = Independent workspaces
+    // =========================================
+
+    // Workspaces table
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS workspaces (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        color TEXT DEFAULT '#3498db',
+        icon TEXT DEFAULT 'folder',
+        sort_order INTEGER DEFAULT 0,
+        is_default INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_workspaces_sort ON workspaces(sort_order)`)
+
+    // Migration: add workspace_id to nodes
+    try {
+      // BACKUP FIRST before any migration
+      this.backup('-pre-workspace-migration')
+      console.log('Created backup before workspace migration')
+
+      this.db.run(`ALTER TABLE nodes ADD COLUMN workspace_id TEXT DEFAULT NULL`)
+      this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_workspace ON nodes(workspace_id)`)
+      console.log('Added workspace_id column to nodes table')
+    } catch (e) {
+      // Column already exists, ensure index exists
+      this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_workspace ON nodes(workspace_id)`)
+    }
+
+    // Always ensure default workspaces exist
+    this._seedDefaultWorkspaces()
+
+    // Migration: assign existing nodes without workspace to 'work' (except persons, organizations, groups)
+    // People workspace keeps: person, organization, group
+    const unassigned = this._query(
+      "SELECT COUNT(*) as cnt FROM nodes WHERE workspace_id IS NULL AND type NOT IN ('person', 'organization', 'group') AND deleted_at IS NULL"
+    )
+    if (unassigned[0]?.cnt > 0) {
+      console.log(`Migrating ${unassigned[0].cnt} unassigned nodes to 'work' workspace`)
+      this.db.run("UPDATE nodes SET workspace_id = 'work' WHERE workspace_id IS NULL AND type NOT IN ('person', 'organization', 'group')")
+      this._save()
+    }
+
+    // Note: Organizations and groups can exist in any workspace.
+    // They are NOT automatically moved to People workspace.
+
     // Migration: fix root node paths (should be empty, not their own ID)
     this._fixRootNodePaths()
 
@@ -99,6 +300,10 @@ class Database {
         UNIQUE(source_id, target_id)
       )
     `)
+
+    // Migration: Convert person parent-child relationships to links
+    // Persons should be independent entities connected only via links
+    this._migratePersonRelationshipsToLinks()
 
     this.db.run(`
       CREATE TABLE IF NOT EXISTS categories (
@@ -149,10 +354,20 @@ class Database {
 
   _rowToNode(row) {
     if (!row) return null
+    // Parse tags JSON
+    let tags = []
+    if (row.tags) {
+      try {
+        tags = JSON.parse(row.tags)
+      } catch {
+        tags = []
+      }
+    }
     return {
       ...row,
       completed: Boolean(row.completed),
-      favorite: Boolean(row.favorite)
+      favorite: Boolean(row.favorite),
+      tags
     }
   }
 
@@ -202,10 +417,86 @@ class Database {
     console.log('Path corruption fix complete')
   }
 
+  /**
+   * Migration: Convert person/organization parent-child relationships to links
+   * Persons and organizations should be independent root nodes connected only via links
+   */
+  _migratePersonRelationshipsToLinks() {
+    let migrated = 0
+
+    // 1. Find all persons and organizations that have a parent_id (they should be root nodes)
+    const entitiesWithParents = this._query(
+      "SELECT id, parent_id, type FROM nodes WHERE type IN ('person', 'organization') AND parent_id IS NOT NULL AND deleted_at IS NULL"
+    )
+
+    for (const entity of entitiesWithParents) {
+      // Create a link between the entity and their current parent
+      try {
+        this.db.run(
+          'INSERT OR IGNORE INTO node_links (source_id, target_id) VALUES (?, ?)',
+          [entity.id, entity.parent_id]
+        )
+        migrated++
+      } catch (e) {
+        // Link might already exist, ignore
+      }
+      // Remove the parent relationship (make entity a root node)
+      this.db.run('UPDATE nodes SET parent_id = NULL, path = "", depth = 0 WHERE id = ?', [entity.id])
+    }
+
+    // 2. Find all nodes whose parent is a person (nothing should be a child of a person)
+    const nodesWithPersonParent = this._query(`
+      SELECT n.id, n.parent_id
+      FROM nodes n
+      JOIN nodes p ON n.parent_id = p.id
+      WHERE p.type = 'person' AND n.deleted_at IS NULL
+    `)
+
+    for (const node of nodesWithPersonParent) {
+      // Create a link between the node and the person
+      try {
+        this.db.run(
+          'INSERT OR IGNORE INTO node_links (source_id, target_id) VALUES (?, ?)',
+          [node.id, node.parent_id]
+        )
+        migrated++
+      } catch (e) {
+        // Link might already exist, ignore
+      }
+      // Remove the parent relationship (make node a root node)
+      this.db.run('UPDATE nodes SET parent_id = NULL, path = "", depth = 0 WHERE id = ?', [node.id])
+    }
+
+    if (migrated > 0) {
+      console.log(`Migrated ${migrated} person parent-child relationships to links`)
+      this._save()
+    }
+  }
+
   // Node CRUD
+  /**
+   * Get nodes with optional filtering by type, parent, and workspace
+   * @param {Object} params - Filter parameters
+   * @param {string} params.type - Filter by node type
+   * @param {number|null} params.parent_id - Filter by parent ID (null = root nodes)
+   * @param {string|null} params.workspace_id - Filter by workspace:
+   *   - undefined: return all (backward compatible)
+   *   - null: People workspace (persons only)
+   *   - string: specific workspace
+   */
   getNodes(params = {}) {
     let sql = 'SELECT * FROM nodes WHERE deleted_at IS NULL'
     const values = []
+
+    // Workspace filtering
+    // Handle null (which might come as null, 'null', or undefined from IPC)
+    if (params.workspace_id === null || params.workspace_id === 'null') {
+      // People workspace: all nodes with NULL workspace_id
+      sql += " AND workspace_id IS NULL"
+    } else if (params.workspace_id !== undefined) {
+      sql += ' AND workspace_id = ?'
+      values.push(params.workspace_id)
+    }
 
     if (params.type) {
       sql += ' AND type = ?'
@@ -232,7 +523,7 @@ class Database {
   createNode(data) {
     const fields = ['type', 'title', 'parent_id', 'notes', 'completed', 'color', 'sort_order',
       'importance', 'start_date', 'end_date', 'due_date', 'location', 'email', 'phone',
-      'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive', 'category_id', 'status_id']
+      'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive', 'category_id', 'status_id', 'tags', 'workspace_id']
 
     const presentFields = fields.filter(f => data[f] !== undefined)
     const values = presentFields.map(f => data[f])
@@ -261,7 +552,7 @@ class Database {
   updateNode(id, data) {
     const fields = ['type', 'title', 'parent_id', 'notes', 'completed', 'color', 'sort_order',
       'importance', 'start_date', 'end_date', 'due_date', 'location', 'email', 'phone',
-      'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive', 'category_id', 'status_id']
+      'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive', 'category_id', 'status_id', 'tags', 'workspace_id']
 
     const updates = []
     const values = []
@@ -285,20 +576,51 @@ class Database {
   }
 
   deleteNode(id, hard = false) {
+    // Get the node's parent before deleting
+    const node = this.getNode(id)
+    const newParentId = node?.parent_id || null
+
+    // Reassign children to the node's parent (or root if no parent)
+    this._run('UPDATE nodes SET parent_id = ? WHERE parent_id = ? AND deleted_at IS NULL', [newParentId, id])
+
     if (hard) {
       this._run('DELETE FROM nodes WHERE id = ?', [id])
     } else {
       this._run('UPDATE nodes SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?', [id])
     }
+
+    // Update paths for reassigned children
+    const reassignedChildren = this._query('SELECT id FROM nodes WHERE parent_id = ? AND deleted_at IS NULL', [newParentId])
+    for (const child of reassignedChildren) {
+      this._updateDescendantPaths(child.id)
+    }
+
     return { success: true }
   }
 
   // Tree operations
-  getRoots() {
-    const results = this._query(
-      'SELECT * FROM nodes WHERE parent_id IS NULL AND deleted_at IS NULL ORDER BY sort_order, created_at'
-    )
-    console.log(`getRoots: found ${results.length} root nodes`)
+  /**
+   * Get root nodes (no parent) filtered by workspace
+   * @param {string|null|undefined} workspaceId - Workspace filter:
+   *   - undefined: return all roots (backward compatible)
+   *   - null: People workspace (persons only)
+   *   - string: specific workspace
+   */
+  getRoots(workspaceId = undefined) {
+    let sql = 'SELECT * FROM nodes WHERE parent_id IS NULL AND deleted_at IS NULL'
+    const values = []
+
+    if (workspaceId === null || workspaceId === 'null') {
+      // People workspace: all nodes with NULL workspace_id (persons + their containers)
+      sql += " AND workspace_id IS NULL"
+    } else if (workspaceId !== undefined) {
+      sql += ' AND workspace_id = ?'
+      values.push(workspaceId)
+    }
+
+    sql += ' ORDER BY sort_order, created_at'
+    const results = this._query(sql, values)
+    console.log(`getRoots(${workspaceId}): found ${results.length} root nodes`)
     return results.map(r => this._rowToNode(r))
   }
 
@@ -314,17 +636,37 @@ class Database {
     ).map(r => this._rowToNode(r))
   }
 
-  getRecent(limit = 10) {
-    return this._query(
-      'SELECT * FROM nodes WHERE deleted_at IS NULL ORDER BY updated_at DESC LIMIT ?',
-      [limit]
-    ).map(r => this._rowToNode(r))
+  getRecent(limit = 10, workspaceId = undefined) {
+    let sql = 'SELECT * FROM nodes WHERE deleted_at IS NULL'
+    const values = []
+
+    if (workspaceId === null || workspaceId === 'null') {
+      // People workspace: nodes with NULL workspace_id
+      sql += ' AND workspace_id IS NULL'
+    } else if (workspaceId !== undefined) {
+      sql += ' AND workspace_id = ?'
+      values.push(workspaceId)
+    }
+
+    sql += ' ORDER BY updated_at DESC LIMIT ?'
+    values.push(limit)
+    return this._query(sql, values).map(r => this._rowToNode(r))
   }
 
-  getFavorites() {
-    return this._query(
-      'SELECT * FROM nodes WHERE favorite = 1 AND deleted_at IS NULL ORDER BY updated_at DESC'
-    ).map(r => this._rowToNode(r))
+  getFavorites(workspaceId = undefined) {
+    let sql = 'SELECT * FROM nodes WHERE favorite = 1 AND deleted_at IS NULL'
+    const values = []
+
+    if (workspaceId === null || workspaceId === 'null') {
+      // People workspace: nodes with NULL workspace_id
+      sql += ' AND workspace_id IS NULL'
+    } else if (workspaceId !== undefined) {
+      sql += ' AND workspace_id = ?'
+      values.push(workspaceId)
+    }
+
+    sql += ' ORDER BY updated_at DESC'
+    return this._query(sql, values).map(r => this._rowToNode(r))
   }
 
   getChildren(id, type = null) {
@@ -487,9 +829,30 @@ class Database {
   }
 
   // Search
-  search(query, type = null) {
+  /**
+   * Search nodes by title/notes with optional type and workspace filtering
+   * @param {string} query - Search query
+   * @param {string|null} type - Filter by node type
+   * @param {string|null|undefined} workspaceId - Workspace filter:
+   *   - undefined: search all (backward compatible)
+   *   - null: People workspace (persons only)
+   *   - string: specific workspace
+   */
+  search(query, type = null, workspaceId = undefined) {
     let sql = "SELECT * FROM nodes WHERE deleted_at IS NULL AND (title LIKE ? OR notes LIKE ?)"
     const values = [`%${query}%`, `%${query}%`]
+
+    // Workspace filtering
+    // When searching for persons, always search people workspace (null) unless specified otherwise
+    const effectiveWorkspaceId = (type === 'person' && workspaceId === undefined) ? null : workspaceId
+
+    if (effectiveWorkspaceId === null || effectiveWorkspaceId === 'null') {
+      // People workspace: all nodes with NULL workspace_id
+      sql += " AND workspace_id IS NULL"
+    } else if (effectiveWorkspaceId !== undefined) {
+      sql += ' AND workspace_id = ?'
+      values.push(effectiveWorkspaceId)
+    }
 
     if (type) {
       sql += ' AND type = ?'
@@ -523,21 +886,55 @@ class Database {
     return this.getNode(nodeId)
   }
 
-  // Export
+  // Export node and all descendants as structured markdown
   exportMarkdown(nodeId) {
-    const node = this.getNode(nodeId)
-    if (!node) return { markdown: '' }
+    const db = this
+    const root = db.getNode(nodeId)
+    if (!root) return { markdown: '' }
 
-    let md = `# ${node.title}\n\n`
-    if (node.notes) md += `${node.notes}\n\n`
-
-    const children = this.getChildren(nodeId)
-    for (const child of children) {
-      md += `## ${child.title}\n\n`
-      if (child.notes) md += `${child.notes}\n\n`
+    // Adjust heading levels in notes to be relative to node depth
+    function adjustNoteHeadings(notes, nodeDepth) {
+      if (!notes) return ''
+      // Match markdown headings at start of line
+      return notes.replace(/^(#{1,6})\s/gm, (match, hashes) => {
+        const originalLevel = hashes.length
+        const newLevel = Math.min(originalLevel + nodeDepth, 6)
+        return '#'.repeat(newLevel) + ' '
+      })
     }
 
-    return { markdown: md }
+    // Direct recursive export using getChildren
+    function exportNode(id, depth) {
+      const node = db.getNode(id)
+      if (!node) return ''
+
+      let md = ''
+      // Use heading levels 1-6, then bold for deeper levels
+      if (depth <= 6) {
+        md += '#'.repeat(depth) + ' ' + node.title + '\n\n'
+      } else {
+        md += '**' + node.title + '**\n\n'
+      }
+
+      if (node.notes) {
+        const adjustedNotes = adjustNoteHeadings(node.notes, depth)
+        md += adjustedNotes + '\n\n'
+      }
+
+      // Get and export children directly from database
+      const childRows = db._query(
+        'SELECT id FROM nodes WHERE parent_id = ? AND deleted_at IS NULL ORDER BY sort_order, created_at',
+        [id]
+      )
+      for (const row of childRows) {
+        md += exportNode(row.id, depth + 1)
+      }
+
+      return md
+    }
+
+    const markdown = exportNode(nodeId, 1)
+    return { markdown }
   }
 
   // Trash
@@ -558,6 +955,51 @@ class Database {
     const count = result[0]?.count || 0
     this._run('DELETE FROM nodes WHERE deleted_at IS NOT NULL')
     return { deleted: count }
+  }
+
+  // Lost & Found - orphaned nodes whose parent doesn't exist or was deleted
+  getOrphanedNodes() {
+    return this._query(`
+      SELECT n.* FROM nodes n
+      WHERE n.deleted_at IS NULL
+        AND n.parent_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM nodes p
+          WHERE p.id = n.parent_id
+            AND p.deleted_at IS NULL
+        )
+      ORDER BY n.updated_at DESC
+    `).map(r => this._rowToNode(r))
+  }
+
+  // Re-parent orphaned node to root
+  reparentToRoot(nodeId) {
+    this._run('UPDATE nodes SET parent_id = NULL WHERE id = ?', [nodeId])
+    this._updateDescendantPaths(nodeId)
+    return this.getNode(nodeId)
+  }
+
+  // Tags
+  getAllTags() {
+    const nodes = this._query('SELECT tags FROM nodes WHERE deleted_at IS NULL AND tags IS NOT NULL AND tags != "[]"')
+    const tagSet = new Set()
+    for (const node of nodes) {
+      try {
+        const tags = JSON.parse(node.tags || '[]')
+        tags.forEach(tag => tagSet.add(tag))
+      } catch {
+        // Skip invalid JSON
+      }
+    }
+    return Array.from(tagSet).sort()
+  }
+
+  getNodesByTag(tag) {
+    // Search for nodes containing the tag in the JSON array
+    return this._query(
+      'SELECT * FROM nodes WHERE deleted_at IS NULL AND tags LIKE ?',
+      [`%"${tag}"%`]
+    ).map(r => this._rowToNode(r))
   }
 }
 

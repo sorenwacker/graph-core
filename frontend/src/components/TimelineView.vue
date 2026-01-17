@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, onMounted, watch, nextTick } from 'vue'
+import { getTypeIcon, getTypeColors, personIconSvg } from '../utils/constants.js'
 
 const props = defineProps({
   nodes: { type: Array, default: () => [] },
@@ -416,7 +417,8 @@ watch(() => props.nodes, () => {
               @mouseleave="emit('hide-tooltip')"
             >
               <span class="tree-indent" :style="{ width: (node.depth * 5) + 'px' }"></span>
-              <span class="type-badge" :class="node.type">{{ node.type[0].toUpperCase() }}</span>
+              <span v-if="node.type === 'person'" class="type-badge person" v-html="personIconSvg"></span>
+              <span v-else class="type-badge" :class="node.type" v-html="getTypeIcon(node.type)"></span>
               <span class="node-title">{{ node.title }}</span>
             </div>
           </div>
@@ -882,12 +884,21 @@ watch(() => props.nodes, () => {
   flex-shrink: 0;
 }
 
-.type-badge.project { background: #1a4d7a; color: #7db3e0; }
-.type-badge.task { background: #4a4a1a; color: #e0e07d; }
-.type-badge.note { background: #1a4a1a; color: #7de07d; }
-.type-badge.milestone { background: #4a1a4a; color: #e07de0; }
-.type-badge.topic { background: #1a4a4a; color: #7de0e0; }
-.type-badge.folder { background: #3a3a3a; color: #aaa; }
-.type-badge.person { background: #4a2a1a; color: #e0a07d; }
-.type-badge.event { background: #4a1a1a; color: #f87171; }
+.type-badge.project { background: var(--type-project-bg); color: var(--type-project-text); }
+.type-badge.task { background: var(--type-task-bg); color: var(--type-task-text); }
+.type-badge.note { background: var(--type-note-bg); color: var(--type-note-text); }
+.type-badge.milestone { background: var(--type-milestone-bg); color: var(--type-milestone-text); }
+.type-badge.group { background: var(--type-group-bg); color: var(--type-group-text); }
+.type-badge.event { background: var(--type-event-bg); color: var(--type-event-text); }
+.type-badge.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
+.type-badge.folder { background: var(--type-folder-bg); color: var(--type-folder-text); }
+.type-badge.person { background: var(--type-person-bg); color: var(--type-person-text); }
+.type-badge.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
+
+/* SVG icons in type badges */
+.type-badge :deep(svg) {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
 </style>

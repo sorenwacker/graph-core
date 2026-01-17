@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, nextTick, watch } from 'vue'
+import { getTypeIcon, getTypeColors, personIconSvg } from '../utils/constants.js'
 
 const props = defineProps({
   node: Object,
@@ -9,7 +10,16 @@ const props = defineProps({
 
 const emit = defineEmits(['select', 'toggle-complete', 'update-notes'])
 
-const typeLabel = computed(() => props.node.type.toUpperCase())
+const typeLabel = computed(() => getTypeIcon(props.node.type))
+const isPerson = computed(() => props.node.type === 'person')
+
+const personStyle = computed(() => {
+  if (isPerson.value) {
+    const colors = getTypeColors('person', props.node.id)
+    return { background: colors.bg, color: colors.text }
+  }
+  return {}
+})
 const editingNotes = ref(false)
 const notesText = ref('')
 const notesTextarea = ref(null)
@@ -66,7 +76,8 @@ function handleNotesKeydown(event) {
     @click="selectNode"
   >
     <div class="node-card-header">
-      <span class="node-card-type" :class="node.type">{{ typeLabel }}</span>
+      <span v-if="isPerson" class="node-card-type person" :style="personStyle" v-html="personIconSvg"></span>
+      <span v-else class="node-card-type" :class="node.type">{{ typeLabel }}</span>
       <input
         v-if="node.type === 'task'"
         type="checkbox"
@@ -177,5 +188,19 @@ function handleNotesKeydown(event) {
   font-size: 0.8rem;
   color: var(--text-tertiary);
   margin-top: var(--spacing-sm);
+}
+
+/* Person type with SVG icon */
+.node-card-type.person {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.node-card-type.person :deep(svg) {
+  width: 12px;
+  height: 12px;
 }
 </style>

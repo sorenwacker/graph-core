@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { api } from '../services/api'
 import { buildTooltipHTML } from '../utils/tooltip.js'
-import { nodeTypes } from '../utils/constants.js'
+import { nodeTypes, getTypeIcon, typeConfig, getGraphColors } from '../utils/constants.js'
 import cytoscape from 'cytoscape'
 import coseBilkent from 'cytoscape-cose-bilkent'
 import cola from 'cytoscape-cola'
@@ -49,24 +49,60 @@ const props = defineProps({
   detailThreshold: { type: Number, default: 30 },
   maxDepth: { type: Number, default: 0 }, // 0 = all levels
   hideCompleted: { type: Boolean, default: false },
-  hideSensitive: { type: Boolean, default: false }
+  hideSensitive: { type: Boolean, default: false },
+  workspace: { type: String, default: 'work' },
+  workspaces: { type: Array, default: () => [] }
 })
 
-const emit = defineEmits(['select', 'enter', 'move', 'add-child', 'insert-between', 'update', 'create', 'delete', 'delete-multiple', 'wrap-with-parent', 'open-fullscreen'])
+const emit = defineEmits(['select', 'enter', 'move', 'add-child', 'insert-between', 'update', 'create', 'delete', 'delete-multiple', 'wrap-with-parent', 'open-fullscreen', 'link', 'unlink'])
 
 const container = ref(null)
 const editModalEl = ref(null)
 const editTitleInput = ref(null)
 const dropHighlightEl = ref(null)
+
+// Link mode toggle - can be activated by Option key or button
+const linkModeActive = ref(false)
+
+// Track Alt/Option key to temporarily enable link mode
+if (typeof document !== 'undefined') {
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Alt' || e.code === 'AltLeft' || e.code === 'AltRight' || e.altKey) {
+      linkModeActive.value = true
+    }
+  })
+  document.addEventListener('keyup', (e) => {
+    if (e.key === 'Alt' || e.code === 'AltLeft' || e.code === 'AltRight') {
+      linkModeActive.value = false
+    }
+  })
+  // Track via mouse events - if altKey is held during mouse movement
+  document.addEventListener('mousemove', (e) => {
+    if (e.altKey) linkModeActive.value = true
+  })
+}
+
+// Context menu state
+const contextMenu = ref({
+  visible: false,
+  x: 0,
+  y: 0,
+  node: null,
+  selectedNodes: [],  // For multi-select actions
+  linkedNodes: []
+})
+
 const layoutMode = ref(localStorage.getItem('graph-layout-mode') || 'tree')
-const relaxLocked = ref(false)
+const relaxLocked = ref(localStorage.getItem('graph-relax-locked') === 'true')
 let relaxClickTimeout = null
 let cy = null
+let isInitializing = false
 
-// Node positions storage key
+// Node positions storage key - includes workspace and parent for proper isolation
 function getPositionsKey() {
   const parentId = props.parent?.id || 'root'
-  return `graph-positions-${parentId}`
+  const ws = props.workspace || 'work'
+  return `graph-positions-${ws}-${parentId}`
 }
 
 // Load saved positions
@@ -95,6 +131,11 @@ watch(layoutMode, (mode) => {
   localStorage.setItem('graph-layout-mode', mode)
 })
 
+// Persist relax locked state
+watch(relaxLocked, (locked) => {
+  localStorage.setItem('graph-relax-locked', locked ? 'true' : 'false')
+})
+
 
 // Edit modal state
 const editModal = ref({
@@ -119,7 +160,8 @@ const addNodeModal = ref({
   visible: false,
   title: '',
   parentId: null,  // null = current container, otherwise specific parent
-  position: null   // { x, y } for graph position
+  position: null,  // { x, y } for graph position
+  insertBetween: null  // { parentId, childId, isLink } for insert-between mode
 })
 const addNodeTitleRef = ref(null)
 
@@ -160,12 +202,13 @@ function handlePromptKeydown(e) {
 }
 
 // Add node modal functions
-function showAddNodeModal(parentId = null, position = null) {
+function showAddNodeModal(parentId = null, position = null, insertBetween = null) {
   addNodeModal.value = {
     visible: true,
     title: '',
     parentId,
-    position
+    position,
+    insertBetween
   }
   nextTick(() => {
     addNodeTitleRef.value?.focus()
@@ -174,13 +217,24 @@ function showAddNodeModal(parentId = null, position = null) {
 
 function hideAddNodeModal() {
   addNodeModal.value.visible = false
+  addNodeModal.value.insertBetween = null
 }
 
 function createNodeWithType(type) {
   const title = addNodeModal.value.title.trim()
   if (!title) return
-  const { parentId, position } = addNodeModal.value
-  if (parentId) {
+  const { parentId, position, insertBetween } = addNodeModal.value
+
+  if (insertBetween) {
+    // Insert between two nodes (edge click)
+    emit('insert-between', {
+      parentId: insertBetween.parentId,
+      childId: insertBetween.childId,
+      title,
+      type,
+      isLink: insertBetween.isLink
+    })
+  } else if (parentId) {
     // Add as child of specific node
     emit('add-child', { parentId, title, type, x: position?.x, y: position?.y })
   } else {
@@ -291,22 +345,121 @@ async function wrapWithParentFromModal() {
   }
 }
 
-// Graph-specific colors: dark backgrounds with colored borders
-const graphTypeColors = {
-  project: { bg: '#0d0d0d', border: '#3498db', text: '#ffffff' },  // blue
-  task: { bg: '#0d0d0d', border: '#f1c40f', text: '#ffffff' },     // yellow
-  note: { bg: '#0d0d0d', border: '#2ecc71', text: '#ffffff' },     // green
-  milestone: { bg: '#0d0d0d', border: '#9b59b6', text: '#ffffff' }, // purple
-  group: { bg: '#0d0d0d', border: '#64748b', text: '#ffffff' },    // slate gray
-  person: { bg: '#0d0d0d', border: '#e67e22', text: '#ffffff' },   // default orange (overridden per person)
-  event: { bg: '#0d0d0d', border: '#e74c3c', text: '#ffffff' }     // red
+// Context menu functions
+function closeContextMenu() {
+  contextMenu.value.visible = false
 }
 
-// Generate consistent random color for a person based on their ID
-function getPersonColor(personId) {
-  const hue = (personId * 137.508) % 360  // Golden angle for good distribution
-  return `hsl(${hue}, 65%, 55%)`
+function openLinkSearchFromContextMenu() {
+  const node = contextMenu.value.node
+  closeContextMenu()
+  if (node) {
+    // Emit event to open link search modal in App.vue
+    emit('select', node)
+    // Short delay to let the node be selected, then trigger link search
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('open-link-search', { detail: { nodeId: node.id } }))
+    }, 50)
+  }
 }
+
+async function unlinkNodeFromContextMenu(linkedNode) {
+  const node = contextMenu.value.node
+  if (!node || !linkedNode) return
+  try {
+    emit('unlink', { sourceId: node.id, targetId: linkedNode.id })
+    // Refresh the linked nodes list
+    const links = await api.getLinkedNodes(node.id)
+    contextMenu.value.linkedNodes = links
+    // If no more links, close menu
+    if (links.length === 0) {
+      closeContextMenu()
+    }
+  } catch (err) {
+    console.error('Failed to unlink:', err)
+  }
+}
+
+function viewNodeFromContextMenu() {
+  const node = contextMenu.value.node
+  closeContextMenu()
+  if (node) {
+    emit('select', node)
+  }
+}
+
+function enterNodeFromContextMenu() {
+  const node = contextMenu.value.node
+  closeContextMenu()
+  if (node) {
+    emit('enter', node)
+  }
+}
+
+function addChildFromContextMenu() {
+  const node = contextMenu.value.node
+  closeContextMenu()
+  if (node) {
+    emit('add-child', { parentId: node.id, title: '', type: 'task', prompt: true })
+  }
+}
+
+async function toggleCompleteFromContextMenu() {
+  const node = contextMenu.value.node
+  if (!node) return
+  try {
+    const updated = { ...node, completed: !node.completed }
+    emit('update', updated)
+    contextMenu.value.node = updated
+  } catch (err) {
+    console.error('Failed to toggle complete:', err)
+  }
+}
+
+async function toggleFavoriteFromContextMenu() {
+  const node = contextMenu.value.node
+  if (!node) return
+  try {
+    const updated = { ...node, favorite: !node.favorite }
+    emit('update', updated)
+    contextMenu.value.node = updated
+  } catch (err) {
+    console.error('Failed to toggle favorite:', err)
+  }
+}
+
+function deleteNodeFromContextMenu() {
+  const node = contextMenu.value.node
+  closeContextMenu()
+  if (node) {
+    emit('delete', node.id)
+  }
+}
+
+async function moveToWorkspace(workspaceId) {
+  const nodes = contextMenu.value.selectedNodes
+  if (!nodes || nodes.length === 0) return
+  try {
+    const wsId = workspaceId === 'people' ? null : workspaceId
+    // Move all selected nodes
+    for (const node of nodes) {
+      await api.updateNode(node.id, { workspace_id: wsId })
+      const updated = { ...node, workspace_id: wsId }
+      emit('update', updated)
+    }
+    closeContextMenu()
+  } catch (err) {
+    console.error('Failed to move to workspace:', err)
+  }
+}
+
+function getInitials(name) {
+  if (!name) return '?'
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
+}
+
 
 function flattenNodes(nodeList, result = [], skipCompleted = false, maxDepth = 0, currentDepth = 1) {
   for (const node of nodeList) {
@@ -432,11 +585,8 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
   // Add nodes
   allNodes.forEach((node, index) => {
     const savedPos = savedPositions[String(node.id)]
-    let colors = graphTypeColors[node.type] || graphTypeColors.task
-    // Persons get unique colors based on their ID
-    if (node.type === 'person') {
-      colors = { ...colors, border: getPersonColor(node.id) }
-    }
+    // Get colors from centralized config (handles person unique colors automatically)
+    const colors = getGraphColors(node.type, node.id)
     // Custom color as background tint - uses inherited color from parent if no own color
     const customBgTint = inheritedColorMap[node.id] || null
     // Root node glow: current container when drilling in, or top-level nodes in current view
@@ -491,6 +641,7 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
         label,
         tooltip,
         type: node.type,
+        isPerson: node.type === 'person',
         bgColor,
         borderColor: colors.border,
         textColor,
@@ -546,13 +697,14 @@ function addLinkEdges(elements, links) {
   const nodeIds = new Set(elements.filter(el => !el.data.source).map(el => el.data.id))
 
   links.forEach(link => {
-    const sourceId = String(link.source)
-    const targetId = String(link.target)
+    // Database returns source_id and target_id
+    const sourceId = String(link.source_id)
+    const targetId = String(link.target_id)
     // Only add if both nodes are in the graph
     if (nodeIds.has(sourceId) && nodeIds.has(targetId)) {
       elements.push({
         data: {
-          id: `link-${link.source}-${link.target}`,
+          id: `link-${sourceId}-${targetId}`,
           source: sourceId,
           target: targetId,
           isLink: true
@@ -560,6 +712,42 @@ function addLinkEdges(elements, links) {
       })
     }
   })
+}
+
+// Fetch and add linked nodes that are not already in the graph
+// These are nodes connected via links but outside the current hierarchy
+async function fetchLinkedNodes(elements, links, savedPositions) {
+  const existingNodeIds = new Set(elements.filter(el => !el.data.source).map(el => el.data.id))
+  const linkedNodeIds = new Set()
+
+  // Find all node IDs referenced in links that aren't in the graph yet
+  links.forEach(link => {
+    const sourceId = String(link.source_id)
+    const targetId = String(link.target_id)
+    if (!existingNodeIds.has(sourceId)) linkedNodeIds.add(link.source_id)
+    if (!existingNodeIds.has(targetId)) linkedNodeIds.add(link.target_id)
+  })
+
+  // Fetch each linked node and add it to the graph (without parents)
+  for (const nodeId of linkedNodeIds) {
+    try {
+      const node = await api.getNode(nodeId)
+      if (node && !node.deleted_at) {
+        const savedPos = savedPositions[node.id]
+        elements.push({
+          data: {
+            id: String(node.id),
+            nodeData: node,
+            isPerson: node.type === 'person',
+            isLinkedExternal: true  // Mark as externally linked (not a descendant)
+          },
+          position: savedPos ? { x: savedPos.x, y: savedPos.y } : undefined
+        })
+      }
+    } catch (err) {
+      console.error(`Failed to fetch linked node ${nodeId}:`, err)
+    }
+  }
 }
 
 // ===========================================
@@ -650,14 +838,21 @@ function getLayoutOptions() {
 async function initGraph() {
   if (!container.value) return
 
+  isInitializing = true
   const savedPositions = loadNodePositions()
   const elements = buildElements(props.nodes, props.parent, savedPositions, props.detailThreshold, props.maxDepth)
 
-  // Fetch and add link edges
+  // Fetch links and include linked nodes that are outside the hierarchy
+  // Only fetch external linked nodes when viewing a subgraph (not at root level)
   try {
     const nodeIds = elements.filter(el => !el.data.source).map(el => parseInt(el.data.id))
     if (nodeIds.length > 0) {
       const links = await api.getAllLinks(nodeIds)
+      // Only fetch external linked nodes when inside a container (subgraph view)
+      if (props.parent) {
+        await fetchLinkedNodes(elements, links, savedPositions)
+      }
+      // Add link edges (for nodes already in the graph)
       addLinkEdges(elements, links)
     }
   } catch (err) {
@@ -692,6 +887,14 @@ async function initGraph() {
         style: {
           'width': 200,
           'height': 100
+        }
+      },
+      {
+        selector: 'node[?isPerson]',
+        style: {
+          'width': 120,
+          'height': 40,
+          'shape': 'round-rectangle'
         }
       },
       {
@@ -764,6 +967,17 @@ async function initGraph() {
     tpl: (data) => {
       const node = data.nodeData
       if (!node) return ''
+
+      // Person nodes render as compact circular badges with full name
+      if (node.type === 'person') {
+        const bgColor = node.color || '#e67e22'
+        return `
+          <div class="node-person" style="background-color: ${bgColor};">
+            <span class="person-name">${node.title || 'Untitled'}</span>
+          </div>
+        `
+      }
+
       const borderColor = data.borderColor || '#1a6fab'
       const customBgTint = data.customBgTint
       const showDetails = data.showDetails
@@ -878,11 +1092,28 @@ async function initGraph() {
     const targetId = parseInt(edge.target().id())
     const sourceNode = edge.source().data('nodeData')
     const targetNode = edge.target().data('nodeData')
+    const isLinkEdge = edge.data('isLink')
+    const isCmdClick = e.originalEvent?.metaKey || e.originalEvent?.ctrlKey
 
     if (sourceNode && targetNode) {
-      const title = await showPrompt(`Insert between "${sourceNode.title}" and "${targetNode.title}"`, 'Enter title...')
-      if (title) {
-        emit('insert-between', { parentId: sourceId, childId: targetId, title })
+      if (isCmdClick) {
+        // Cmd+click - delete/remove the edge
+        if (isLinkEdge) {
+          emit('unlink', { sourceId, targetId })
+        } else {
+          emit('move', { nodeId: targetId, oldParentId: sourceId, newParentId: null })
+        }
+      } else {
+        // Normal click - show add node modal for insert between
+        const midPos = {
+          x: (edge.source().position().x + edge.target().position().x) / 2,
+          y: (edge.source().position().y + edge.target().position().y) / 2
+        }
+        showAddNodeModal(null, midPos, {
+          parentId: sourceId,
+          childId: targetId,
+          isLink: isLinkEdge
+        })
       }
     }
   })
@@ -1034,6 +1265,55 @@ async function initGraph() {
     }
   })
 
+  // Right-click on node to show context menu
+  cy.on('cxttap', 'node', async (e) => {
+    e.preventDefault()
+    const node = e.target.data('nodeData')
+    if (!node) return
+
+    // Get rendered position for menu placement
+    const renderedPos = e.target.renderedPosition()
+    const containerRect = container.value.getBoundingClientRect()
+
+    // Get all selected nodes
+    const selectedCyNodes = cy.$('node:selected')
+    const selectedNodes = []
+    selectedCyNodes.forEach(n => {
+      const data = n.data('nodeData')
+      if (data) selectedNodes.push(data)
+    })
+
+    // If clicked node is not in selection, use just the clicked node
+    const clickedNodeInSelection = selectedNodes.some(n => n.id === node.id)
+    const nodesToUse = clickedNodeInSelection && selectedNodes.length > 1 ? selectedNodes : [node]
+
+    // Load linked nodes for the menu (only for single node)
+    let links = []
+    if (nodesToUse.length === 1) {
+      try {
+        links = await api.getLinkedNodes(node.id)
+      } catch (err) {
+        console.error('Failed to load links:', err)
+      }
+    }
+
+    contextMenu.value = {
+      visible: true,
+      x: containerRect.left + renderedPos.x,
+      y: containerRect.top + renderedPos.y,
+      node: node,
+      selectedNodes: nodesToUse,
+      linkedNodes: links
+    }
+  })
+
+  // Click anywhere to close context menu
+  cy.on('tap', () => {
+    if (contextMenu.value.visible) {
+      contextMenu.value.visible = false
+    }
+  })
+
   // Drag node onto another to reparent
   let dragStartPos = null
   let highlightedNode = null
@@ -1079,8 +1359,15 @@ async function initGraph() {
       dropHighlightEl.value.style.display = 'block'
       dropHighlightEl.value.style.left = (renderedPos.x - 80) + 'px'
       dropHighlightEl.value.style.top = (renderedPos.y - 35) + 'px'
+      // Add link-mode class when Option/Alt is held
+      if (linkModeActive.value) {
+        dropHighlightEl.value.classList.add('link-mode')
+      } else {
+        dropHighlightEl.value.classList.remove('link-mode')
+      }
     } else if (dropHighlightEl.value) {
       dropHighlightEl.value.style.display = 'none'
+      dropHighlightEl.value.classList.remove('link-mode')
     }
   })
 
@@ -1137,6 +1424,26 @@ async function initGraph() {
           return
         }
 
+        // Check if this is a link operation (Option/Alt held)
+        if (linkModeActive.value) {
+          // Link mode: create a link between nodes instead of moving
+          emit('link', { sourceId: sourceNode.id, targetId: targetNode.id })
+          // Reset position (don't actually move the node)
+          if (dragStartPos) draggedNode.position(dragStartPos)
+          dragStartPos = null
+          return
+        }
+
+        // Any relationship involving a person should ALWAYS be a link, never parent-child
+        // Persons are independent entities that connect via links only
+        const involvesPersons = sourceNode.type === 'person' || targetNode.type === 'person'
+        if (involvesPersons) {
+          emit('link', { sourceId: sourceNode.id, targetId: targetNode.id })
+          if (dragStartPos) draggedNode.position(dragStartPos)
+          dragStartPos = null
+          return
+        }
+
         // Safety check: prevent moving to own descendant (would create cycle)
         const isDescendant = (parent, childId) => {
           if (!parent.children) return false
@@ -1173,8 +1480,19 @@ async function initGraph() {
       setTimeout(() => {
         cy.fit(50)
         saveNodePositions()
+        isInitializing = false
+        // Start continuous relax if it was locked from previous session
+        if (relaxLocked.value) {
+          startContinuousRelax()
+        }
       }, 500)
     }, 100)
+  } else {
+    isInitializing = false
+    // Start continuous relax if it was locked from previous session
+    if (relaxLocked.value) {
+      startContinuousRelax()
+    }
   }
 }
 
@@ -1256,6 +1574,9 @@ function findSmartPosition(nodeId, parentId, savedPositions, childIds = []) {
 }
 
 async function updateGraph() {
+  // Skip if currently initializing to prevent race conditions
+  if (isInitializing) return
+
   if (!cy) {
     await initGraph()
     return
@@ -1263,23 +1584,34 @@ async function updateGraph() {
 
   const savedPositions = loadNodePositions()
 
-  // Get current node IDs and positions from cytoscape BEFORE removing elements
+  // Get current node IDs from cytoscape BEFORE removing elements
+  // Only update positions for nodes that have been explicitly positioned (not at origin)
   const existingNodeIds = new Set()
   if (cy) {
     cy.nodes().forEach(node => {
       existingNodeIds.add(node.id())
       const pos = node.position()
-      savedPositions[node.id()] = { x: pos.x, y: pos.y }
+      // Only save position if it looks valid (not at origin or default position)
+      // and the node has actually been positioned in the graph
+      if (pos.x !== 0 || pos.y !== 0) {
+        savedPositions[node.id()] = { x: pos.x, y: pos.y }
+      }
     })
   }
 
   const elements = buildElements(props.nodes, props.parent, savedPositions, props.detailThreshold, props.maxDepth)
 
-  // Fetch and add link edges
+  // Fetch links and include linked nodes that are outside the hierarchy
+  // Only fetch external linked nodes when viewing a subgraph (not at root level)
   try {
     const nodeIds = elements.filter(el => !el.data.source).map(el => parseInt(el.data.id))
     if (nodeIds.length > 0) {
       const links = await api.getAllLinks(nodeIds)
+      // Only fetch external linked nodes when inside a container (subgraph view)
+      if (props.parent) {
+        await fetchLinkedNodes(elements, links, savedPositions)
+      }
+      // Add link edges (for nodes already in the graph)
       addLinkEdges(elements, links)
     }
   } catch (err) {
@@ -1350,6 +1682,17 @@ async function updateGraph() {
     tpl: (data) => {
       const node = data.nodeData
       if (!node) return ''
+
+      // Person nodes render as compact circular badges with full name
+      if (node.type === 'person') {
+        const bgColor = node.color || '#e67e22'
+        return `
+          <div class="node-person" style="background-color: ${bgColor};">
+            <span class="person-name">${node.title || 'Untitled'}</span>
+          </div>
+        `
+      }
+
       const borderColor = data.borderColor || '#1a6fab'
       const customBgTint = data.customBgTint
       const showDetails = data.showDetails
@@ -1394,12 +1737,13 @@ async function updateGraph() {
     // No saved positions - run full layout
     cy.layout(getLayoutOptions()).run()
     setTimeout(saveNodePositions, 600)
-  } else if (elementsChanged) {
-    // Elements changed - run relax to settle new nodes into position
+  } else if (hasNewNodes) {
+    // Only relayout when actually adding new nodes, not on view switch
+    // New nodes need to find their place in the layout
     cy.layout(getLayoutOptions()).run()
     setTimeout(saveNodePositions, 600)
   } else {
-    // No changes - just save positions
+    // No new nodes - preserve existing positions
     setTimeout(saveNodePositions, 100)
   }
 }
@@ -1498,6 +1842,14 @@ function fitView() {
 watch(() => props.nodes, updateGraph, { deep: true })
 watch(() => props.parent, updateGraph, { deep: true })
 watch(() => props.detailThreshold, updateGraph)
+watch(() => props.workspace, () => {
+  // Workspace changed - reinitialize graph to load correct positions
+  if (cy) {
+    cy.destroy()
+    cy = null
+  }
+  initGraph()
+})
 watch(() => props.maxDepth, () => {
   updateGraph()
   // Trigger relayout after depth change
@@ -1641,6 +1993,111 @@ onUnmounted(() => {
       </div>
     </div>
     <div ref="dropHighlightEl" class="drop-highlight"></div>
+
+    <!-- Link mode indicator (shows when Option/Alt is held) -->
+    <div v-if="linkModeActive" class="link-mode-indicator">Link Mode</div>
+
+    <!-- Context Menu -->
+    <div
+      v-if="contextMenu.visible"
+      class="graph-context-menu"
+      :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+      @click.stop
+    >
+      <div class="context-menu-header">
+        <template v-if="contextMenu.selectedNodes.length > 1">
+          <span class="context-menu-type multi">{{ contextMenu.selectedNodes.length }} nodes</span>
+          <span class="context-menu-title">Multiple selected</span>
+        </template>
+        <template v-else>
+          <span class="context-menu-type" :class="contextMenu.node?.type">{{ contextMenu.node?.type }}</span>
+          <span class="context-menu-title">{{ contextMenu.node?.title }}</span>
+        </template>
+      </div>
+
+      <!-- Primary actions -->
+      <div class="context-menu-item" @click="viewNodeFromContextMenu">
+        <span class="context-icon">👁</span>
+        View Details
+      </div>
+      <div class="context-menu-item" @click="enterNodeFromContextMenu">
+        <span class="context-icon">→</span>
+        Enter
+      </div>
+      <div v-if="contextMenu.node?.type !== 'person'" class="context-menu-item" @click="addChildFromContextMenu">
+        <span class="context-icon">+</span>
+        Add Child
+      </div>
+
+      <div class="context-menu-divider"></div>
+
+      <!-- Toggle complete (non-person) -->
+      <div v-if="contextMenu.node?.type !== 'person'" class="context-menu-item" @click="toggleCompleteFromContextMenu">
+        <span class="context-icon">{{ contextMenu.node?.completed ? '○' : '✓' }}</span>
+        {{ contextMenu.node?.completed ? 'Mark Incomplete' : 'Mark Complete' }}
+      </div>
+
+      <!-- Toggle favorite -->
+      <div class="context-menu-item" @click="toggleFavoriteFromContextMenu">
+        <span class="context-icon">{{ contextMenu.node?.favorite ? '☆' : '★' }}</span>
+        {{ contextMenu.node?.favorite ? 'Remove Favorite' : 'Add Favorite' }}
+      </div>
+
+      <div class="context-menu-divider"></div>
+
+      <!-- Linking -->
+      <div class="context-menu-item" @click="openLinkSearchFromContextMenu">
+        <span class="context-icon">🔗</span>
+        Link to...
+      </div>
+
+      <div v-if="contextMenu.linkedNodes.length > 0" class="context-menu-section">
+        <span class="context-section-label">Linked ({{ contextMenu.linkedNodes.length }})</span>
+        <div
+          v-for="linked in contextMenu.linkedNodes"
+          :key="linked.id"
+          class="context-menu-link"
+        >
+          <span v-if="linked.type === 'person'" class="link-avatar" :style="{ backgroundColor: linked.color || '#3498db' }">
+            {{ getInitials(linked.title) }}
+          </span>
+          <span v-else class="link-type-icon" :class="linked.type">{{ linked.type[0].toUpperCase() }}</span>
+          <span class="link-title">{{ linked.title }}</span>
+          <button class="unlink-btn" @click.stop="unlinkNodeFromContextMenu(linked)" title="Remove link">×</button>
+        </div>
+      </div>
+
+      <div class="context-menu-divider"></div>
+
+      <!-- Move to Workspace -->
+      <div class="context-menu-section">
+        <span class="context-section-label">Move {{ contextMenu.selectedNodes.length > 1 ? contextMenu.selectedNodes.length + ' nodes' : '' }} to Workspace</span>
+        <div
+          class="context-menu-item workspace-item"
+          :class="{ active: contextMenu.node?.workspace_id === null }"
+          @click="moveToWorkspace('people')"
+        >
+          People
+        </div>
+        <div
+          v-for="ws in workspaces"
+          :key="ws.id"
+          class="context-menu-item workspace-item"
+          :class="{ active: contextMenu.node?.workspace_id === ws.id }"
+          @click="moveToWorkspace(ws.id)"
+        >
+          {{ ws.name }}
+        </div>
+      </div>
+
+      <div class="context-menu-divider"></div>
+
+      <!-- Danger zone -->
+      <div class="context-menu-item danger" @click="deleteNodeFromContextMenu">
+        <span class="context-icon">🗑</span>
+        Delete
+      </div>
+    </div>
 
     <!-- Full Edit Modal -->
     <div v-if="editModal.visible" class="edit-modal-overlay" @click.self="hideEditModal">
@@ -1788,11 +2245,11 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Add Node Modal (Cmd+Enter) -->
+    <!-- Add Node Modal (Cmd+Enter or edge click) -->
     <div v-if="addNodeModal.visible" class="add-node-modal-overlay" @click.self="hideAddNodeModal">
       <div class="add-node-modal" @keydown="handleAddNodeKeydown">
         <div class="add-node-modal-header">
-          <h3>Add Node</h3>
+          <h3>{{ addNodeModal.insertBetween ? 'Insert Between' : 'Add Node' }}</h3>
           <button class="modal-close" @click="hideAddNodeModal">x</button>
         </div>
         <div class="add-node-modal-content">
@@ -1927,6 +2384,236 @@ onUnmounted(() => {
   }
 }
 
+/* Link mode - green/teal color to indicate linking instead of moving */
+.drop-highlight.link-mode {
+  border-color: #00c9a7;
+  background: rgba(0, 201, 167, 0.1);
+  animation: link-pulse 0.8s ease-in-out infinite;
+}
+
+.drop-highlight.link-mode::after {
+  content: 'Link (Option)';
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #00c9a7;
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+}
+
+@keyframes link-pulse {
+  0%, 100% {
+    border-color: #00c9a7;
+    box-shadow: 0 0 20px rgba(0, 201, 167, 0.3);
+  }
+  50% {
+    border-color: #00e6be;
+    box-shadow: 0 0 30px rgba(0, 201, 167, 0.5);
+  }
+}
+
+/* Link mode indicator */
+.link-mode-indicator {
+  position: fixed;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #00c9a7;
+  color: white;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  z-index: 9999;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+}
+
+/* Context Menu */
+.graph-context-menu {
+  position: fixed;
+  background: var(--bg-elevated, #1e1e1e);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 8px;
+  padding: 6px 0;
+  min-width: 180px;
+  max-width: 280px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  transform: translate(-50%, 10px);
+}
+
+.context-menu-header {
+  padding: 6px 12px 8px;
+  border-bottom: 1px solid var(--border-color, #333);
+  margin-bottom: 4px;
+}
+
+.context-menu-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.context-menu-item {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-primary, #fff);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.context-menu-item:hover {
+  background: var(--bg-hover, #2a2a2a);
+}
+
+.context-menu-item.text-muted {
+  color: var(--text-tertiary, #888);
+}
+
+.context-menu-item.danger {
+  color: #e74c3c;
+}
+
+.context-menu-item.danger:hover {
+  background: rgba(231, 76, 60, 0.15);
+}
+
+.context-menu-type {
+  font-size: 10px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-right: 6px;
+  font-weight: 600;
+}
+
+.context-menu-type.task { background: rgba(52, 152, 219, 0.2); color: #3498db; }
+.context-menu-type.project { background: rgba(155, 89, 182, 0.2); color: #9b59b6; }
+.context-menu-type.note { background: rgba(46, 204, 113, 0.2); color: #2ecc71; }
+.context-menu-type.milestone { background: rgba(241, 196, 15, 0.2); color: #f1c40f; }
+.context-menu-type.person { background: rgba(230, 126, 34, 0.2); color: #e67e22; }
+.context-menu-type.organization { background: rgba(52, 73, 94, 0.2); color: #7f8c9a; }
+.context-menu-type.event { background: rgba(231, 76, 60, 0.2); color: #e74c3c; }
+.context-menu-type.folder { background: rgba(149, 165, 166, 0.2); color: #95a5a6; }
+.context-menu-type.group { background: rgba(26, 188, 156, 0.2); color: #1abc9c; }
+.context-menu-type.topic { background: rgba(26, 188, 156, 0.2); color: #1abc9c; }
+
+.context-icon {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: var(--accent-color, #4a9eff);
+}
+
+.context-menu-divider {
+  height: 1px;
+  background: var(--border-color, #333);
+  margin: 4px 0;
+}
+
+.context-menu-section {
+  padding: 4px 0;
+}
+
+.context-section-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--text-tertiary, #888);
+  padding: 4px 12px;
+  display: block;
+  letter-spacing: 0.5px;
+}
+
+.context-menu-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-secondary, #ccc);
+}
+
+.context-menu-link:hover {
+  background: var(--bg-hover, #2a2a2a);
+}
+
+.link-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 600;
+  color: white;
+  flex-shrink: 0;
+}
+
+.link-type-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--bg-tertiary, #333);
+  color: var(--text-secondary, #ccc);
+  flex-shrink: 0;
+}
+
+.link-type-icon.project { color: #b5bd68; }
+.link-type-icon.task { color: #f0c674; }
+.link-type-icon.organization { color: #e67e22; }
+.link-type-icon.event { color: #f07da0; }
+.link-type-icon.milestone { color: #b294bb; }
+
+.link-title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.unlink-btn {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary, #666);
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.context-menu-link:hover .unlink-btn {
+  opacity: 1;
+}
+
+.unlink-btn:hover {
+  background: rgba(255, 100, 100, 0.2);
+  color: #ff6b6b;
+}
 
 /* Edit Modal - full featured */
 .edit-modal-overlay {
@@ -2375,6 +3062,41 @@ onUnmounted(() => {
 
 .type-btn.event { border-color: #e74c3c; color: #ec7063; background: rgba(231, 76, 60, 0.15); }
 .type-btn.event:not(:disabled):hover { background: rgba(231, 76, 60, 0.4); }
+
+/* Person node - compact pill badge */
+:global(.node-person) {
+  padding: 8px 14px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s, box-shadow 0.15s;
+  max-width: 120px;
+}
+
+:global(.node-person:hover) {
+  transform: scale(1.05);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+:global(.node-person.selected) {
+  outline: 2px solid var(--accent-color, #4a9eff);
+  outline-offset: 2px;
+}
+
+:global(.person-name) {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* HTML Node styling - like old app */
 :global(.node-html) {

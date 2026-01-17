@@ -53,8 +53,9 @@ const webApi = {
   },
 
   // Tree operations
-  async getRoots() {
-    return request('/roots')
+  async getRoots(workspaceId) {
+    const params = workspaceId !== undefined ? `?workspace_id=${workspaceId}` : ''
+    return request(`/roots${params}`)
   },
 
   async getProjects() {
@@ -65,12 +66,20 @@ const webApi = {
     return request('/inbox')
   },
 
-  async getRecent(limit = 10) {
-    return request(`/recent?limit=${limit}`)
+  async getRecent(limit = 10, workspaceId = undefined) {
+    let url = `/recent?limit=${limit}`
+    if (workspaceId !== undefined) {
+      url += `&workspace_id=${workspaceId === null ? 'null' : workspaceId}`
+    }
+    return request(url)
   },
 
-  async getFavorites() {
-    return request('/favorites')
+  async getFavorites(workspaceId = undefined) {
+    let url = '/favorites'
+    if (workspaceId !== undefined) {
+      url += `?workspace_id=${workspaceId === null ? 'null' : workspaceId}`
+    }
+    return request(url)
   },
 
   async getChildren(id, type = null) {
@@ -123,9 +132,10 @@ const webApi = {
   },
 
   // Search
-  async search(query, type = null) {
+  async search(query, type = null, workspaceId = undefined) {
     const params = new URLSearchParams({ q: query })
     if (type) params.append('type', type)
+    if (workspaceId !== undefined) params.append('workspace_id', workspaceId)
     return request(`/search?${params}`)
   },
 
@@ -157,6 +167,60 @@ const webApi = {
       method: 'DELETE',
     })
   },
+
+  // Lost & Found
+  async getOrphanedNodes() {
+    return request('/orphaned')
+  },
+
+  async reparentToRoot(id) {
+    return request(`/nodes/${id}/reparent`, {
+      method: 'POST',
+    })
+  },
+
+  // Tags
+  async getAllTags() {
+    return request('/tags')
+  },
+
+  async getNodesByTag(tag) {
+    return request(`/tags/${encodeURIComponent(tag)}/nodes`)
+  },
+
+  // Workspaces
+  async getWorkspaces() {
+    return request('/workspaces')
+  },
+
+  async getWorkspace(id) {
+    return request(`/workspaces/${id}`)
+  },
+
+  async createWorkspace(data) {
+    return request('/workspaces', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  async updateWorkspace(id, data) {
+    return request(`/workspaces/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  },
+
+  async deleteWorkspace(id) {
+    return request(`/workspaces/${id}`, {
+      method: 'DELETE',
+    })
+  },
+
+  // Database Backups (Electron only in web mode, these are stubs)
+  async backup() { return { error: 'Backups only available in desktop app' } },
+  async listBackups() { return [] },
+  async restoreBackup() { return { error: 'Restore only available in desktop app' } },
 }
 
 // Electron API implementation (uses IPC)
@@ -169,11 +233,11 @@ const electronApi = {
   deleteNode: (id, hard) => window.electronAPI.deleteNode(id, hard),
 
   // Tree operations
-  getRoots: () => window.electronAPI.getRoots(),
+  getRoots: (workspaceId) => window.electronAPI.getRoots(workspaceId),
   getProjects: () => window.electronAPI.getProjects(),
   getInbox: () => window.electronAPI.getInbox(),
-  getRecent: (limit) => window.electronAPI.getRecent(limit),
-  getFavorites: () => window.electronAPI.getFavorites(),
+  getRecent: (limit, workspaceId) => window.electronAPI.getRecent(limit, workspaceId),
+  getFavorites: (workspaceId) => window.electronAPI.getFavorites(workspaceId),
   getChildren: (id, type) => window.electronAPI.getChildren(id, type),
   getDescendants: (id, maxDepth) => window.electronAPI.getDescendants(id, maxDepth),
   getAncestors: (id) => window.electronAPI.getAncestors(id),
@@ -189,7 +253,7 @@ const electronApi = {
   getTree: (rootId) => window.electronAPI.getTree(rootId),
 
   // Search
-  search: (query, type) => window.electronAPI.search(query, type),
+  search: (query, type, workspaceId) => window.electronAPI.search(query, type, workspaceId),
 
   // Reorder
   reorderNode: (nodeId, targetId, position) => window.electronAPI.reorderNode(nodeId, targetId, position),
@@ -201,6 +265,26 @@ const electronApi = {
   getTrash: (limit) => window.electronAPI.getTrash(limit),
   restoreNode: (id) => window.electronAPI.restoreNode(id),
   emptyTrash: () => window.electronAPI.emptyTrash(),
+
+  // Lost & Found
+  getOrphanedNodes: () => window.electronAPI.getOrphanedNodes(),
+  reparentToRoot: (id) => window.electronAPI.reparentToRoot(id),
+
+  // Tags
+  getAllTags: () => window.electronAPI.getAllTags(),
+  getNodesByTag: (tag) => window.electronAPI.getNodesByTag(tag),
+
+  // Workspaces
+  getWorkspaces: () => window.electronAPI.getWorkspaces(),
+  getWorkspace: (id) => window.electronAPI.getWorkspace(id),
+  createWorkspace: (data) => window.electronAPI.createWorkspace(data),
+  updateWorkspace: (id, data) => window.electronAPI.updateWorkspace(id, data),
+  deleteWorkspace: (id) => window.electronAPI.deleteWorkspace(id),
+
+  // Database Backups
+  backup: (suffix) => window.electronAPI.backup(suffix),
+  listBackups: () => window.electronAPI.listBackups(),
+  restoreBackup: (backupPath) => window.electronAPI.restoreBackup(backupPath),
 }
 
 // Export the appropriate API based on environment

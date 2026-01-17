@@ -74,11 +74,11 @@ ipcMain.handle('db:updateNode', (event, id, data) => db.updateNode(id, data))
 ipcMain.handle('db:deleteNode', (event, id, hard) => db.deleteNode(id, hard))
 
 // Tree operations
-ipcMain.handle('db:getRoots', () => db.getRoots())
+ipcMain.handle('db:getRoots', (event, workspaceId) => db.getRoots(workspaceId))
 ipcMain.handle('db:getProjects', () => db.getProjects())
 ipcMain.handle('db:getInbox', () => db.getInbox())
-ipcMain.handle('db:getRecent', (event, limit) => db.getRecent(limit))
-ipcMain.handle('db:getFavorites', () => db.getFavorites())
+ipcMain.handle('db:getRecent', (event, limit, workspaceId) => db.getRecent(limit, workspaceId))
+ipcMain.handle('db:getFavorites', (event, workspaceId) => db.getFavorites(workspaceId))
 ipcMain.handle('db:getChildren', (event, id, type) => db.getChildren(id, type))
 ipcMain.handle('db:getDescendants', (event, id, maxDepth) => db.getDescendants(id, maxDepth))
 ipcMain.handle('db:getAncestors', (event, id) => db.getAncestors(id))
@@ -94,7 +94,7 @@ ipcMain.handle('db:getLinkedNodes', (event, id) => db.getLinkedNodes(id))
 ipcMain.handle('db:getTree', (event, rootId) => db.getTree(rootId))
 
 // Search
-ipcMain.handle('db:search', (event, query, type) => db.search(query, type))
+ipcMain.handle('db:search', (event, query, type, workspaceId) => db.search(query, type, workspaceId))
 
 // Reorder
 ipcMain.handle('db:reorderNode', (event, nodeId, targetId, position) => db.reorderNode(nodeId, targetId, position))
@@ -106,3 +106,27 @@ ipcMain.handle('db:exportMarkdown', (event, nodeId) => db.exportMarkdown(nodeId)
 ipcMain.handle('db:getTrash', (event, limit) => db.getTrash(limit))
 ipcMain.handle('db:restoreNode', (event, id) => db.restoreNode(id))
 ipcMain.handle('db:emptyTrash', () => db.emptyTrash())
+
+// Lost & Found
+ipcMain.handle('db:getOrphanedNodes', () => db.getOrphanedNodes())
+ipcMain.handle('db:reparentToRoot', (event, id) => db.reparentToRoot(id))
+
+// Tags
+ipcMain.handle('db:getAllTags', () => db.getAllTags())
+ipcMain.handle('db:getNodesByTag', (event, tag) => db.getNodesByTag(tag))
+
+// =========================================
+// WORKSPACES
+// =========================================
+ipcMain.handle('db:getWorkspaces', () => db.getWorkspaces())
+ipcMain.handle('db:getWorkspace', (event, id) => db.getWorkspace(id))
+ipcMain.handle('db:createWorkspace', (event, data) => db.createWorkspace(data))
+ipcMain.handle('db:updateWorkspace', (event, id, data) => db.updateWorkspace(id, data))
+ipcMain.handle('db:deleteWorkspace', (event, id) => db.deleteWorkspace(id))
+
+// =========================================
+// DATABASE BACKUPS
+// =========================================
+ipcMain.handle('db:backup', (event, suffix) => db.backup(suffix))
+ipcMain.handle('db:listBackups', () => db.listBackups())
+ipcMain.handle('db:restoreBackup', (event, backupPath) => db.restoreBackup(backupPath))

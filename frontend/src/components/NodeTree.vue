@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
+import { getTypeIcon, getTypeColors, personIconSvg } from '../utils/constants.js'
 
 const props = defineProps({
   node: Object,
@@ -18,17 +19,17 @@ const showAddInput = ref(false)
 const newChildTitle = ref('')
 const isDragOver = ref(false)
 
-const typeIcon = computed(() => {
-  const icons = {
-    project: 'P',
-    task: 'T',
-    note: 'N',
-    milestone: 'M',
-    topic: 'C',
-    folder: 'F',
-    person: 'U'
+// Use centralized type icon
+const typeIcon = computed(() => getTypeIcon(props.node.type))
+const isPerson = computed(() => props.node.type === 'person')
+
+// Get person-specific colors if applicable
+const personStyle = computed(() => {
+  if (isPerson.value) {
+    const colors = getTypeColors('person', props.node.id)
+    return { background: colors.bg, color: colors.text }
   }
-  return icons[props.node.type] || '?'
+  return {}
 })
 
 function toggleExpand() {
@@ -125,7 +126,8 @@ function onDrop(event) {
       </button>
       <span v-else class="expand-placeholder"></span>
 
-      <span class="type-icon" :class="node.type">{{ typeIcon }}</span>
+      <span v-if="isPerson" class="type-icon person" :style="personStyle" v-html="personIconSvg"></span>
+      <span v-else class="type-icon" :class="node.type">{{ typeIcon }}</span>
 
       <input
         v-if="node.type === 'task'"
@@ -258,10 +260,31 @@ function onDrop(event) {
   margin-bottom: 8px;
 }
 
-/* todo -> task icon fix */
+/* Type icon styles - using centralized colors */
 .type-icon.task {
   background: rgba(234, 179, 8, 0.15);
   color: #fbbf24;
   border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+.type-icon.group {
+  background: #3a3a5a;
+  color: #a0a0d0;
+}
+
+.type-icon.event {
+  background: #5a1a3a;
+  color: #f07da0;
+}
+
+.type-icon.person {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.type-icon.person :deep(svg) {
+  width: 12px;
+  height: 12px;
 }
 </style>

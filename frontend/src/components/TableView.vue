@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useNodeTooltip } from '../composables/useNodeTooltip.js'
+import { getTypeIcon, getTypeIconHtml, getTypeColors, typeConfig, personIconSvg } from '../utils/constants.js'
 
 const props = defineProps({
   nodes: { type: Array, default: () => [] },
@@ -63,17 +64,15 @@ function formatDate(dateStr) {
   return dateStr.split('T')[0]
 }
 
-function getTypeIcon(type) {
-  const icons = {
-    project: 'P',
-    task: 'T',
-    note: 'N',
-    milestone: 'M',
-    topic: 'O',
-    folder: 'F',
-    person: 'U'
+// getTypeIcon imported from constants.js
+
+// Get badge style for person nodes (random colors based on ID)
+function getBadgeStyle(node) {
+  if (node.type === 'person') {
+    const colors = getTypeColors('person', node.id)
+    return { background: colors.bg, color: colors.text }
   }
-  return icons[type] || 'T'
+  return {}
 }
 
 // Get indentation based on database depth
@@ -358,7 +357,8 @@ function handleClick(e, node) {
         >
           <td class="col-expand">..</td>
           <td class="col-type">
-            <span class="type-badge" :class="currentContainer.type">{{ getTypeIcon(currentContainer.type) }}</span>
+            <span v-if="currentContainer.type === 'person'" class="type-badge person" :style="getBadgeStyle(currentContainer)" v-html="personIconSvg"></span>
+            <span v-else class="type-badge" :class="currentContainer.type" v-html="getTypeIcon(currentContainer.type)"></span>
           </td>
           <td class="col-check"></td>
           <td class="col-title">
@@ -400,7 +400,8 @@ function handleClick(e, node) {
             </td>
             <td class="col-type">
               <span class="tree-prefix">{{ getTreePrefix(node, nodeIndex === filteredNodes.length - 1) }}</span>
-              <span class="type-badge" :class="node.type">{{ getTypeIcon(node.type) }}</span>
+              <span v-if="node.type === 'person'" class="type-badge person" :style="getBadgeStyle(node)" v-html="personIconSvg"></span>
+              <span v-else class="type-badge" :class="node.type" v-html="getTypeIcon(node.type)"></span>
             </td>
             <td class="col-check">
               <input
@@ -452,7 +453,8 @@ function handleClick(e, node) {
                 </td>
                 <td class="col-type">
                   <span class="tree-prefix">{{ getTreePrefix(child, childIndex === node.children.length - 1) }}</span>
-                  <span class="type-badge" :class="child.type">{{ getTypeIcon(child.type) }}</span>
+                  <span v-if="child.type === 'person'" class="type-badge person" :style="getBadgeStyle(child)" v-html="personIconSvg"></span>
+                  <span v-else class="type-badge" :class="child.type" v-html="getTypeIcon(child.type)"></span>
                 </td>
                 <td class="col-check">
                   <input
@@ -497,7 +499,8 @@ function handleClick(e, node) {
                   <td class="col-expand"></td>
                   <td class="col-type">
                     <span class="tree-prefix">{{ getTreePrefix(grandchild, grandchildIndex === child.children.length - 1) }}</span>
-                    <span class="type-badge" :class="grandchild.type">{{ getTypeIcon(grandchild.type) }}</span>
+                    <span v-if="grandchild.type === 'person'" class="type-badge person" :style="getBadgeStyle(grandchild)" v-html="personIconSvg"></span>
+                    <span v-else class="type-badge" :class="grandchild.type" v-html="getTypeIcon(grandchild.type)"></span>
                   </td>
                   <td class="col-check">
                     <input
@@ -847,13 +850,22 @@ td.col-title {
   flex-shrink: 0;
 }
 
-.type-badge.project { background: #1a4d7a; color: #8cc4ff; }
-.type-badge.task { background: #5a5a1a; color: #f0f07d; }
-.type-badge.note { background: #1a5a1a; color: #7df07d; }
-.type-badge.milestone { background: #5a1a5a; color: #f07df0; }
-.type-badge.topic { background: #1a5a5a; color: #7df0f0; }
-.type-badge.folder { background: #4a4a4a; color: #ccc; }
-.type-badge.person { background: #5a3a1a; color: #f0b07d; }
+.type-badge.project { background: var(--type-project-bg); color: var(--type-project-text); }
+.type-badge.task { background: var(--type-task-bg); color: var(--type-task-text); }
+.type-badge.note { background: var(--type-note-bg); color: var(--type-note-text); }
+.type-badge.milestone { background: var(--type-milestone-bg); color: var(--type-milestone-text); }
+.type-badge.group { background: var(--type-group-bg); color: var(--type-group-text); }
+.type-badge.event { background: var(--type-event-bg); color: var(--type-event-text); }
+.type-badge.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
+.type-badge.folder { background: var(--type-folder-bg); color: var(--type-folder-text); }
+.type-badge.person { background: var(--type-person-bg); color: var(--type-person-text); }
+.type-badge.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
+
+/* SVG icons in type badges */
+.type-badge :deep(svg) {
+  width: 14px;
+  height: 14px;
+}
 
 .action-btn {
   width: 24px;

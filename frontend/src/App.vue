@@ -6,12 +6,13 @@ import 'tippy.js/dist/tippy.css'
 import 'tippy.js/themes/translucent.css'
 import { api } from './services/api.js'
 import { buildTooltipHTML, tooltipOptions } from './utils/tooltip.js'
-import { nodeTypes, getImportanceLabel } from './utils/constants.js'
+import { nodeTypes, getImportanceLabel, getTypeIcon, getTypeColors, typeConfig, personIconSvg } from './utils/constants.js'
 import DetailPanel from './components/DetailPanel.vue'
 import GraphView from './components/GraphView.vue'
 import TableView from './components/TableView.vue'
 import TimelineView from './components/TimelineView.vue'
 import PersonsView from './components/PersonsView.vue'
+import NodeContextMenu from './components/NodeContextMenu.vue'
 
 // Click-outside directive
 const vClickOutside = {
@@ -74,9 +75,50 @@ const sidebarTree = ref([])  // Full tree for sidebar navigation
 const sidebarExpandedIds = ref(new Set())
 const recentItems = ref([])  // Recent items for sidebar
 const trashedItems = ref([])  // Deleted items for trash view
+const orphanedNodes = ref([])  // Orphaned nodes for lost & found
+const showLostFound = ref(false)
 const sidebarTreeCollapsed = ref(false)
 const sidebarFavoritesCollapsed = ref(false)
 const sidebarRecentCollapsed = ref(false)
+
+// =========================================
+// WORKSPACES
+// =========================================
+// Workspaces provide complete data isolation. Each workspace has its own
+// nodes, graphs, and views. The 'people' workspace is special - it shows
+// only person nodes which can be @mentioned from any workspace.
+const currentWorkspace = ref(localStorage.getItem('graphcore-workspace') || 'work')
+const workspaces = ref([])  // Loaded from database
+
+// Helper: Get workspace_id for creating new nodes
+// All nodes in People workspace get NULL, others get current workspace
+function getWorkspaceIdForNode(type) {
+  if (currentWorkspace.value === 'people') return null  // All nodes in People workspace
+  if (type === 'person') return null  // Persons always go to People workspace
+  return currentWorkspace.value
+}
+
+// Random color for persons
+const personColors = [
+  '#e74c3c', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5',
+  '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50',
+  '#8bc34a', '#cddc39', '#ffc107', '#ff9800', '#ff5722',
+  '#795548', '#607d8b', '#f44336', '#7c4dff', '#00e676'
+]
+
+function getRandomPersonColor() {
+  return personColors[Math.floor(Math.random() * personColors.length)]
+}
+
+// Load available workspaces from database
+async function loadWorkspaces() {
+  try {
+    workspaces.value = await api.getWorkspaces()
+  } catch (e) {
+    console.error('Failed to load workspaces:', e)
+    workspaces.value = []
+  }
+}
 
 // Favorites computed from all loaded nodes
 const favoriteItems = ref([])
@@ -150,6 +192,62 @@ const graphDetailThreshold = ref(parseInt(localStorage.getItem('graphcore-graphD
 const graphMaxDepth = ref(parseInt(localStorage.getItem('graphcore-graphMaxDepth')) || 0) // 0 = all
 const showSettings = ref(false)
 
+// Snapshot/backup management
+const availableSnapshots = ref([])
+const showSnapshotList = ref(false)
+const snapshotMessage = ref('')
+
+async function loadSnapshots() {
+  try {
+    availableSnapshots.value = await api.listBackups()
+  } catch (e) {
+    console.error('Failed to load snapshots:', e)
+    availableSnapshots.value = []
+  }
+}
+
+async function createSnapshot() {
+  try {
+    const path = await api.backup('-manual')
+    snapshotMessage.value = 'Snapshot created'
+    setTimeout(() => snapshotMessage.value = '', 3000)
+    await loadSnapshots()
+  } catch (e) {
+    snapshotMessage.value = 'Failed to create snapshot'
+    console.error('Failed to create snapshot:', e)
+  }
+}
+
+async function restoreSnapshot(backupPath) {
+  if (!confirm('Restore this snapshot? Current data will be backed up first.')) return
+  try {
+    await api.restoreBackup(backupPath)
+    snapshotMessage.value = 'Snapshot restored - reloading...'
+    // Reload the app data
+    await loadChildren(null)
+    await loadSidebarTree()
+    selectedNode.value = null
+    currentContainerId.value = null
+    breadcrumbs.value = []
+    snapshotMessage.value = 'Snapshot restored successfully'
+    setTimeout(() => snapshotMessage.value = '', 3000)
+  } catch (e) {
+    snapshotMessage.value = 'Failed to restore snapshot'
+    console.error('Failed to restore snapshot:', e)
+  }
+}
+
+function formatSnapshotDate(dateString) {
+  const date = new Date(dateString)
+  return date.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
 // Persist view mode changes and load data when switching views
 watch(viewMode, (newMode) => {
   localStorage.setItem('graphcore-viewMode', newMode)
@@ -192,6 +290,23 @@ watch(sidebarPinned, (newVal) => {
   localStorage.setItem('graphcore-sidebarPinned', String(newVal))
 })
 
+// Watch for workspace changes - reload data when switching workspaces
+watch(currentWorkspace, async (newWs) => {
+  localStorage.setItem('graphcore-workspace', newWs)
+  // Reset navigation when switching workspaces
+  currentContainerId.value = null
+  currentContainer.value = null
+  breadcrumbs.value = []
+  selectedNode.value = null
+  selectedIds.value = new Set()
+  showDetail.value = false
+  // Reload data for new workspace
+  await loadChildren(null)
+  await loadSidebarTree()
+  await loadRecentItems()
+  await loadFavorites()
+})
+
 // Computed for sidebar visibility
 const sidebarVisible = computed(() => sidebarPinned.value || sidebarHovered.value)
 
@@ -225,13 +340,24 @@ async function undo() {
     if (action.type === 'move') {
       await api.moveNode(action.nodeId, action.oldParentId)
     } else if (action.type === 'create') {
-      await api.deleteNode(action.nodeId)
+      // Remove link if it was a person/org that was linked
+      if (action.linkedToId) {
+        await api.unlinkNodes(action.nodeId, action.linkedToId)
+      }
+      await api.deleteNode(action.nodeId, true)  // Hard delete since it was just created
     } else if (action.type === 'delete') {
-      await api.restoreNode(action.nodeData.id)
+      const restored = await api.restoreNode(action.nodeData.id)
+      // Restore original parent if it was changed
+      if (restored && action.nodeData.parent_id !== restored.parent_id) {
+        await api.updateNode(action.nodeData.id, { parent_id: action.nodeData.parent_id })
+      }
     } else if (action.type === 'delete-multiple') {
       // Restore all deleted nodes
       for (const node of action.nodes) {
-        await api.restoreNode(node.id)
+        const restored = await api.restoreNode(node.id)
+        if (restored && node.parent_id !== restored.parent_id) {
+          await api.updateNode(node.id, { parent_id: node.parent_id })
+        }
       }
     } else if (action.type === 'edit') {
       await api.updateNode(action.nodeId, action.oldValues)
@@ -245,7 +371,7 @@ async function undo() {
     await loadChildren(currentContainerId.value)
     await loadSidebarTree()
   } catch (e) {
-    console.error('Undo failed:', e)
+    console.error('Undo failed:', e, action)
     undoStack.value.push(action)
   }
 }
@@ -442,11 +568,13 @@ function nestedGridStyle(count, level = 1) {
 // Methods
 async function loadSidebarTree() {
   try {
-    const roots = await api.getRoots()
-    // Exclude persons from sidebar - they have their own register
-    const nonPersonRoots = roots.filter(r => r.type !== 'person')
+    // Filter by current workspace
+    const wsFilter = currentWorkspace.value === 'people' ? null : currentWorkspace.value
+    const roots = await api.getRoots(wsFilter)
+    // In people workspace, show all persons. In other workspaces, exclude persons
+    const filteredRoots = wsFilter === null ? roots : roots.filter(r => r.type !== 'person')
     const rootsWithChildren = await Promise.all(
-      nonPersonRoots.map(async (root) => {
+      filteredRoots.map(async (root) => {
         const descendants = await api.getDescendants(root.id)
         return {
           ...root,
@@ -460,10 +588,17 @@ async function loadSidebarTree() {
   }
 }
 
+// Get workspace-specific localStorage key for recent cleared timestamp
+function getRecentClearedKey() {
+  const ws = currentWorkspace.value === 'people' ? 'people' : currentWorkspace.value
+  return `graphcore-recentClearedAt-${ws}`
+}
+
 async function loadRecentItems() {
   try {
-    const items = await api.getRecent(10)
-    const clearedAt = localStorage.getItem('graphcore-recentClearedAt')
+    const wsFilter = currentWorkspace.value === 'people' ? null : currentWorkspace.value
+    const items = await api.getRecent(10, wsFilter)
+    const clearedAt = localStorage.getItem(getRecentClearedKey())
     if (clearedAt) {
       // Only show items updated after the clear timestamp
       recentItems.value = items.filter(item => item.updated_at > clearedAt)
@@ -478,19 +613,21 @@ async function loadRecentItems() {
 const previousRecentClearedAt = ref(null)
 
 function clearRecent() {
+  const key = getRecentClearedKey()
   // Store previous state for undo
-  previousRecentClearedAt.value = localStorage.getItem('graphcore-recentClearedAt')
+  previousRecentClearedAt.value = localStorage.getItem(key)
   // Store timestamp - only show items updated after this time
-  localStorage.setItem('graphcore-recentClearedAt', new Date().toISOString())
+  localStorage.setItem(key, new Date().toISOString())
   recentItems.value = []
 }
 
 function undoClearRecent() {
   if (previousRecentClearedAt.value !== null) {
+    const key = getRecentClearedKey()
     if (previousRecentClearedAt.value) {
-      localStorage.setItem('graphcore-recentClearedAt', previousRecentClearedAt.value)
+      localStorage.setItem(key, previousRecentClearedAt.value)
     } else {
-      localStorage.removeItem('graphcore-recentClearedAt')
+      localStorage.removeItem(key)
     }
     previousRecentClearedAt.value = null
     loadRecentItems()
@@ -500,7 +637,8 @@ function undoClearRecent() {
 async function loadFavorites() {
   try {
     if (api.getFavorites) {
-      favoriteItems.value = await api.getFavorites()
+      const wsFilter = currentWorkspace.value === 'people' ? null : currentWorkspace.value
+      favoriteItems.value = await api.getFavorites(wsFilter)
     }
   } catch (e) {
     // Silently fail - favorites API may not be available until restart
@@ -547,6 +685,36 @@ async function emptyAllTrash() {
   }
 }
 
+// Lost & Found - orphaned nodes
+async function loadOrphanedNodes() {
+  try {
+    orphanedNodes.value = await api.getOrphanedNodes()
+  } catch (e) {
+    console.error('Failed to load orphaned nodes:', e)
+    orphanedNodes.value = []
+  }
+}
+
+async function moveToRoot(node) {
+  try {
+    await api.reparentToRoot(node.id)
+    await loadOrphanedNodes()
+    await loadSidebarTree()
+  } catch (e) {
+    console.error('Failed to move node to root:', e)
+  }
+}
+
+async function deleteOrphanedNode(node) {
+  if (!confirm(`Permanently delete "${node.title}"?`)) return
+  try {
+    await api.deleteNode(node.id, true)  // hard delete
+    await loadOrphanedNodes()
+  } catch (e) {
+    console.error('Failed to delete orphaned node:', e)
+  }
+}
+
 function toggleSidebarExpand(nodeId) {
   if (sidebarExpandedIds.value.has(nodeId)) {
     sidebarExpandedIds.value.delete(nodeId)
@@ -580,12 +748,15 @@ async function loadChildren(containerId = null) {
   error.value = null
   try {
     if (containerId === null) {
-      // Root level - get all root nodes with their descendants (exclude persons)
-      const roots = await api.getRoots()
-      const nonPersonRoots = roots.filter(r => r.type !== 'person')
+      // Root level - get all root nodes with their descendants
+      // Filter by current workspace (null = people workspace)
+      const wsFilter = currentWorkspace.value === 'people' ? null : currentWorkspace.value
+      const roots = await api.getRoots(wsFilter)
+      // In people workspace, show all persons. In other workspaces, exclude persons
+      const filteredRoots = wsFilter === null ? roots : roots.filter(r => r.type !== 'person')
       // Fetch descendants for each root to build nested structure
       const rootsWithChildren = await Promise.all(
-        nonPersonRoots.map(async (root) => {
+        filteredRoots.map(async (root) => {
           const descendants = await api.getDescendants(root.id)
           return {
             ...root,
@@ -841,16 +1012,29 @@ async function createNode() {
   if (!newNodeTitle.value.trim()) return
 
   try {
+    const nodeType = newNodeType.value
+    const isLinkOnlyType = nodeType === 'person' || nodeType === 'organization'
+    const linkToId = isLinkOnlyType ? currentContainerId.value : null
+
     const nodeData = {
       title: newNodeTitle.value,
-      type: newNodeType.value,
-      parent_id: currentContainerId.value
+      type: nodeType,
+      parent_id: isLinkOnlyType ? null : currentContainerId.value,  // Link-only types have no parent
+      workspace_id: getWorkspaceIdForNode(nodeType)
+    }
+    // Assign random color to persons
+    if (nodeType === 'person') {
+      nodeData.color = getRandomPersonColor()
     }
     const created = await api.createNode(nodeData)
     if (!created || !created.id) {
       throw new Error('Failed to create node')
     }
-    pushUndo({ type: 'create', nodeId: created.id, nodeData, parentId: currentContainerId.value })
+    // Create link for persons/orgs instead of parent-child
+    if (isLinkOnlyType && linkToId) {
+      await api.linkNodes(created.id, linkToId)
+    }
+    pushUndo({ type: 'create', nodeId: created.id, nodeData, parentId: isLinkOnlyType ? null : currentContainerId.value, linkedToId: linkToId })
     newNodeTitle.value = ''
     await loadChildren(currentContainerId.value)
   } catch (e) {
@@ -860,12 +1044,27 @@ async function createNode() {
 
 async function addChildNode({ parentId, title, type, x, y }) {
   try {
-    const nodeData = { title, type: type || 'task', parent_id: parentId }
+    const nodeType = type || 'task'
+    const isLinkOnlyType = nodeType === 'person' || nodeType === 'organization'
+
+    const nodeData = {
+      title,
+      type: nodeType,
+      parent_id: isLinkOnlyType ? null : parentId,
+      workspace_id: getWorkspaceIdForNode(nodeType)
+    }
+    if (nodeType === 'person') {
+      nodeData.color = getRandomPersonColor()
+    }
     const newNode = await api.createNode(nodeData)
     if (!newNode || !newNode.id) {
       throw new Error('Failed to create child node - no result returned')
     }
-    pushUndo({ type: 'create', nodeId: newNode.id, nodeData, parentId })
+    // Create link for persons/orgs instead of parent-child
+    if (isLinkOnlyType && parentId) {
+      await api.linkNodes(newNode.id, parentId)
+    }
+    pushUndo({ type: 'create', nodeId: newNode.id, nodeData, parentId: isLinkOnlyType ? null : parentId })
     // Save position if provided (from graph double-click)
     if (x !== undefined && y !== undefined) {
       const viewId = currentContainerId.value || 'root'
@@ -900,6 +1099,22 @@ function onChildUpdated() {
 
 async function moveNode({ nodeId, oldParentId, newParentId }) {
   try {
+    // If moving to a new parent, check if it involves a person
+    // Persons should ALWAYS use links, never parent-child relationships
+    if (newParentId) {
+      const sourceNode = await api.getNode(nodeId)
+      const targetNode = await api.getNode(newParentId)
+      const involvesPerson = sourceNode.type === 'person' || targetNode.type === 'person'
+      if (involvesPerson) {
+        // Convert to link instead of parent-child relationship
+        await api.linkNodes(nodeId, newParentId)
+        await loadChildren(currentContainerId.value)
+        await loadSidebarTree()
+        loadRecentItems()
+        return
+      }
+    }
+
     // Track for undo (only if oldParentId provided - not from undo/redo)
     if (oldParentId !== undefined) {
       pushUndo({
@@ -915,6 +1130,50 @@ async function moveNode({ nodeId, oldParentId, newParentId }) {
     await loadSidebarTree()
     loadRecentItems()
   } catch (e) {
+    error.value = e.message
+  }
+}
+
+// Handle link events from GraphView (Option+drag)
+async function linkNodesFromGraph({ sourceId, targetId }) {
+  try {
+    await api.linkNodes(sourceId, targetId)
+    // Refresh graph to show the new link edge
+    if (graphViewRef.value?.updateGraph) {
+      await graphViewRef.value.updateGraph()
+    }
+    // Refresh detail panel if showing one of these nodes
+    if (selectedNode.value?.id === sourceId || selectedNode.value?.id === targetId) {
+      selectedNode.value = await api.getNode(selectedNode.value.id)
+      // Also refresh linked items in detail panel
+      detailPanelRef.value?.loadLinkedNodes()
+      detailPanelRef.value?.loadLinkedOrganizations()
+      detailPanelRef.value?.loadLinkedMembers()
+    }
+  } catch (e) {
+    console.error('Failed to link nodes:', e)
+    error.value = e.message
+  }
+}
+
+// Handle unlink events from GraphView (context menu)
+async function unlinkNodesFromGraph({ sourceId, targetId }) {
+  try {
+    await api.unlinkNodes(sourceId, targetId)
+    // Refresh graph to update link edges
+    if (graphViewRef.value?.updateGraph) {
+      await graphViewRef.value.updateGraph()
+    }
+    // Refresh detail panel if showing one of these nodes
+    if (selectedNode.value?.id === sourceId || selectedNode.value?.id === targetId) {
+      selectedNode.value = await api.getNode(selectedNode.value.id)
+      // Also refresh linked items in detail panel
+      detailPanelRef.value?.loadLinkedNodes()
+      detailPanelRef.value?.loadLinkedOrganizations()
+      detailPanelRef.value?.loadLinkedMembers()
+    }
+  } catch (e) {
+    console.error('Failed to unlink nodes:', e)
     error.value = e.message
   }
 }
@@ -936,21 +1195,37 @@ async function moveMultipleNodes({ nodeIds, newParentId }) {
   }
 }
 
-async function insertBetween({ parentId, childId, title }) {
+async function insertBetween({ parentId, childId, title, type, isLink }) {
   try {
-    // Create new node as child of parent
-    const newNode = await api.createNode({
-      title,
-      type: 'task',
-      parent_id: parentId
-    })
-    // Move the original child to be under the new node
-    await api.moveNode(childId, newNode.id)
-    expandedIds.value.add(parentId)
-    expandedIds.value.add(newNode.id)
+    const nodeType = type || 'task'
+    if (isLink) {
+      // For link edges: remove the link, create new node, link both to new node
+      await api.unlinkNodes(parentId, childId)
+      const newNode = await api.createNode({
+        title,
+        type: nodeType,
+        parent_id: currentContainerId.value,
+        workspace_id: getWorkspaceIdForNode(nodeType)
+      })
+      await api.linkNodes(parentId, newNode.id)
+      await api.linkNodes(newNode.id, childId)
+    } else {
+      // For parent-child edges: create new node as child of parent
+      const newNode = await api.createNode({
+        title,
+        type: nodeType,
+        parent_id: parentId,
+        workspace_id: getWorkspaceIdForNode(nodeType)
+      })
+      // Move the original child to be under the new node
+      await api.moveNode(childId, newNode.id)
+      expandedIds.value.add(parentId)
+      expandedIds.value.add(newNode.id)
+    }
     await loadChildren(currentContainerId.value)
     await loadSidebarTree()
     loadRecentItems()
+    graphViewRef.value?.updateGraph()
   } catch (e) {
     error.value = e.message
   }
@@ -958,12 +1233,25 @@ async function insertBetween({ parentId, childId, title }) {
 
 async function createNodeAtPosition({ title, type, x, y }) {
   try {
+    const nodeType = type || 'task'
+    const isLinkOnlyType = nodeType === 'person' || nodeType === 'organization'
+    const linkToId = isLinkOnlyType ? currentContainerId.value : null
+
     // Double-click far from nodes creates child of current container
-    const newNode = await api.createNode({
+    const nodeData = {
       title,
-      type: type || 'task',
-      parent_id: currentContainerId.value
-    })
+      type: nodeType,
+      parent_id: isLinkOnlyType ? null : currentContainerId.value,
+      workspace_id: getWorkspaceIdForNode(nodeType)
+    }
+    if (nodeType === 'person') {
+      nodeData.color = getRandomPersonColor()
+    }
+    const newNode = await api.createNode(nodeData)
+    // Create link for persons/orgs instead of parent-child
+    if (isLinkOnlyType && linkToId) {
+      await api.linkNodes(newNode.id, linkToId)
+    }
     // Save position for the new node in current view
     const viewId = currentContainerId.value || 'root'
     const posKey = `graph-positions-${viewId}`
@@ -1062,6 +1350,11 @@ async function deleteNode(nodeId) {
 async function deleteMultipleNodes(nodeIds) {
   if (!nodeIds || nodeIds.length === 0) return
 
+  // Confirm deletion of multiple nodes
+  if (nodeIds.length > 1) {
+    if (!confirm(`Delete ${nodeIds.length} nodes? (Cmd+Z to undo)`)) return
+  }
+
   const deletedNodes = []
 
   try {
@@ -1104,7 +1397,8 @@ async function wrapWithParent({ nodeId, parentTitle }) {
     const newParent = await api.createNode({
       title: parentTitle,
       type: 'folder',
-      parent_id: node.parent_id
+      parent_id: node.parent_id,
+      workspace_id: getWorkspaceIdForNode('folder')
     })
     if (!newParent || !newParent.id) {
       throw new Error('Failed to create parent node')
@@ -1207,6 +1501,25 @@ function closeSearch() {
   linkSourceNodeId.value = null
 }
 
+async function fetchBreadcrumbsForResults(results) {
+  // Fetch ancestors for each result in parallel to build breadcrumbs
+  const resultsWithBreadcrumbs = await Promise.all(
+    results.map(async (result) => {
+      try {
+        const ancestors = await api.getAncestors(result.id)
+        // Build breadcrumb string from ancestors (root to parent)
+        const breadcrumb = ancestors
+          .map(a => a.title)
+          .join(' / ')
+        return { ...result, breadcrumb }
+      } catch {
+        return { ...result, breadcrumb: '' }
+      }
+    })
+  )
+  return resultsWithBreadcrumbs
+}
+
 async function handleSearch() {
   if (!searchQuery.value.trim()) {
     searchResults.value = []
@@ -1214,8 +1527,46 @@ async function handleSearch() {
   }
 
   try {
-    const results = await api.search(searchQuery.value)
-    searchResults.value = results
+    // In link mode, search across all workspaces to find persons and other nodes
+    // In normal mode, search within current workspace only
+    let combined = []
+    if (searchMode.value === 'link') {
+      // Search current workspace + entire people workspace (persons, organizations, groups)
+      const wsFilter = currentWorkspace.value === 'people' ? null : currentWorkspace.value
+      const [wsResults, peopleResults] = await Promise.all([
+        api.search(searchQuery.value, null, wsFilter),
+        // Search entire People workspace (null = People workspace)
+        currentWorkspace.value !== 'people' ? api.search(searchQuery.value, null, null) : Promise.resolve([])
+      ])
+      // Combine and dedupe results
+      const seen = new Set()
+      for (const r of [...wsResults, ...peopleResults]) {
+        if (!seen.has(r.id)) {
+          seen.add(r.id)
+          combined.push(r)
+        }
+      }
+    } else {
+      // Normal search - within current workspace + people workspace for persons
+      const wsFilter = currentWorkspace.value === 'people' ? null : currentWorkspace.value
+      const [wsResults, peopleResults] = await Promise.all([
+        api.search(searchQuery.value, null, wsFilter),
+        // Also search for persons in the people workspace
+        currentWorkspace.value !== 'people' ? api.search(searchQuery.value, 'person') : Promise.resolve([])
+      ])
+      // Combine and dedupe results
+      const seen = new Set()
+      for (const r of [...wsResults, ...peopleResults]) {
+        if (!seen.has(r.id)) {
+          seen.add(r.id)
+          combined.push(r)
+        }
+      }
+    }
+
+    // Fetch breadcrumbs for all results
+    const resultsWithBreadcrumbs = await fetchBreadcrumbsForResults(combined)
+    searchResults.value = resultsWithBreadcrumbs
     selectedResultIndex.value = 0
   } catch (e) {
     console.error('Search failed:', e)
@@ -1707,13 +2058,15 @@ async function addChildToCard(parentId, e) {
   if (!title?.trim()) return
 
   try {
+    const nodeType = newNodeType.value
     const newNode = await api.createNode({
       title: title.trim(),
-      type: newNodeType.value,
-      parent_id: parentId
+      type: nodeType,
+      parent_id: parentId,
+      workspace_id: getWorkspaceIdForNode(nodeType)
     })
     if (newNode?.id) {
-      pushUndo({ type: 'create', nodeId: newNode.id, nodeData: { title: title.trim(), type: newNodeType.value }, parentId })
+      pushUndo({ type: 'create', nodeId: newNode.id, nodeData: { title: title.trim(), type: nodeType }, parentId })
     }
     await loadChildren(currentContainerId.value)
     await loadSidebarTree()
@@ -1920,6 +2273,9 @@ async function deleteSelectedNodes() {
 }
 
 onMounted(async () => {
+  // Load available workspaces first
+  await loadWorkspaces()
+
   // Restore last container or start at root
   const initialContainerId = savedContainerId ? parseInt(savedContainerId, 10) : null
   try {
@@ -1946,14 +2302,24 @@ onMounted(async () => {
   updateDimensions()
   window.addEventListener('resize', updateDimensions)
   window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('open-link-search', handleOpenLinkSearchEvent)
   resizeObserver = new ResizeObserver(updateDimensions)
   const contentBody = document.querySelector('.content-body')
   if (contentBody) resizeObserver.observe(contentBody)
 })
 
+// Handle custom open-link-search event from GraphView context menu
+function handleOpenLinkSearchEvent(e) {
+  const nodeId = e.detail?.nodeId
+  if (nodeId && selectedNode.value?.id === nodeId) {
+    openLinkSearch()
+  }
+}
+
 onUnmounted(() => {
   window.removeEventListener('resize', () => {})
   window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('open-link-search', handleOpenLinkSearchEvent)
   if (resizeObserver) resizeObserver.disconnect()
 })
 </script>
@@ -2017,7 +2383,7 @@ onUnmounted(() => {
                   @click.stop="toggleSidebarExpand(node.id)"
                 >{{ sidebarExpandedIds.has(node.id) ? '−' : '+' }}</button>
                 <span v-else class="tree-spacer"></span>
-                <span class="type-icon" :class="node.type">{{ node.type[0].toUpperCase() }}</span>
+                <span class="type-icon" :class="node.type"><span v-html="getTypeIcon(node.type)"></span></span>
                 <span class="label" @click="enterContainer(node)">{{ node.title }}</span>
               </div>
               <!-- Level 1 children -->
@@ -2033,7 +2399,7 @@ onUnmounted(() => {
                       @click.stop="toggleSidebarExpand(child.id)"
                     >{{ sidebarExpandedIds.has(child.id) ? '−' : '+' }}</button>
                     <span v-else class="tree-spacer"></span>
-                    <span class="type-icon" :class="child.type">{{ child.type[0].toUpperCase() }}</span>
+                    <span class="type-icon" :class="child.type"><span v-html="getTypeIcon(child.type)"></span></span>
                     <span class="label" @click="enterContainer(child)">{{ child.title }}</span>
                   </div>
                   <!-- Level 2 children -->
@@ -2046,7 +2412,7 @@ onUnmounted(() => {
                       @click="enterContainer(grandchild)"
                     >
                       <span class="tree-spacer"></span>
-                      <span class="type-icon" :class="grandchild.type">{{ grandchild.type[0].toUpperCase() }}</span>
+                      <span class="type-icon" :class="grandchild.type"><span v-html="getTypeIcon(grandchild.type)"></span></span>
                       <span class="label">{{ grandchild.title }}</span>
                     </div>
                   </template>
@@ -2072,7 +2438,7 @@ onUnmounted(() => {
               @click="enterContainer(item)"
             >
               <span class="favorite-star">&#9733;</span>
-              <span class="type-icon" :class="item.type">{{ item.type[0].toUpperCase() }}</span>
+              <span class="type-icon" :class="item.type"><span v-html="getTypeIcon(item.type)"></span></span>
               <span class="label">{{ item.title }}</span>
             </div>
           </div>
@@ -2095,7 +2461,7 @@ onUnmounted(() => {
               :class="{ active: selectedNode?.id === item.id }"
               @click="navigateToNode(item)"
             >
-              <span class="type-icon" :class="item.type">{{ item.type[0].toUpperCase() }}</span>
+              <span class="type-icon" :class="item.type"><span v-html="getTypeIcon(item.type)"></span></span>
               <span class="label">{{ item.title }}</span>
             </div>
           </div>
@@ -2107,7 +2473,12 @@ onUnmounted(() => {
         <div class="legend-title">Node Types</div>
         <div class="legend-items">
           <div v-for="t in nodeTypes" :key="t" class="legend-item">
-            <span class="legend-badge" :class="t">{{ t.charAt(0).toUpperCase() }}</span> {{ t.charAt(0).toUpperCase() + t.slice(1) }}
+            <span
+              class="legend-badge"
+              :style="{ background: typeConfig[t]?.bg, color: typeConfig[t]?.text }"
+              v-html="getTypeIcon(t)"
+            ></span>
+            {{ typeConfig[t]?.label || t }}
           </div>
         </div>
       </div>
@@ -2132,11 +2503,22 @@ onUnmounted(() => {
         </nav>
 
         <div class="toolbar">
-          <button :class="{ primary: viewMode === 'tree' }" @click="viewMode = 'tree'">Table</button>
-          <button :class="{ primary: viewMode === 'cards' }" @click="viewMode = 'cards'">Cards</button>
+          <!-- Workspace Selector -->
+          <div class="workspace-selector">
+            <select v-model="currentWorkspace" class="workspace-dropdown" title="Switch workspace">
+              <option value="people">People</option>
+              <option v-for="ws in workspaces" :key="ws.id" :value="ws.id">
+                {{ ws.name }}
+              </option>
+            </select>
+          </div>
+          <span class="toolbar-separator"></span>
+
           <button :class="{ primary: viewMode === 'graph' }" @click="viewMode = 'graph'">Graph</button>
+          <button :class="{ primary: viewMode === 'cards' }" @click="viewMode = 'cards'">Cards</button>
+          <button :class="{ primary: viewMode === 'tree' }" @click="viewMode = 'tree'">Table</button>
           <button :class="{ primary: viewMode === 'timeline' }" @click="viewMode = 'timeline'">Timeline</button>
-          <button :class="{ primary: viewMode === 'persons' }" @click="viewMode = 'persons'">Persons</button>
+          <button v-if="currentWorkspace === 'people'" :class="{ primary: viewMode === 'persons' }" @click="viewMode = 'persons'">Cards</button>
           <button :class="{ primary: viewMode === 'trash' }" @click="viewMode = 'trash'">Trash</button>
           <span class="toolbar-separator"></span>
           <button
@@ -2189,6 +2571,51 @@ onUnmounted(() => {
                 </select>
                 <span class="settings-hint">{{ graphMaxDepth === 0 ? 'Show all levels' : `Show up to ${graphMaxDepth} levels` }}</span>
               </div>
+              <div class="settings-divider"></div>
+              <div class="settings-item">
+                <label>Database Snapshots</label>
+                <div class="snapshot-actions">
+                  <button class="snapshot-btn" @click="createSnapshot">Create Snapshot</button>
+                  <button class="snapshot-btn" @click="showSnapshotList = !showSnapshotList; loadSnapshots()">
+                    {{ showSnapshotList ? 'Hide' : 'Show' }} Snapshots
+                  </button>
+                </div>
+                <span v-if="snapshotMessage" class="settings-hint snapshot-message">{{ snapshotMessage }}</span>
+              </div>
+              <div v-if="showSnapshotList && availableSnapshots.length > 0" class="snapshot-list">
+                <div
+                  v-for="snapshot in availableSnapshots.slice(0, 10)"
+                  :key="snapshot.path"
+                  class="snapshot-item"
+                >
+                  <span class="snapshot-date">{{ formatSnapshotDate(snapshot.created) }}</span>
+                  <button class="snapshot-restore-btn" @click="restoreSnapshot(snapshot.path)">Restore</button>
+                </div>
+              </div>
+              <div v-else-if="showSnapshotList" class="settings-hint">No snapshots available</div>
+              <div class="settings-divider"></div>
+              <div class="settings-item">
+                <label>Lost & Found</label>
+                <div class="snapshot-actions">
+                  <button class="snapshot-btn" @click="loadOrphanedNodes(); showLostFound = !showLostFound">
+                    {{ showLostFound ? 'Hide' : 'Show' }} ({{ orphanedNodes.length }})
+                  </button>
+                </div>
+              </div>
+              <div v-if="showLostFound && orphanedNodes.length > 0" class="snapshot-list">
+                <div
+                  v-for="node in orphanedNodes"
+                  :key="node.id"
+                  class="snapshot-item"
+                >
+                  <span class="snapshot-date">{{ node.title }} <span class="orphan-type">({{ node.type }})</span></span>
+                  <div class="lost-actions">
+                    <button class="snapshot-restore-btn" @click="moveToRoot(node)" title="Move to root">Root</button>
+                    <button class="snapshot-restore-btn danger" @click="deleteOrphanedNode(node)" title="Delete permanently">Del</button>
+                  </div>
+                </div>
+              </div>
+              <div v-else-if="showLostFound" class="settings-hint">No orphaned nodes</div>
             </div>
           </div>
         </div>
@@ -2543,9 +2970,13 @@ onUnmounted(() => {
           :max-depth="graphMaxDepth"
           :hide-completed="hideCompleted"
           :hide-sensitive="hideSensitive"
+          :workspace="currentWorkspace"
+          :workspaces="workspaces"
           @select="selectNode"
           @enter="enterContainer"
           @move="moveNode"
+          @link="linkNodesFromGraph"
+          @unlink="unlinkNodesFromGraph"
           @add-child="addChildNode"
           @insert-between="insertBetween"
           @update="updateNode"
@@ -2609,6 +3040,7 @@ onUnmounted(() => {
             </tbody>
           </table>
         </div>
+
         </div>
         <!-- Detail Panel (inside content-wrapper) -->
         <DetailPanel
@@ -2619,6 +3051,7 @@ onUnmounted(() => {
           :fullscreen="fullscreenDetail"
           :hide-completed="hideCompleted"
           :pinned="detailPinned"
+          :workspaces="workspaces"
           @update="updateNode"
           @delete="deleteNode"
           @wrap-with-parent="wrapWithParent"
@@ -2671,12 +3104,12 @@ onUnmounted(() => {
               @mouseenter="selectedResultIndex = index"
             >
               <div class="result-type-badge" :class="result.type">
-                {{ result.type[0].toUpperCase() }}
+                <span v-html="getTypeIcon(result.type)"></span>
               </div>
               <div class="result-body">
                 <div class="result-title">{{ result.title }}</div>
-                <div class="result-meta" v-if="result.due_date || result.importance || result.path">
-                  <span v-if="result.path" class="result-path">{{ result.path }}</span>
+                <div class="result-breadcrumb" v-if="result.breadcrumb">{{ result.breadcrumb }}</div>
+                <div class="result-meta" v-if="result.due_date || result.importance">
                   <span v-if="result.due_date" class="result-due">Due: {{ result.due_date.split('T')[0] }}</span>
                   <span v-if="result.importance" class="result-priority">{{ getImportanceLabel(result.importance) }}</span>
                 </div>
@@ -3539,15 +3972,8 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
-.legend-badge.project { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
-.legend-badge.task { background: rgba(234, 179, 8, 0.2); color: #fbbf24; }
-.legend-badge.note { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
-.legend-badge.milestone { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
-.legend-badge.topic { background: rgba(6, 182, 212, 0.2); color: #22d3ee; }
-.legend-badge.folder { background: rgba(148, 163, 184, 0.2); color: #94a3b8; }
-.legend-badge.person { background: rgba(251, 146, 60, 0.2); color: #fb923c; }
-.legend-badge.event { background: rgba(239, 68, 68, 0.2); color: #f87171; }
-.legend-badge.group { background: rgba(100, 116, 139, 0.2); color: #94a3b8; }
+/* SVG icons in legend */
+.legend-badge :deep(svg) { width: 12px; height: 12px; }
 
 /* Search */
 .search-container {
@@ -3655,13 +4081,16 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-.result-type.project { background: #1a4d7a; color: #8cc4ff; }
-.result-type.task { background: #5a5a1a; color: #f0f07d; }
-.result-type.note { background: #1a5a1a; color: #7df07d; }
-.result-type.milestone { background: #5a1a5a; color: #f07df0; }
-.result-type.topic { background: #1a5a5a; color: #7df0f0; }
-.result-type.folder { background: #4a4a4a; color: #ccc; }
-.result-type.person { background: #5a3a1a; color: #f0b07d; }
+.result-type.project { background: var(--type-project-bg); color: var(--type-project-text); }
+.result-type.task { background: var(--type-task-bg); color: var(--type-task-text); }
+.result-type.note { background: var(--type-note-bg); color: var(--type-note-text); }
+.result-type.milestone { background: var(--type-milestone-bg); color: var(--type-milestone-text); }
+.result-type.group { background: var(--type-group-bg); color: var(--type-group-text); }
+.result-type.event { background: var(--type-event-bg); color: var(--type-event-text); }
+.result-type.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
+.result-type.folder { background: var(--type-folder-bg); color: var(--type-folder-text); }
+.result-type.person { background: var(--type-person-bg); color: var(--type-person-text); }
+.result-type.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
 
 .result-check {
   color: #4ade80;
@@ -3728,6 +4157,41 @@ onUnmounted(() => {
   height: 20px;
   background: var(--border-color);
   margin: 0 4px;
+}
+
+/* Workspace Selector */
+.workspace-selector {
+  display: flex;
+  align-items: center;
+}
+
+.workspace-dropdown {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  min-width: 100px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.workspace-dropdown:hover {
+  border-color: var(--accent-color);
+}
+
+.workspace-dropdown:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+}
+
+.workspace-dropdown option {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 8px;
 }
 
 .icon-btn {
@@ -3816,6 +4280,91 @@ onUnmounted(() => {
 .settings-hint {
   font-size: 11px;
   color: var(--text-tertiary);
+}
+
+.settings-divider {
+  border-top: 1px solid var(--border-color);
+  margin: 8px 0;
+}
+
+.snapshot-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.snapshot-btn {
+  padding: 4px 8px;
+  font-size: 11px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.snapshot-btn:hover {
+  background: var(--bg-hover);
+}
+
+.snapshot-message {
+  color: var(--accent-color);
+  margin-top: 4px;
+}
+
+.snapshot-list {
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+}
+
+.snapshot-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 11px;
+}
+
+.snapshot-item:last-child {
+  border-bottom: none;
+}
+
+.snapshot-date {
+  color: var(--text-secondary);
+}
+
+.snapshot-restore-btn {
+  padding: 2px 6px;
+  font-size: 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.snapshot-restore-btn:hover {
+  background: var(--accent-color);
+  color: white;
+}
+
+.snapshot-restore-btn.danger:hover {
+  background: #e74c3c;
+}
+
+.lost-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.orphan-type {
+  color: var(--text-tertiary);
+  font-size: 10px;
 }
 
 /* Search trigger button */
@@ -4024,13 +4573,16 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-.result-type-badge.project { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
-.result-type-badge.task { background: rgba(234, 179, 8, 0.2); color: #fbbf24; }
-.result-type-badge.note { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
-.result-type-badge.milestone { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
-.result-type-badge.topic { background: rgba(6, 182, 212, 0.2); color: #22d3ee; }
-.result-type-badge.folder { background: rgba(148, 163, 184, 0.2); color: #94a3b8; }
-.result-type-badge.person { background: rgba(251, 146, 60, 0.2); color: #fb923c; }
+.result-type-badge.project { background: var(--type-project-bg); color: var(--type-project-text); }
+.result-type-badge.task { background: var(--type-task-bg); color: var(--type-task-text); }
+.result-type-badge.note { background: var(--type-note-bg); color: var(--type-note-text); }
+.result-type-badge.milestone { background: var(--type-milestone-bg); color: var(--type-milestone-text); }
+.result-type-badge.group { background: var(--type-group-bg); color: var(--type-group-text); }
+.result-type-badge.event { background: var(--type-event-bg); color: var(--type-event-text); }
+.result-type-badge.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
+.result-type-badge.folder { background: var(--type-folder-bg); color: var(--type-folder-text); }
+.result-type-badge.person { background: var(--type-person-bg); color: var(--type-person-text); }
+.result-type-badge.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
 
 .result-body {
   flex: 1;
@@ -4041,7 +4593,16 @@ onUnmounted(() => {
   font-size: 16px;
   font-weight: 600;
   color: #fff;
+  margin-bottom: 2px;
+}
+
+.spotlight-result .result-breadcrumb {
+  font-size: 12px;
+  color: #666;
   margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .spotlight-result .result-meta {
@@ -4183,6 +4744,12 @@ onUnmounted(() => {
 .trash-actions {
   display: flex;
   gap: 8px;
+}
+
+.orphan-parent {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--text-tertiary);
 }
 
 button.small {

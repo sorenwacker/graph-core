@@ -1,15 +1,20 @@
 <script setup>
 import { ref, watch, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import MarkdownRenderer from './MarkdownRenderer.vue'
+import MentionDropdown from './MentionDropdown.vue'
+import TagInput from './TagInput.vue'
+import NotesEditor from './NotesEditor.vue'
 import { api } from '../services/api'
-import { nodeTypes } from '../utils/constants.js'
+import { nodeTypes, getTypeIcon, getTypeColors, personIconSvg } from '../utils/constants.js'
+import { useMentions } from '../composables/useMentions.js'
 
 const props = defineProps({
   node: Object,
   width: { type: Number, default: 400 },
   fullscreen: { type: Boolean, default: false },
   hideCompleted: { type: Boolean, default: false },
-  pinned: { type: Boolean, default: false }
+  pinned: { type: Boolean, default: false },
+  workspaces: { type: Array, default: () => [] }
 })
 
 const emit = defineEmits([
@@ -57,6 +62,53 @@ const titleInput = ref(null)
 // Panel resizing
 const isResizing = ref(false)
 
+// Mentions system
+const {
+  showMentions,
+  mentionPosition,
+  filteredPersons,
+  selectedMentionIndex,
+  handleInput: handleMentionInput,
+  handleKeydown: handleMentionKeydown,
+  selectMention,
+  hideMentions,
+  refreshPersons
+} = useMentions({
+  onMentionInserted: async (personId, nodeId) => {
+    // Refresh linked nodes after auto-linking
+    await loadLinkedNodes()
+  }
+})
+
+function onNotesInput(e) {
+  editedNode.value.notes = e.target.value
+  handleMentionInput(e, props.node?.id)
+}
+
+function onCodeMirrorNotesUpdate(newValue) {
+  editedNode.value.notes = newValue
+}
+
+function onNotesKeydown(e) {
+  const handled = handleMentionKeydown(
+    e,
+    editedNode.value.notes,
+    (newVal) => { editedNode.value.notes = newVal },
+    props.node?.id
+  )
+  // If mention handler handled it, don't propagate
+  if (handled) return
+}
+
+function onMentionSelect(index) {
+  selectMention(
+    index,
+    editedNode.value.notes,
+    (newVal) => { editedNode.value.notes = newVal },
+    props.node?.id
+  )
+}
+
 // Handle Escape key to close
 function handleKeydown(e) {
   if (e.key === 'Escape') {
@@ -92,7 +144,29 @@ watch(() => props.node, async (newNode) => {
     linkedNodes.value = []
     // Reset sensitive preview unlock
     showSensitivePreview.value = false
+    // Reset organization linking state
+    orgQuery.value = ''
+    showOrgDropdown.value = false
+    linkedOrganizations.value = []
+    // Reset members state
+    memberQuery.value = ''
+    showMemberDropdown.value = false
+    linkedMembers.value = []
+
     await Promise.all([loadChildren(), loadLinkedNodes()])
+
+    // Load organizations for person nodes
+    if (newNode.type === 'person') {
+      await loadOrganizations()
+      await loadLinkedOrganizations()
+    }
+
+    // Load members for organization nodes
+    if (newNode.type === 'organization') {
+      await loadAllPersons()
+      await loadLinkedMembers()
+    }
+
     // Auto-resize title for long titles
     nextTick(() => {
       if (titleInput.value) {
@@ -138,6 +212,316 @@ async function removeLink(targetNode) {
 }
 
 const isPerson = computed(() => editedNode.value.type === 'person')
+const isOrganization = computed(() => editedNode.value.type === 'organization')
+
+// Color palette for persons
+const personColors = [
+  '#d93025', '#ea4335', '#ef5350', '#ff5252',
+  '#c2185b', '#e91e63', '#f06292',
+  '#ef6c00', '#ff7043', '#ff9800',
+  '#f9a825', '#ffb300', '#ffc107',
+  '#0f9d58', '#34a853', '#43a047', '#4caf50',
+  '#009688', '#00897b', '#26a69a',
+  '#00bcd4', '#00acc1',
+  '#0288d1', '#039be5', '#03a9f4', '#4285f4',
+  '#673ab7', '#5e35b1', '#7b1fa2', '#9c27b0',
+  '#455a64', '#607d8b', '#78909c'
+]
+
+// Organization linking for persons
+const organizations = ref([])
+const orgQuery = ref('')
+const showOrgDropdown = ref(false)
+const selectedOrgIndex = ref(0)
+const linkedOrganizations = ref([])
+
+// Load organizations from People workspace
+async function loadOrganizations() {
+  try {
+    organizations.value = await api.getNodes({ type: 'organization', workspace_id: null })
+  } catch (err) {
+    console.error('Failed to load organizations:', err)
+    organizations.value = []
+  }
+}
+
+// Filtered organizations for autocomplete
+const filteredOrganizations = computed(() => {
+  if (!orgQuery.value) {
+    return organizations.value.slice(0, 10)
+  }
+  const q = orgQuery.value.toLowerCase()
+  return organizations.value
+    .filter(o => o.title?.toLowerCase().includes(q))
+    .slice(0, 10)
+})
+
+// Check if query matches an existing organization exactly
+const exactOrgMatch = computed(() => {
+  if (!orgQuery.value) return null
+  return organizations.value.find(
+    o => o.title?.toLowerCase() === orgQuery.value.toLowerCase()
+  )
+})
+
+// Get full organization path (e.g., "TU Delft / REIT group")
+async function getOrgPath(org) {
+  if (!org) return ''
+  const parts = [org.title]
+  let current = org
+  while (current.parent_id) {
+    try {
+      const parent = await api.getNode(current.parent_id)
+      if (parent && parent.type === 'organization') {
+        parts.unshift(parent.title)
+        current = parent
+      } else {
+        break
+      }
+    } catch {
+      break
+    }
+  }
+  return parts.join(' / ')
+}
+
+// Load linked organizations for a person (includes both linked and parent orgs)
+async function loadLinkedOrganizations() {
+  if (!props.node?.id || !isPerson.value) {
+    linkedOrganizations.value = []
+    return
+  }
+  try {
+    const allOrgs = []
+    const seenIds = new Set()
+
+    // 1. Get organizations from links (node_links table)
+    const links = await api.getLinkedNodes(props.node.id)
+    const linkedOrgs = links.filter(n => n.type === 'organization')
+    for (const org of linkedOrgs) {
+      if (!seenIds.has(org.id)) {
+        seenIds.add(org.id)
+        allOrgs.push({ ...org, isParent: false })
+      }
+    }
+
+    // 2. Get parent organizations (hierarchical relationship)
+    let currentNode = props.node
+    while (currentNode?.parent_id) {
+      const parent = await api.getNode(currentNode.parent_id)
+      if (parent?.type === 'organization' && !seenIds.has(parent.id)) {
+        seenIds.add(parent.id)
+        allOrgs.push({ ...parent, isParent: true })
+      }
+      currentNode = parent
+    }
+
+    // Add paths to all organizations
+    const orgsWithPaths = await Promise.all(
+      allOrgs.map(async (org) => ({
+        ...org,
+        path: await getOrgPath(org)
+      }))
+    )
+    linkedOrganizations.value = orgsWithPaths
+  } catch (err) {
+    console.error('Failed to load linked organizations:', err)
+    linkedOrganizations.value = []
+  }
+}
+
+async function linkOrganization(org) {
+  if (!props.node?.id) return
+  try {
+    await api.linkNodes(props.node.id, org.id)
+    await loadLinkedOrganizations()
+    await loadLinkedNodes()
+  } catch (err) {
+    console.error('Failed to link organization:', err)
+  }
+  orgQuery.value = ''
+  showOrgDropdown.value = false
+}
+
+async function unlinkOrganization(org) {
+  if (!props.node?.id) return
+  try {
+    await api.unlinkNodes(props.node.id, org.id)
+    await loadLinkedOrganizations()
+    await loadLinkedNodes()
+  } catch (err) {
+    console.error('Failed to unlink organization:', err)
+  }
+}
+
+async function createAndLinkOrganization() {
+  if (!orgQuery.value.trim() || !props.node?.id) return
+  try {
+    const newOrg = await api.createNode({
+      title: orgQuery.value.trim(),
+      type: 'organization',
+      workspace_id: null
+    })
+    organizations.value.push(newOrg)
+    await linkOrganization(newOrg)
+  } catch (err) {
+    console.error('Failed to create organization:', err)
+  }
+}
+
+function handleOrgKeydown(e) {
+  if (!showOrgDropdown.value) {
+    if (e.key === 'ArrowDown' || e.key === 'Enter') {
+      showOrgDropdown.value = true
+      e.preventDefault()
+    }
+    return
+  }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    const max = filteredOrganizations.value.length
+    selectedOrgIndex.value = Math.min(selectedOrgIndex.value + 1, max)
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    selectedOrgIndex.value = Math.max(selectedOrgIndex.value - 1, 0)
+  } else if (e.key === 'Enter') {
+    e.preventDefault()
+    if (selectedOrgIndex.value < filteredOrganizations.value.length) {
+      linkOrganization(filteredOrganizations.value[selectedOrgIndex.value])
+    } else if (!exactOrgMatch.value && orgQuery.value.trim()) {
+      createAndLinkOrganization()
+    }
+  } else if (e.key === 'Escape') {
+    showOrgDropdown.value = false
+  }
+}
+
+function handleOrgInput() {
+  showOrgDropdown.value = true
+  selectedOrgIndex.value = 0
+}
+
+// Members linking for organizations (reverse direction)
+const allPersons = ref([])
+const memberQuery = ref('')
+const showMemberDropdown = ref(false)
+const selectedMemberIndex = ref(0)
+const linkedMembers = ref([])
+
+// Load all persons for member autocomplete
+async function loadAllPersons() {
+  try {
+    allPersons.value = await api.getNodes({ type: 'person', workspace_id: null })
+  } catch (err) {
+    console.error('Failed to load persons:', err)
+    allPersons.value = []
+  }
+}
+
+// Filtered persons for member autocomplete
+const filteredMembers = computed(() => {
+  if (!memberQuery.value) {
+    return allPersons.value.slice(0, 10)
+  }
+  const q = memberQuery.value.toLowerCase()
+  return allPersons.value
+    .filter(p => p.title?.toLowerCase().includes(q))
+    .slice(0, 10)
+})
+
+// Check if query matches an existing person exactly
+const exactMemberMatch = computed(() => {
+  if (!memberQuery.value) return null
+  return allPersons.value.find(
+    p => p.title?.toLowerCase() === memberQuery.value.toLowerCase()
+  )
+})
+
+// Load members (persons linked to this organization)
+async function loadLinkedMembers() {
+  if (!props.node?.id || !isOrganization.value) {
+    linkedMembers.value = []
+    return
+  }
+  try {
+    const links = await api.getLinkedNodes(props.node.id)
+    linkedMembers.value = links.filter(n => n.type === 'person')
+  } catch (err) {
+    console.error('Failed to load members:', err)
+    linkedMembers.value = []
+  }
+}
+
+async function linkMember(person) {
+  if (!props.node?.id) return
+  try {
+    await api.linkNodes(props.node.id, person.id)
+    await loadLinkedMembers()
+    await loadLinkedNodes()
+  } catch (err) {
+    console.error('Failed to link member:', err)
+  }
+  memberQuery.value = ''
+  showMemberDropdown.value = false
+}
+
+async function unlinkMember(person) {
+  if (!props.node?.id) return
+  try {
+    await api.unlinkNodes(props.node.id, person.id)
+    await loadLinkedMembers()
+    await loadLinkedNodes()
+  } catch (err) {
+    console.error('Failed to unlink member:', err)
+  }
+}
+
+async function createAndLinkMember() {
+  if (!memberQuery.value.trim() || !props.node?.id) return
+  try {
+    const newPerson = await api.createNode({
+      title: memberQuery.value.trim(),
+      type: 'person',
+      workspace_id: null
+    })
+    allPersons.value.push(newPerson)
+    await linkMember(newPerson)
+  } catch (err) {
+    console.error('Failed to create member:', err)
+  }
+}
+
+function handleMemberKeydown(e) {
+  if (!showMemberDropdown.value) {
+    if (e.key === 'ArrowDown' || e.key === 'Enter') {
+      showMemberDropdown.value = true
+      e.preventDefault()
+    }
+    return
+  }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    const max = filteredMembers.value.length
+    selectedMemberIndex.value = Math.min(selectedMemberIndex.value + 1, max)
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    selectedMemberIndex.value = Math.max(selectedMemberIndex.value - 1, 0)
+  } else if (e.key === 'Enter') {
+    e.preventDefault()
+    if (selectedMemberIndex.value < filteredMembers.value.length) {
+      linkMember(filteredMembers.value[selectedMemberIndex.value])
+    } else if (!exactMemberMatch.value && memberQuery.value.trim()) {
+      createAndLinkMember()
+    }
+  } else if (e.key === 'Escape') {
+    showMemberDropdown.value = false
+  }
+}
+
+function handleMemberInput() {
+  showMemberDropdown.value = true
+  selectedMemberIndex.value = 0
+}
 
 const completedChildrenCount = computed(() => {
   return children.value.filter(c => c.completed).length
@@ -163,6 +547,14 @@ function getInitials(name) {
 }
 
 function saveChanges() {
+  emit('update', editedNode.value)
+}
+
+async function changeWorkspace(newWorkspaceId) {
+  // Convert 'people' to null for database
+  const wsId = newWorkspaceId === 'people' ? null : newWorkspaceId
+  editedNode.value.workspace_id = wsId
+  await api.updateNode(editedNode.value.id, { workspace_id: wsId })
   emit('update', editedNode.value)
 }
 
@@ -272,6 +664,11 @@ function updateDate(field, value) {
   saveChanges()
 }
 
+function updateTags(newTags) {
+  editedNode.value.tags = newTags
+  saveChanges()
+}
+
 
 function addTask() {
   const title = newTaskTitle.value.trim()
@@ -333,7 +730,7 @@ function onDragEnd() {
 }
 
 // Expose methods for parent component
-defineExpose({ loadChildren })
+defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLinkedNodes })
 </script>
 
 <template>
@@ -387,6 +784,326 @@ defineExpose({ loadChildren })
 
     <div class="detail-panel-content">
 
+      <!-- Person-specific form layout -->
+      <template v-if="isPerson">
+        <div class="person-form">
+          <!-- Person avatar and basic info -->
+          <div class="person-header-row">
+            <div class="person-avatar-large" :style="{ backgroundColor: editedNode.color || '#3498db' }">
+              {{ getInitials(editedNode.title) }}
+            </div>
+            <div class="person-quick-info">
+              <div v-if="editedNode.role" class="person-role-display">{{ editedNode.role }}</div>
+              <div v-if="linkedOrganizations.length" class="person-orgs-display">
+                {{ linkedOrganizations.map(o => o.path || o.title).join(', ') }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Person form fields -->
+          <div class="person-form-grid">
+            <div class="form-field">
+              <label>Email</label>
+              <input
+                type="email"
+                :value="editedNode.email || ''"
+                @input="editedNode.email = $event.target.value"
+                @blur="saveChanges"
+                placeholder="email@example.com"
+              />
+            </div>
+
+            <div class="form-field">
+              <label>Phone</label>
+              <input
+                type="tel"
+                :value="editedNode.phone || ''"
+                @input="editedNode.phone = $event.target.value"
+                @blur="saveChanges"
+                placeholder="+1 234 567 890"
+              />
+            </div>
+
+            <div class="form-field full-width">
+              <label>Organizations</label>
+              <div class="org-tags">
+                <div
+                  v-for="org in linkedOrganizations"
+                  :key="org.id"
+                  class="org-tag"
+                >
+                  <span class="org-path">{{ org.path || org.title }}</span>
+                  <button class="org-remove" @click="unlinkOrganization(org)" title="Remove">&times;</button>
+                </div>
+              </div>
+              <div class="org-autocomplete">
+                <input
+                  v-model="orgQuery"
+                  placeholder="Search or create organization..."
+                  @input="handleOrgInput"
+                  @keydown="handleOrgKeydown"
+                  @focus="showOrgDropdown = true"
+                  @blur="setTimeout(() => showOrgDropdown = false, 200)"
+                />
+                <div v-if="showOrgDropdown && (filteredOrganizations.length > 0 || orgQuery.trim())" class="org-dropdown">
+                  <div
+                    v-for="(org, index) in filteredOrganizations"
+                    :key="org.id"
+                    class="org-option"
+                    :class="{ selected: selectedOrgIndex === index, linked: linkedOrganizations.find(o => o.id === org.id) }"
+                    @mousedown.prevent="linkOrganization(org)"
+                  >
+                    {{ org.title }}
+                    <span v-if="linkedOrganizations.find(o => o.id === org.id)" class="linked-badge">linked</span>
+                  </div>
+                  <div
+                    v-if="!exactOrgMatch && orgQuery.trim()"
+                    class="org-option create-option"
+                    :class="{ selected: selectedOrgIndex === filteredOrganizations.length }"
+                    @mousedown.prevent="createAndLinkOrganization"
+                  >
+                    + Create "{{ orgQuery.trim() }}"
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-field">
+              <label>Role / Title</label>
+              <input
+                type="text"
+                :value="editedNode.role || ''"
+                @input="editedNode.role = $event.target.value"
+                @blur="saveChanges"
+                placeholder="Job title"
+              />
+            </div>
+
+            <div class="form-field">
+              <label>Website</label>
+              <input
+                type="url"
+                :value="editedNode.website || ''"
+                @input="editedNode.website = $event.target.value"
+                @blur="saveChanges"
+                placeholder="https://..."
+              />
+            </div>
+
+            <div class="form-field full-width">
+              <label>Notes</label>
+              <textarea
+                :value="editedNode.notes || ''"
+                placeholder="Add notes... Use @ to mention people"
+                rows="4"
+                @input="editedNode.notes = $event.target.value; handleMentionInput($event, node?.id)"
+                @keydown="onNotesKeydown"
+                @blur="saveChanges; hideMentions()"
+              ></textarea>
+              <MentionDropdown
+                v-if="showMentions"
+                :persons="filteredPersons"
+                :selected-index="selectedMentionIndex"
+                :position="mentionPosition"
+                @select="onMentionSelect"
+              />
+            </div>
+          </div>
+
+          <!-- Color picker -->
+          <div class="color-picker-section">
+            <label>Color</label>
+            <div class="color-grid">
+              <div
+                v-for="color in personColors"
+                :key="color"
+                class="color-option"
+                :class="{ selected: editedNode.color === color }"
+                :style="{ background: color }"
+                @click="editedNode.color = color; saveChanges()"
+              ></div>
+            </div>
+          </div>
+
+          <!-- Links section for persons -->
+          <div v-if="linkedNodes.filter(n => n.type !== 'organization').length" class="person-links-section">
+            <label>Linked Items</label>
+            <div class="links-list">
+              <span
+                v-for="linked in linkedNodes.filter(n => n.type !== 'organization')"
+                :key="linked.id"
+                class="link-chip"
+                @click="emit('select-child', linked.id)"
+              >
+                <span class="link-type" :class="linked.type" v-html="getTypeIcon(linked.type)"></span>
+                {{ linked.title }}
+                <button class="remove-link-btn" @click.stop="removeLink(linked)">x</button>
+              </span>
+              <button class="add-link-btn" @click="emit('open-link-search')" title="Add link">+</button>
+            </div>
+          </div>
+          <button v-else class="add-field-btn link-btn" @click="emit('open-link-search')" title="Add link">+ Link to project/task</button>
+
+          <!-- Tags for person -->
+          <div class="person-tags-section">
+            <label>Tags</label>
+            <TagInput
+              :tags="editedNode.tags || []"
+              @update="updateTags"
+            />
+          </div>
+
+          <!-- System info -->
+          <div class="person-meta">
+            <span>ID: {{ editedNode.id }}</span>
+            <span>Created: {{ formattedCreatedDate }}</span>
+            <span>Modified: {{ formattedUpdatedDate }}</span>
+          </div>
+        </div>
+      </template>
+
+      <!-- Organization-specific form layout -->
+      <template v-else-if="isOrganization">
+        <div class="organization-form">
+          <!-- Organization header -->
+          <div class="org-header-row">
+            <div class="org-icon-large" :style="{ backgroundColor: editedNode.color || '#e67e22' }">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/>
+              </svg>
+            </div>
+            <div class="org-quick-info">
+              <div v-if="linkedMembers.length" class="org-members-count">
+                {{ linkedMembers.length }} member{{ linkedMembers.length !== 1 ? 's' : '' }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Members section -->
+          <div class="form-field full-width">
+            <label>Members</label>
+            <div class="member-tags">
+              <div
+                v-for="member in linkedMembers"
+                :key="member.id"
+                class="member-tag"
+                :style="{ backgroundColor: member.color || '#3498db' }"
+                @click="emit('select-child', member.id)"
+              >
+                <span class="member-initials">{{ getInitials(member.title) }}</span>
+                <span class="member-name">{{ member.title }}</span>
+                <button class="member-remove" @click.stop="unlinkMember(member)" title="Remove">&times;</button>
+              </div>
+            </div>
+            <div class="member-autocomplete">
+              <input
+                v-model="memberQuery"
+                placeholder="Search or create person..."
+                @input="handleMemberInput"
+                @keydown="handleMemberKeydown"
+                @focus="showMemberDropdown = true"
+                @blur="setTimeout(() => showMemberDropdown = false, 200)"
+              />
+              <div v-if="showMemberDropdown && (filteredMembers.length > 0 || memberQuery.trim())" class="member-dropdown">
+                <div
+                  v-for="(person, index) in filteredMembers"
+                  :key="person.id"
+                  class="member-option"
+                  :class="{ selected: selectedMemberIndex === index, linked: linkedMembers.find(m => m.id === person.id) }"
+                  @mousedown.prevent="linkMember(person)"
+                >
+                  <span class="member-option-avatar" :style="{ backgroundColor: person.color || '#3498db' }">
+                    {{ getInitials(person.title) }}
+                  </span>
+                  {{ person.title }}
+                  <span v-if="linkedMembers.find(m => m.id === person.id)" class="linked-badge">member</span>
+                </div>
+                <div
+                  v-if="!exactMemberMatch && memberQuery.trim()"
+                  class="member-option create-option"
+                  :class="{ selected: selectedMemberIndex === filteredMembers.length }"
+                  @mousedown.prevent="createAndLinkMember"
+                >
+                  + Create "{{ memberQuery.trim() }}"
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Notes section for organization -->
+          <div class="form-field full-width">
+            <label>Notes</label>
+            <textarea
+              :value="editedNode.notes || ''"
+              placeholder="Add notes... Use @ to mention people"
+              rows="4"
+              @input="editedNode.notes = $event.target.value; handleMentionInput($event, node?.id)"
+              @keydown="onNotesKeydown"
+              @blur="saveChanges; hideMentions()"
+            ></textarea>
+            <MentionDropdown
+              v-if="showMentions"
+              :persons="filteredPersons"
+              :selected-index="selectedMentionIndex"
+              :position="mentionPosition"
+              @select="onMentionSelect"
+            />
+          </div>
+
+          <!-- Color picker for organization -->
+          <div class="color-picker-section">
+            <label>Color</label>
+            <div class="color-grid">
+              <div
+                v-for="color in personColors"
+                :key="color"
+                class="color-option"
+                :class="{ selected: editedNode.color === color }"
+                :style="{ background: color }"
+                @click="editedNode.color = color; saveChanges()"
+              ></div>
+            </div>
+          </div>
+
+          <!-- Links section for organization (non-person links) -->
+          <div v-if="linkedNodes.filter(n => n.type !== 'person').length" class="org-links-section">
+            <label>Linked Items</label>
+            <div class="links-list">
+              <span
+                v-for="linked in linkedNodes.filter(n => n.type !== 'person')"
+                :key="linked.id"
+                class="link-chip"
+                @click="emit('select-child', linked.id)"
+              >
+                <span class="link-type" :class="linked.type" v-html="getTypeIcon(linked.type)"></span>
+                {{ linked.title }}
+                <button class="remove-link-btn" @click.stop="removeLink(linked)">x</button>
+              </span>
+              <button class="add-link-btn" @click="emit('open-link-search')" title="Add link">+</button>
+            </div>
+          </div>
+          <button v-else class="add-field-btn link-btn" @click="emit('open-link-search')" title="Add link">+ Link to project/task</button>
+
+          <!-- Tags for organization -->
+          <div class="org-tags-section">
+            <label>Tags</label>
+            <TagInput
+              :tags="editedNode.tags || []"
+              @update="updateTags"
+            />
+          </div>
+
+          <!-- System info -->
+          <div class="org-meta">
+            <span>ID: {{ editedNode.id }}</span>
+            <span>Created: {{ formattedCreatedDate }}</span>
+            <span>Modified: {{ formattedUpdatedDate }}</span>
+          </div>
+        </div>
+      </template>
+
+      <!-- Regular node layout (non-person, non-organization) -->
+      <template v-else>
       <!-- Collapsible sections container -->
       <div class="collapsible-sections" :class="{ 'all-collapsed': notesCollapsed && childrenCollapsed && metadataCollapsed }">
 
@@ -413,13 +1130,21 @@ defineExpose({ loadChildren })
               </button>
             </div>
 
-            <textarea
-              v-if="activeTab === 'edit'"
-              :value="editedNode.notes"
-              placeholder="Add notes (Markdown supported)..."
-              class="notes-editor notes-textarea"
-              @input="editedNode.notes = $event.target.value"
+            <NotesEditor
+              v-if="activeTab === 'edit' && fullscreen"
+              :model-value="editedNode.notes"
+              @update:model-value="onCodeMirrorNotesUpdate"
               @blur="saveChanges"
+              class="notes-codemirror"
+            />
+            <textarea
+              v-else-if="activeTab === 'edit'"
+              :value="editedNode.notes"
+              placeholder="Add notes (Markdown supported)... Use @ to mention people"
+              class="notes-editor notes-textarea"
+              @input="onNotesInput"
+              @keydown="onNotesKeydown"
+              @blur="saveChanges; hideMentions()"
             ></textarea>
 
             <div v-else-if="activeTab === 'preview'" class="notes-preview markdown-body">
@@ -432,12 +1157,21 @@ defineExpose({ loadChildren })
             </div>
 
             <div v-else class="notes-split">
-              <textarea
-                :value="editedNode.notes"
-                placeholder="Add notes (Markdown supported)..."
-                class="notes-editor notes-textarea split-editor"
-                @input="editedNode.notes = $event.target.value"
+              <NotesEditor
+                v-if="fullscreen"
+                :model-value="editedNode.notes"
+                @update:model-value="onCodeMirrorNotesUpdate"
                 @blur="saveChanges"
+                class="notes-codemirror split-editor"
+              />
+              <textarea
+                v-else
+                :value="editedNode.notes"
+                placeholder="Add notes (Markdown supported)... Use @ to mention people"
+                class="notes-editor notes-textarea split-editor"
+                @input="onNotesInput"
+                @keydown="onNotesKeydown"
+                @blur="saveChanges; hideMentions()"
               ></textarea>
               <div
                 ref="splitPreview"
@@ -451,6 +1185,15 @@ defineExpose({ loadChildren })
                 <p v-else class="placeholder">No notes yet</p>
               </div>
             </div>
+
+            <!-- Mention autocomplete dropdown -->
+            <MentionDropdown
+              v-if="showMentions"
+              :persons="filteredPersons"
+              :selected-index="selectedMentionIndex"
+              :position="mentionPosition"
+              @select="onMentionSelect"
+            />
           </div>
         </div>
 
@@ -530,7 +1273,8 @@ defineExpose({ loadChildren })
                       :class="{ completed: gc.completed }"
                       @click="emit('select-child', gc.id)"
                     >
-                      <span class="gc-type" :class="gc.type">{{ gc.type[0].toUpperCase() }}</span>
+                      <span v-if="gc.type === 'person'" class="gc-type person" v-html="personIconSvg"></span>
+                      <span v-else class="gc-type" :class="gc.type" v-html="getTypeIcon(gc.type)"></span>
                       <span class="gc-title">{{ gc.title }}</span>
                       <button class="add-subtask-btn" @click.stop="emit('add-child', { parentId: gc.id, title: '', type: 'task', prompt: true })" title="Add subtask">+</button>
                     </div>
@@ -554,6 +1298,18 @@ defineExpose({ loadChildren })
                   <label>Type</label>
                   <select v-model="editedNode.type" @change="saveChanges">
                     <option v-for="t in nodeTypes" :key="t" :value="t">{{ t }}</option>
+                  </select>
+                </div>
+
+                <!-- Workspace -->
+                <div class="meta-item">
+                  <label>Workspace</label>
+                  <select
+                    :value="editedNode.workspace_id === null ? 'people' : editedNode.workspace_id"
+                    @change="changeWorkspace($event.target.value)"
+                  >
+                    <option value="people">People</option>
+                    <option v-for="ws in workspaces" :key="ws.id" :value="ws.id">{{ ws.name }}</option>
                   </select>
                 </div>
 
@@ -628,6 +1384,15 @@ defineExpose({ loadChildren })
                 </div>
                 <button v-else class="add-field-btn" @click="editedNode.location = ' '" title="Add location">+Loc</button>
 
+                <!-- Tags -->
+                <div class="meta-item tags-row full-width">
+                  <label>Tags</label>
+                  <TagInput
+                    :tags="editedNode.tags || []"
+                    @update="updateTags"
+                  />
+                </div>
+
                 <!-- Links -->
                 <div v-if="linkedNodes.length" class="meta-item links-row">
                   <label>Links</label>
@@ -638,7 +1403,8 @@ defineExpose({ loadChildren })
                       class="link-chip"
                       @click="emit('select-child', linked.id)"
                     >
-                      <span class="link-type" :class="linked.type">{{ linked.type[0].toUpperCase() }}</span>
+                      <span v-if="linked.type === 'person'" class="link-type person" v-html="personIconSvg"></span>
+                      <span v-else class="link-type" :class="linked.type" v-html="getTypeIcon(linked.type)"></span>
                       {{ linked.title }}
                       <button class="remove-link-btn" @click.stop="removeLink(linked)">x</button>
                     </span>
@@ -664,70 +1430,16 @@ defineExpose({ loadChildren })
                 </div>
               </div>
 
-              <!-- Person-specific fields -->
-              <template v-if="isPerson">
-                <div class="person-fields-header">Contact Information</div>
-                <div class="meta-grid">
-                  <div class="meta-item wide">
-                    <label>Email</label>
-                    <input
-                      type="email"
-                      :value="editedNode.email || ''"
-                      @input="editedNode.email = $event.target.value"
-                      @blur="saveChanges"
-                      placeholder="email@example.com"
-                    />
-                  </div>
-                  <div class="meta-item">
-                    <label>Phone</label>
-                    <input
-                      type="tel"
-                      :value="editedNode.phone || ''"
-                      @input="editedNode.phone = $event.target.value"
-                      @blur="saveChanges"
-                      placeholder="+1 234 567 890"
-                    />
-                  </div>
-                  <div class="meta-item">
-                    <label>Organization</label>
-                    <input
-                      type="text"
-                      :value="editedNode.organization || ''"
-                      @input="editedNode.organization = $event.target.value"
-                      @blur="saveChanges"
-                      placeholder="Company"
-                    />
-                  </div>
-                  <div class="meta-item">
-                    <label>Role</label>
-                    <input
-                      type="text"
-                      :value="editedNode.role || ''"
-                      @input="editedNode.role = $event.target.value"
-                      @blur="saveChanges"
-                      placeholder="Job title"
-                    />
-                  </div>
-                  <div class="meta-item wide">
-                    <label>Website</label>
-                    <input
-                      type="url"
-                      :value="editedNode.website || ''"
-                      @input="editedNode.website = $event.target.value"
-                      @blur="saveChanges"
-                      placeholder="https://example.com"
-                    />
-                  </div>
-                </div>
-              </template>
             </div>
           </div>
       </div>
+      </template>
 
       <!-- Actions -->
       <div class="detail-actions">
         <button @click="wrapWithParent">Wrap with Parent</button>
         <button @click="moveToRoot">Move to Root</button>
+        <button @click="copyNodeContent">Export</button>
         <span class="spacer"></span>
         <button class="danger" @click="deleteNode">Delete</button>
       </div>
@@ -1064,6 +1776,17 @@ defineExpose({ loadChildren })
   outline: none;
 }
 
+.notes-codemirror {
+  flex: 1 1 0;
+  min-height: 200px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.notes-codemirror.split-editor {
+  flex: 1;
+}
+
 .notes-preview {
   padding: 8px;
   font-size: 13px;
@@ -1279,10 +2002,12 @@ defineExpose({ loadChildren })
 .link-type.note { color: #81a2be; }
 .link-type.project { color: #b5bd68; }
 .link-type.milestone { color: #b294bb; }
-.link-type.event { color: #e74c3c; }
+.link-type.group { color: #a0a0d0; }
+.link-type.event { color: #f07da0; }
 .link-type.topic { color: #1abc9c; }
 .link-type.folder { color: #95a5a6; }
-.link-type.person { color: #3498db; }
+.link-type.person { color: #3498db; display: inline-flex; align-items: center; }
+.link-type.person :deep(svg) { width: 10px; height: 10px; }
 
 .child-expand-btn {
   width: 18px;
@@ -1341,10 +2066,12 @@ defineExpose({ loadChildren })
 .gc-type.note { color: #81a2be; }
 .gc-type.project { color: #b5bd68; }
 .gc-type.milestone { color: #b294bb; }
-.gc-type.event { color: #e74c3c; }
+.gc-type.group { color: #a0a0d0; }
+.gc-type.event { color: #f07da0; }
 .gc-type.topic { color: #1abc9c; }
 .gc-type.folder { color: #95a5a6; }
-.gc-type.person { color: #3498db; }
+.gc-type.person { color: #3498db; display: inline-flex; align-items: center; }
+.gc-type.person :deep(svg) { width: 10px; height: 10px; }
 
 .gc-title {
   flex: 1;
@@ -1442,6 +2169,17 @@ defineExpose({ loadChildren })
 
 .meta-item.full-width {
   flex-basis: 100%;
+}
+
+.tags-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-basis: 100%;
+}
+
+.tags-row label {
+  flex-shrink: 0;
 }
 
 .links-row {
@@ -1706,6 +2444,651 @@ textarea::selection {
 
 .meta-value.mono {
   font-family: monospace;
+}
+
+/* Organization linking styles */
+.org-linking {
+  margin-top: 8px;
+}
+
+.org-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  min-height: 20px;
+}
+
+.org-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--accent-color);
+  color: white;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.org-path {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.org-remove {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.org-remove:hover {
+  color: white;
+}
+
+.org-autocomplete {
+  position: relative;
+}
+
+.org-autocomplete input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.org-autocomplete input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.org-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+  z-index: 100;
+  margin-top: 4px;
+}
+
+.org-option {
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-primary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.org-option:hover,
+.org-option.selected {
+  background: var(--bg-hover);
+}
+
+.org-option.linked {
+  opacity: 0.6;
+}
+
+.org-option .linked-badge {
+  font-size: 9px;
+  color: var(--text-tertiary);
+  padding: 2px 5px;
+  background: var(--bg-secondary);
+  border-radius: 3px;
+}
+
+.org-option.create-option {
+  color: var(--accent-color);
+  font-weight: 500;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Person form styles */
+.person-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  flex: 1;
+  padding-bottom: 8px;
+}
+
+.person-header-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.person-avatar-large {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 600;
+  color: white;
+  flex-shrink: 0;
+}
+
+.person-quick-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.person-role-display {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.person-orgs-display {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.person-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.person-form-grid .form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.person-form-grid .form-field.full-width {
+  grid-column: 1 / -1;
+}
+
+.person-form-grid .form-field label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.person-form-grid .form-field input,
+.person-form-grid .form-field textarea {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.person-form-grid .form-field input:focus,
+.person-form-grid .form-field textarea:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.person-form-grid .form-field textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* Color picker section */
+.color-picker-section {
+  padding: 12px 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.color-picker-section label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 8px;
+}
+
+.color-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.color-option {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.15s;
+}
+
+.color-option:hover {
+  transform: scale(1.1);
+}
+
+.color-option.selected {
+  border-color: white;
+  transform: scale(1.15);
+  box-shadow: 0 0 0 2px var(--accent-color);
+}
+
+/* Person links section */
+.person-links-section {
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.person-links-section label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 8px;
+}
+
+.person-links-section .links-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.person-links-section .link-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-secondary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.person-links-section .link-chip:hover {
+  background: var(--bg-hover);
+}
+
+.person-links-section .link-type {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.person-links-section .link-type :deep(svg) {
+  width: 12px;
+  height: 12px;
+}
+
+.person-links-section .remove-link-btn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.person-links-section .remove-link-btn:hover {
+  color: #ff6b6b;
+}
+
+.person-links-section .add-link-btn {
+  background: transparent;
+  border: 1px dashed var(--border-color);
+  color: var(--text-tertiary);
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+
+.person-links-section .add-link-btn:hover {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: white;
+}
+
+.add-field-btn.link-btn {
+  display: block;
+  width: 100%;
+  padding: 8px;
+  text-align: center;
+  border: 1px dashed var(--border-color);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+
+.add-field-btn.link-btn:hover {
+  background: var(--bg-secondary);
+  border-color: var(--accent-color);
+  color: var(--text-primary);
+}
+
+/* Person tags section */
+.person-tags-section {
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.person-tags-section label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 8px;
+}
+
+/* Person meta info */
+.person-meta {
+  padding-top: 12px;
+  margin-top: auto;
+  border-top: 1px solid var(--border-color);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Organization form styles */
+.organization-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  flex: 1;
+  padding-bottom: 8px;
+}
+
+.org-header-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.org-icon-large {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+}
+
+.org-quick-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.org-members-count {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.organization-form .form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.organization-form .form-field.full-width {
+  width: 100%;
+}
+
+.organization-form .form-field label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.organization-form .form-field textarea {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.organization-form .form-field textarea:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+/* Member tags */
+.member-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  min-height: 20px;
+}
+
+.member-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: white;
+  padding: 4px 8px 4px 4px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.member-tag:hover {
+  opacity: 0.9;
+}
+
+.member-initials {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.member-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-remove {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.member-remove:hover {
+  color: white;
+}
+
+/* Member autocomplete */
+.member-autocomplete {
+  position: relative;
+}
+
+.member-autocomplete input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.member-autocomplete input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.member-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 100;
+  margin-top: 4px;
+}
+
+.member-option {
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.member-option:hover,
+.member-option.selected {
+  background: var(--bg-hover);
+}
+
+.member-option.linked {
+  opacity: 0.6;
+}
+
+.member-option-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 600;
+  color: white;
+  flex-shrink: 0;
+}
+
+.member-option .linked-badge {
+  font-size: 9px;
+  color: var(--text-tertiary);
+  padding: 2px 5px;
+  background: var(--bg-secondary);
+  border-radius: 3px;
+  margin-left: auto;
+}
+
+.member-option.create-option {
+  color: var(--accent-color);
+  font-weight: 500;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Organization links section */
+.org-links-section {
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.org-links-section label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 8px;
+}
+
+.org-links-section .links-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+/* Organization tags section */
+.org-tags-section {
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.org-tags-section label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 8px;
+}
+
+/* Organization meta info */
+.org-meta {
+  padding-top: 12px;
+  margin-top: auto;
+  border-top: 1px solid var(--border-color);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 </style>

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { api } from '../services/api.js'
 
 const props = defineProps({
@@ -11,12 +11,19 @@ const emit = defineEmits(['select', 'update', 'delete'])
 
 const persons = ref([])
 const personLinks = ref({})
+const organizations = ref([]) // Organization nodes from People workspace
 const loading = ref(true)
 const editingPerson = ref(null)
 const viewMode = ref('cards') // 'cards' or 'table'
 const sortBy = ref('title')
 const sortDir = ref('asc')
 const hideSensitive = ref(true) // Hide email, phone, notes by default
+
+// Organization autocomplete state
+const orgQuery = ref('')
+const showOrgDropdown = ref(false)
+const selectedOrgIndex = ref(0)
+const linkedOrganizations = ref([]) // Currently linked organizations for editing person
 
 function maskEmail(email) {
   if (!email || !hideSensitive.value) return email
@@ -46,6 +53,37 @@ const personColors = [
 
 onMounted(async () => {
   await loadPersons()
+  await loadOrganizations()
+})
+
+// Load organization nodes from People workspace (workspace_id = null)
+async function loadOrganizations() {
+  try {
+    // Get all group nodes from People workspace
+    organizations.value = await api.getNodes({ type: 'organization', workspace_id: null })
+  } catch (err) {
+    console.error('Failed to load organizations:', err)
+    organizations.value = []
+  }
+}
+
+// Filtered organizations for autocomplete
+const filteredOrganizations = computed(() => {
+  if (!orgQuery.value) {
+    return organizations.value.slice(0, 10)
+  }
+  const q = orgQuery.value.toLowerCase()
+  return organizations.value
+    .filter(o => o.title?.toLowerCase().includes(q))
+    .slice(0, 10)
+})
+
+// Check if query matches an existing organization exactly
+const exactOrgMatch = computed(() => {
+  if (!orgQuery.value) return null
+  return organizations.value.find(
+    o => o.title?.toLowerCase() === orgQuery.value.toLowerCase()
+  )
 })
 
 const sortedPersons = computed(() => {
@@ -94,6 +132,71 @@ function getRandomColor() {
   return personColors[Math.floor(Math.random() * personColors.length)]
 }
 
+// Get full organization path (e.g., "TU Delft / REIT group")
+async function getOrgPath(org) {
+  if (!org) return ''
+  const parts = [org.title]
+  let current = org
+
+  // Walk up the parent chain
+  while (current.parent_id) {
+    try {
+      const parent = await api.getNode(current.parent_id)
+      if (parent && parent.type === 'organization') {
+        parts.unshift(parent.title)
+        current = parent
+      } else {
+        break
+      }
+    } catch {
+      break
+    }
+  }
+  return parts.join(' / ')
+}
+
+// Load linked organizations for a person
+async function loadLinkedOrganizations(personId) {
+  try {
+    const allOrgs = []
+    const seenIds = new Set()
+
+    // 1. Get organizations from links (node_links table)
+    const links = await api.getLinkedNodes(personId)
+    const linkedOrgs = links.filter(n => n.type === 'organization')
+    for (const org of linkedOrgs) {
+      if (!seenIds.has(org.id)) {
+        seenIds.add(org.id)
+        allOrgs.push({ ...org, isParent: false })
+      }
+    }
+
+    // 2. Get parent organizations (hierarchical relationship)
+    const person = await api.getNode(personId)
+    let currentNode = person
+    while (currentNode?.parent_id) {
+      const parent = await api.getNode(currentNode.parent_id)
+      if (parent?.type === 'organization' && !seenIds.has(parent.id)) {
+        seenIds.add(parent.id)
+        allOrgs.push({ ...parent, isParent: true })
+      }
+      currentNode = parent
+    }
+
+    // Add paths to all organizations
+    const orgsWithPaths = await Promise.all(
+      allOrgs.map(async (org) => ({
+        ...org,
+        path: await getOrgPath(org)
+      }))
+    )
+    linkedOrganizations.value = orgsWithPaths
+  } catch (err) {
+    console.error('Failed to load linked organizations:', err)
+    linkedOrganizations.value = []
+  }
+}
+
 function showAddPerson() {
   editingPerson.value = {
     title: '',
@@ -106,10 +209,16 @@ function showAddPerson() {
     color: getRandomColor(),
     type: 'person'
   }
+  linkedOrganizations.value = []
+  orgQuery.value = ''
+  showOrgDropdown.value = false
 }
 
-function editPerson(person) {
+async function editPerson(person) {
   editingPerson.value = { ...person }
+  orgQuery.value = ''
+  showOrgDropdown.value = false
+  await loadLinkedOrganizations(person.id)
 }
 
 async function savePerson() {
@@ -121,20 +230,35 @@ async function savePerson() {
       type: 'person',
       email: editingPerson.value.email || '',
       phone: editingPerson.value.phone || '',
-      organization: editingPerson.value.organization || '',
+      organization: '', // Deprecated - now using linked organizations
       role: editingPerson.value.role || '',
       website: editingPerson.value.website || '',
       notes: editingPerson.value.notes || '',
-      color: editingPerson.value.color || '#0f4c75'
+      color: editingPerson.value.color || '#0f4c75',
+      workspace_id: null  // Persons always go to People workspace
     }
 
-    if (editingPerson.value.id) {
-      await api.updateNode(editingPerson.value.id, data)
+    let personId = editingPerson.value.id
+    if (personId) {
+      await api.updateNode(personId, data)
     } else {
-      await api.createNode(data)
+      // Create new person
+      const newPerson = await api.createNode(data)
+      personId = newPerson.id
+
+      // Link organizations that were selected during creation
+      for (const org of linkedOrganizations.value) {
+        try {
+          await api.linkNodes(personId, org.id)
+        } catch (err) {
+          console.error('Failed to link organization:', err)
+        }
+      }
     }
 
     editingPerson.value = null
+    linkedOrganizations.value = []
+    orgQuery.value = ''
     await loadPersons()
   } catch (err) {
     console.error('Failed to save person:', err)
@@ -149,6 +273,102 @@ function deletePerson() {
 
 function cancelEdit() {
   editingPerson.value = null
+  linkedOrganizations.value = []
+  orgQuery.value = ''
+  showOrgDropdown.value = false
+}
+
+// Organization linking functions
+async function linkOrganization(org) {
+  if (!editingPerson.value?.id) {
+    // For new person, just add to local list (will link after save)
+    const orgWithPath = {
+      ...org,
+      path: await getOrgPath(org)
+    }
+    if (!linkedOrganizations.value.find(o => o.id === org.id)) {
+      linkedOrganizations.value.push(orgWithPath)
+    }
+  } else {
+    // For existing person, create link immediately
+    try {
+      await api.linkNodes(editingPerson.value.id, org.id)
+      await loadLinkedOrganizations(editingPerson.value.id)
+    } catch (err) {
+      console.error('Failed to link organization:', err)
+    }
+  }
+  orgQuery.value = ''
+  showOrgDropdown.value = false
+}
+
+async function unlinkOrganization(org) {
+  if (!editingPerson.value?.id) {
+    // For new person, just remove from local list
+    linkedOrganizations.value = linkedOrganizations.value.filter(o => o.id !== org.id)
+  } else {
+    // For existing person, remove link
+    try {
+      await api.unlinkNodes(editingPerson.value.id, org.id)
+      await loadLinkedOrganizations(editingPerson.value.id)
+    } catch (err) {
+      console.error('Failed to unlink organization:', err)
+    }
+  }
+}
+
+async function createAndLinkOrganization() {
+  if (!orgQuery.value.trim()) return
+
+  try {
+    // Create new organization node in People workspace (workspace_id = null)
+    const newOrg = await api.createNode({
+      title: orgQuery.value.trim(),
+      type: 'organization',
+      workspace_id: null
+    })
+
+    // Add to organizations list
+    organizations.value.push(newOrg)
+
+    // Link it
+    await linkOrganization(newOrg)
+  } catch (err) {
+    console.error('Failed to create organization:', err)
+  }
+}
+
+function handleOrgKeydown(e) {
+  if (!showOrgDropdown.value) {
+    if (e.key === 'ArrowDown' || e.key === 'Enter') {
+      showOrgDropdown.value = true
+      e.preventDefault()
+    }
+    return
+  }
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    const max = exactOrgMatch.value ? filteredOrganizations.value.length : filteredOrganizations.value.length
+    selectedOrgIndex.value = Math.min(selectedOrgIndex.value + 1, max)
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    selectedOrgIndex.value = Math.max(selectedOrgIndex.value - 1, 0)
+  } else if (e.key === 'Enter') {
+    e.preventDefault()
+    if (selectedOrgIndex.value < filteredOrganizations.value.length) {
+      linkOrganization(filteredOrganizations.value[selectedOrgIndex.value])
+    } else if (!exactOrgMatch.value && orgQuery.value.trim()) {
+      createAndLinkOrganization()
+    }
+  } else if (e.key === 'Escape') {
+    showOrgDropdown.value = false
+  }
+}
+
+function handleOrgInput() {
+  showOrgDropdown.value = true
+  selectedOrgIndex.value = 0
 }
 
 function selectPerson(person) {
@@ -166,6 +386,12 @@ function toggleSort(column) {
 
 function getLinksForPerson(personId) {
   return personLinks.value[personId] || []
+}
+
+// Get organization names for display in card/table
+function getOrganizationsForPerson(personId) {
+  const links = personLinks.value[personId] || []
+  return links.filter(n => n.type === 'organization').map(o => o.title)
 }
 </script>
 
@@ -209,7 +435,9 @@ function getLinksForPerson(personId) {
             <div v-if="person.role" class="person-role">{{ person.role }}</div>
           </div>
         </div>
-        <div v-if="person.organization" class="person-company">{{ person.organization }}</div>
+        <div v-if="getOrganizationsForPerson(person.id).length > 0" class="person-company">
+          {{ getOrganizationsForPerson(person.id).join(', ') }}
+        </div>
         <div v-if="person.email" class="person-email">{{ maskEmail(person.email) }}</div>
         <div v-if="person.notes && !hideSensitive" class="person-notes">{{ person.notes }}</div>
         <div class="person-links-count">{{ getLinksForPerson(person.id).length }} linked</div>
@@ -250,7 +478,7 @@ function getLinksForPerson(personId) {
             <td class="col-name">{{ person.title }}</td>
             <td class="col-role">{{ person.role || '-' }}</td>
             <td class="col-email">{{ person.email ? maskEmail(person.email) : '-' }}</td>
-            <td class="col-company">{{ person.organization || '-' }}</td>
+            <td class="col-company">{{ getOrganizationsForPerson(person.id).join(', ') || '-' }}</td>
             <td class="col-links">{{ getLinksForPerson(person.id).length }}</td>
             <td class="col-actions">
               <button class="edit-btn" @click.stop="editPerson(person)">Edit</button>
@@ -285,9 +513,50 @@ function getLinksForPerson(personId) {
               <input v-model="editingPerson.phone" type="tel" placeholder="+1 234 567 8900" />
             </div>
 
-            <div class="form-field">
-              <label>Organization</label>
-              <input v-model="editingPerson.organization" placeholder="Company name" />
+            <div class="form-field full-width org-field">
+              <label>Organizations</label>
+              <!-- Linked organizations as tags -->
+              <div class="org-tags">
+                <div
+                  v-for="org in linkedOrganizations"
+                  :key="org.id"
+                  class="org-tag"
+                >
+                  <span class="org-path">{{ org.path || org.title }}</span>
+                  <button class="org-remove" @click="unlinkOrganization(org)" title="Remove">&times;</button>
+                </div>
+              </div>
+              <!-- Autocomplete input -->
+              <div class="org-autocomplete">
+                <input
+                  v-model="orgQuery"
+                  placeholder="Search or create organization..."
+                  @input="handleOrgInput"
+                  @keydown="handleOrgKeydown"
+                  @focus="showOrgDropdown = true"
+                  @blur="setTimeout(() => showOrgDropdown = false, 200)"
+                />
+                <div v-if="showOrgDropdown && (filteredOrganizations.length > 0 || orgQuery.trim())" class="org-dropdown">
+                  <div
+                    v-for="(org, index) in filteredOrganizations"
+                    :key="org.id"
+                    class="org-option"
+                    :class="{ selected: selectedOrgIndex === index, linked: linkedOrganizations.find(o => o.id === org.id) }"
+                    @mousedown.prevent="linkOrganization(org)"
+                  >
+                    {{ org.title }}
+                    <span v-if="linkedOrganizations.find(o => o.id === org.id)" class="linked-badge">linked</span>
+                  </div>
+                  <div
+                    v-if="!exactOrgMatch && orgQuery.trim()"
+                    class="org-option create-option"
+                    :class="{ selected: selectedOrgIndex === filteredOrganizations.length }"
+                    @mousedown.prevent="createAndLinkOrganization"
+                  >
+                    + Create "{{ orgQuery.trim() }}"
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div class="form-field">
@@ -761,5 +1030,101 @@ function getLinksForPerson(personId) {
 
 .person-modal .modal-actions button.delete-btn:hover {
   background: #c0392b;
+}
+
+/* Organization linking styles */
+.person-modal .org-field {
+  margin-bottom: 8px;
+}
+
+.person-modal .org-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  min-height: 24px;
+}
+
+.person-modal .org-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--accent-color, #0f4c75);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.person-modal .org-path {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.person-modal .org-remove {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.person-modal .org-remove:hover {
+  color: white;
+}
+
+.person-modal .org-autocomplete {
+  position: relative;
+}
+
+.person-modal .org-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-elevated, #1a1f2e);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 100;
+  margin-top: 4px;
+}
+
+.person-modal .org-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary, #f0f0f0);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.person-modal .org-option:hover,
+.person-modal .org-option.selected {
+  background: var(--bg-tertiary, #2a2a2a);
+}
+
+.person-modal .org-option.linked {
+  opacity: 0.6;
+}
+
+.person-modal .org-option .linked-badge {
+  font-size: 10px;
+  color: var(--text-tertiary, #666);
+  padding: 2px 6px;
+  background: var(--bg-secondary, #1a1a1a);
+  border-radius: 3px;
+}
+
+.person-modal .org-option.create-option {
+  color: var(--accent-color, #0f4c75);
+  font-weight: 500;
+  border-top: 1px solid var(--border-color, #333);
 }
 </style>

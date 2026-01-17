@@ -39,6 +39,20 @@ async function renderContent() {
   // Parse markdown
   let html = marked.parse(props.content)
 
+  // Convert person mention links to styled chips
+  // Matches: <a href="person:123">@[Person Name]</a> or <a href="person:123">Person Name</a>
+  html = html.replace(
+    /<a href="person:(\d+)">@?\[?([^\]<]+)\]?<\/a>/g,
+    '<span class="person-mention" data-person-id="$1">@$2</span>'
+  )
+
+  // Style inline #hashtags (not already in a link)
+  // Matches #word or #multi-word-tag but not already inside HTML tags
+  html = html.replace(
+    /(?<!["\w])#([\w-]+)(?![^<]*>)/g,
+    '<span class="hashtag">#$1</span>'
+  )
+
   // Extract and process mermaid blocks
   const mermaidRegex = /<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g
   let mermaidIndex = 0
@@ -207,5 +221,41 @@ onMounted(renderContent)
   max-width: 100%;
   height: auto;
   border-radius: 4px;
+}
+
+/* Person mention chips */
+.markdown-content :deep(.person-mention) {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(52, 152, 219, 0.2);
+  color: #5dade2;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.9em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.markdown-content :deep(.person-mention:hover) {
+  background: rgba(52, 152, 219, 0.35);
+}
+
+/* Hashtag chips */
+.markdown-content :deep(.hashtag) {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(74, 144, 226, 0.15);
+  color: #7fb3e8;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 0.9em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.markdown-content :deep(.hashtag:hover) {
+  background: rgba(74, 144, 226, 0.3);
 }
 </style>

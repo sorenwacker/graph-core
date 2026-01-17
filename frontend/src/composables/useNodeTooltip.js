@@ -86,7 +86,9 @@ export function useNodeTooltip(options = {}) {
           })
           instance.popper.addEventListener('mouseleave', () => {
             tooltipHideTimeout = setTimeout(() => {
-              instance.hide()
+              if (!instance.state.isDestroyed) {
+                instance.hide()
+              }
             }, HIDE_DELAY)
           })
 
@@ -96,7 +98,9 @@ export function useNodeTooltip(options = {}) {
             checkbox.addEventListener('change', (evt) => {
               const nodeId = parseInt(evt.target.dataset.nodeId)
               onToggleComplete(nodeId)
-              instance.hide()
+              if (!instance.state.isDestroyed) {
+                instance.hide()
+              }
             })
           }
           // Attach open detail button listener
@@ -105,7 +109,9 @@ export function useNodeTooltip(options = {}) {
             openBtn.addEventListener('click', (evt) => {
               const nodeId = parseInt(evt.target.dataset.nodeId)
               onOpenDetail(nodeId)
-              instance.hide()
+              if (!instance.state.isDestroyed) {
+                instance.hide()
+              }
             })
           }
         }
@@ -120,9 +126,9 @@ export function useNodeTooltip(options = {}) {
       tooltipShowTimeout = null
     }
     // Delayed hide to allow mouse to enter tooltip
-    if (activeTooltip) {
+    if (activeTooltip && !activeTooltip.state.isDestroyed) {
       tooltipHideTimeout = setTimeout(() => {
-        if (activeTooltip) {
+        if (activeTooltip && !activeTooltip.state.isDestroyed) {
           activeTooltip.hide()
         }
       }, HIDE_DELAY)
@@ -138,7 +144,7 @@ export function useNodeTooltip(options = {}) {
       clearTimeout(tooltipHideTimeout)
       tooltipHideTimeout = null
     }
-    if (activeTooltip) {
+    if (activeTooltip && !activeTooltip.state.isDestroyed) {
       activeTooltip.destroy()
       activeTooltip = null
     }

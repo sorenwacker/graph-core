@@ -1,15 +1,150 @@
 // Node types - single source of truth
-export const nodeTypes = ['project', 'task', 'note', 'milestone', 'group', 'person', 'event']
+export const nodeTypes = ['project', 'task', 'note', 'milestone', 'group', 'person', 'event', 'topic', 'folder', 'organization']
 
-// Node type colors - consistent across all views
-export const typeColors = {
-  project: { bg: 'rgba(99, 102, 241, 0.15)', text: '#818cf8', border: 'rgba(129, 140, 248, 0.5)' },
-  task: { bg: 'rgba(245, 158, 11, 0.15)', text: '#fbbf24', border: 'rgba(251, 191, 36, 0.5)' },
-  note: { bg: 'rgba(16, 185, 129, 0.15)', text: '#34d399', border: 'rgba(52, 211, 153, 0.5)' },
-  milestone: { bg: 'rgba(139, 92, 246, 0.15)', text: '#a78bfa', border: 'rgba(167, 139, 250, 0.5)' },
-  group: { bg: 'rgba(100, 116, 139, 0.15)', text: '#94a3b8', border: 'rgba(148, 163, 184, 0.5)' },
-  person: { bg: 'rgba(249, 115, 22, 0.15)', text: '#fb923c', border: 'rgba(251, 146, 60, 0.5)' },
-  event: { bg: 'rgba(244, 63, 94, 0.15)', text: '#fb7185', border: 'rgba(251, 113, 133, 0.5)' }
+// Type display config - icons, colors, CSS classes
+export const typeConfig = {
+  project: {
+    label: 'Project',
+    cssClass: 'project',
+    bg: '#1a4d7a',
+    text: '#8cc4ff',
+    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>`
+  },
+  task: {
+    label: 'Task',
+    cssClass: 'task',
+    bg: '#5a5a1a',
+    text: '#f0f07d',
+    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`
+  },
+  note: {
+    label: 'Note',
+    cssClass: 'note',
+    bg: '#1a5a1a',
+    text: '#7df07d',
+    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>`
+  },
+  milestone: {
+    label: 'Milestone',
+    cssClass: 'milestone',
+    bg: '#5a1a5a',
+    text: '#f07df0',
+    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>`
+  },
+  group: {
+    label: 'Group',
+    cssClass: 'group',
+    bg: '#3a3a5a',
+    text: '#a0a0d0',
+    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>`
+  },
+  person: {
+    label: 'Person',
+    cssClass: 'person',
+    bg: '#5a3a1a',
+    text: '#f0b07d',
+    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M12 14c-4.42 0-8 1.79-8 4v2h16v-2c0-2.21-3.58-4-8-4z"/></svg>`
+  },
+  event: {
+    label: 'Event',
+    cssClass: 'event',
+    bg: '#5a1a3a',
+    text: '#f07da0',
+    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>`
+  },
+  topic: {
+    label: 'Topic',
+    cssClass: 'topic',
+    bg: '#1a5a5a',
+    text: '#7df0f0',
+    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 6h-2V4c0-1.1-.9-2-2-2H7c-1.1 0-2 .9-2 2v2H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zM7 4h10v2H7V4zm14 16H3V8h18v12z"/></svg>`
+  },
+  folder: {
+    label: 'Folder',
+    cssClass: 'folder',
+    bg: '#4a4a4a',
+    text: '#cccccc',
+    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`
+  },
+  organization: {
+    label: 'Organization',
+    cssClass: 'organization',
+    bg: '#2a4a5a',
+    text: '#7dc0e0',
+    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/></svg>`
+  }
+}
+
+// Legacy export for backward compatibility
+export const personIconSvg = typeConfig.person.icon
+
+// Person color palette - warm, distinct colors for individual persons
+const personColors = [
+  { bg: '#4a1a3a', text: '#e07da0' },
+  { bg: '#1a3a4a', text: '#7dc0e0' },
+  { bg: '#3a4a1a', text: '#c0e07d' },
+  { bg: '#4a2a1a', text: '#e0a07d' },
+  { bg: '#2a1a4a', text: '#a07de0' },
+  { bg: '#1a4a3a', text: '#7de0c0' },
+  { bg: '#4a3a1a', text: '#e0c07d' },
+  { bg: '#1a2a4a', text: '#7da0e0' },
+  { bg: '#3a1a4a', text: '#c07de0' },
+  { bg: '#4a1a2a', text: '#e07da0' },
+]
+
+// Get consistent random color for a person based on their ID
+export function getPersonColor(personId) {
+  if (!personId) return personColors[0]
+  const index = Math.abs(personId) % personColors.length
+  return personColors[index]
+}
+
+// Helper functions for consistent type display
+export function getTypeIcon(type) {
+  const config = typeConfig[type]
+  if (!config) return `<span>${type?.[0]?.toUpperCase() || '?'}</span>`
+  return config.icon
+}
+
+// Returns HTML for the icon - all types now use SVG
+export function getTypeIconHtml(type) {
+  const config = typeConfig[type]
+  if (!config) return `<span>${type?.[0]?.toUpperCase() || '?'}</span>`
+  return config.icon
+}
+
+export function getTypeLabel(type) {
+  return typeConfig[type]?.label || type || 'Unknown'
+}
+
+export function getTypeCssClass(type) {
+  return typeConfig[type]?.cssClass || 'task'
+}
+
+export function getTypeColors(type, nodeId = null) {
+  // For persons, use random color based on node ID
+  if (type === 'person' && nodeId !== null) {
+    return getPersonColor(nodeId)
+  }
+  const config = typeConfig[type]
+  if (!config) return { bg: '#4a4a4a', text: '#cccccc' }
+  return { bg: config.bg, text: config.text }
+}
+
+// Graph view colors: dark background with type-colored border
+export function getGraphColors(type, nodeId = null) {
+  const config = typeConfig[type]
+  const defaultColors = { bg: '#0d0d0d', border: '#666666', text: '#ffffff' }
+
+  if (!config) return defaultColors
+
+  // Persons get unique border color based on their ID
+  if (type === 'person' && nodeId !== null) {
+    const hue = (nodeId * 137.508) % 360
+    return { bg: '#0d0d0d', border: `hsl(${hue}, 65%, 55%)`, text: '#ffffff' }
+  }
+
+  return { bg: '#0d0d0d', border: config.text, text: '#ffffff' }
 }
 
 // Importance labels

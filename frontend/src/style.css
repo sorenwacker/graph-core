@@ -1199,13 +1199,19 @@ input[type="checkbox"] {
   border-radius: var(--radius-sm);
 }
 
-.type-icon.project { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
-.type-icon.task { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
-.type-icon.note { background: rgba(16, 185, 129, 0.2); color: #34d399; }
-.type-icon.milestone { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
-.type-icon.person { background: rgba(249, 115, 22, 0.2); color: #fb923c; }
-.type-icon.event { background: rgba(244, 63, 94, 0.2); color: #fb7185; }
-.type-icon.group { background: rgba(100, 116, 139, 0.2); color: #94a3b8; }
+.type-icon.project { background: var(--type-project-bg); color: var(--type-project-text); }
+.type-icon.task { background: var(--type-task-bg); color: var(--type-task-text); }
+.type-icon.note { background: var(--type-note-bg); color: var(--type-note-text); }
+.type-icon.milestone { background: var(--type-milestone-bg); color: var(--type-milestone-text); }
+.type-icon.group { background: var(--type-group-bg); color: var(--type-group-text); }
+.type-icon.person { background: var(--type-person-bg); color: var(--type-person-text); }
+.type-icon.event { background: var(--type-event-bg); color: var(--type-event-text); }
+.type-icon.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
+.type-icon.folder { background: var(--type-folder-bg); color: var(--type-folder-text); }
+.type-icon.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
+
+/* SVG icons */
+.type-icon svg { width: 14px; height: 14px; }
 
 /* Scrollbar */
 ::-webkit-scrollbar {
