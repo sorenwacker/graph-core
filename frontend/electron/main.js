@@ -125,8 +125,9 @@ ipcMain.handle('db:updateWorkspace', (event, id, data) => db.updateWorkspace(id,
 ipcMain.handle('db:deleteWorkspace', (event, id) => db.deleteWorkspace(id))
 
 // =========================================
-// DATABASE BACKUPS
+// DATABASE BACKUPS & RELOAD
 // =========================================
 ipcMain.handle('db:backup', (event, suffix) => db.backup(suffix))
 ipcMain.handle('db:listBackups', () => db.listBackups())
 ipcMain.handle('db:restoreBackup', (event, backupPath) => db.restoreBackup(backupPath))
+ipcMain.handle('db:reload', () => db.reload())

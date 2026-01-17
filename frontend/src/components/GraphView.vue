@@ -65,8 +65,21 @@ const dropHighlightEl = ref(null)
 const linkModeActive = ref(false)
 
 // Track Alt/Option key to temporarily enable link mode
+// Only activate link mode when not inside text editors
+function isInsideEditor(target) {
+  if (!target) return false
+  const tagName = target.tagName?.toLowerCase()
+  if (tagName === 'input' || tagName === 'textarea') return true
+  if (target.contentEditable === 'true') return true
+  // Check for CodeMirror editor
+  if (target.closest('.cm-editor')) return true
+  return false
+}
+
 if (typeof document !== 'undefined') {
   document.addEventListener('keydown', (e) => {
+    // Don't activate link mode when inside editors (for multi-cursor shortcuts)
+    if (isInsideEditor(e.target)) return
     if (e.key === 'Alt' || e.code === 'AltLeft' || e.code === 'AltRight' || e.altKey) {
       linkModeActive.value = true
     }
@@ -77,8 +90,9 @@ if (typeof document !== 'undefined') {
     }
   })
   // Track via mouse events - if altKey is held during mouse movement
+  // Don't activate when inside editors
   document.addEventListener('mousemove', (e) => {
-    if (e.altKey) linkModeActive.value = true
+    if (e.altKey && !isInsideEditor(e.target)) linkModeActive.value = true
   })
 }
 
@@ -1001,7 +1015,7 @@ async function initGraph() {
 
       // Custom color as subtle background gradient
       const bgStyle = customBgTint
-        ? `background: linear-gradient(135deg, ${customBgTint}55 0%, transparent 70%), #0d0d0d;`
+        ? `background: linear-gradient(135deg, ${customBgTint}99 0%, ${customBgTint}44 50%, transparent 100%), #0d0d0d;`
         : ''
 
       return `
@@ -1716,7 +1730,7 @@ async function updateGraph() {
 
       // Custom color as subtle background gradient
       const bgStyle = customBgTint
-        ? `background: linear-gradient(135deg, ${customBgTint}55 0%, transparent 70%), #0d0d0d;`
+        ? `background: linear-gradient(135deg, ${customBgTint}99 0%, ${customBgTint}44 50%, transparent 100%), #0d0d0d;`
         : ''
 
       return `

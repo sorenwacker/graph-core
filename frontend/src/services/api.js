@@ -217,10 +217,11 @@ const webApi = {
     })
   },
 
-  // Database Backups (Electron only in web mode, these are stubs)
+  // Database Backups & Reload (Electron only in web mode, these are stubs)
   async backup() { return { error: 'Backups only available in desktop app' } },
   async listBackups() { return [] },
   async restoreBackup() { return { error: 'Restore only available in desktop app' } },
+  async reload() { return { error: 'Reload only available in desktop app' } },
 }
 
 // Electron API implementation (uses IPC)
@@ -281,10 +282,11 @@ const electronApi = {
   updateWorkspace: (id, data) => window.electronAPI.updateWorkspace(id, data),
   deleteWorkspace: (id) => window.electronAPI.deleteWorkspace(id),
 
-  // Database Backups
+  // Database Backups & Reload
   backup: (suffix) => window.electronAPI.backup(suffix),
   listBackups: () => window.electronAPI.listBackups(),
   restoreBackup: (backupPath) => window.electronAPI.restoreBackup(backupPath),
+  reload: () => window.electronAPI.reload(),
 }
 
 // Export the appropriate API based on environment

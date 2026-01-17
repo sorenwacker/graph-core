@@ -94,7 +94,7 @@ const workspaces = ref([])  // Loaded from database
 // All nodes in People workspace get NULL, others get current workspace
 function getWorkspaceIdForNode(type) {
   if (currentWorkspace.value === 'people') return null  // All nodes in People workspace
-  if (type === 'person') return null  // Persons always go to People workspace
+  if (type === 'person' || type === 'organization') return null  // Persons and orgs always go to People workspace
   return currentWorkspace.value
 }
 
@@ -237,6 +237,24 @@ async function restoreSnapshot(backupPath) {
   }
 }
 
+async function reloadDatabase() {
+  try {
+    const result = await api.reload()
+    snapshotMessage.value = `Database reloaded (${result.nodeCount} nodes)`
+    // Reload the app data
+    await loadChildren(currentContainerId.value)
+    await loadSidebarTree()
+    loadRecentItems()
+    if (selectedNode.value?.id) {
+      selectedNode.value = await api.getNode(selectedNode.value.id)
+    }
+    setTimeout(() => snapshotMessage.value = '', 3000)
+  } catch (e) {
+    snapshotMessage.value = 'Failed to reload database'
+    console.error('Failed to reload database:', e)
+  }
+}
+
 function formatSnapshotDate(dateString) {
   const date = new Date(dateString)
   return date.toLocaleString('en-US', {
@@ -365,6 +383,12 @@ async function undo() {
       await api.reorderNode(action.nodeId, action.oldTargetId, action.oldPosition)
     } else if (action.type === 'complete') {
       await api.updateNode(action.nodeId, { completed: action.oldCompleted })
+    } else if (action.type === 'link') {
+      // Undo link by unlinking
+      await api.unlinkNodes(action.sourceId, action.targetId)
+    } else if (action.type === 'unlink') {
+      // Undo unlink by re-linking
+      await api.linkNodes(action.sourceId, action.targetId)
     }
     // Push same action to redo stack (redo will re-apply the original action)
     redoStack.value.push(action)
@@ -398,6 +422,12 @@ async function redo() {
       await api.reorderNode(action.nodeId, action.newTargetId, action.newPosition)
     } else if (action.type === 'complete') {
       await api.updateNode(action.nodeId, { completed: action.newCompleted })
+    } else if (action.type === 'link') {
+      // Redo link by re-linking
+      await api.linkNodes(action.sourceId, action.targetId)
+    } else if (action.type === 'unlink') {
+      // Redo unlink by unlinking
+      await api.unlinkNodes(action.sourceId, action.targetId)
     }
     // Push same action back to undo stack
     undoStack.value.push(action)
@@ -1013,13 +1043,35 @@ async function createNode() {
 
   try {
     const nodeType = newNodeType.value
-    const isLinkOnlyType = nodeType === 'person' || nodeType === 'organization'
-    const linkToId = isLinkOnlyType ? currentContainerId.value : null
+
+    // Determine parent-child vs link behavior:
+    // - Persons always link (never parent-child)
+    // - Organizations can be children of other organizations, otherwise link
+    let useParentChild = true
+    let linkToId = null
+
+    if (nodeType === 'person') {
+      useParentChild = false
+      linkToId = currentContainerId.value
+    } else if (nodeType === 'organization') {
+      // Check if current container is also an organization
+      if (currentContainerId.value) {
+        const container = await api.getNode(currentContainerId.value)
+        if (container?.type === 'organization') {
+          useParentChild = true  // Org inside org = parent-child
+        } else {
+          useParentChild = false
+          linkToId = currentContainerId.value
+        }
+      } else {
+        useParentChild = true  // No container = root level org
+      }
+    }
 
     const nodeData = {
       title: newNodeTitle.value,
       type: nodeType,
-      parent_id: isLinkOnlyType ? null : currentContainerId.value,  // Link-only types have no parent
+      parent_id: useParentChild ? currentContainerId.value : null,
       workspace_id: getWorkspaceIdForNode(nodeType)
     }
     // Assign random color to persons
@@ -1030,11 +1082,11 @@ async function createNode() {
     if (!created || !created.id) {
       throw new Error('Failed to create node')
     }
-    // Create link for persons/orgs instead of parent-child
-    if (isLinkOnlyType && linkToId) {
+    // Create link instead of parent-child if needed
+    if (!useParentChild && linkToId) {
       await api.linkNodes(created.id, linkToId)
     }
-    pushUndo({ type: 'create', nodeId: created.id, nodeData, parentId: isLinkOnlyType ? null : currentContainerId.value, linkedToId: linkToId })
+    pushUndo({ type: 'create', nodeId: created.id, nodeData, parentId: useParentChild ? currentContainerId.value : null, linkedToId: linkToId })
     newNodeTitle.value = ''
     await loadChildren(currentContainerId.value)
   } catch (e) {
@@ -1045,12 +1097,35 @@ async function createNode() {
 async function addChildNode({ parentId, title, type, x, y }) {
   try {
     const nodeType = type || 'task'
-    const isLinkOnlyType = nodeType === 'person' || nodeType === 'organization'
+
+    // Determine parent-child vs link behavior:
+    // - Persons always link (never parent-child)
+    // - Organizations can be children of other organizations, otherwise link
+    let useParentChild = true
+    let linkToId = null
+
+    if (nodeType === 'person') {
+      useParentChild = false
+      linkToId = parentId
+    } else if (nodeType === 'organization') {
+      // Check if parent is also an organization
+      if (parentId) {
+        const parent = await api.getNode(parentId)
+        if (parent?.type === 'organization') {
+          useParentChild = true  // Org inside org = parent-child
+        } else {
+          useParentChild = false
+          linkToId = parentId
+        }
+      } else {
+        useParentChild = true  // No parent = root level org
+      }
+    }
 
     const nodeData = {
       title,
       type: nodeType,
-      parent_id: isLinkOnlyType ? null : parentId,
+      parent_id: useParentChild ? parentId : null,
       workspace_id: getWorkspaceIdForNode(nodeType)
     }
     if (nodeType === 'person') {
@@ -1060,11 +1135,11 @@ async function addChildNode({ parentId, title, type, x, y }) {
     if (!newNode || !newNode.id) {
       throw new Error('Failed to create child node - no result returned')
     }
-    // Create link for persons/orgs instead of parent-child
-    if (isLinkOnlyType && parentId) {
-      await api.linkNodes(newNode.id, parentId)
+    // Create link instead of parent-child if needed
+    if (!useParentChild && linkToId) {
+      await api.linkNodes(newNode.id, linkToId)
     }
-    pushUndo({ type: 'create', nodeId: newNode.id, nodeData, parentId: isLinkOnlyType ? null : parentId })
+    pushUndo({ type: 'create', nodeId: newNode.id, nodeData, parentId: useParentChild ? parentId : null })
     // Save position if provided (from graph double-click)
     if (x !== undefined && y !== undefined) {
       const viewId = currentContainerId.value || 'root'
@@ -1099,19 +1174,41 @@ function onChildUpdated() {
 
 async function moveNode({ nodeId, oldParentId, newParentId }) {
   try {
-    // If moving to a new parent, check if it involves a person
-    // Persons should ALWAYS use links, never parent-child relationships
+    // Check if this should be a link instead of parent-child
+    // Persons ALWAYS use links (never parent-child)
+    // Organizations can be parent-child with OTHER organizations, but link with other types
     if (newParentId) {
       const sourceNode = await api.getNode(nodeId)
       const targetNode = await api.getNode(newParentId)
-      const involvesPerson = sourceNode.type === 'person' || targetNode.type === 'person'
-      if (involvesPerson) {
-        // Convert to link instead of parent-child relationship
+
+      // Persons always use links
+      if (sourceNode.type === 'person' || targetNode.type === 'person') {
         await api.linkNodes(nodeId, newParentId)
+        pushUndo({ type: 'link', sourceId: nodeId, targetId: newParentId })
         await loadChildren(currentContainerId.value)
         await loadSidebarTree()
         loadRecentItems()
+        // Trigger relax after adding link
+        setTimeout(() => graphViewRef.value?.relaxLayout(), 200)
         return
+      }
+
+      // Organizations can only have parent-child with other organizations
+      const isOrg = (t) => t === 'organization'
+      if (isOrg(sourceNode.type) || isOrg(targetNode.type)) {
+        // Both must be organizations for parent-child relationship
+        if (!(isOrg(sourceNode.type) && isOrg(targetNode.type))) {
+          // One is org, one is not - use link
+          await api.linkNodes(nodeId, newParentId)
+          pushUndo({ type: 'link', sourceId: nodeId, targetId: newParentId })
+          await loadChildren(currentContainerId.value)
+          await loadSidebarTree()
+          loadRecentItems()
+          // Trigger relax after adding link
+          setTimeout(() => graphViewRef.value?.relaxLayout(), 200)
+          return
+        }
+        // Both are organizations - allow parent-child (continue to normal move)
       }
     }
 
@@ -1138,10 +1235,15 @@ async function moveNode({ nodeId, oldParentId, newParentId }) {
 async function linkNodesFromGraph({ sourceId, targetId }) {
   try {
     await api.linkNodes(sourceId, targetId)
+    pushUndo({ type: 'link', sourceId, targetId })
     // Refresh graph to show the new link edge
     if (graphViewRef.value?.updateGraph) {
       await graphViewRef.value.updateGraph()
     }
+    // Trigger relax after adding link
+    setTimeout(() => {
+      graphViewRef.value?.relaxLayout()
+    }, 200)
     // Refresh detail panel if showing one of these nodes
     if (selectedNode.value?.id === sourceId || selectedNode.value?.id === targetId) {
       selectedNode.value = await api.getNode(selectedNode.value.id)
@@ -1160,6 +1262,7 @@ async function linkNodesFromGraph({ sourceId, targetId }) {
 async function unlinkNodesFromGraph({ sourceId, targetId }) {
   try {
     await api.unlinkNodes(sourceId, targetId)
+    pushUndo({ type: 'unlink', sourceId, targetId })
     // Refresh graph to update link edges
     if (graphViewRef.value?.updateGraph) {
       await graphViewRef.value.updateGraph()
@@ -1234,22 +1337,44 @@ async function insertBetween({ parentId, childId, title, type, isLink }) {
 async function createNodeAtPosition({ title, type, x, y }) {
   try {
     const nodeType = type || 'task'
-    const isLinkOnlyType = nodeType === 'person' || nodeType === 'organization'
-    const linkToId = isLinkOnlyType ? currentContainerId.value : null
+
+    // Determine parent-child vs link behavior:
+    // - Persons always link (never parent-child)
+    // - Organizations can be children of other organizations, otherwise link
+    let useParentChild = true
+    let linkToId = null
+
+    if (nodeType === 'person') {
+      useParentChild = false
+      linkToId = currentContainerId.value
+    } else if (nodeType === 'organization') {
+      // Check if current container is also an organization
+      if (currentContainerId.value) {
+        const container = await api.getNode(currentContainerId.value)
+        if (container?.type === 'organization') {
+          useParentChild = true  // Org inside org = parent-child
+        } else {
+          useParentChild = false
+          linkToId = currentContainerId.value
+        }
+      } else {
+        useParentChild = true  // No container = root level org
+      }
+    }
 
     // Double-click far from nodes creates child of current container
     const nodeData = {
       title,
       type: nodeType,
-      parent_id: isLinkOnlyType ? null : currentContainerId.value,
+      parent_id: useParentChild ? currentContainerId.value : null,
       workspace_id: getWorkspaceIdForNode(nodeType)
     }
     if (nodeType === 'person') {
       nodeData.color = getRandomPersonColor()
     }
     const newNode = await api.createNode(nodeData)
-    // Create link for persons/orgs instead of parent-child
-    if (isLinkOnlyType && linkToId) {
+    // Create link instead of parent-child if needed
+    if (!useParentChild && linkToId) {
       await api.linkNodes(newNode.id, linkToId)
     }
     // Save position for the new node in current view
@@ -2506,7 +2631,7 @@ onUnmounted(() => {
           <!-- Workspace Selector -->
           <div class="workspace-selector">
             <select v-model="currentWorkspace" class="workspace-dropdown" title="Switch workspace">
-              <option value="people">People</option>
+              <option value="people">People/Organisations</option>
               <option v-for="ws in workspaces" :key="ws.id" :value="ws.id">
                 {{ ws.name }}
               </option>
@@ -2593,6 +2718,12 @@ onUnmounted(() => {
                 </div>
               </div>
               <div v-else-if="showSnapshotList" class="settings-hint">No snapshots available</div>
+              <div class="settings-item" style="margin-top: 8px;">
+                <button class="snapshot-btn" @click="reloadDatabase" style="background: #e67e22;">
+                  Reload Database
+                </button>
+                <span class="settings-hint">Reload from disk (picks up external changes)</span>
+              </div>
               <div class="settings-divider"></div>
               <div class="settings-item">
                 <label>Lost & Found</label>

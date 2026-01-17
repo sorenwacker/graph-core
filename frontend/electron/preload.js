@@ -58,8 +58,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateWorkspace: (id, data) => ipcRenderer.invoke('db:updateWorkspace', id, data),
   deleteWorkspace: (id) => ipcRenderer.invoke('db:deleteWorkspace', id),
 
-  // Database Backups
+  // Database Backups & Reload
   backup: (suffix) => ipcRenderer.invoke('db:backup', suffix),
   listBackups: () => ipcRenderer.invoke('db:listBackups'),
-  restoreBackup: (backupPath) => ipcRenderer.invoke('db:restoreBackup', backupPath)
+  restoreBackup: (backupPath) => ipcRenderer.invoke('db:restoreBackup', backupPath),
+  reload: () => ipcRenderer.invoke('db:reload')
 })

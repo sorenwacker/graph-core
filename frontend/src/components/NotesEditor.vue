@@ -1,9 +1,64 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { EditorState } from '@codemirror/state'
-import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view'
+import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
+import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
+
+// Custom keymap for multi-cursor (Cmd+Alt+Up/Down)
+const multiCursorKeymap = [
+  {
+    key: 'Alt-ArrowUp',
+    mac: 'Cmd-Alt-ArrowUp',
+    run: (view) => {
+      const { state } = view
+      const newSelections = []
+      for (const range of state.selection.ranges) {
+        const line = state.doc.lineAt(range.head)
+        if (line.number > 1) {
+          const prevLine = state.doc.line(line.number - 1)
+          const col = Math.min(range.head - line.from, prevLine.length)
+          const newPos = prevLine.from + col
+          newSelections.push({ anchor: newPos, head: newPos })
+        }
+        newSelections.push(range)
+      }
+      if (newSelections.length > state.selection.ranges.length) {
+        view.dispatch({
+          selection: { ranges: newSelections.sort((a, b) => a.anchor - b.anchor) }
+        })
+        return true
+      }
+      return false
+    }
+  },
+  {
+    key: 'Alt-ArrowDown',
+    mac: 'Cmd-Alt-ArrowDown',
+    run: (view) => {
+      const { state } = view
+      const newSelections = []
+      for (const range of state.selection.ranges) {
+        newSelections.push(range)
+        const line = state.doc.lineAt(range.head)
+        if (line.number < state.doc.lines) {
+          const nextLine = state.doc.line(line.number + 1)
+          const col = Math.min(range.head - line.from, nextLine.length)
+          const newPos = nextLine.from + col
+          newSelections.push({ anchor: newPos, head: newPos })
+        }
+      }
+      if (newSelections.length > state.selection.ranges.length) {
+        view.dispatch({
+          selection: { ranges: newSelections.sort((a, b) => a.anchor - b.anchor) }
+        })
+        return true
+      }
+      return false
+    }
+  }
+]
 
 const props = defineProps({
   modelValue: { type: String, default: '' }
@@ -64,11 +119,14 @@ function setupEditor() {
       extensions: [
         lineNumbers(),
         highlightActiveLine(),
+        drawSelection(),
+        highlightSelectionMatches(),
         history(),
         markdown(),
-        keymap.of([...defaultKeymap, ...historyKeymap]),
+        keymap.of([...multiCursorKeymap, ...defaultKeymap, ...historyKeymap, ...searchKeymap]),
         theme,
         EditorView.lineWrapping,
+        EditorState.allowMultipleSelections.of(true),
         EditorView.updateListener.of(update => {
           if (update.docChanged) {
             emit('update:modelValue', update.state.doc.toString())

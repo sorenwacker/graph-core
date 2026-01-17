@@ -86,6 +86,18 @@ class Database {
     return { success: true, restoredFrom: backupPath }
   }
 
+  // Reload database from disk (picks up external changes)
+  reload() {
+    if (!fs.existsSync(this.dbPath)) {
+      throw new Error('Database file not found')
+    }
+    const buffer = fs.readFileSync(this.dbPath)
+    this.db = new SQL.Database(buffer)
+    const count = this._query('SELECT COUNT(*) as cnt FROM nodes')[0]?.cnt || 0
+    console.log(`Database reloaded with ${count} nodes`)
+    return { success: true, nodeCount: count }
+  }
+
   // =========================================
   // WORKSPACE METHODS
   // =========================================
