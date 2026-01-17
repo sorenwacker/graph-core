@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { api } from '../services/api.js'
+import NotesEditor from './NotesEditor.vue'
 
 const props = defineProps({
   selectedId: Number,
@@ -571,7 +572,12 @@ function getOrganizationsForPerson(personId) {
 
             <div class="form-field full-width">
               <label>Notes</label>
-              <textarea v-model="editingPerson.notes" placeholder="Add notes..." rows="4"></textarea>
+              <div class="person-notes-editor">
+                <NotesEditor
+                  :model-value="editingPerson.notes || ''"
+                  @update:model-value="editingPerson.notes = $event"
+                />
+              </div>
             </div>
           </div>
 
@@ -949,6 +955,13 @@ function getOrganizationsForPerson(personId) {
 .person-modal .form-field textarea {
   resize: vertical;
   min-height: 80px;
+}
+
+.person-modal .person-notes-editor {
+  height: 120px;
+  border: 1px solid var(--border-color, #333);
+  border-radius: 6px;
+  overflow: hidden;
 }
 
 .person-modal .color-picker {

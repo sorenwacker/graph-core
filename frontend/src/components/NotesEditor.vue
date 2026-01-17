@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { EditorState } from '@codemirror/state'
+import { EditorState, EditorSelection } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
@@ -13,20 +13,20 @@ const multiCursorKeymap = [
     mac: 'Cmd-Alt-ArrowUp',
     run: (view) => {
       const { state } = view
-      const newSelections = []
+      const ranges = []
       for (const range of state.selection.ranges) {
         const line = state.doc.lineAt(range.head)
         if (line.number > 1) {
           const prevLine = state.doc.line(line.number - 1)
           const col = Math.min(range.head - line.from, prevLine.length)
           const newPos = prevLine.from + col
-          newSelections.push({ anchor: newPos, head: newPos })
+          ranges.push(EditorSelection.cursor(newPos))
         }
-        newSelections.push(range)
+        ranges.push(range)
       }
-      if (newSelections.length > state.selection.ranges.length) {
+      if (ranges.length > state.selection.ranges.length) {
         view.dispatch({
-          selection: { ranges: newSelections.sort((a, b) => a.anchor - b.anchor) }
+          selection: EditorSelection.create(ranges.sort((a, b) => a.from - b.from))
         })
         return true
       }
@@ -38,20 +38,20 @@ const multiCursorKeymap = [
     mac: 'Cmd-Alt-ArrowDown',
     run: (view) => {
       const { state } = view
-      const newSelections = []
+      const ranges = []
       for (const range of state.selection.ranges) {
-        newSelections.push(range)
+        ranges.push(range)
         const line = state.doc.lineAt(range.head)
         if (line.number < state.doc.lines) {
           const nextLine = state.doc.line(line.number + 1)
           const col = Math.min(range.head - line.from, nextLine.length)
           const newPos = nextLine.from + col
-          newSelections.push({ anchor: newPos, head: newPos })
+          ranges.push(EditorSelection.cursor(newPos))
         }
       }
-      if (newSelections.length > state.selection.ranges.length) {
+      if (ranges.length > state.selection.ranges.length) {
         view.dispatch({
-          selection: { ranges: newSelections.sort((a, b) => a.anchor - b.anchor) }
+          selection: EditorSelection.create(ranges.sort((a, b) => a.from - b.from))
         })
         return true
       }

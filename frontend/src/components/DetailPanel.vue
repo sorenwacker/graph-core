@@ -890,23 +890,39 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
               />
             </div>
 
-            <div class="form-field full-width">
-              <label>Notes</label>
-              <textarea
-                :value="editedNode.notes || ''"
-                placeholder="Add notes... Use @ to mention people"
-                rows="4"
-                @input="editedNode.notes = $event.target.value; handleMentionInput($event, node?.id)"
-                @keydown="onNotesKeydown"
-                @blur="saveChanges; hideMentions()"
-              ></textarea>
-              <MentionDropdown
-                v-if="showMentions"
-                :persons="filteredPersons"
-                :selected-index="selectedMentionIndex"
-                :position="mentionPosition"
-                @select="onMentionSelect"
+            <!-- Notes section with tabs -->
+            <div class="form-field full-width notes-field">
+              <div class="notes-header">
+                <label>Notes</label>
+                <div class="tab-buttons">
+                  <button :class="{ active: activeTab === 'edit' }" @click="activeTab = 'edit'">Edit</button>
+                  <button :class="{ active: activeTab === 'preview' }" @click="activeTab = 'preview'">Preview</button>
+                  <button :class="{ active: activeTab === 'split' }" @click="activeTab = 'split'">Split</button>
+                </div>
+              </div>
+              <NotesEditor
+                v-if="activeTab === 'edit'"
+                :model-value="editedNode.notes"
+                @update:model-value="onCodeMirrorNotesUpdate"
+                @blur="saveChanges"
+                class="notes-codemirror person-notes"
               />
+              <div v-else-if="activeTab === 'preview'" class="notes-preview markdown-body person-notes">
+                <MarkdownRenderer v-if="editedNode.notes" :content="editedNode.notes" />
+                <p v-else class="placeholder">No notes yet</p>
+              </div>
+              <div v-else class="notes-split person-notes">
+                <NotesEditor
+                  :model-value="editedNode.notes"
+                  @update:model-value="onCodeMirrorNotesUpdate"
+                  @blur="saveChanges"
+                  class="notes-codemirror split-editor"
+                />
+                <div class="notes-preview markdown-body split-preview">
+                  <MarkdownRenderer v-if="editedNode.notes" :content="editedNode.notes" />
+                  <p v-else class="placeholder">No notes yet</p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1030,24 +1046,39 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
             </div>
           </div>
 
-          <!-- Notes section for organization -->
-          <div class="form-field full-width">
-            <label>Notes</label>
-            <textarea
-              :value="editedNode.notes || ''"
-              placeholder="Add notes... Use @ to mention people"
-              rows="4"
-              @input="editedNode.notes = $event.target.value; handleMentionInput($event, node?.id)"
-              @keydown="onNotesKeydown"
-              @blur="saveChanges; hideMentions()"
-            ></textarea>
-            <MentionDropdown
-              v-if="showMentions"
-              :persons="filteredPersons"
-              :selected-index="selectedMentionIndex"
-              :position="mentionPosition"
-              @select="onMentionSelect"
+          <!-- Notes section for organization with tabs -->
+          <div class="form-field full-width notes-field">
+            <div class="notes-header">
+              <label>Notes</label>
+              <div class="tab-buttons">
+                <button :class="{ active: activeTab === 'edit' }" @click="activeTab = 'edit'">Edit</button>
+                <button :class="{ active: activeTab === 'preview' }" @click="activeTab = 'preview'">Preview</button>
+                <button :class="{ active: activeTab === 'split' }" @click="activeTab = 'split'">Split</button>
+              </div>
+            </div>
+            <NotesEditor
+              v-if="activeTab === 'edit'"
+              :model-value="editedNode.notes"
+              @update:model-value="onCodeMirrorNotesUpdate"
+              @blur="saveChanges"
+              class="notes-codemirror org-notes"
             />
+            <div v-else-if="activeTab === 'preview'" class="notes-preview markdown-body org-notes">
+              <MarkdownRenderer v-if="editedNode.notes" :content="editedNode.notes" />
+              <p v-else class="placeholder">No notes yet</p>
+            </div>
+            <div v-else class="notes-split org-notes">
+              <NotesEditor
+                :model-value="editedNode.notes"
+                @update:model-value="onCodeMirrorNotesUpdate"
+                @blur="saveChanges"
+                class="notes-codemirror split-editor"
+              />
+              <div class="notes-preview markdown-body split-preview">
+                <MarkdownRenderer v-if="editedNode.notes" :content="editedNode.notes" />
+                <p v-else class="placeholder">No notes yet</p>
+              </div>
+            </div>
           </div>
 
           <!-- Color picker for organization -->
@@ -1131,21 +1162,12 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
             </div>
 
             <NotesEditor
-              v-if="activeTab === 'edit' && fullscreen"
+              v-if="activeTab === 'edit'"
               :model-value="editedNode.notes"
               @update:model-value="onCodeMirrorNotesUpdate"
               @blur="saveChanges"
               class="notes-codemirror"
             />
-            <textarea
-              v-else-if="activeTab === 'edit'"
-              :value="editedNode.notes"
-              placeholder="Add notes (Markdown supported)... Use @ to mention people"
-              class="notes-editor notes-textarea"
-              @input="onNotesInput"
-              @keydown="onNotesKeydown"
-              @blur="saveChanges; hideMentions()"
-            ></textarea>
 
             <div v-else-if="activeTab === 'preview'" class="notes-preview markdown-body">
               <div v-if="editedNode.notes_sensitive && !showSensitivePreview" class="sensitive-hidden">
@@ -1158,21 +1180,11 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
 
             <div v-else class="notes-split">
               <NotesEditor
-                v-if="fullscreen"
                 :model-value="editedNode.notes"
                 @update:model-value="onCodeMirrorNotesUpdate"
                 @blur="saveChanges"
                 class="notes-codemirror split-editor"
               />
-              <textarea
-                v-else
-                :value="editedNode.notes"
-                placeholder="Add notes (Markdown supported)... Use @ to mention people"
-                class="notes-editor notes-textarea split-editor"
-                @input="onNotesInput"
-                @keydown="onNotesKeydown"
-                @blur="saveChanges; hideMentions()"
-              ></textarea>
               <div
                 ref="splitPreview"
                 class="notes-preview markdown-body split-preview"
