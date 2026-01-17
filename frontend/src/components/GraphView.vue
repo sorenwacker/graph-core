@@ -1,6 +1,8 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { api } from '../services/api'
+import { buildTooltipHTML } from '../utils/tooltip.js'
+import { nodeTypes } from '../utils/constants.js'
 import cytoscape from 'cytoscape'
 import coseBilkent from 'cytoscape-cose-bilkent'
 import cola from 'cytoscape-cola'
@@ -50,7 +52,7 @@ const props = defineProps({
   hideSensitive: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['select', 'enter', 'move', 'add-child', 'insert-between', 'update', 'create', 'delete', 'delete-multiple', 'wrap-with-parent'])
+const emit = defineEmits(['select', 'enter', 'move', 'add-child', 'insert-between', 'update', 'create', 'delete', 'delete-multiple', 'wrap-with-parent', 'open-fullscreen'])
 
 const container = ref(null)
 const editModalEl = ref(null)
@@ -60,9 +62,6 @@ const layoutMode = ref(localStorage.getItem('graph-layout-mode') || 'tree')
 const relaxLocked = ref(false)
 let relaxClickTimeout = null
 let cy = null
-
-// Node types for dropdown
-const nodeTypes = ['project', 'task', 'note', 'milestone', 'topic', 'folder', 'person', 'event']
 
 // Node positions storage key
 function getPositionsKey() {
@@ -292,14 +291,13 @@ async function wrapWithParentFromModal() {
   }
 }
 
-// Match old app's styling: dark backgrounds with colored borders
-const typeColors = {
+// Graph-specific colors: dark backgrounds with colored borders
+const graphTypeColors = {
   project: { bg: '#0d0d0d', border: '#3498db', text: '#ffffff' },  // blue
   task: { bg: '#0d0d0d', border: '#f1c40f', text: '#ffffff' },     // yellow
   note: { bg: '#0d0d0d', border: '#2ecc71', text: '#ffffff' },     // green
   milestone: { bg: '#0d0d0d', border: '#9b59b6', text: '#ffffff' }, // purple
-  topic: { bg: '#0d0d0d', border: '#00bcd4', text: '#ffffff' },    // cyan
-  folder: { bg: '#0d0d0d', border: '#7f8c8d', text: '#ffffff' },   // gray
+  group: { bg: '#0d0d0d', border: '#64748b', text: '#ffffff' },    // slate gray
   person: { bg: '#0d0d0d', border: '#e67e22', text: '#ffffff' },   // default orange (overridden per person)
   event: { bg: '#0d0d0d', border: '#e74c3c', text: '#ffffff' }     // red
 }
@@ -434,7 +432,7 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
   // Add nodes
   allNodes.forEach((node, index) => {
     const savedPos = savedPositions[String(node.id)]
-    let colors = typeColors[node.type] || typeColors.task
+    let colors = graphTypeColors[node.type] || graphTypeColors.task
     // Persons get unique colors based on their ID
     if (node.type === 'person') {
       colors = { ...colors, border: getPersonColor(node.id) }
@@ -464,7 +462,7 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
       }
 
       // Notes preview (adaptive) - cleaner separator
-      const isSensitive = node.notes_sensitive
+      const isSensitive = node.notes_sensitive || props.hideSensitive
       if (isSensitive && node.notes) {
         label += '\n\n🔒'
       } else if (totalNodes <= 5 && node.notes) {
@@ -477,36 +475,11 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
       }
     }
 
-    // Build tooltip HTML with full details
-    let tooltip = `<div class="tt-header">`
-    tooltip += `<div class="tt-title">${node.title}</div>`
-    // Add checkbox for all types except person
-    if (node.type !== 'person') {
-      tooltip += `<label class="tt-checkbox"><input type="checkbox" data-node-id="${node.id}" ${isCompleted ? 'checked' : ''} /><span>Done</span></label>`
-    }
-    tooltip += `</div>`
-    tooltip += `<div class="tt-meta">`
-    tooltip += `<span class="tt-type ${node.type}">${node.type}</span>`
-    if (childCount > 0) tooltip += `<span class="tt-children">${childCount} items</span>`
-    if (node.importance) tooltip += `<span class="tt-priority">P${node.importance}</span>`
-    tooltip += `</div>`
-
-    if (node.due_date || node.start_date || node.end_date) {
-      tooltip += `<div class="tt-dates">`
-      if (node.due_date) tooltip += `<span class="tt-due">Due: ${formatDate(node.due_date)}</span>`
-      if (node.start_date) tooltip += `<span class="tt-start">Start: ${formatDate(node.start_date)}</span>`
-      if (node.end_date) tooltip += `<span class="tt-end">End: ${formatDate(node.end_date)}</span>`
-      tooltip += `</div>`
-    }
-
-    if (node.notes) {
-      if (node.notes_sensitive) {
-        tooltip += `<div class="tt-notes">🔒 Sensitive content</div>`
-      } else {
-        const notesHtml = renderMarkdownHtml(node.notes, 2000)
-        tooltip += `<div class="tt-notes markdown-body">${notesHtml}</div>`
-      }
-    }
+    // Build tooltip HTML using shared utility
+    const tooltip = buildTooltipHTML(node, {
+      showCheckbox: node.type !== 'person',
+      hideSensitive: props.hideSensitive || node.notes_sensitive
+    })
 
     // Adjust colors for completed nodes and parent nodes
     const bgColor = isCompleted ? darkenColor(colors.bg) : colors.bg
@@ -724,10 +697,7 @@ async function initGraph() {
       {
         selector: 'node:selected',
         style: {
-          'underlay-opacity': 0.5,
-          'underlay-color': '#4a9eff',
-          'underlay-padding': 15,
-          'underlay-shape': 'roundrectangle'
+          'underlay-opacity': 0
         }
       },
       {
@@ -807,7 +777,7 @@ async function initGraph() {
       // Only show notes based on detail threshold
       let notesHtml = ''
       if (showDetails && node.notes) {
-        if (node.notes_sensitive) {
+        if (node.notes_sensitive || props.hideSensitive) {
           notesHtml = '<span style="opacity: 0.5">🔒</span>'
         } else {
           const maxLen = totalNodes <= 5 ? 300 : totalNodes <= 10 ? 150 : 60
@@ -817,7 +787,7 @@ async function initGraph() {
 
       // Custom color as subtle background gradient
       const bgStyle = customBgTint
-        ? `background: linear-gradient(135deg, ${customBgTint}88 0%, transparent 70%), #0d0d0d;`
+        ? `background: linear-gradient(135deg, ${customBgTint}55 0%, transparent 70%), #0d0d0d;`
         : ''
 
       return `
@@ -958,7 +928,7 @@ async function initGraph() {
     })
 
     if (closestEl) {
-      // Show tooltip after 1 second delay
+      // Show tooltip after 500ms delay
       tippyShowTimeout = setTimeout(() => {
         activeTippyInstance = tippy(closestEl, {
           content: tooltipContent,
@@ -966,7 +936,7 @@ async function initGraph() {
           interactive: true,
           interactiveBorder: 20,
           duration: [200, 150],
-          placement: 'right',
+          placement: 'auto',
           appendTo: document.body,
           theme: 'graph-tooltip',
           maxWidth: 400,
@@ -986,6 +956,15 @@ async function initGraph() {
                 }
               })
             }
+            // Attach event listener to open detail button (opens fullscreen)
+            const openDetailBtn = instance.popper.querySelector('.tt-open-detail[data-node-id]')
+            if (openDetailBtn) {
+              openDetailBtn.addEventListener('click', (evt) => {
+                const nodeId = parseInt(evt.target.dataset.nodeId)
+                emit('open-fullscreen', nodeId)
+                instance.hide()
+              })
+            }
           },
           onHidden: () => {
             if (activeTippyInstance) {
@@ -996,7 +975,7 @@ async function initGraph() {
         })
         activeTippyInstance.show()
         tippyShowTimeout = null
-      }, 1000)
+      }, 500)
     }
   })
 
@@ -1384,7 +1363,7 @@ async function updateGraph() {
       // Only show notes based on detail threshold
       let notesHtml = ''
       if (showDetails && node.notes) {
-        if (node.notes_sensitive) {
+        if (node.notes_sensitive || props.hideSensitive) {
           notesHtml = '<span style="opacity: 0.5">🔒</span>'
         } else {
           const maxLen = totalNodes <= 5 ? 300 : totalNodes <= 10 ? 150 : 60
@@ -1394,7 +1373,7 @@ async function updateGraph() {
 
       // Custom color as subtle background gradient
       const bgStyle = customBgTint
-        ? `background: linear-gradient(135deg, ${customBgTint}88 0%, transparent 70%), #0d0d0d;`
+        ? `background: linear-gradient(135deg, ${customBgTint}55 0%, transparent 70%), #0d0d0d;`
         : ''
 
       return `
@@ -1408,21 +1387,21 @@ async function updateGraph() {
   // Check if element count changed
   const prevNodeCount = existingNodeIds.size
   const newNodeCount = newElementIds.size
-  const elementsChanged = hasNewNodes || hasEdgeChanges || prevNodeCount !== newNodeCount
+  const nodeCountChanged = prevNodeCount !== newNodeCount
+  const elementsChanged = hasNewNodes || hasEdgeChanges || nodeCountChanged
 
   if (!hasPositions) {
+    // No saved positions - run full layout
     cy.layout(getLayoutOptions()).run()
+    setTimeout(saveNodePositions, 600)
   } else if (elementsChanged) {
-    // Trigger relax when elements change to settle layout
-    setTimeout(() => {
-      relaxLayout()
-      // Fit after relax completes
-      setTimeout(() => cy.fit(50), 700)
-    }, 100)
+    // Elements changed - run relax to settle new nodes into position
+    cy.layout(getLayoutOptions()).run()
+    setTimeout(saveNodePositions, 600)
+  } else {
+    // No changes - just save positions
+    setTimeout(saveNodePositions, 100)
   }
-
-  // Save positions for new nodes
-  setTimeout(saveNodePositions, 100)
 }
 
 function setLayout(mode) {
@@ -1534,7 +1513,41 @@ watch(() => props.selectedId, (newId) => {
     cy.nodes().unselect()
     cy.$(`#${newId}`).select()
   }
+  // Update HTML label selection styling
+  updateHtmlLabelSelection(newId)
 })
+
+function updateHtmlLabelSelection(selectedId) {
+  if (!container.value) return
+  // Remove selected class from all labels
+  container.value.querySelectorAll('.node-html.selected').forEach(el => {
+    el.classList.remove('selected')
+  })
+  // Add selected class to the selected node's label
+  if (selectedId && cy) {
+    const node = cy.$(`#${selectedId}`)
+    if (node.length > 0) {
+      const nodePos = node.renderedPosition()
+      const htmlLabels = container.value.querySelectorAll('.node-html')
+      let closestEl = null
+      let closestDist = Infinity
+      htmlLabels.forEach(el => {
+        const rect = el.getBoundingClientRect()
+        const containerRect = container.value.getBoundingClientRect()
+        const elCenterX = rect.left + rect.width / 2 - containerRect.left
+        const elCenterY = rect.top + rect.height / 2 - containerRect.top
+        const dist = Math.sqrt(Math.pow(elCenterX - nodePos.x, 2) + Math.pow(elCenterY - nodePos.y, 2))
+        if (dist < closestDist) {
+          closestDist = dist
+          closestEl = el
+        }
+      })
+      if (closestEl) {
+        closestEl.classList.add('selected')
+      }
+    }
+  }
+}
 
 // Center on a specific node (triggered by search)
 function centerOnNode(nodeId) {
@@ -1568,7 +1581,8 @@ function handleCenterNodeEvent(e) {
 defineExpose({
   relaxLayout,
   fitView,
-  saveNodePositions
+  saveNodePositions,
+  updateGraph
 })
 
 onMounted(() => {
@@ -2382,6 +2396,12 @@ onUnmounted(() => {
   filter: brightness(1.1);
 }
 
+/* Selected node - cyan outline matching node shape */
+:global(.node-html.selected) {
+  outline: 2px solid var(--accent-color, #4a9eff);
+  outline-offset: 2px;
+}
+
 /* Current container - static glow using node's type color */
 :global(.node-html.current-container) {
   border-width: 3px !important;
@@ -2517,157 +2537,5 @@ onUnmounted(() => {
   50% {
     box-shadow: 0 0 0 12px rgba(74, 158, 255, 0.3);
   }
-}
-</style>
-
-<style>
-/* Tippy.js custom theme for graph tooltips */
-.tippy-box[data-theme~='graph-tooltip'] {
-  background: #0d0d0d;
-  border: 2px solid #333;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  color: #e0e0e0;
-  font-size: 15px;
-  line-height: 1.5;
-}
-
-.tippy-box[data-theme~='graph-tooltip'] .tippy-content {
-  padding: 0;
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.tippy-box[data-theme~='graph-tooltip'] .tippy-arrow {
-  color: #333;
-}
-
-.tippy-box[data-theme~='graph-tooltip'] .tt-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 14px 16px 10px;
-  border-bottom: 1px solid #333;
-  gap: 12px;
-}
-
-.tippy-box[data-theme~='graph-tooltip'] .tt-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #fff;
-  flex: 1;
-}
-
-.tippy-box[data-theme~='graph-tooltip'] .tt-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  color: #aaa;
-  white-space: nowrap;
-}
-
-.tippy-box[data-theme~='graph-tooltip'] .tt-checkbox input {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-  accent-color: var(--accent-color);
-  color-scheme: dark;
-}
-
-.tippy-box[data-theme~='graph-tooltip'] .tt-checkbox:hover {
-  color: #fff;
-}
-
-.tippy-box[data-theme~='graph-tooltip'] .tt-meta {
-  display: flex;
-  gap: 10px;
-  padding: 12px 16px;
-  font-size: 14px;
-  flex-wrap: wrap;
-}
-
-.tippy-box[data-theme~='graph-tooltip'] .tt-type {
-  padding: 3px 10px;
-  border-radius: 12px;
-  font-weight: 500;
-  text-transform: capitalize;
-}
-
-.tippy-box[data-theme~='graph-tooltip'] .tt-type.project { background: rgba(13, 58, 92, 0.8); color: #c0e0ff; }
-.tippy-box[data-theme~='graph-tooltip'] .tt-type.task { background: rgba(74, 74, 16, 0.8); color: #f0f0a0; }
-.tippy-box[data-theme~='graph-tooltip'] .tt-type.note { background: rgba(26, 74, 26, 0.8); color: #a0f0a0; }
-.tippy-box[data-theme~='graph-tooltip'] .tt-type.milestone { background: rgba(74, 26, 74, 0.8); color: #f0a0f0; }
-.tippy-box[data-theme~='graph-tooltip'] .tt-type.topic { background: rgba(26, 74, 74, 0.8); color: #a0f0f0; }
-.tippy-box[data-theme~='graph-tooltip'] .tt-type.folder { background: rgba(58, 58, 58, 0.8); color: #d0d0d0; }
-.tippy-box[data-theme~='graph-tooltip'] .tt-type.person { background: rgba(90, 42, 10, 0.8); color: #ffb080; }
-.tippy-box[data-theme~='graph-tooltip'] .tt-type.event { background: rgba(90, 20, 20, 0.8); color: #ff8080; }
-
-.tippy-box[data-theme~='graph-tooltip'] .tt-children { color: #888; }
-
-.tippy-box[data-theme~='graph-tooltip'] .tt-completed {
-  padding: 3px 10px;
-  border-radius: 12px;
-  background: rgba(34, 197, 94, 0.2);
-  color: #4ade80;
-  font-weight: 500;
-}
-
-.tippy-box[data-theme~='graph-tooltip'] .tt-priority {
-  padding: 3px 10px;
-  border-radius: 12px;
-  background: rgba(168, 85, 247, 0.2);
-  color: #c084fc;
-  font-weight: 500;
-}
-
-.tippy-box[data-theme~='graph-tooltip'] .tt-dates {
-  display: flex;
-  gap: 16px;
-  padding: 10px 16px;
-  background: rgba(255, 255, 255, 0.02);
-  font-size: 14px;
-}
-
-.tippy-box[data-theme~='graph-tooltip'] .tt-due { color: #f87171; }
-.tippy-box[data-theme~='graph-tooltip'] .tt-start { color: #4ade80; }
-.tippy-box[data-theme~='graph-tooltip'] .tt-end { color: #60a5fa; }
-
-.tippy-box[data-theme~='graph-tooltip'] .tt-notes {
-  padding: 10px 14px;
-  font-size: 12px;
-  color: #ccc;
-  max-height: 200px;
-  overflow-y: auto;
-  border-top: 1px solid #333;
-  line-height: 1.5;
-}
-
-.tippy-box[data-theme~='graph-tooltip'] .tt-notes p { margin: 0 0 8px 0; }
-.tippy-box[data-theme~='graph-tooltip'] .tt-notes p:last-child { margin-bottom: 0; }
-.tippy-box[data-theme~='graph-tooltip'] .tt-notes code {
-  background: #222;
-  padding: 2px 5px;
-  border-radius: 3px;
-  font-size: 11px;
-  color: #2ecc71;
-}
-.tippy-box[data-theme~='graph-tooltip'] .tt-notes pre {
-  background: #1a1a1a;
-  padding: 8px;
-  border-radius: 4px;
-  overflow-x: auto;
-  margin: 8px 0;
-}
-.tippy-box[data-theme~='graph-tooltip'] .tt-notes ul,
-.tippy-box[data-theme~='graph-tooltip'] .tt-notes ol {
-  margin: 6px 0;
-  padding-left: 18px;
-}
-.tippy-box[data-theme~='graph-tooltip'] .tt-notes a {
-  color: #3498db;
-  text-decoration: underline;
 }
 </style>

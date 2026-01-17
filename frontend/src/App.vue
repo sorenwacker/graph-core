@@ -5,6 +5,8 @@ import tippy from 'tippy.js'
 import 'tippy.js/dist/tippy.css'
 import 'tippy.js/themes/translucent.css'
 import { api } from './services/api.js'
+import { buildTooltipHTML, tooltipOptions } from './utils/tooltip.js'
+import { nodeTypes, getImportanceLabel } from './utils/constants.js'
 import DetailPanel from './components/DetailPanel.vue'
 import GraphView from './components/GraphView.vue'
 import TableView from './components/TableView.vue'
@@ -41,6 +43,8 @@ marked.use({
 // Track active card tippy instance
 let activeCardTippy = null
 let cardTooltipTimeout = null
+let cardTooltipHideTimeout = null
+const TOOLTIP_HIDE_DELAY = 200
 
 // Navigation state - drill-down model
 const currentContainerId = ref(null)  // null = root level
@@ -60,10 +64,12 @@ const selectedIds = ref(new Set())
 const lastSelectedNode = ref(null)  // For shift-click range selection
 const showDetail = ref(false)
 const fullscreenDetail = ref(false)
+const detailPinned = ref(false)
 const expandedIds = ref(new Set())
 const transitioning = ref(false)
 const transitionDirection = ref('forward')
 const containerWidth = ref(800)
+const containerHeight = ref(600)
 const sidebarTree = ref([])  // Full tree for sidebar navigation
 const sidebarExpandedIds = ref(new Set())
 const recentItems = ref([])  // Recent items for sidebar
@@ -73,18 +79,8 @@ const sidebarFavoritesCollapsed = ref(false)
 const sidebarRecentCollapsed = ref(false)
 
 // Favorites computed from all loaded nodes
-const favoriteItems = computed(() => {
-  const favorites = []
-  function collectFavorites(nodes) {
-    for (const node of nodes) {
-      if (node.favorite) favorites.push(node)
-      if (node.children?.length) collectFavorites(node.children)
-    }
-  }
-  collectFavorites(sidebarTree.value)
-  return favorites
-})
-const sidebarPinned = ref(localStorage.getItem('graphcore-sidebarPinned') !== 'false')
+const favoriteItems = ref([])
+const sidebarPinned = ref(localStorage.getItem('graphcore-sidebarPinned') === 'true')
 const sidebarHovered = ref(false)
 let sidebarHideTimeout = null
 
@@ -126,6 +122,14 @@ function onSidebarLeave() {
   }, 300)
 }
 
+function closeDetailIfNotPinned() {
+  if (!detailPinned.value && showDetail.value) {
+    showDetail.value = false
+    selectedNode.value = null
+    selectedIds.value = new Set()
+  }
+}
+
 // Inline editing state
 const editingCardId = ref(null)
 const editingTitle = ref('')
@@ -135,16 +139,6 @@ const editingNotes = ref('')
 const inlineNotesId = ref(null)
 const inlineNotesText = ref('')
 const inlineNotesRef = ref(null)
-
-// Add item dialog state
-const addDialog = ref({
-  visible: false,
-  parentId: null,
-  title: '',
-  type: 'task'
-})
-const addDialogInput = ref(null)
-
 // Sensitive info visibility - restore from localStorage
 const hideSensitive = ref(localStorage.getItem('graphcore-hideSensitive') === 'true')
 
@@ -208,6 +202,7 @@ const showSearch = ref(false)
 const searchTimeout = ref(null)
 const searchInputRef = ref(null)
 const graphViewRef = ref(null)
+const detailPanelRef = ref(null)
 const searchMode = ref('normal') // 'normal' or 'link'
 const linkSourceNodeId = ref(null)
 
@@ -352,29 +347,36 @@ const cardsGridStyle = computed(() => {
   const count = filteredChildren.value.length
   if (count === 0) return {}
 
-  // Calculate columns based on container width and card count
-  // Use smaller min widths to favor more columns (more square-ish cards)
-  const minCardWidth = count <= 4 ? 240 : count <= 9 ? 200 : count <= 16 ? 160 : 130
-  const maxCols = Math.floor(containerWidth.value / minCardWidth)
-  // Favor more columns for square-ish layout, but never more than count
-  const idealCols = Math.ceil(Math.sqrt(count * 1.5))
-  const cols = Math.max(1, Math.min(idealCols, maxCols, count, 8))
+  const w = containerWidth.value
+  const h = containerHeight.value
+  const gap = 10
 
-  const rows = Math.ceil(count / cols)
-  const minRowHeight = count <= 4 ? 250 : count <= 9 ? 200 : 150
+  // Find optimal columns by minimizing difference from square cards
+  // For each possible column count, calculate resulting card aspect ratio
+  let bestCols = 1
+  let bestScore = Infinity
 
-  // For few cards (1-2 rows), fill the space with 1fr
-  // For many cards, use minimum heights and align to top
-  const useStretch = rows <= 2 && count <= 6
+  for (let cols = 1; cols <= Math.min(count, 8); cols++) {
+    const rows = Math.ceil(count / cols)
+    const cardWidth = (w - gap * (cols - 1)) / cols
+    const cardHeight = (h - gap * (rows - 1)) / rows
+    // Score: how far from square (1:1 ratio). Lower is better.
+    const ratio = cardWidth / cardHeight
+    const score = Math.abs(Math.log(ratio)) // log(1) = 0 for perfect square
+    if (score < bestScore) {
+      bestScore = score
+      bestCols = cols
+    }
+  }
+
+  const rows = Math.ceil(count / bestCols)
 
   return {
     display: 'grid',
-    gridTemplateColumns: `repeat(${cols}, 1fr)`,
-    gridTemplateRows: useStretch ? `repeat(${rows}, 1fr)` : undefined,
-    gridAutoRows: useStretch ? undefined : `minmax(${minRowHeight}px, auto)`,
-    gap: '10px',
-    height: '100%',
-    alignContent: useStretch ? 'stretch' : 'start'
+    gridTemplateColumns: `repeat(${bestCols}, 1fr)`,
+    gridTemplateRows: `repeat(${rows}, 1fr)`,
+    gap: `${gap}px`,
+    height: '100%'
   }
 })
 
@@ -417,39 +419,23 @@ function getNestedCardSize(parentChildCount, level) {
 }
 
 // Helper to calculate nested grid style based on count
-// Favor horizontal stacking (rows) for more square-ish child cards
 function nestedGridStyle(count, level = 1) {
   if (!count || count === 0) return {}
 
-  // Favor rows over columns for more square child cards
-  // 1=full, 2=stacked vertically, 3=1+2, 4=2x2, etc.
-  let cols, rows
-  if (count === 1) {
-    cols = 1; rows = 1
-  } else if (count === 2) {
-    cols = 1; rows = 2  // Stack vertically for square-ish cards
-  } else if (count === 3) {
-    cols = 1; rows = 3  // Stack vertically
-  } else if (count <= 4) {
-    cols = 2; rows = 2
-  } else if (count <= 6) {
-    cols = 2; rows = Math.ceil(count / 2)
-  } else {
-    const idealCols = Math.ceil(Math.sqrt(count))
-    cols = Math.max(1, idealCols)
-    rows = Math.ceil(count / cols)
-  }
+  // Simple column calculation - let CSS flex handle the height
+  let cols
+  if (count === 1) cols = 1
+  else if (count <= 2) cols = 2
+  else if (count <= 4) cols = 2
+  else if (count <= 6) cols = 3
+  else cols = Math.min(4, Math.ceil(Math.sqrt(count)))
 
   const gap = level === 1 ? '4px' : '2px'
 
   return {
     display: 'grid',
     gridTemplateColumns: `repeat(${cols}, 1fr)`,
-    gridTemplateRows: `repeat(${rows}, 1fr)`,
-    gap: gap,
-    flex: '1',
-    overflow: 'hidden',
-    height: '100%'
+    gap: gap
   }
 }
 
@@ -476,9 +462,49 @@ async function loadSidebarTree() {
 
 async function loadRecentItems() {
   try {
-    recentItems.value = await api.getRecent(10)
+    const items = await api.getRecent(10)
+    const clearedAt = localStorage.getItem('graphcore-recentClearedAt')
+    if (clearedAt) {
+      // Only show items updated after the clear timestamp
+      recentItems.value = items.filter(item => item.updated_at > clearedAt)
+    } else {
+      recentItems.value = items
+    }
   } catch (e) {
     console.error('Failed to load recent items:', e)
+  }
+}
+
+const previousRecentClearedAt = ref(null)
+
+function clearRecent() {
+  // Store previous state for undo
+  previousRecentClearedAt.value = localStorage.getItem('graphcore-recentClearedAt')
+  // Store timestamp - only show items updated after this time
+  localStorage.setItem('graphcore-recentClearedAt', new Date().toISOString())
+  recentItems.value = []
+}
+
+function undoClearRecent() {
+  if (previousRecentClearedAt.value !== null) {
+    if (previousRecentClearedAt.value) {
+      localStorage.setItem('graphcore-recentClearedAt', previousRecentClearedAt.value)
+    } else {
+      localStorage.removeItem('graphcore-recentClearedAt')
+    }
+    previousRecentClearedAt.value = null
+    loadRecentItems()
+  }
+}
+
+async function loadFavorites() {
+  try {
+    if (api.getFavorites) {
+      favoriteItems.value = await api.getFavorites()
+    }
+  } catch (e) {
+    // Silently fail - favorites API may not be available until restart
+    favoriteItems.value = []
   }
 }
 
@@ -584,7 +610,9 @@ async function loadChildren(containerId = null) {
       children.value = buildTree(containerChildren, descendants)
 
       // Build breadcrumbs
-      breadcrumbs.value = await api.getAncestors(containerId)
+      const ancestors = await api.getAncestors(containerId)
+      // Filter out any ancestor that has same id as container (prevents duplicates)
+      breadcrumbs.value = ancestors.filter(a => a.id !== container.id)
       breadcrumbs.value.push(container)
 
       // Expand sidebar tree to show current path
@@ -680,20 +708,39 @@ function goToParent() {
 // Anchor node for shift+click range selection (like Finder)
 const anchorNode = ref(null)
 
-function selectNode(node) {
+function selectNode(node, options = {}) {
   selectedNode.value = node
   lastSelectedNode.value = node
   anchorNode.value = node  // Set anchor for shift+click range selection
   selectedIds.value = new Set([node.id])
   showDetail.value = true
+  if (options.fullscreen) {
+    fullscreenDetail.value = true
+  }
 }
 
-async function selectChildById(nodeId) {
+async function navigateToNode(node) {
+  // Navigate to the node's parent container and select the node
+  const parentId = node.parent_id
+  await loadChildren(parentId)
+  selectNode(node)
+}
+
+async function selectChildById(nodeId, options = {}) {
   try {
     const node = await api.getNode(nodeId)
-    selectNode(node)
+    selectNode(node, options)
   } catch (err) {
     console.error('Failed to select child:', err)
+  }
+}
+
+async function openNodeFullscreen(nodeId) {
+  try {
+    const node = await api.getNode(nodeId)
+    selectNode(node, { fullscreen: true })
+  } catch (err) {
+    console.error('Failed to open node fullscreen:', err)
   }
 }
 
@@ -800,6 +847,9 @@ async function createNode() {
       parent_id: currentContainerId.value
     }
     const created = await api.createNode(nodeData)
+    if (!created || !created.id) {
+      throw new Error('Failed to create node')
+    }
     pushUndo({ type: 'create', nodeId: created.id, nodeData, parentId: currentContainerId.value })
     newNodeTitle.value = ''
     await loadChildren(currentContainerId.value)
@@ -812,6 +862,9 @@ async function addChildNode({ parentId, title, type, x, y }) {
   try {
     const nodeData = { title, type: type || 'task', parent_id: parentId }
     const newNode = await api.createNode(nodeData)
+    if (!newNode || !newNode.id) {
+      throw new Error('Failed to create child node - no result returned')
+    }
     pushUndo({ type: 'create', nodeId: newNode.id, nodeData, parentId })
     // Save position if provided (from graph double-click)
     if (x !== undefined && y !== undefined) {
@@ -830,6 +883,19 @@ async function addChildNode({ parentId, title, type, x, y }) {
   } catch (e) {
     error.value = e.message
   }
+}
+
+async function addChildFromDetail(payload) {
+  await addChildNode(payload)
+  // Reload the detail panel's children list
+  detailPanelRef.value?.loadChildren()
+}
+
+function onChildUpdated() {
+  // Refresh graph to reflect completed state changes
+  graphViewRef.value?.updateGraph()
+  // Refresh sidebar items
+  loadSidebarItems()
 }
 
 async function moveNode({ nodeId, oldParentId, newParentId }) {
@@ -933,7 +999,13 @@ async function updateNode(updatedNode, trackUndo = true) {
       start_date: updatedNode.start_date,
       end_date: updatedNode.end_date,
       color: updatedNode.color,
-      importance: updatedNode.importance
+      importance: updatedNode.importance,
+      location: updatedNode.location,
+      email: updatedNode.email,
+      phone: updatedNode.phone,
+      organization: updatedNode.organization,
+      role: updatedNode.role,
+      website: updatedNode.website
     }
     await api.updateNode(updatedNode.id, newValues)
     if (trackUndo && oldNode) {
@@ -948,13 +1020,22 @@ async function updateNode(updatedNode, trackUndo = true) {
         start_date: oldNode.start_date,
         end_date: oldNode.end_date,
         color: oldNode.color,
-        importance: oldNode.importance
+        importance: oldNode.importance,
+        location: oldNode.location,
+        email: oldNode.email,
+        phone: oldNode.phone,
+        organization: oldNode.organization,
+        role: oldNode.role,
+        website: oldNode.website
       }
       pushUndo({ type: 'edit', nodeId: updatedNode.id, oldValues, newValues })
     }
     await loadChildren(currentContainerId.value)
     await loadSidebarTree()
     loadRecentItems()
+    loadFavorites()
+    // Force graph to refresh (for hideCompleted filtering)
+    graphViewRef.value?.updateGraph()
   } catch (e) {
     error.value = e.message
   }
@@ -1015,6 +1096,9 @@ async function wrapWithParent({ nodeId, parentTitle }) {
   try {
     // Get the node to find its current parent
     const node = await api.getNode(nodeId)
+    if (!node) {
+      throw new Error('Node not found')
+    }
 
     // Create new parent at same level as current node
     const newParent = await api.createNode({
@@ -1022,6 +1106,9 @@ async function wrapWithParent({ nodeId, parentTitle }) {
       type: 'folder',
       parent_id: node.parent_id
     })
+    if (!newParent || !newParent.id) {
+      throw new Error('Failed to create parent node')
+    }
 
     // Move current node under new parent
     await api.moveNode(nodeId, newParent.id)
@@ -1037,6 +1124,17 @@ async function wrapWithParent({ nodeId, parentTitle }) {
         selectedNode.value = updatedNode
       }
     }
+  } catch (e) {
+    error.value = e.message
+  }
+}
+
+async function moveNodeToRoot(nodeId) {
+  try {
+    await api.moveNode(nodeId, null)
+    await loadChildren(currentContainerId.value)
+    await loadSidebarTree()
+    loadRecentItems()
   } catch (e) {
     error.value = e.message
   }
@@ -1468,47 +1566,29 @@ function handleInlineNotesKeydown(e) {
   }
 }
 
-// Build tooltip HTML for card hover (same as graph view)
+// Build tooltip using shared utility
 function buildCardTooltip(node) {
-  const childCount = node.children?.length || 0
-  const isCompleted = node.completed
-
-  let tooltip = `<div class="tt-header">`
-  tooltip += `<div class="tt-title">${node.title}</div>`
-  if (node.type !== 'person') {
-    tooltip += `<label class="tt-checkbox"><input type="checkbox" data-node-id="${node.id}" ${isCompleted ? 'checked' : ''} /><span>Done</span></label>`
-  }
-  tooltip += `</div>`
-
-  tooltip += `<div class="tt-meta">`
-  tooltip += `<span class="tt-type ${node.type}">${node.type}</span>`
-  if (childCount > 0) tooltip += `<span class="tt-children">${childCount} items</span>`
-  if (node.importance) tooltip += `<span class="tt-priority">P${node.importance}</span>`
-  tooltip += `</div>`
-
-  if (node.due_date || node.start_date || node.end_date) {
-    tooltip += `<div class="tt-dates">`
-    if (node.due_date) tooltip += `<span class="tt-due">Due: ${node.due_date}</span>`
-    if (node.start_date) tooltip += `<span class="tt-start">Start: ${node.start_date}</span>`
-    if (node.end_date) tooltip += `<span class="tt-end">End: ${node.end_date}</span>`
-    tooltip += `</div>`
-  }
-
-  if (node.notes && !(isSensitiveNode(node) && hideSensitive.value)) {
-    const notesHtml = marked.parse(node.notes)
-    tooltip += `<div class="tt-notes markdown-body">${notesHtml}</div>`
-  } else if (isSensitiveNode(node) && hideSensitive.value) {
-    tooltip += `<div class="tt-notes">[Sensitive content hidden]</div>`
-  }
-
-  return tooltip
+  return buildTooltipHTML(node, {
+    showCheckbox: node.type !== 'person',
+    hideSensitive: hideSensitive.value
+  })
 }
 
 function showCardTooltip(event, node) {
   // Don't show tooltip if editing
   if (editingCardId.value || inlineNotesId.value) return
 
-  // Clear any pending tooltip
+  // Store mouse position for virtual element
+  const mouseX = event.clientX
+  const mouseY = event.clientY
+
+  // Clear any pending hide
+  if (cardTooltipHideTimeout) {
+    clearTimeout(cardTooltipHideTimeout)
+    cardTooltipHideTimeout = null
+  }
+
+  // Clear any pending show
   if (cardTooltipTimeout) {
     clearTimeout(cardTooltipTimeout)
     cardTooltipTimeout = null
@@ -1520,23 +1600,52 @@ function showCardTooltip(event, node) {
     activeCardTippy = null
   }
 
-  const el = event.currentTarget
   const tooltipContent = buildCardTooltip(node)
 
-  // Show tooltip after 1 second delay
+  // Show tooltip after 500ms delay (same as composable)
   cardTooltipTimeout = setTimeout(() => {
-    activeCardTippy = tippy(el, {
+    // Create virtual element at mouse position
+    const virtualElement = {
+      getBoundingClientRect: () => ({
+        width: 0,
+        height: 0,
+        top: mouseY,
+        bottom: mouseY,
+        left: mouseX,
+        right: mouseX,
+        x: mouseX,
+        y: mouseY
+      })
+    }
+
+    activeCardTippy = tippy(virtualElement, {
       content: tooltipContent,
       allowHTML: true,
       interactive: true,
       interactiveBorder: 20,
       duration: [200, 150],
-      placement: 'right',
+      placement: 'auto',
       appendTo: document.body,
       theme: 'graph-tooltip',
       maxWidth: 400,
       trigger: 'manual',
+      showOnCreate: true,
+      hideOnClick: false,
       onShown: (instance) => {
+        // Track when mouse enters/leaves the tooltip itself
+        instance.popper.addEventListener('mouseenter', () => {
+          if (cardTooltipHideTimeout) {
+            clearTimeout(cardTooltipHideTimeout)
+            cardTooltipHideTimeout = null
+          }
+        })
+        instance.popper.addEventListener('mouseleave', () => {
+          cardTooltipHideTimeout = setTimeout(() => {
+            instance.hide()
+          }, TOOLTIP_HIDE_DELAY)
+        })
+
+        // Handle checkbox
         const checkbox = instance.popper.querySelector('input[type="checkbox"][data-node-id]')
         if (checkbox) {
           checkbox.addEventListener('change', async (e) => {
@@ -1547,76 +1656,79 @@ function showCardTooltip(event, node) {
             }
           })
         }
+        // Handle open detail button
+        const openBtn = instance.popper.querySelector('.tt-open-detail[data-node-id]')
+        if (openBtn) {
+          openBtn.addEventListener('click', (e) => {
+            const nodeId = parseInt(e.target.dataset.nodeId)
+            const targetNode = flatChildren.value.find(n => n.id === nodeId)
+            if (targetNode) {
+              selectNode(targetNode)
+              fullscreenDetail.value = true
+              instance.hide()
+            }
+          })
+        }
       },
-      onHidden: () => {
-        if (activeCardTippy) {
-          activeCardTippy.destroy()
+      onHidden: (instance) => {
+        instance.destroy()
+        if (activeCardTippy === instance) {
           activeCardTippy = null
         }
       }
     })
-    activeCardTippy.show()
     cardTooltipTimeout = null
-  }, 1000)
+  }, 500)
 }
 
 function hideCardTooltip() {
-  // Clear pending tooltip (but don't destroy active tooltip - let it hide naturally)
+  // Clear any pending show
   if (cardTooltipTimeout) {
     clearTimeout(cardTooltipTimeout)
     cardTooltipTimeout = null
   }
+  // Delayed hide to allow mouse to enter tooltip
+  if (activeCardTippy) {
+    cardTooltipHideTimeout = setTimeout(() => {
+      if (activeCardTippy) {
+        activeCardTippy.hide()
+      }
+    }, TOOLTIP_HIDE_DELAY)
+  }
 }
 
 // Add item dialog functions
-async function openAddDialog(parentId, e) {
+async function addChildToCard(parentId, e) {
   e?.stopPropagation()
   hideCardTooltip()
-  addDialog.value = {
-    visible: true,
-    parentId,
-    title: '',
-    type: 'task'
-  }
-  await nextTick()
-  addDialogInput.value?.focus()
-}
 
-async function submitAddDialog() {
-  if (!addDialog.value.title.trim()) return
+  const title = prompt('New item title:')
+  if (!title?.trim()) return
 
   try {
-    await api.createNode({
-      title: addDialog.value.title.trim(),
-      type: addDialog.value.type,
-      parent_id: addDialog.value.parentId
+    const newNode = await api.createNode({
+      title: title.trim(),
+      type: newNodeType.value,
+      parent_id: parentId
     })
+    if (newNode?.id) {
+      pushUndo({ type: 'create', nodeId: newNode.id, nodeData: { title: title.trim(), type: newNodeType.value }, parentId })
+    }
     await loadChildren(currentContainerId.value)
-    expandedIds.value.add(addDialog.value.parentId)
-    closeAddDialog()
+    await loadSidebarTree()
+    expandedIds.value.add(parentId)
   } catch (e) {
     error.value = e.message
   }
 }
 
-function closeAddDialog() {
-  addDialog.value.visible = false
-}
-
-function handleAddDialogKeydown(e) {
-  if (e.key === 'Escape') {
-    closeAddDialog()
-  } else if (e.key === 'Enter') {
-    submitAddDialog()
-  }
+function toggleCompletedVisibility() {
+  hideCompleted.value = !hideCompleted.value
 }
 
 function toggleSensitiveVisibility() {
   hideSensitive.value = !hideSensitive.value
-}
-
-function toggleCompletedVisibility() {
-  hideCompleted.value = !hideCompleted.value
+  localStorage.setItem('graphcore-hideSensitive', hideSensitive.value.toString())
 }
 
 // Check if a node has sensitive content
@@ -1656,11 +1768,63 @@ function getDueDateStatus(dueDate) {
   }
 }
 
+// Calculate countdown to start or end date
+function getDateCountdown(node) {
+  if (!node || node.completed) return null
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  // Check start date first - if in future, show "N days to start"
+  if (node.start_date) {
+    const start = new Date(node.start_date)
+    start.setHours(0, 0, 0, 0)
+    const diffDays = Math.round((start - today) / (1000 * 60 * 60 * 24))
+
+    if (diffDays > 0) {
+      return { type: 'to-start', days: diffDays, text: `${diffDays}d to start` }
+    }
+  }
+
+  // Check due_date or end_date for "N days to end"
+  const endDate = node.due_date || node.end_date
+  if (endDate) {
+    const end = new Date(endDate)
+    end.setHours(0, 0, 0, 0)
+    const diffDays = Math.round((end - today) / (1000 * 60 * 60 * 24))
+
+    if (diffDays > 0) {
+      return { type: 'to-end', days: diffDays, text: `${diffDays}d left` }
+    } else if (diffDays === 0) {
+      return { type: 'ends-today', days: 0, text: 'Ends today' }
+    }
+  }
+
+  return null
+}
+
+// Convert importance number to readable label
+
 // Removed isCardDropTarget - now using getCardDropClass
 
 let resizeObserver = null
 
-// Keyboard shortcuts
+/**
+ * Keyboard Shortcuts:
+ *
+ * Global (work anywhere):
+ * - Cmd/Ctrl + K: Open spotlight search
+ * - Cmd/Ctrl + Z: Undo
+ * - Cmd/Ctrl + Shift + Z: Redo
+ *
+ * When not in input fields:
+ * - Cmd/Ctrl + Delete/Backspace: Delete selected items
+ * - Cmd/Ctrl + A: Select all visible items
+ * - Escape: Exit fullscreen or clear selection
+ *
+ * Note: Plain Delete/Backspace without Cmd/Ctrl does NOT delete items
+ * to prevent accidental deletions.
+ */
 function handleKeydown(e) {
   // Cmd/Ctrl+K - open spotlight search (works anywhere)
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -1694,23 +1858,23 @@ function handleKeydown(e) {
   if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') return
   if (target.isContentEditable) return
 
-  // Delete/Backspace - delete selected items
-  if (e.key === 'Delete' || e.key === 'Backspace') {
+  // Cmd/Ctrl + Delete/Backspace - delete selected items
+  const isDeleteKey = e.key === 'Delete' || e.key === 'Backspace'
+  if ((e.metaKey || e.ctrlKey) && isDeleteKey) {
     e.preventDefault()
     e.stopPropagation()
     if (selectedIds.value.size > 0) {
       deleteSelectedNodes()
     } else if (selectedNode.value) {
-      // If no multi-selection but a node is selected, delete it
       deleteNode(selectedNode.value.id)
     }
   }
 
-  // Escape - exit fullscreen or clear selection
+  // Escape - exit fullscreen or clear selection (respects pin)
   if (e.key === 'Escape') {
     if (fullscreenDetail.value) {
       fullscreenDetail.value = false
-    } else {
+    } else if (!detailPinned.value) {
       selectedIds.value = new Set()
       selectedNode.value = null
       showDetail.value = false
@@ -1765,19 +1929,23 @@ onMounted(async () => {
     await loadChildren(null)
   }
 
-  // Load recent items for sidebar
+  // Load recent items and favorites for sidebar
   loadRecentItems()
+  loadFavorites()
 
-  // Track container width for responsive grid
-  const updateWidth = () => {
+  // Track container dimensions for responsive grid
+  const updateDimensions = () => {
     const el = document.querySelector('.content-body')
-    if (el) containerWidth.value = el.clientWidth
+    if (el) {
+      containerWidth.value = el.clientWidth
+      containerHeight.value = el.clientHeight
+    }
   }
 
-  updateWidth()
-  window.addEventListener('resize', updateWidth)
+  updateDimensions()
+  window.addEventListener('resize', updateDimensions)
   window.addEventListener('keydown', handleKeydown)
-  resizeObserver = new ResizeObserver(updateWidth)
+  resizeObserver = new ResizeObserver(updateDimensions)
   const contentBody = document.querySelector('.content-body')
   if (contentBody) resizeObserver.observe(contentBody)
 })
@@ -1809,12 +1977,12 @@ onUnmounted(() => {
       <div class="sidebar-header">
         <h2 v-if="sidebarVisible">Graph Core</h2>
         <button
-          class="pin-btn"
-          :class="{ pinned: sidebarPinned }"
+          class="sidebar-pin-btn"
+          :class="{ active: sidebarPinned }"
           @click="sidebarPinned = !sidebarPinned"
           :title="sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'"
         >
-          {{ sidebarPinned ? '[=]' : '[>]' }}
+          <span v-html="sidebarPinned ? '&#128205;' : '&#128204;'"></span>
         </button>
       </div>
       <div class="sidebar-content">
@@ -1915,6 +2083,8 @@ onUnmounted(() => {
             <span class="collapse-btn">{{ sidebarRecentCollapsed ? '+' : '-' }}</span>
             <span>Recent</span>
             <span class="section-count">{{ recentItems.length }}</span>
+            <span class="clear-btn" @click.stop="clearRecent" title="Clear recent">x</span>
+            <span v-if="previousRecentClearedAt !== null" class="undo-btn" @click.stop="undoClearRecent" title="Undo clear">undo</span>
           </div>
           <div v-show="!sidebarRecentCollapsed">
             <div
@@ -1922,7 +2092,7 @@ onUnmounted(() => {
               :key="'recent-' + item.id"
               class="sidebar-item recent-item"
               :class="{ active: selectedNode?.id === item.id }"
-              @click="selectNode(item)"
+              @click="navigateToNode(item)"
             >
               <span class="type-icon" :class="item.type">{{ item.type[0].toUpperCase() }}</span>
               <span class="label">{{ item.title }}</span>
@@ -1935,14 +2105,9 @@ onUnmounted(() => {
       <div class="sidebar-legend" v-if="sidebarVisible">
         <div class="legend-title">Node Types</div>
         <div class="legend-items">
-          <div class="legend-item"><span class="legend-badge project">P</span> Project</div>
-          <div class="legend-item"><span class="legend-badge task">T</span> Task</div>
-          <div class="legend-item"><span class="legend-badge note">N</span> Note</div>
-          <div class="legend-item"><span class="legend-badge milestone">M</span> Milestone</div>
-          <div class="legend-item"><span class="legend-badge topic">O</span> Topic</div>
-          <div class="legend-item"><span class="legend-badge folder">F</span> Folder</div>
-          <div class="legend-item"><span class="legend-badge person">U</span> Person</div>
-          <div class="legend-item"><span class="legend-badge event">E</span> Event</div>
+          <div v-for="t in nodeTypes" :key="t" class="legend-item">
+            <span class="legend-badge" :class="t">{{ t.charAt(0).toUpperCase() }}</span> {{ t.charAt(0).toUpperCase() + t.slice(1) }}
+          </div>
         </div>
       </div>
     </aside>
@@ -1952,7 +2117,7 @@ onUnmounted(() => {
       <!-- Header with breadcrumbs -->
       <div class="content-header">
         <nav class="header-breadcrumbs">
-          <span class="crumb" @click="navigateToBreadcrumb(-1)">Root</span>
+          <span class="crumb" @click="navigateToBreadcrumb(-1)">~</span>
           <template v-for="(crumb, index) in breadcrumbs" :key="crumb.id">
             <span class="crumb-sep">/</span>
             <span
@@ -2031,13 +2196,7 @@ onUnmounted(() => {
       <!-- Add Node Input -->
       <div class="add-node-bar">
         <select v-model="newNodeType" class="type-select">
-          <option value="project">Project</option>
-          <option value="task">Task</option>
-          <option value="note">Note</option>
-          <option value="milestone">Milestone</option>
-          <option value="topic">Topic</option>
-          <option value="folder">Folder</option>
-          <option value="person">Person</option>
+          <option v-for="t in nodeTypes" :key="t" :value="t">{{ t.charAt(0).toUpperCase() + t.slice(1) }}</option>
         </select>
         <input
           v-model="newNodeTitle"
@@ -2051,16 +2210,18 @@ onUnmounted(() => {
         </template>
       </div>
 
-      <!-- Content with transition -->
-      <div
-        class="content-body"
-        :class="{
-          'transitioning': transitioning,
-          'transition-forward': transitionDirection === 'forward',
-          'transition-back': transitionDirection === 'back'
-        }"
-      >
-        <!-- Loading -->
+      <!-- Content wrapper (body + detail panel) -->
+      <div class="content-wrapper">
+        <!-- Content with transition -->
+        <div
+          class="content-body"
+          :class="{
+            'transitioning': transitioning,
+            'transition-forward': transitionDirection === 'forward',
+            'transition-back': transitionDirection === 'back'
+          }"
+        >
+          <!-- Loading -->
         <div v-if="loading" class="loading">Loading...</div>
 
         <!-- Error -->
@@ -2074,6 +2235,7 @@ onUnmounted(() => {
           :selected-ids="selectedIds"
           :expanded-ids="expandedIds"
           :hide-completed="hideCompleted"
+          :hide-sensitive="hideSensitive"
           :current-parent-id="currentContainerId"
           :current-container="currentContainer"
           :color-map="inheritedColorMap"
@@ -2087,6 +2249,7 @@ onUnmounted(() => {
           @move-multiple="moveMultipleNodes"
           @reorder="handleReorder"
           @go-parent="goToParent"
+          @open-fullscreen="openNodeFullscreen"
         />
 
         <!-- Cards View -->
@@ -2096,7 +2259,7 @@ onUnmounted(() => {
             :key="node.id"
             class="node-card"
             :class="[cardSizeClass, `type-${node.type}`, { selected: isCardSelected(node.id) }, getCardDropClass(node)]"
-            :style="getNodeColor(node) ? { background: `linear-gradient(135deg, ${getNodeColor(node)}77 0%, var(--bg-primary) 80%)` } : {}"
+            :style="getNodeColor(node) ? { background: `linear-gradient(135deg, ${getNodeColor(node)}33 0%, var(--bg-primary) 80%)` } : {}"
             draggable="true"
             @click="handleCardClick($event, node)"
             @dblclick="enterContainer(node)"
@@ -2111,32 +2274,42 @@ onUnmounted(() => {
             <!-- Header - always visible but adapts -->
             <div class="node-card-header">
               <span v-if="node.favorite" class="card-favorite-star" title="Favorite">&#9733;</span>
-              <input
-                v-if="node.type === 'task'"
-                type="checkbox"
-                class="card-checkbox"
-                :checked="node.completed"
-                @click.stop
-                @change.stop="toggleComplete(node)"
-                title="Mark as complete"
-              />
               <span v-if="cardSizeClass !== 'card-xs'" class="drag-handle card-drag" title="Drag to reorder">::</span>
               <span class="node-card-type" :class="node.type" :title="'Type: ' + node.type">
                 {{ cardSizeClass === 'card-xs' ? node.type[0].toUpperCase() : node.type.toUpperCase() }}
               </span>
+              <span v-if="node.importance" class="card-importance" :class="'imp-' + node.importance" :title="getImportanceLabel(node.importance)">
+                {{ cardSizeClass === 'card-xs' ? node.importance : getImportanceLabel(node.importance) }}
+              </span>
               <span v-if="node.children?.length && cardSizeClass !== 'card-xs'" class="node-card-children" :title="node.children.length + ' children'">
                 {{ node.children.length }}
               </span>
-              <!-- Due date warning -->
+              <!-- Date countdown (days to start or days left) -->
               <span
-                v-if="getDueDateStatus(node.due_date) && !node.completed"
+                v-if="getDateCountdown(node)"
+                class="date-countdown"
+                :class="getDateCountdown(node).type"
+                :title="node.start_date ? 'Start: ' + node.start_date : 'Due: ' + (node.due_date || node.end_date)"
+              >{{ getDateCountdown(node).text }}</span>
+              <!-- Due date warning (overdue/today) -->
+              <span
+                v-if="getDueDateStatus(node.due_date) && !node.completed && getDueDateStatus(node.due_date).type === 'overdue'"
                 class="due-warning"
                 :class="getDueDateStatus(node.due_date).type"
                 :title="'Due: ' + node.due_date"
               >{{ getDueDateStatus(node.due_date).text }}</span>
-              <button class="card-add-btn" @click.stop="openAddDialog(node.id, $event)" title="Add child item">+</button>
-              <button class="card-info-btn" @click.stop="selectNode(node)" title="Open details panel">i</button>
+              <button class="card-add-btn" @click.stop="addChildToCard(node.id, $event)" title="Add child item">+</button>
             </div>
+            <!-- Checkbox positioned top-right -->
+            <input
+              v-if="node.type === 'task'"
+              type="checkbox"
+              class="card-checkbox"
+              :checked="node.completed"
+              @click.stop
+              @change.stop="toggleComplete(node)"
+              title="Mark as complete"
+            />
 
             <!-- Inline editing mode (xl/lg only) -->
             <template v-if="editingCardId === node.id && (cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg')">
@@ -2180,11 +2353,11 @@ onUnmounted(() => {
                 @dblclick.stop="(cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg') && startEditing(node, $event)"
               >{{ node.title }}</div>
 
-              <!-- Interactive notes area - xl/lg/md - only show if has notes or editing -->
+              <!-- Interactive notes area - show if has notes or editing -->
               <div
-                v-if="(cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg' || cardSizeClass === 'card-md') && (hasNotes(node) || isSensitiveNode(node) || inlineNotesId === node.id)"
+                v-if="hasNotes(node) || isSensitiveNode(node) || inlineNotesId === node.id"
                 class="node-card-notes-area"
-                :class="{ 'no-children': !node.children?.length }"
+                :class="{ 'no-children': !node.children?.length, compact: cardSizeClass === 'card-sm' || cardSizeClass === 'card-xs' }"
                 @click.stop
               >
                 <textarea
@@ -2210,23 +2383,21 @@ onUnmounted(() => {
               </div>
 
               <!-- Metadata - xl/lg only -->
-              <div v-if="(cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg') && (node.due_date || node.start_date || node.importance)" class="node-card-meta">
+              <div v-if="(cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg') && (node.due_date || node.start_date)" class="node-card-meta">
                 <span v-if="node.due_date" class="meta-item due">
                   <span class="meta-icon">D</span>{{ node.due_date }}
                 </span>
                 <span v-if="node.start_date && cardSizeClass === 'card-xl'" class="meta-item start">
                   <span class="meta-icon">S</span>{{ node.start_date }}
                 </span>
-                <span v-if="node.importance" class="meta-item importance" :class="'imp-' + node.importance">
-                  P{{ node.importance }}
-                </span>
               </div>
             </template>
 
-            <!-- Nested children cards - xl/lg/md only -->
+            <!-- Nested children cards - always show if children exist -->
             <div
-              v-if="node.children?.length && (cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg' || cardSizeClass === 'card-md')"
+              v-if="node.children?.length"
               class="node-card-children-grid"
+              :class="{ compact: cardSizeClass === 'card-sm' || cardSizeClass === 'card-xs' }"
               :style="nestedGridStyle(node.children.length, 1)"
               @click.stop
             >
@@ -2235,7 +2406,7 @@ onUnmounted(() => {
                 :key="child.id"
                 class="child-card"
                 :class="[child.type, getNestedCardSize(node.children.length, 1), { selected: isCardSelected(child.id) }, getCardDropClass(child)]"
-                :style="getNodeColor(child) ? { background: `linear-gradient(135deg, ${getNodeColor(child)}55 0%, var(--bg-secondary) 80%)` } : {}"
+                :style="getNodeColor(child) ? { background: `linear-gradient(135deg, ${getNodeColor(child)}33 0%, var(--bg-secondary) 80%)` } : {}"
                 draggable="true"
                 @click.stop="handleChildCardClick($event, child)"
                 @dblclick.stop="enterContainer(child)"
@@ -2297,7 +2468,7 @@ onUnmounted(() => {
                     :key="grandchild.id"
                     class="grandchild-card"
                     :class="[grandchild.type, { selected: isCardSelected(grandchild.id), completed: grandchild.completed }, getCardDropClass(grandchild)]"
-                    :style="getNodeColor(grandchild) ? { background: `linear-gradient(135deg, ${getNodeColor(grandchild)}44 0%, var(--bg-primary) 80%)` } : {}"
+                    :style="getNodeColor(grandchild) ? { background: `linear-gradient(135deg, ${getNodeColor(grandchild)}33 0%, var(--bg-primary) 80%)` } : {}"
                     draggable="true"
                     @click.stop="handleChildCardClick($event, grandchild)"
                     @dblclick.stop="enterContainer(grandchild)"
@@ -2353,10 +2524,6 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <!-- Compact children indicator for sm/xs -->
-            <div v-if="node.children?.length && (cardSizeClass === 'card-sm' || cardSizeClass === 'card-xs')" class="node-card-children-compact">
-              +{{ node.children.length }}
-            </div>
           </div>
           <div v-if="filteredChildren.length === 0" class="empty-state">
             <h3>Empty</h3>
@@ -2385,6 +2552,7 @@ onUnmounted(() => {
           @delete="deleteNode"
           @delete-multiple="deleteMultipleNodes"
           @wrap-with-parent="wrapWithParent"
+          @open-fullscreen="openNodeFullscreen"
         />
 
         <!-- Timeline View -->
@@ -2440,53 +2608,31 @@ onUnmounted(() => {
             </tbody>
           </table>
         </div>
+        </div>
+        <!-- Detail Panel (inside content-wrapper) -->
+        <DetailPanel
+          v-if="showDetail && selectedNode"
+          ref="detailPanelRef"
+          :node="selectedNode"
+          :width="detailWidth"
+          :fullscreen="fullscreenDetail"
+          :hide-completed="hideCompleted"
+          :pinned="detailPinned"
+          @update="updateNode"
+          @delete="deleteNode"
+          @wrap-with-parent="wrapWithParent"
+          @move-to-root="moveNodeToRoot"
+          @select-child="selectChildById"
+          @resize-start="onDetailResizeStart"
+          @toggle-fullscreen="fullscreenDetail = !fullscreenDetail"
+          @toggle-pin="detailPinned = !detailPinned"
+          @close="showDetail = false; fullscreenDetail = false; detailPinned = false"
+          @open-link-search="openLinkSearch"
+          @add-child="addChildFromDetail"
+          @child-updated="onChildUpdated"
+        />
       </div>
     </main>
-
-    <!-- Add Item Dialog -->
-    <div v-if="addDialog.visible" class="add-dialog-overlay" @click="closeAddDialog">
-      <div class="add-dialog" @click.stop>
-        <div class="add-dialog-header">Add Item</div>
-        <div class="add-dialog-body">
-          <input
-            ref="addDialogInput"
-            v-model="addDialog.title"
-            class="add-dialog-input"
-            placeholder="Title..."
-            @keydown="handleAddDialogKeydown"
-          />
-          <select v-model="addDialog.type" class="add-dialog-select">
-            <option value="task">Task</option>
-            <option value="note">Note</option>
-            <option value="folder">Folder</option>
-            <option value="project">Project</option>
-            <option value="milestone">Milestone</option>
-            <option value="topic">Topic</option>
-          </select>
-        </div>
-        <div class="add-dialog-actions">
-          <button class="add-dialog-cancel" @click="closeAddDialog">Cancel</button>
-          <button class="add-dialog-submit" @click="submitAddDialog">Add</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Detail Panel -->
-    <DetailPanel
-      v-if="showDetail && selectedNode"
-      :node="selectedNode"
-      :width="detailWidth"
-      :fullscreen="fullscreenDetail"
-      :hide-completed="hideCompleted"
-      @update="updateNode"
-      @delete="deleteNode"
-      @wrap-with-parent="wrapWithParent"
-      @select-child="selectChildById"
-      @resize-start="onDetailResizeStart"
-      @toggle-fullscreen="fullscreenDetail = !fullscreenDetail"
-      @close="showDetail = false; fullscreenDetail = false"
-      @open-link-search="openLinkSearch"
-    />
 
     <!-- Spotlight Search Modal -->
     <Teleport to="body">
@@ -2531,7 +2677,7 @@ onUnmounted(() => {
                 <div class="result-meta" v-if="result.due_date || result.importance || result.path">
                   <span v-if="result.path" class="result-path">{{ result.path }}</span>
                   <span v-if="result.due_date" class="result-due">Due: {{ result.due_date.split('T')[0] }}</span>
-                  <span v-if="result.importance" class="result-priority">P{{ result.importance }}</span>
+                  <span v-if="result.importance" class="result-priority">{{ getImportanceLabel(result.importance) }}</span>
                 </div>
                 <div v-if="result.notes" class="result-notes">{{ result.notes.substring(0, 80) }}{{ result.notes.length > 80 ? '...' : '' }}</div>
               </div>
@@ -2678,8 +2824,7 @@ onUnmounted(() => {
 }
 
 .card-edit-btn,
-.card-add-btn,
-.card-info-btn {
+.card-add-btn {
   width: 22px;
   height: 22px;
   padding: 0;
@@ -2693,11 +2838,6 @@ onUnmounted(() => {
   transition: all 0.15s;
 }
 
-.card-info-btn {
-  margin-left: auto;
-  font-style: italic;
-}
-
 .card-edit-btn {
   margin-left: auto;
 }
@@ -2707,7 +2847,6 @@ onUnmounted(() => {
   font-weight: bold;
 }
 
-.card-info-btn:hover,
 .card-edit-btn:hover,
 .card-add-btn:hover {
   opacity: 1;
@@ -2766,6 +2905,29 @@ onUnmounted(() => {
 }
 
 .node-card-notes-area.no-children .inline-notes-display {
+  flex: 1;
+  max-height: none;
+}
+
+/* Compact notes for sm/xs cards */
+.node-card-notes-area.compact {
+  margin: 4px 8px 8px 8px;
+  width: calc(100% - 16px);
+}
+
+.node-card-notes-area.compact .inline-notes-display {
+  font-size: 10px;
+  line-height: 1.3;
+  max-height: 40px;
+  padding: 2px 4px;
+}
+
+/* Notes expand when no children, even in compact mode */
+.node-card-notes-area.compact.no-children {
+  flex: 1;
+}
+
+.node-card-notes-area.compact.no-children .inline-notes-display {
   flex: 1;
   max-height: none;
 }
@@ -3157,16 +3319,63 @@ onUnmounted(() => {
 
 /* Card checkbox */
 .card-checkbox {
+  position: absolute;
+  top: 8px;
+  right: 8px;
   width: 18px;
   height: 18px;
   cursor: pointer;
-  flex-shrink: 0;
+  z-index: 5;
 }
 
 .node-card.card-sm .card-checkbox,
 .node-card.card-xs .card-checkbox {
+  top: 6px;
+  right: 6px;
   width: 14px;
   height: 14px;
+}
+
+/* Importance badge inline in header */
+.card-importance {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+
+.card-importance.imp-1 {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.card-importance.imp-2 {
+  background: rgba(249, 115, 22, 0.2);
+  color: #fb923c;
+}
+
+.card-importance.imp-3 {
+  background: rgba(234, 179, 8, 0.2);
+  color: #fbbf24;
+}
+
+.card-importance.imp-4 {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.card-importance.imp-5 {
+  background: rgba(100, 116, 139, 0.15);
+  color: #94a3b8;
+}
+
+.node-card.card-sm .card-importance,
+.node-card.card-xs .card-importance {
+  font-size: 8px;
+  padding: 1px 4px;
 }
 
 /* Completed card styling */
@@ -3217,6 +3426,30 @@ onUnmounted(() => {
 @keyframes pulse-warning {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; }
+}
+
+/* Date countdown badges */
+.date-countdown {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.date-countdown.to-start {
+  background: rgba(139, 92, 246, 0.2);
+  color: #a78bfa;
+}
+
+.date-countdown.to-end {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.date-countdown.ends-today {
+  background: rgba(249, 115, 22, 0.2);
+  color: #fb923c;
 }
 
 /* Card drag and drop */
@@ -3313,6 +3546,7 @@ onUnmounted(() => {
 .legend-badge.folder { background: rgba(148, 163, 184, 0.2); color: #94a3b8; }
 .legend-badge.person { background: rgba(251, 146, 60, 0.2); color: #fb923c; }
 .legend-badge.event { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+.legend-badge.group { background: rgba(100, 116, 139, 0.2); color: #94a3b8; }
 
 /* Search */
 .search-container {
@@ -3619,106 +3853,6 @@ onUnmounted(() => {
   padding: 2px 6px;
   border-radius: 4px;
   font-family: monospace;
-}
-
-/* Add Item Dialog */
-.add-dialog-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.add-dialog {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  min-width: 300px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-}
-
-.add-dialog-header {
-  padding: 12px 16px;
-  font-weight: 600;
-  border-bottom: 1px solid var(--border-color);
-  color: var(--text-primary);
-}
-
-.add-dialog-body {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.add-dialog-input {
-  padding: 8px 12px;
-  font-size: 14px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  color: var(--text-primary);
-}
-
-.add-dialog-input:focus {
-  outline: none;
-  border-color: var(--accent-color);
-}
-
-.add-dialog-select {
-  padding: 8px 12px;
-  font-size: 14px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  color: var(--text-primary);
-  cursor: pointer;
-}
-
-.add-dialog-select:focus {
-  outline: none;
-  border-color: var(--accent-color);
-}
-
-.add-dialog-actions {
-  padding: 12px 16px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  border-top: 1px solid var(--border-color);
-}
-
-.add-dialog-cancel,
-.add-dialog-submit {
-  padding: 6px 16px;
-  font-size: 13px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.add-dialog-cancel {
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-}
-
-.add-dialog-cancel:hover {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-}
-
-.add-dialog-submit {
-  background: var(--accent-color);
-  border: 1px solid var(--accent-color);
-  color: white;
-}
-
-.add-dialog-submit:hover {
-  background: #3a8eef;
 }
 </style>
 

@@ -16,6 +16,19 @@ const editingPerson = ref(null)
 const viewMode = ref('cards') // 'cards' or 'table'
 const sortBy = ref('title')
 const sortDir = ref('asc')
+const hideSensitive = ref(true) // Hide email, phone, notes by default
+
+function maskEmail(email) {
+  if (!email || !hideSensitive.value) return email
+  const [user, domain] = email.split('@')
+  if (!domain) return '***'
+  return user.charAt(0) + '***@' + domain
+}
+
+function maskPhone(phone) {
+  if (!phone || !hideSensitive.value) return phone
+  return phone.slice(0, 4) + '****' + phone.slice(-2)
+}
 
 // Color palette
 const personColors = [
@@ -164,6 +177,14 @@ function getLinksForPerson(personId) {
         <button :class="{ active: viewMode === 'cards' }" @click="viewMode = 'cards'">Cards</button>
         <button :class="{ active: viewMode === 'table' }" @click="viewMode = 'table'">Table</button>
       </div>
+      <button
+        class="sensitive-toggle"
+        :class="{ active: hideSensitive }"
+        @click="hideSensitive = !hideSensitive"
+        :title="hideSensitive ? 'Show sensitive data' : 'Hide sensitive data'"
+      >
+        {{ hideSensitive ? 'Reveal' : 'Hide' }}
+      </button>
       <button class="add-btn" @click="showAddPerson">+ Add Person</button>
     </div>
 
@@ -189,8 +210,8 @@ function getLinksForPerson(personId) {
           </div>
         </div>
         <div v-if="person.organization" class="person-company">{{ person.organization }}</div>
-        <div v-if="person.email" class="person-email">{{ person.email }}</div>
-        <div v-if="person.notes" class="person-notes">{{ person.notes }}</div>
+        <div v-if="person.email" class="person-email">{{ maskEmail(person.email) }}</div>
+        <div v-if="person.notes && !hideSensitive" class="person-notes">{{ person.notes }}</div>
         <div class="person-links-count">{{ getLinksForPerson(person.id).length }} linked</div>
       </div>
     </div>
@@ -228,7 +249,7 @@ function getLinksForPerson(personId) {
             </td>
             <td class="col-name">{{ person.title }}</td>
             <td class="col-role">{{ person.role || '-' }}</td>
-            <td class="col-email">{{ person.email || '-' }}</td>
+            <td class="col-email">{{ person.email ? maskEmail(person.email) : '-' }}</td>
             <td class="col-company">{{ person.organization || '-' }}</td>
             <td class="col-links">{{ getLinksForPerson(person.id).length }}</td>
             <td class="col-actions">
@@ -374,6 +395,26 @@ function getLinksForPerson(personId) {
 .add-btn:hover {
   background: var(--bg-tertiary);
   color: var(--text-primary);
+}
+
+.sensitive-toggle {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.sensitive-toggle:hover {
+  background: var(--bg-tertiary);
+}
+
+.sensitive-toggle.active {
+  background: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
 }
 
 .loading {

@@ -1,3 +1,7 @@
+// Detect if running in Electron
+const isElectron = typeof window !== 'undefined' && window.electronAPI
+
+// HTTP API for web mode
 const API_BASE = '/api'
 
 async function request(endpoint, options = {}) {
@@ -16,7 +20,8 @@ async function request(endpoint, options = {}) {
   return response.json()
 }
 
-export const api = {
+// Web API implementation
+const webApi = {
   // Node CRUD
   async getNodes(params = {}) {
     const query = new URLSearchParams(params).toString()
@@ -62,6 +67,10 @@ export const api = {
 
   async getRecent(limit = 10) {
     return request(`/recent?limit=${limit}`)
+  },
+
+  async getFavorites() {
+    return request('/favorites')
   },
 
   async getChildren(id, type = null) {
@@ -149,3 +158,50 @@ export const api = {
     })
   },
 }
+
+// Electron API implementation (uses IPC)
+const electronApi = {
+  // Node CRUD
+  getNodes: (params) => window.electronAPI.getNodes(params),
+  getNode: (id) => window.electronAPI.getNode(id),
+  createNode: (data) => window.electronAPI.createNode(data),
+  updateNode: (id, data) => window.electronAPI.updateNode(id, data),
+  deleteNode: (id, hard) => window.electronAPI.deleteNode(id, hard),
+
+  // Tree operations
+  getRoots: () => window.electronAPI.getRoots(),
+  getProjects: () => window.electronAPI.getProjects(),
+  getInbox: () => window.electronAPI.getInbox(),
+  getRecent: (limit) => window.electronAPI.getRecent(limit),
+  getFavorites: () => window.electronAPI.getFavorites(),
+  getChildren: (id, type) => window.electronAPI.getChildren(id, type),
+  getDescendants: (id, maxDepth) => window.electronAPI.getDescendants(id, maxDepth),
+  getAncestors: (id) => window.electronAPI.getAncestors(id),
+  moveNode: (id, newParentId) => window.electronAPI.moveNode(id, newParentId),
+
+  // Links
+  linkNodes: (sourceId, targetId) => window.electronAPI.linkNodes(sourceId, targetId),
+  unlinkNodes: (sourceId, targetId) => window.electronAPI.unlinkNodes(sourceId, targetId),
+  getAllLinks: (nodeIds) => window.electronAPI.getAllLinks(nodeIds),
+  getLinkedNodes: (id) => window.electronAPI.getLinkedNodes(id),
+
+  // Tree view
+  getTree: (rootId) => window.electronAPI.getTree(rootId),
+
+  // Search
+  search: (query, type) => window.electronAPI.search(query, type),
+
+  // Reorder
+  reorderNode: (nodeId, targetId, position) => window.electronAPI.reorderNode(nodeId, targetId, position),
+
+  // Export
+  exportMarkdown: (nodeId) => window.electronAPI.exportMarkdown(nodeId),
+
+  // Trash
+  getTrash: (limit) => window.electronAPI.getTrash(limit),
+  restoreNode: (id) => window.electronAPI.restoreNode(id),
+  emptyTrash: () => window.electronAPI.emptyTrash(),
+}
+
+// Export the appropriate API based on environment
+export const api = isElectron ? electronApi : webApi

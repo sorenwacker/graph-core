@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
+import { useNodeTooltip } from '../composables/useNodeTooltip.js'
 
 const props = defineProps({
   nodes: { type: Array, default: () => [] },
@@ -7,15 +8,25 @@ const props = defineProps({
   selectedIds: { type: Set, default: () => new Set() },
   expandedIds: { type: Set, default: () => new Set() },
   hideCompleted: { type: Boolean, default: false },
+  hideSensitive: { type: Boolean, default: false },
   currentParentId: { type: Number, default: null },
   currentContainer: { type: Object, default: null },
   colorMap: { type: Object, default: () => ({}) }
 })
 
+const emit = defineEmits(['select', 'select-multiple', 'enter', 'toggle-complete', 'toggle-expand', 'add-child', 'delete', 'move', 'move-multiple', 'reorder', 'go-parent', 'open-fullscreen'])
+
+// Setup tooltips
+const { showTooltip, hideTooltip } = useNodeTooltip({
+  onOpenDetail: (nodeId) => emit('open-fullscreen', nodeId),
+  onToggleComplete: (nodeId) => emit('toggle-complete', nodeId),
+  getHideSensitive: () => props.hideSensitive
+})
+
 function getRowStyle(node) {
   const color = props.colorMap[node.id] || node.color
   if (color && color !== '#0f4c75') {
-    return { background: `linear-gradient(90deg, ${color}33 0%, transparent 50%)` }
+    return { background: `linear-gradient(90deg, ${color}55 0%, transparent 50%)` }
   }
   return {}
 }
@@ -32,8 +43,6 @@ function filterNodes(nodeList) {
 }
 
 const filteredNodes = computed(() => filterNodes(props.nodes))
-
-const emit = defineEmits(['select', 'select-multiple', 'enter', 'toggle-complete', 'toggle-expand', 'add-child', 'delete', 'move', 'move-multiple', 'reorder', 'go-parent'])
 
 // Drag state
 const draggedNode = ref(null)
@@ -329,7 +338,7 @@ function handleClick(e, node) {
 </script>
 
 <template>
-  <div class="table-view">
+  <div class="table-view" :class="{ 'is-dragging': isDragging }">
     <table>
       <thead>
         <tr>
@@ -377,6 +386,8 @@ function handleClick(e, node) {
             @dragstart.prevent
             @click="handleClick($event, node)"
             @dblclick="emit('enter', node)"
+            @mouseenter="showTooltip($event, node)"
+            @mouseleave="hideTooltip"
           >
             <td class="col-expand">
               <button
@@ -427,6 +438,8 @@ function handleClick(e, node) {
                 @dragstart.prevent
                 @click="handleClick($event, child)"
                 @dblclick="emit('enter', child)"
+                @mouseenter="showTooltip($event, child)"
+                @mouseleave="hideTooltip"
               >
                 <td class="col-expand">
                   <button
@@ -478,6 +491,8 @@ function handleClick(e, node) {
                   @dragstart.prevent
                   @click="handleClick($event, grandchild)"
                   @dblclick="emit('enter', grandchild)"
+                  @mouseenter="showTooltip($event, grandchild)"
+                  @mouseleave="hideTooltip"
                 >
                   <td class="col-expand"></td>
                   <td class="col-type">

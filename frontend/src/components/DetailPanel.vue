@@ -2,23 +2,26 @@
 import { ref, watch, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 import { api } from '../services/api'
+import { nodeTypes } from '../utils/constants.js'
 
 const props = defineProps({
   node: Object,
   width: { type: Number, default: 400 },
   fullscreen: { type: Boolean, default: false },
-  hideCompleted: { type: Boolean, default: false }
+  hideCompleted: { type: Boolean, default: false },
+  pinned: { type: Boolean, default: false }
 })
 
 const emit = defineEmits([
-  'update', 'delete', 'close', 'wrap-with-parent',
+  'update', 'delete', 'close', 'wrap-with-parent', 'move-to-root',
   'select-child', 'resize-start', 'resize', 'toggle-fullscreen',
-  'open-link-search'
+  'open-link-search', 'toggle-pin', 'add-child', 'child-updated'
 ])
 
 const editedNode = ref({})
 const children = ref([])
 const loadingChildren = ref(false)
+const newTaskTitle = ref('')
 
 // Filter children based on hideCompleted setting
 const filteredChildren = computed(() => {
@@ -42,11 +45,38 @@ const metadataCollapsed = ref(false)
 const expandedChildren = ref(new Set())
 const grandchildren = ref({}) // childId -> grandchildren array
 
+// Drag state for reordering
+const draggedChild = ref(null)
+const dropTarget = ref(null)
+const dropPosition = ref(null) // 'before' or 'after'
+
 // Split view preview ref
 const splitPreview = ref(null)
+const titleInput = ref(null)
 
 // Panel resizing
 const isResizing = ref(false)
+
+// Handle Escape key to close
+function handleKeydown(e) {
+  if (e.key === 'Escape') {
+    // Don't close if user is typing in an input
+    const active = document.activeElement
+    if (active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA') {
+      active.blur()
+      return
+    }
+    emit('close')
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+})
 
 watch(() => props.node, async (newNode) => {
   if (newNode) {
@@ -63,6 +93,13 @@ watch(() => props.node, async (newNode) => {
     // Reset sensitive preview unlock
     showSensitivePreview.value = false
     await Promise.all([loadChildren(), loadLinkedNodes()])
+    // Auto-resize title for long titles
+    nextTick(() => {
+      if (titleInput.value) {
+        titleInput.value.style.height = 'auto'
+        titleInput.value.style.height = titleInput.value.scrollHeight + 'px'
+      }
+    })
   }
 }, { immediate: true })
 
@@ -70,11 +107,11 @@ async function loadChildren() {
   if (!props.node?.id) return
   loadingChildren.value = true
   try {
-    // Get all descendants and filter for tasks
-    const descendants = await api.getDescendants(props.node.id)
-    children.value = descendants.filter(d => d.type === 'task')
+    // Get immediate children and filter for tasks
+    const childNodes = await api.getChildren(props.node.id)
+    children.value = childNodes.filter(d => d.type === 'task')
   } catch (err) {
-    console.error('Failed to load descendants:', err)
+    console.error('Failed to load children:', err)
     children.value = []
   } finally {
     loadingChildren.value = false
@@ -100,7 +137,6 @@ async function removeLink(targetNode) {
   }
 }
 
-const nodeTypes = ['project', 'task', 'note', 'milestone', 'topic', 'folder', 'person', 'event']
 const isPerson = computed(() => editedNode.value.type === 'person')
 
 const completedChildrenCount = computed(() => {
@@ -141,6 +177,10 @@ function wrapWithParent() {
   }
 }
 
+function moveToRoot() {
+  emit('move-to-root', props.node.id)
+}
+
 async function copyNodeContent() {
   try {
     const result = await api.exportMarkdown(editedNode.value.id)
@@ -175,6 +215,7 @@ async function toggleChildComplete(child) {
   try {
     await api.updateNode(child.id, { completed: !child.completed })
     await loadChildren()
+    emit('child-updated', child.id)
   } catch (err) {
     console.error('Failed to toggle child:', err)
   }
@@ -209,6 +250,13 @@ function startResize(e) {
   emit('resize-start', e)
 }
 
+// Auto-resize title textarea
+function autoResizeTitle(e) {
+  const el = e.target
+  el.style.height = 'auto'
+  el.style.height = el.scrollHeight + 'px'
+}
+
 function setImportance(level) {
   editedNode.value.importance = level
   saveChanges()
@@ -224,13 +272,68 @@ function updateDate(field, value) {
   saveChanges()
 }
 
-function toggleSensitive(event) {
-  editedNode.value.notes_sensitive = event.target.checked
-  if (event.target.checked && activeTab.value !== 'edit') {
-    activeTab.value = 'edit'
-  }
-  saveChanges()
+
+function addTask() {
+  const title = newTaskTitle.value.trim()
+  if (!title) return
+  emit('add-child', { parentId: props.node.id, title, type: 'task' })
+  newTaskTitle.value = ''
 }
+
+// Drag and drop for reordering
+function onDragStart(e, child) {
+  draggedChild.value = child
+  e.dataTransfer.effectAllowed = 'move'
+  e.dataTransfer.setData('text/plain', child.id)
+}
+
+function onDragOver(e, child) {
+  if (!draggedChild.value || draggedChild.value.id === child.id) return
+  e.preventDefault()
+  e.dataTransfer.dropEffect = 'move'
+
+  // Determine drop position based on mouse position
+  const rect = e.currentTarget.getBoundingClientRect()
+  const midY = rect.top + rect.height / 2
+  dropPosition.value = e.clientY < midY ? 'before' : 'after'
+  dropTarget.value = child
+}
+
+function onDragLeave(e) {
+  // Only clear if leaving the item entirely
+  if (!e.currentTarget.contains(e.relatedTarget)) {
+    if (dropTarget.value?.id === e.currentTarget.dataset.childId) {
+      dropTarget.value = null
+      dropPosition.value = null
+    }
+  }
+}
+
+async function onDrop(e, child) {
+  e.preventDefault()
+  if (!draggedChild.value || draggedChild.value.id === child.id) return
+
+  try {
+    await api.reorderNode(draggedChild.value.id, child.id, dropPosition.value)
+    await loadChildren()
+    emit('child-updated', draggedChild.value.id)
+  } catch (err) {
+    console.error('Failed to reorder:', err)
+  }
+
+  draggedChild.value = null
+  dropTarget.value = null
+  dropPosition.value = null
+}
+
+function onDragEnd() {
+  draggedChild.value = null
+  dropTarget.value = null
+  dropPosition.value = null
+}
+
+// Expose methods for parent component
+defineExpose({ loadChildren })
 </script>
 
 <template>
@@ -243,40 +346,43 @@ function toggleSensitive(event) {
     ></div>
 
     <div class="detail-panel-header">
-      <input
-        v-if="editedNode.type !== 'person'"
-        type="checkbox"
-        :checked="editedNode.completed"
-        class="title-checkbox"
-        @change="editedNode.completed = $event.target.checked; saveChanges()"
-      />
-      <input
-        :value="editedNode.title"
-        class="title-input"
-        placeholder="Title"
-        @input="editedNode.title = $event.target.value"
-        @change="saveChanges"
-        @keydown.escape="$emit('close')"
-      />
-      <button
-        class="favorite-btn"
-        :class="{ active: editedNode.favorite }"
-        @click="editedNode.favorite = !editedNode.favorite; saveChanges()"
-        title="Toggle favorite"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1">
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-        </svg>
-      </button>
-      <div class="header-actions">
-        <button class="copy-btn" @click="copyNodeContent" title="Copy as Markdown">
-          MD
+      <div class="header-controls">
+        <button
+          class="favorite-btn"
+          :class="{ active: editedNode.favorite }"
+          @click="editedNode.favorite = !editedNode.favorite; saveChanges()"
+          title="Toggle favorite"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+          </svg>
+        </button>
+        <label v-if="editedNode.type !== 'person'" class="done-checkbox" title="Mark as done">
+          <input
+            type="checkbox"
+            :checked="editedNode.completed"
+            @change="editedNode.completed = $event.target.checked; saveChanges()"
+          />
+        </label>
+        <button class="pin-btn" :class="{ active: pinned }" @click="$emit('toggle-pin')" :title="pinned ? 'Unpin panel' : 'Pin panel open'">
+          {{ pinned ? '&#128205;' : '&#128204;' }}
         </button>
         <button class="fullscreen-btn" @click="$emit('toggle-fullscreen')" :title="fullscreen ? 'Exit fullscreen' : 'Fullscreen'">
           {{ fullscreen ? '⊙' : '⛶' }}
         </button>
         <button class="close-btn" @click="$emit('close')" title="Close">x</button>
       </div>
+      <textarea
+        ref="titleInput"
+        :value="editedNode.title"
+        class="title-input"
+        placeholder="Title"
+        rows="1"
+        @input="editedNode.title = $event.target.value; autoResizeTitle($event)"
+        @change="saveChanges"
+        @keydown.escape="$emit('close')"
+        @keydown.enter.prevent="saveChanges"
+      ></textarea>
     </div>
 
     <div class="detail-panel-content">
@@ -297,14 +403,14 @@ function toggleSensitive(event) {
                 <button :class="{ active: activeTab === 'preview' }" @click="activeTab = 'preview'">Preview</button>
                 <button :class="{ active: activeTab === 'split' }" @click="activeTab = 'split'">Split</button>
               </div>
-              <label class="sensitive-checkbox">
-                <input
-                  :checked="editedNode.notes_sensitive"
-                  type="checkbox"
-                  @change="toggleSensitive($event)"
-                />
-                <span class="lock-icon">S</span>
-              </label>
+              <button
+                class="sensitive-btn"
+                :class="{ active: editedNode.notes_sensitive }"
+                @click="editedNode.notes_sensitive = !editedNode.notes_sensitive; saveChanges()"
+                :title="editedNode.notes_sensitive ? 'Notes are hidden (click to unlock)' : 'Notes are visible (click to lock)'"
+              >
+                {{ editedNode.notes_sensitive ? '&#128274;' : '&#128275;' }}
+              </button>
             </div>
 
             <textarea
@@ -358,9 +464,19 @@ function toggleSensitive(event) {
               <span v-if="children.length" class="section-count">{{ completedChildrenCount }}/{{ children.length }}</span>
             </div>
             <div v-show="!childrenCollapsed" class="section-content">
+              <!-- Add task input -->
+              <div class="add-task-row">
+                <input
+                  v-model="newTaskTitle"
+                  type="text"
+                  placeholder="Add task..."
+                  class="add-task-input"
+                  @keydown.enter="addTask"
+                />
+                <button class="add-task-btn" @click="addTask" :disabled="!newTaskTitle.trim()">+</button>
+              </div>
               <div v-if="loadingChildren" class="loading">Loading...</div>
-              <div v-else-if="filteredChildren.length === 0" class="empty-message">No tasks</div>
-              <div v-else class="children-list">
+              <div v-if="filteredChildren.length" class="children-list">
                 <template v-for="child in filteredChildren" :key="child.id">
                   <!-- Person: circle with initials -->
                   <div
@@ -377,7 +493,19 @@ function toggleSensitive(event) {
                   <div
                     v-else
                     class="child-item"
-                    :class="{ completed: child.completed }"
+                    :class="{
+                      completed: child.completed,
+                      dragging: draggedChild?.id === child.id,
+                      'drop-before': dropTarget?.id === child.id && dropPosition === 'before',
+                      'drop-after': dropTarget?.id === child.id && dropPosition === 'after'
+                    }"
+                    :data-child-id="child.id"
+                    draggable="true"
+                    @dragstart="onDragStart($event, child)"
+                    @dragover="onDragOver($event, child)"
+                    @dragleave="onDragLeave($event)"
+                    @drop="onDrop($event, child)"
+                    @dragend="onDragEnd"
                     @click="selectChild(child)"
                   >
                     <span class="child-color-dot" :style="{ backgroundColor: child.color || '#0f4c75' }">
@@ -391,6 +519,7 @@ function toggleSensitive(event) {
                     <span class="child-title">{{ child.title?.slice(0, 30) }}{{ child.title?.length > 30 ? '...' : '' }}</span>
                     <span v-if="child.end_date && (fullscreen || width >= 500)" class="child-end-date">{{ child.end_date.split('T')[0] }}</span>
                     <span v-if="child.due_date" class="child-due">{{ child.due_date }}</span>
+                    <button class="add-subtask-btn" @click.stop="emit('add-child', { parentId: child.id, title: '', type: 'task', prompt: true })" title="Add subtask">+</button>
                   </div>
                   <!-- Grandchildren -->
                   <template v-if="expandedChildren.has(child.id) && grandchildren[child.id]?.length">
@@ -403,6 +532,7 @@ function toggleSensitive(event) {
                     >
                       <span class="gc-type" :class="gc.type">{{ gc.type[0].toUpperCase() }}</span>
                       <span class="gc-title">{{ gc.title }}</span>
+                      <button class="add-subtask-btn" @click.stop="emit('add-child', { parentId: gc.id, title: '', type: 'task', prompt: true })" title="Add subtask">+</button>
                     </div>
                   </template>
                 </template>
@@ -485,19 +615,21 @@ function toggleSensitive(event) {
                 </div>
 
                 <!-- Location -->
-                <div class="meta-item flexible">
+                <div v-if="editedNode.location" class="meta-item">
                   <label>Location</label>
                   <input
                     type="text"
-                    :value="editedNode.location || ''"
+                    :value="editedNode.location"
                     @input="editedNode.location = $event.target.value"
                     @blur="saveChanges"
-                    placeholder="Address or place"
+                    class="location-input"
                   />
+                  <button class="clear-btn" @click="editedNode.location = null; saveChanges()">x</button>
                 </div>
+                <button v-else class="add-field-btn" @click="editedNode.location = ' '" title="Add location">+Loc</button>
 
                 <!-- Links -->
-                <div class="meta-item full-width links-row">
+                <div v-if="linkedNodes.length" class="meta-item links-row">
                   <label>Links</label>
                   <div class="links-inline">
                     <span
@@ -510,9 +642,10 @@ function toggleSensitive(event) {
                       {{ linked.title }}
                       <button class="remove-link-btn" @click.stop="removeLink(linked)">x</button>
                     </span>
-                    <button class="add-link-btn" @click="emit('open-link-search')" title="Add link (uses global search)">+</button>
+                    <button class="add-link-btn" @click="emit('open-link-search')" title="Add link">+</button>
                   </div>
                 </div>
+                <button v-else class="add-field-btn" @click="emit('open-link-search')" title="Add link">+Link</button>
 
                 <!-- System info (at end) -->
                 <div class="meta-item">
@@ -594,6 +727,7 @@ function toggleSensitive(event) {
       <!-- Actions -->
       <div class="detail-actions">
         <button @click="wrapWithParent">Wrap with Parent</button>
+        <button @click="moveToRoot">Move to Root</button>
         <span class="spacer"></span>
         <button class="danger" @click="deleteNode">Delete</button>
       </div>
@@ -669,62 +803,65 @@ function toggleSensitive(event) {
   padding: 8px 12px;
   border-bottom: 1px solid var(--border-color);
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
   flex-shrink: 0;
   background: var(--bg-secondary);
 }
 
+.detail-panel-header .header-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
 .detail-panel-header .title-input {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   background: transparent;
   border: none;
   color: var(--text-primary);
   font-size: 1rem;
   font-weight: 600;
   padding: 4px 0;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.3;
+  font-family: inherit;
+  min-height: 1.3em;
+  cursor: text;
 }
 
 .detail-panel-header .title-input:focus {
   outline: none;
-  border-bottom: 1px solid var(--accent-color);
 }
 
-.detail-panel-header .title-checkbox {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  accent-color: var(--accent-color);
-}
-
-.header-actions {
-  display: flex;
-  gap: 4px;
-}
-
-.header-actions button {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
+.detail-panel-header .pin-btn,
+.detail-panel-header .fullscreen-btn,
+.detail-panel-header .close-btn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
   cursor: pointer;
-  padding: 4px 10px;
+  font-size: 14px;
+  padding: 2px 6px;
   border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
+  flex-shrink: 0;
 }
 
-.header-actions button:hover {
+.detail-panel-header .pin-btn:hover,
+.detail-panel-header .fullscreen-btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
 }
 
-.header-actions button svg {
-  display: block;
+.detail-panel-header .pin-btn.active {
+  color: var(--accent-color);
 }
 
-.copy-btn:active {
-  color: var(--accent-color);
+.detail-panel-header .close-btn:hover {
+  background: var(--bg-hover);
+  color: #ff6b6b;
 }
 
 .detail-panel-content {
@@ -865,6 +1002,28 @@ function toggleSensitive(event) {
   gap: 4px;
 }
 
+.sensitive-btn {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+}
+
+.sensitive-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--text-tertiary);
+}
+
+.sensitive-btn.active {
+  background: var(--bg-hover);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
 .tabs button {
   padding: 4px 10px;
   border: none;
@@ -878,22 +1037,6 @@ function toggleSensitive(event) {
 .tabs button.active {
   background: var(--accent-color);
   color: white;
-}
-
-.sensitive-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.lock-icon {
-  font-size: 10px;
-  padding: 2px 4px;
-  background: var(--bg-primary);
-  border-radius: 3px;
 }
 
 .notes-editor,
@@ -1006,12 +1149,31 @@ function toggleSensitive(event) {
   gap: 4px;
   padding: 1px 4px 1px 1px;
   border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.15s;
+  cursor: grab;
+  transition: background 0.15s, border 0.1s;
+  position: relative;
+  border: 2px solid transparent;
 }
 
 .child-item:hover {
   background: var(--bg-hover);
+}
+
+.child-item:active {
+  cursor: grabbing;
+}
+
+.child-item.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.child-item.drop-before {
+  border-top-color: var(--accent-color);
+}
+
+.child-item.drop-after {
+  border-bottom-color: var(--accent-color);
 }
 
 .child-item.completed .child-title {
@@ -1073,6 +1235,34 @@ function toggleSensitive(event) {
   color: var(--text-tertiary);
   opacity: 0.7;
   flex-shrink: 0;
+}
+
+.add-subtask-btn {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 3px;
+  opacity: 0;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.child-item:hover .add-subtask-btn,
+.grandchild-item:hover .add-subtask-btn {
+  opacity: 1;
+}
+
+.add-subtask-btn:hover {
+  background: var(--bg-hover);
+  color: var(--accent-color);
 }
 
 /* Link type colors */
@@ -1170,6 +1360,52 @@ function toggleSensitive(event) {
   padding: 8px 0;
 }
 
+/* Add task input */
+.add-task-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.add-task-input {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.add-task-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.add-task-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.add-task-btn:hover:not(:disabled) {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: white;
+}
+
+.add-task-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* Metadata section */
 .meta-section {
   padding: 8px;
@@ -1211,13 +1447,9 @@ function toggleSensitive(event) {
 .links-row {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.links-row label {
-  min-width: 40px;
-  padding-top: 4px;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 
 .links-inline {
@@ -1364,6 +1596,27 @@ function toggleSensitive(event) {
   color: var(--text-primary);
 }
 
+.location-input {
+  min-width: 80px;
+  max-width: 200px;
+}
+
+.add-field-btn {
+  padding: 2px 6px;
+  border: 1px dashed var(--border-color);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.add-field-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-color);
+  color: var(--text-primary);
+}
+
 /* Person fields */
 .person-fields-header {
   font-size: 10px;
@@ -1454,4 +1707,5 @@ textarea::selection {
 .meta-value.mono {
   font-family: monospace;
 }
+
 </style>

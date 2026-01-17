@@ -1,14 +1,22 @@
-# Python-generated files
-__pycache__/
-*.py[oc]
-build/
+# Dependencies
+node_modules/
+
+# Build output
 dist/
-wheels/
-*.egg-info
+dist-electron/
 
-# Virtual environments
-.venv
-
-# Database
-graph.db
+# Local database
 *.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
