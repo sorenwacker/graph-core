@@ -894,8 +894,8 @@ async function addChildFromDetail(payload) {
 function onChildUpdated() {
   // Refresh graph to reflect completed state changes
   graphViewRef.value?.updateGraph()
-  // Refresh sidebar items
-  loadSidebarItems()
+  // Refresh sidebar tree
+  loadSidebarTree()
 }
 
 async function moveNode({ nodeId, oldParentId, newParentId }) {
@@ -1602,23 +1602,13 @@ function showCardTooltip(event, node) {
 
   const tooltipContent = buildCardTooltip(node)
 
+  // Store position for getReferenceClientRect
+  const posX = mouseX
+  const posY = mouseY
+
   // Show tooltip after 500ms delay (same as composable)
   cardTooltipTimeout = setTimeout(() => {
-    // Create virtual element at mouse position
-    const virtualElement = {
-      getBoundingClientRect: () => ({
-        width: 0,
-        height: 0,
-        top: mouseY,
-        bottom: mouseY,
-        left: mouseX,
-        right: mouseX,
-        x: mouseX,
-        y: mouseY
-      })
-    }
-
-    activeCardTippy = tippy(virtualElement, {
+    activeCardTippy = tippy(document.body, {
       content: tooltipContent,
       allowHTML: true,
       interactive: true,
@@ -1631,6 +1621,17 @@ function showCardTooltip(event, node) {
       trigger: 'manual',
       showOnCreate: true,
       hideOnClick: false,
+      // Use getReferenceClientRect for virtual positioning
+      getReferenceClientRect: () => ({
+        width: 0,
+        height: 0,
+        top: posY,
+        bottom: posY,
+        left: posX,
+        right: posX,
+        x: posX,
+        y: posY
+      }),
       onShown: (instance) => {
         // Track when mouse enters/leaves the tooltip itself
         instance.popper.addEventListener('mouseenter', () => {

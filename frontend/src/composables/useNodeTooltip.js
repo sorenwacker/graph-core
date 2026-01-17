@@ -50,25 +50,26 @@ export function useNodeTooltip(options = {}) {
         hideSensitive: getHideSensitive()
       })
 
-      // Create virtual element at mouse position
-      const virtualElement = {
-        getBoundingClientRect: () => ({
-          width: 0,
-          height: 0,
-          top: mouseY,
-          bottom: mouseY,
-          left: mouseX,
-          right: mouseX,
-          x: mouseX,
-          y: mouseY
-        })
-      }
+      // Store position for getReferenceClientRect
+      const posX = mouseX
+      const posY = mouseY
 
-      activeTooltip = tippy(virtualElement, {
+      activeTooltip = tippy(document.body, {
         ...tooltipOptions,
         content,
         showOnCreate: true,
         hideOnClick: false,
+        // Use getReferenceClientRect for virtual positioning
+        getReferenceClientRect: () => ({
+          width: 0,
+          height: 0,
+          top: posY,
+          bottom: posY,
+          left: posX,
+          right: posX,
+          x: posX,
+          y: posY
+        }),
         onHidden: (instance) => {
           instance.destroy()
           if (activeTooltip === instance) {
