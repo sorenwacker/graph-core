@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="90" fill="#0a0a0a"/>
+
+  <!-- EDGES - grey, connecting node centers -->
+  <path d="M 256 140 L 120 370" stroke="#666666" stroke-width="20" fill="none"/>
+  <path d="M 256 140 L 392 370" stroke="#666666" stroke-width="20" fill="none"/>
+
+  <!-- NODES -->
+  <rect x="196" y="100" width="120" height="80" rx="14" fill="#3498db"/>
+  <rect x="60" y="330" width="120" height="80" rx="14" fill="#9b59b6"/>
+  <rect x="332" y="330" width="120" height="80" rx="14" fill="#2ecc71"/>
+</svg>

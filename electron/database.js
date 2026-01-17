@@ -797,15 +797,16 @@ class Database {
   }
 
   getLinkedNodes(id) {
+    const numId = Number(id)
     const links = this._query(
       'SELECT * FROM node_links WHERE source_id = ? OR target_id = ?',
-      [id, id]
+      [numId, numId]
     )
 
     const linkedIds = new Set()
     for (const link of links) {
-      if (link.source_id !== id) linkedIds.add(link.source_id)
-      if (link.target_id !== id) linkedIds.add(link.target_id)
+      if (link.source_id !== numId) linkedIds.add(link.source_id)
+      if (link.target_id !== numId) linkedIds.add(link.target_id)
     }
 
     if (linkedIds.size === 0) return []

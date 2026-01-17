@@ -2071,8 +2071,8 @@ function buildCardTooltip(node) {
 }
 
 function showCardTooltip(event, node) {
-  // Don't show tooltip if editing
-  if (editingCardId.value || inlineNotesId.value) return
+  // Don't show tooltip if editing or detail panel is fullscreen
+  if (editingCardId.value || inlineNotesId.value || fullscreenDetail.value) return
 
   // Store mouse position for virtual element
   const mouseX = event.clientX
@@ -2199,25 +2199,28 @@ async function addChildToCard(parentId, e) {
   e?.stopPropagation()
   hideCardTooltip()
 
-  const title = prompt('New item title:')
-  if (!title?.trim()) return
-
   try {
     const nodeType = newNodeType.value
     const newNode = await api.createNode({
-      title: title.trim(),
+      title: 'New item',
       type: nodeType,
       parent_id: parentId,
       workspace_id: getWorkspaceIdForNode(nodeType)
     })
     if (newNode?.id) {
-      pushUndo({ type: 'create', nodeId: newNode.id, nodeData: { title: title.trim(), type: nodeType }, parentId })
+      pushUndo({ type: 'create', nodeId: newNode.id, nodeData: { title: 'New item', type: nodeType }, parentId })
+      // Select the new node and open detail panel for editing
+      const fullNode = await api.getNode(newNode.id)
+      if (fullNode) {
+        selectNode(fullNode)
+        showDetail.value = true
+      }
     }
     await loadChildren(currentContainerId.value)
     await loadSidebarTree()
     expandedIds.value.add(parentId)
-  } catch (e) {
-    error.value = e.message
+  } catch (err) {
+    error.value = err.message
   }
 }
 
@@ -2885,6 +2888,7 @@ onUnmounted(() => {
                 :title="'Due: ' + node.due_date"
               >{{ getDueDateStatus(node.due_date).text }}</span>
               <button class="card-add-btn" @click.stop="addChildToCard(node.id, $event)" title="Add child item">+</button>
+              <button class="card-delete-btn" @click.stop="deleteNode(node)" title="Delete">×</button>
             </div>
             <!-- Checkbox positioned top-right -->
             <input
@@ -3417,7 +3421,8 @@ onUnmounted(() => {
 }
 
 .card-edit-btn,
-.card-add-btn {
+.card-add-btn,
+.card-delete-btn {
   width: 22px;
   height: 22px;
   padding: 0;
@@ -3440,11 +3445,23 @@ onUnmounted(() => {
   font-weight: bold;
 }
 
+.card-delete-btn {
+  font-size: 16px;
+  font-weight: bold;
+}
+
 .card-edit-btn:hover,
 .card-add-btn:hover {
   opacity: 1;
   background: var(--accent-color);
   border-color: var(--accent-color);
+  color: white;
+}
+
+.card-delete-btn:hover {
+  opacity: 1;
+  background: #e74c3c;
+  border-color: #e74c3c;
   color: white;
 }
 
