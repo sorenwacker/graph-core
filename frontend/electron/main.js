@@ -20,18 +20,16 @@ function createWindow() {
     icon: path.join(__dirname, '../assets/icon.png')
   })
 
-  // Set Content Security Policy
+  // Set Content Security Policy (stricter in production)
+  const isDev = process.env.NODE_ENV === 'development'
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
-          "default-src 'self'; " +
-          "script-src 'self'; " +
-          "style-src 'self' 'unsafe-inline'; " +
-          "img-src 'self' data: blob:; " +
-          "font-src 'self' data:; " +
-          "connect-src 'self'"
+          isDev
+            ? "default-src 'self' 'unsafe-inline' 'unsafe-eval'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' ws://localhost:*"
+            : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'"
         ]
       }
     })
