@@ -1,8 +1,76 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useNodeTooltip } from '../composables/useNodeTooltip.js'
 import { useNodeInteractions } from '../composables/useNodeInteractions.js'
 import { getTypeIcon, getTypeIconHtml, getTypeColors, typeConfig, personIconSvg } from '../utils/constants.js'
+
+// Column widths (resizable)
+const defaultColWidths = {
+  expand: 30,
+  type: 60,
+  check: 30,
+  title: 300,
+  notes: 200,
+  due: 90,
+  children: 40,
+  fav: 30,
+  actions: 60
+}
+
+// Load saved widths from localStorage
+function loadColWidths() {
+  const saved = localStorage.getItem('graphcore-table-colwidths')
+  if (saved) {
+    try {
+      return { ...defaultColWidths, ...JSON.parse(saved) }
+    } catch (e) {
+      return { ...defaultColWidths }
+    }
+  }
+  return { ...defaultColWidths }
+}
+
+const colWidths = ref(loadColWidths())
+
+// Save widths to localStorage
+function saveColWidths() {
+  localStorage.setItem('graphcore-table-colwidths', JSON.stringify(colWidths.value))
+}
+
+// Resize state
+const resizing = ref(null) // column name being resized
+const resizeStartX = ref(0)
+const resizeStartWidth = ref(0)
+
+function startResize(e, colName) {
+  e.preventDefault()
+  resizing.value = colName
+  resizeStartX.value = e.clientX
+  resizeStartWidth.value = colWidths.value[colName]
+  document.addEventListener('mousemove', onResizeMove)
+  document.addEventListener('mouseup', onResizeEnd)
+}
+
+function onResizeMove(e) {
+  if (!resizing.value) return
+  const diff = e.clientX - resizeStartX.value
+  const newWidth = Math.max(30, resizeStartWidth.value + diff)
+  colWidths.value[resizing.value] = newWidth
+}
+
+function onResizeEnd() {
+  if (resizing.value) {
+    saveColWidths()
+    resizing.value = null
+  }
+  document.removeEventListener('mousemove', onResizeMove)
+  document.removeEventListener('mouseup', onResizeEnd)
+}
+
+onUnmounted(() => {
+  document.removeEventListener('mousemove', onResizeMove)
+  document.removeEventListener('mouseup', onResizeEnd)
+})
 
 const props = defineProps({
   nodes: { type: Array, default: () => [] },
@@ -17,7 +85,7 @@ const props = defineProps({
   colorMap: { type: Object, default: () => ({}) }
 })
 
-const emit = defineEmits(['hover', 'select', 'select-multiple', 'enter', 'toggle-complete', 'toggle-expand', 'add-child', 'delete', 'move', 'move-multiple', 'reorder', 'go-parent', 'open-fullscreen'])
+const emit = defineEmits(['hover', 'select', 'select-multiple', 'enter', 'toggle-complete', 'toggle-favorite', 'toggle-expand', 'expand-all', 'collapse-all', 'add-child', 'delete', 'move', 'move-multiple', 'reorder', 'go-parent', 'open-fullscreen', 'context-menu'])
 
 // Setup tooltips
 const { showTooltip, hideTooltip } = useNodeTooltip({
@@ -37,6 +105,12 @@ const { handleHover, handleLeave, handleClick, handleDoubleClick } = useNodeInte
   showTooltip,
   hideTooltip
 })
+
+// Context menu handler
+function handleContextMenu(e, node) {
+  e.preventDefault()
+  emit('context-menu', { event: e, node })
+}
 
 function getRowStyle(node) {
   const color = props.colorMap[node.id] || node.color
@@ -59,6 +133,46 @@ function filterNodes(nodeList) {
 
 const filteredNodes = computed(() => filterNodes(props.nodes))
 
+// Flatten tree into a list of rows based on expanded state
+// Each row includes metadata for rendering: isLast (for tree prefix)
+const flattenedRows = computed(() => {
+  const rows = []
+
+  function flatten(nodeList, parentIsLastStack = []) {
+    nodeList.forEach((node, index) => {
+      const isLast = index === nodeList.length - 1
+      rows.push({
+        node,
+        isLast,
+        parentIsLastStack: [...parentIsLastStack]
+      })
+
+      // If expanded and has children, recurse
+      if (props.expandedIds.has(node.id) && node.children?.length) {
+        flatten(node.children, [...parentIsLastStack, isLast])
+      }
+    })
+  }
+
+  flatten(filteredNodes.value)
+  return rows
+})
+
+// Get tree prefix for visual hierarchy - uses parentIsLastStack for correct lines
+function getTreePrefixFlat(node, isLast, parentIsLastStack) {
+  const depth = node.depth || 0
+  if (depth === 0) return ''
+
+  let prefix = ''
+  // Add continuation lines for each ancestor level
+  for (let i = 0; i < parentIsLastStack.length; i++) {
+    prefix += parentIsLastStack[i] ? '  ' : '│ '
+  }
+  // Add branch and horizontal line
+  prefix += isLast ? '└─' : '├─'
+  return prefix
+}
+
 // Drag state
 const draggedNode = ref(null)
 const dropTarget = ref(null)
@@ -76,6 +190,20 @@ function handleExpand(nodeId) {
 function formatDate(dateStr) {
   if (!dateStr) return ''
   return dateStr.split('T')[0]
+}
+
+function truncateNotes(notes) {
+  if (!notes) return ''
+  const text = notes.replace(/[#*_`\[\]]/g, '').trim()
+  return text.length > 50 ? text.substring(0, 50) + '...' : text
+}
+
+function isOverdue(dateStr) {
+  if (!dateStr) return false
+  const due = new Date(dateStr)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return due < today
 }
 
 // getTypeIcon imported from constants.js
@@ -118,6 +246,7 @@ function getDepthRowClass(node) {
   if (depth === 0) return 'depth-row-0'
   if (depth === 1) return 'depth-row-1'
   if (depth === 2) return 'depth-row-2'
+  if (depth === 3) return 'depth-row-3'
   return 'depth-row-deep'
 }
 
@@ -342,14 +471,34 @@ function isSelected(nodeId) {
 
 <template>
   <div class="table-view" :class="{ 'is-dragging': isDragging }">
-    <table>
+    <div class="table-controls">
+      <button @click="emit('expand-all')" title="Expand all">++</button>
+      <button @click="emit('collapse-all')" title="Collapse all">--</button>
+    </div>
+    <table :class="{ resizing: resizing }">
       <thead>
         <tr>
-          <th class="col-expand"></th>
-          <th class="col-type">Type</th>
-          <th class="col-check"></th>
-          <th class="col-title">Title</th>
-          <th class="col-actions"></th>
+          <th class="col-expand" :style="{ width: colWidths.expand + 'px' }"></th>
+          <th class="col-type" :style="{ width: colWidths.type + 'px' }">
+            Type
+            <span class="resize-handle" @mousedown="startResize($event, 'type')"></span>
+          </th>
+          <th class="col-check" :style="{ width: colWidths.check + 'px' }"></th>
+          <th class="col-title" :style="{ width: colWidths.title + 'px' }">
+            Title
+            <span class="resize-handle" @mousedown="startResize($event, 'title')"></span>
+          </th>
+          <th class="col-notes" :style="{ width: colWidths.notes + 'px' }">
+            Notes
+            <span class="resize-handle" @mousedown="startResize($event, 'notes')"></span>
+          </th>
+          <th class="col-due" :style="{ width: colWidths.due + 'px' }">
+            Due
+            <span class="resize-handle" @mousedown="startResize($event, 'due')"></span>
+          </th>
+          <th class="col-children" :style="{ width: colWidths.children + 'px' }">#</th>
+          <th class="col-fav" :style="{ width: colWidths.fav + 'px' }"></th>
+          <th class="col-actions" :style="{ width: colWidths.actions + 'px' }"></th>
         </tr>
       </thead>
       <tbody>
@@ -368,164 +517,77 @@ function isSelected(nodeId) {
           <td class="col-title">
             {{ currentContainer.title }}
           </td>
+          <td class="col-notes"></td>
+          <td class="col-due"></td>
+          <td class="col-children"></td>
           <td class="col-actions"></td>
         </tr>
-        <template v-for="(node, nodeIndex) in filteredNodes" :key="node.id">
-          <!-- Main row -->
-          <tr
-            class="node-row"
-            :class="[
-              getDepthRowClass(node),
-              {
-                'tree-boundary': nodeIndex > 0,
-                selected: isSelected(node.id),
-                completed: node.completed,
-                'inherited-completed': node.inheritedCompleted,
-                ...getDropClass(node)
-              }
-            ]"
-            :style="{ '--indent': getIndentPadding(node), ...getRowStyle(node) }"
-            :data-node-id="node.id"
-            @mousedown="onMouseDown($event, node)"
-            @dragstart.prevent
-            @click="handleClick($event, node)"
-            @dblclick="handleDoubleClick(node)"
-            @mouseenter="handleHover($event, node)"
-            @mouseleave="handleLeave"
-          >
-            <td class="col-expand">
-              <button
-                v-if="node.children?.length"
-                class="expand-btn"
-                @click.stop="handleExpand(node.id)"
-              >
-                {{ expandedIds.has(node.id) ? '−' : '+' }}
-              </button>
-            </td>
-            <td class="col-type">
-              <span class="tree-prefix">{{ getTreePrefix(node, nodeIndex === filteredNodes.length - 1) }}</span>
-              <span v-if="node.type === 'person'" class="type-badge person" :style="getBadgeStyle(node)" v-html="personIconSvg"></span>
-              <span v-else class="type-badge" :class="node.type" v-html="getTypeIcon(node.type)"></span>
-            </td>
-            <td class="col-check">
-              <input
-                v-if="['task', 'project'].includes(node.type)"
-                type="checkbox"
-                :checked="node.completed"
-                @click.stop="emit('toggle-complete', node)"
-              />
-            </td>
-            <td class="col-title">
-              <span v-if="node.favorite" class="favorite-star">&#9733;</span>
-              {{ node.title }}
-            </td>
-                                                <td class="col-actions">
-                            <button class="action-btn delete" @click.stop="confirmDelete(node.id)" title="Delete">x</button>
-            </td>
-          </tr>
-          <!-- Child rows (when expanded) -->
-          <template v-if="expandedIds.has(node.id) && node.children?.length">
-            <template v-for="(child, childIndex) in node.children" :key="'child-' + child.id">
-              <tr
-                class="node-row"
-                :class="[
-                  getDepthRowClass(child),
-                  {
-                    selected: isSelected(child.id),
-                    completed: child.completed,
-                    'inherited-completed': child.inheritedCompleted,
-                    ...getDropClass(child)
-                  }
-                ]"
-                :style="{ '--indent': getIndentPadding(child), ...getRowStyle(child) }"
-                :data-node-id="child.id"
-                @mousedown="onMouseDown($event, child)"
-                @dragstart.prevent
-                @click="handleClick($event, child)"
-                @dblclick="handleDoubleClick(child)"
-                @mouseenter="handleHover($event, child)"
-                @mouseleave="handleLeave"
-              >
-                <td class="col-expand">
-                  <button
-                    v-if="child.children?.length"
-                    class="expand-btn"
-                    @click.stop="handleExpand(child.id)"
-                  >
-                    {{ expandedIds.has(child.id) ? '−' : '+' }}
-                  </button>
-                </td>
-                <td class="col-type">
-                  <span class="tree-prefix">{{ getTreePrefix(child, childIndex === node.children.length - 1) }}</span>
-                  <span v-if="child.type === 'person'" class="type-badge person" :style="getBadgeStyle(child)" v-html="personIconSvg"></span>
-                  <span v-else class="type-badge" :class="child.type" v-html="getTypeIcon(child.type)"></span>
-                </td>
-                <td class="col-check">
-                  <input
-                    v-if="['task', 'project'].includes(child.type)"
-                    type="checkbox"
-                    :checked="child.completed"
-                    @click.stop="emit('toggle-complete', child)"
-                  />
-                </td>
-                <td class="col-title">
-                  <span v-if="child.favorite" class="favorite-star">&#9733;</span>
-                  {{ child.title }}
-                </td>
-                                                                <td class="col-actions">
-                                    <button class="action-btn delete" @click.stop="confirmDelete(child.id)" title="Delete">x</button>
-                </td>
-              </tr>
-              <!-- Grandchild rows -->
-              <template v-if="expandedIds.has(child.id) && child.children?.length">
-                <tr
-                  v-for="(grandchild, grandchildIndex) in child.children"
-                  :key="'grandchild-' + grandchild.id"
-                  class="node-row"
-                  :class="[
-                    getDepthRowClass(grandchild),
-                    {
-                      selected: isSelected(grandchild.id),
-                      completed: grandchild.completed,
-                      'inherited-completed': grandchild.inheritedCompleted,
-                      ...getDropClass(grandchild)
-                    }
-                  ]"
-                  :style="{ '--indent': getIndentPadding(grandchild), ...getRowStyle(grandchild) }"
-                  :data-node-id="grandchild.id"
-                  @mousedown="onMouseDown($event, grandchild)"
-                  @dragstart.prevent
-                  @click="handleClick($event, grandchild)"
-                  @dblclick="handleDoubleClick(grandchild)"
-                  @mouseenter="handleHover($event, grandchild)"
-                  @mouseleave="handleLeave"
-                >
-                  <td class="col-expand"></td>
-                  <td class="col-type">
-                    <span class="tree-prefix">{{ getTreePrefix(grandchild, grandchildIndex === child.children.length - 1) }}</span>
-                    <span v-if="grandchild.type === 'person'" class="type-badge person" :style="getBadgeStyle(grandchild)" v-html="personIconSvg"></span>
-                    <span v-else class="type-badge" :class="grandchild.type" v-html="getTypeIcon(grandchild.type)"></span>
-                  </td>
-                  <td class="col-check">
-                    <input
-                      v-if="['task', 'project'].includes(grandchild.type)"
-                      type="checkbox"
-                      :checked="grandchild.completed"
-                      @click.stop="emit('toggle-complete', grandchild)"
-                    />
-                  </td>
-                  <td class="col-title">
-                    <span v-if="grandchild.favorite" class="favorite-star">&#9733;</span>
-                    {{ grandchild.title }}
-                  </td>
-                                                                        <td class="col-actions">
-                                        <button class="action-btn delete" @click.stop="confirmDelete(grandchild.id)" title="Delete">x</button>
-                  </td>
-                </tr>
-              </template>
-            </template>
-          </template>
-        </template>
+        <!-- All rows rendered from flattened tree -->
+        <tr
+          v-for="(row, rowIndex) in flattenedRows"
+          :key="row.node.id"
+          class="node-row"
+          :class="[
+            getDepthRowClass(row.node),
+            {
+              'tree-boundary': rowIndex > 0 && row.node.depth === 0,
+              selected: isSelected(row.node.id),
+              completed: row.node.completed,
+              'inherited-completed': row.node.inheritedCompleted,
+              ...getDropClass(row.node)
+            }
+          ]"
+          :style="{ '--indent': getIndentPadding(row.node), ...getRowStyle(row.node) }"
+          :data-node-id="row.node.id"
+          @mousedown="onMouseDown($event, row.node)"
+          @dragstart.prevent
+          @click="handleClick($event, row.node)"
+          @dblclick="handleDoubleClick(row.node)"
+          @mouseenter="handleHover($event, row.node)"
+          @mouseleave="handleLeave"
+          @contextmenu.prevent="handleContextMenu($event, row.node)"
+        >
+          <td class="col-expand">
+            <button
+              v-if="row.node.children?.length"
+              class="expand-btn"
+              @click.stop="handleExpand(row.node.id)"
+            >
+              {{ expandedIds.has(row.node.id) ? '−' : '+' }}
+            </button>
+          </td>
+          <td class="col-type">
+            <span class="tree-prefix">{{ getTreePrefixFlat(row.node, row.isLast, row.parentIsLastStack) }}</span>
+            <span v-if="row.node.type === 'person'" class="type-badge person" :style="getBadgeStyle(row.node)" v-html="personIconSvg"></span>
+            <span v-else class="type-badge" :class="row.node.type" v-html="getTypeIcon(row.node.type)"></span>
+          </td>
+          <td class="col-check">
+            <input
+              v-if="['task', 'project'].includes(row.node.type)"
+              type="checkbox"
+              :checked="row.node.completed"
+              @click.stop="emit('toggle-complete', row.node)"
+            />
+          </td>
+          <td class="col-title">
+            <span v-if="row.node.favorite" class="favorite-star">&#9733;</span>
+            {{ row.node.title }}
+          </td>
+          <td class="col-notes">
+            <span class="notes-preview" :title="row.node.notes">{{ truncateNotes(row.node.notes) }}</span>
+          </td>
+          <td class="col-due">
+            <span v-if="row.node.due_date" class="due-date" :class="{ overdue: isOverdue(row.node.due_date) }">
+              {{ formatDate(row.node.due_date) }}
+            </span>
+          </td>
+          <td class="col-children">
+            <span v-if="row.node.children?.length" class="children-count">{{ row.node.children.length }}</span>
+          </td>
+          <td class="col-actions">
+            <button class="action-btn delete" @click.stop="confirmDelete(row.node.id)" title="Delete">x</button>
+          </td>
+        </tr>
       </tbody>
     </table>
     <div v-if="filteredNodes.length === 0" class="empty-state">
@@ -539,6 +601,37 @@ function isSelected(nodeId) {
   flex: 1;
   overflow: auto;
   background: #0a0a0a;
+  position: relative;
+}
+
+.table-controls {
+  position: absolute;
+  top: -3px;
+  right: 16px;
+  z-index: 10;
+  display: flex;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 4px;
+  border-radius: 6px;
+  backdrop-filter: blur(8px);
+}
+
+.table-controls button {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg-tertiary, #1a1a1a);
+  border: 1px solid var(--border-color, #333);
+  color: var(--text-secondary, #ccc);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.table-controls button:hover {
+  background: var(--bg-hover, #2a2a2a);
+  color: var(--text-primary, #fff);
 }
 
 table {
@@ -546,6 +639,12 @@ table {
   border-collapse: collapse;
   border-spacing: 0;
   font-size: 0.9rem;
+  table-layout: fixed;
+}
+
+table.resizing {
+  user-select: none;
+  cursor: col-resize;
 }
 
 thead {
@@ -574,6 +673,24 @@ th {
   max-height: 28px;
   line-height: 28px;
   vertical-align: middle;
+  position: relative;
+}
+
+.resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 2;
+}
+
+.resize-handle:hover,
+.resize-handle:active {
+  background: var(--accent-color, #4a9eff);
+  opacity: 0.5;
 }
 
 td {
@@ -657,8 +774,12 @@ td {
   font-size: 0.85rem;
 }
 
-.depth-row-deep {
+.depth-row-3 {
   font-size: 0.8rem;
+}
+
+.depth-row-deep {
+  font-size: 0.75rem;
 }
 
 .tree-indent {
@@ -814,6 +935,45 @@ td.col-title {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.col-notes {
+  width: 200px;
+  max-width: 200px;
+}
+
+.notes-preview {
+  color: #888;
+  font-size: 0.85em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.col-due {
+  width: 90px;
+  white-space: nowrap;
+}
+
+.due-date {
+  color: #888;
+  font-size: 0.85em;
+}
+
+.due-date.overdue {
+  color: #e74c3c;
+  font-weight: 500;
+}
+
+.col-children {
+  width: 40px;
+  text-align: center;
+}
+
+.children-count {
+  color: #666;
+  font-size: 0.8em;
 }
 
 .col-actions {

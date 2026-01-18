@@ -76,6 +76,15 @@ const sidebarTreeCollapsed = ref(false)
 const sidebarFavoritesCollapsed = ref(false)
 const sidebarRecentCollapsed = ref(false)
 
+// Context menu state
+const contextMenu = ref({
+  visible: false,
+  x: 0,
+  y: 0,
+  node: null,
+  linkedNodes: []
+})
+
 // =========================================
 // WORKSPACES
 // =========================================
@@ -156,7 +165,7 @@ function onSidebarEnter() {
 function onSidebarLeave() {
   sidebarHideTimeout = setTimeout(() => {
     sidebarHovered.value = false
-  }, 300)
+  }, 500)
 }
 
 function closeDetailIfNotPinned() {
@@ -346,6 +355,8 @@ watch(currentWorkspace, async (newWs) => {
   await loadSidebarTree()
   await loadRecentItems()
   await loadFavorites()
+  // Restore expanded state for this workspace
+  loadExpandedState()
 })
 
 // Computed for sidebar visibility
@@ -859,8 +870,7 @@ async function loadChildren(containerId = null) {
       sidebarExpandedIds.value = new Set(sidebarExpandedIds.value)
     }
     currentContainerId.value = containerId
-    // Expand first level
-    expandedIds.value = new Set(children.value.map(n => n.id))
+    // Keep stored expanded state from localStorage (don't reset)
   } catch (e) {
     console.error('Failed to load:', e)
     // If node not found (404), reset to root
@@ -904,6 +914,12 @@ function buildChildTree(flatNodes, parentId, parentCompleted = false) {
 async function enterContainer(node, { skipHistory = false, direction = 'forward' } = {}) {
   // Handle both node objects and node IDs
   const nodeId = typeof node === 'object' ? node?.id : node
+
+  // For notes with no children, open fullscreen detail view instead of navigating
+  if (typeof node === 'object' && node.type === 'note' && !node.children?.length) {
+    selectNode(node, { fullscreen: true })
+    return
+  }
 
   // Push current location to history before navigating (unless skipping)
   if (!skipHistory && currentContainerId.value !== nodeId) {
@@ -966,8 +982,10 @@ function goToParent() {
 // Anchor node for shift+click range selection (like Finder)
 const anchorNode = ref(null)
 
-// Light select for hover - just updates selectedNode, doesn't open detail panel
+// Light select for hover - just updates selectedNode when detail panel is not open
 function hoverSelectNode(node) {
+  // Don't change selection on hover if detail panel is showing
+  if (showDetail.value) return
   selectedNode.value = node
 }
 
@@ -1687,6 +1705,40 @@ async function toggleComplete(node) {
   }
 }
 
+async function toggleFavorite(node) {
+  try {
+    await api.updateNode(node.id, { favorite: !node.favorite })
+    await loadChildren(currentContainerId.value)
+    await loadFavorites()
+  } catch (e) {
+    error.value = e.message
+  }
+}
+
+// Get localStorage key for expanded state (per workspace)
+function getExpandedKey() {
+  return `graphcore-expanded-${currentWorkspace.value}`
+}
+
+// Save expanded IDs to localStorage
+function saveExpandedState() {
+  const ids = Array.from(expandedIds.value)
+  localStorage.setItem(getExpandedKey(), JSON.stringify(ids))
+}
+
+// Load expanded IDs from localStorage
+function loadExpandedState() {
+  const stored = localStorage.getItem(getExpandedKey())
+  if (stored) {
+    try {
+      const ids = JSON.parse(stored)
+      expandedIds.value = new Set(ids)
+    } catch (e) {
+      expandedIds.value = new Set()
+    }
+  }
+}
+
 function toggleExpand(nodeId) {
   if (expandedIds.value.has(nodeId)) {
     expandedIds.value.delete(nodeId)
@@ -1694,14 +1746,17 @@ function toggleExpand(nodeId) {
     expandedIds.value.add(nodeId)
   }
   expandedIds.value = new Set(expandedIds.value)
+  saveExpandedState()
 }
 
 function expandAll() {
   expandedIds.value = new Set(flatChildren.value.map(n => n.id))
+  saveExpandedState()
 }
 
 function collapseAll() {
   expandedIds.value = new Set()
+  saveExpandedState()
 }
 
 // Search functions - spotlight style
@@ -2052,6 +2107,94 @@ function handleChildCardClick(e, node) {
 
 function isCardSelected(nodeId) {
   return selectedIds.value.has(nodeId) || selectedNode.value?.id === nodeId
+}
+
+// Context menu functions
+async function showContextMenu(e, node) {
+  e.preventDefault()
+  e.stopPropagation()
+
+  // Load linked nodes for the menu
+  let links = []
+  try {
+    links = await api.getLinkedNodes(node.id)
+  } catch (err) {
+    console.error('Failed to load links:', err)
+  }
+
+  contextMenu.value = {
+    visible: true,
+    x: e.clientX,
+    y: e.clientY,
+    node: node,
+    linkedNodes: links
+  }
+}
+
+function closeContextMenu() {
+  contextMenu.value.visible = false
+}
+
+function handleContextMenuViewDetails(node) {
+  selectNode(node)
+  closeContextMenu()
+}
+
+function handleContextMenuEnter(node) {
+  enterContainer(node)
+  closeContextMenu()
+}
+
+function handleContextMenuAddChild(node) {
+  closeContextMenu()
+  showAddNodeModal(node.id)
+}
+
+function handleContextMenuToggleComplete(node) {
+  toggleComplete(node)
+  closeContextMenu()
+}
+
+function handleContextMenuToggleFavorite(node) {
+  toggleFavorite(node)
+  closeContextMenu()
+}
+
+function handleContextMenuOpenLinkSearch(node) {
+  openLinkSearch(node)
+  closeContextMenu()
+}
+
+async function handleContextMenuUnlink({ source, target }) {
+  try {
+    await api.unlinkNodes(source.id, target.id)
+    contextMenu.value.linkedNodes = contextMenu.value.linkedNodes.filter(n => n.id !== target.id)
+    if (showDetail.value && selectedNode.value?.id === source.id) {
+      const updated = await api.getNode(source.id)
+      if (updated) selectedNode.value = updated
+    }
+  } catch (err) {
+    console.error('Failed to unlink nodes:', err)
+  }
+}
+
+async function handleContextMenuMoveToWorkspace({ node, workspaceId }) {
+  try {
+    await api.updateNode(node.id, { workspace_id: workspaceId === 'people' ? null : workspaceId })
+    await loadChildren()
+  } catch (err) {
+    console.error('Failed to move to workspace:', err)
+  }
+  closeContextMenu()
+}
+
+function handleContextMenuDelete(node) {
+  deleteNode(node.id)
+  closeContextMenu()
+}
+
+async function handleViewContextMenu({ event, node }) {
+  await showContextMenu(event, node)
 }
 
 // Inline editing functions
@@ -2416,6 +2559,9 @@ onMounted(async () => {
     await loadChildren(null)
   }
 
+  // Restore expanded state from localStorage
+  loadExpandedState()
+
   // Load recent items and favorites for sidebar
   loadRecentItems()
   loadFavorites()
@@ -2467,20 +2613,22 @@ onUnmounted(() => {
     <!-- Sidebar -->
     <aside
       class="sidebar"
-      :class="{ collapsed: !sidebarVisible, pinned: sidebarPinned }"
+      :class="{ collapsed: !sidebarVisible && sidebarPinned, pinned: sidebarPinned, show: sidebarHovered }"
       @mouseenter="onSidebarEnter"
       @mouseleave="onSidebarLeave"
     >
-      <div class="sidebar-header">
-        <h2 v-if="sidebarVisible">Graph Core</h2>
-        <button
-          class="sidebar-pin-btn"
-          :class="{ active: sidebarPinned }"
-          @click="sidebarPinned = !sidebarPinned"
-          :title="sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'"
-        >
-          <span v-html="sidebarPinned ? '&#128205;' : '&#128204;'"></span>
-        </button>
+      <div class="sidebar-header" @mouseenter="onSidebarEnter">
+        <div class="sidebar-header-row" @mouseenter="onSidebarEnter">
+          <h2 @mouseenter="onSidebarEnter">Graph Core</h2>
+          <button
+            class="sidebar-pin-btn"
+            :class="{ active: sidebarPinned }"
+            @click="sidebarPinned = !sidebarPinned"
+            :title="sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'"
+          >
+            <span v-html="sidebarPinned ? '&#128205;' : '&#128204;'"></span>
+          </button>
+        </div>
       </div>
       <div class="sidebar-content">
         <!-- Root -->
@@ -2599,7 +2747,7 @@ onUnmounted(() => {
       </div>
 
       <!-- Legend (fixed at bottom, outside scrollable content) -->
-      <div class="sidebar-legend" v-if="sidebarVisible">
+      <div class="sidebar-legend">
         <div class="legend-title">Node Types</div>
         <div class="legend-items">
           <div v-for="t in nodeTypes" :key="t" class="legend-item">
@@ -2618,21 +2766,7 @@ onUnmounted(() => {
     <main class="main-content">
       <!-- Header with breadcrumbs -->
       <div class="content-header">
-        <nav class="header-breadcrumbs">
-          <span class="crumb" @click="navigateToBreadcrumb(-1)">~</span>
-          <template v-for="(crumb, index) in breadcrumbs" :key="crumb.id">
-            <span class="crumb-sep">/</span>
-            <span
-              class="crumb"
-              :class="{ current: index === breadcrumbs.length - 1 }"
-              @click="index < breadcrumbs.length - 1 ? navigateToBreadcrumb(index) : null"
-            >
-              {{ crumb.title }}
-            </span>
-          </template>
-        </nav>
-
-        <div class="toolbar">
+        <div class="header-row">
           <!-- Workspace Selector -->
           <div class="workspace-selector">
             <select v-model="currentWorkspace" class="workspace-dropdown" title="Switch workspace">
@@ -2642,8 +2776,8 @@ onUnmounted(() => {
               </option>
             </select>
           </div>
-          <span class="toolbar-separator"></span>
 
+          <div class="toolbar">
           <button :class="{ primary: viewMode === 'graph' }" @click="viewMode = 'graph'">Graph</button>
           <button :class="{ primary: viewMode === 'cards' }" @click="viewMode = 'cards'">Cards</button>
           <button :class="{ primary: viewMode === 'tree' }" @click="viewMode = 'tree'">Table</button>
@@ -2763,6 +2897,7 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
+      </div>
 
       <!-- Add Node Input -->
       <div class="add-node-bar">
@@ -2776,14 +2911,26 @@ onUnmounted(() => {
           @keyup.enter="createNode"
         />
         <button class="primary" @click="createNode">Add</button>
-        <template v-if="viewMode === 'tree'">
-          <button @click="expandAll" title="Expand all">++</button>
-          <button @click="collapseAll" title="Collapse all">--</button>
-        </template>
       </div>
 
-      <!-- Content wrapper (body + detail panel) -->
+      <!-- Content wrapper (breadcrumbs + body + detail panel) -->
       <div class="content-wrapper">
+        <!-- Main content area (breadcrumbs + body) -->
+        <div class="content-main">
+          <!-- Breadcrumbs / Path -->
+          <nav class="header-breadcrumbs">
+            <span class="crumb" @click="navigateToBreadcrumb(-1)">~</span>
+            <template v-for="(crumb, index) in breadcrumbs" :key="crumb.id">
+              <span class="crumb-sep">/</span>
+              <span
+                class="crumb"
+                :class="{ current: index === breadcrumbs.length - 1 }"
+                @click="index < breadcrumbs.length - 1 ? navigateToBreadcrumb(index) : null"
+              >
+                {{ crumb.title }}
+              </span>
+            </template>
+          </nav>
         <!-- Content with transition -->
         <div
           class="content-body"
@@ -2818,12 +2965,15 @@ onUnmounted(() => {
           @enter="enterContainer"
           @toggle-complete="toggleComplete"
           @toggle-expand="toggleExpand"
+          @expand-all="expandAll"
+          @collapse-all="collapseAll"
           @delete="deleteNode"
           @move="moveNode"
           @move-multiple="moveMultipleNodes"
           @reorder="handleReorder"
           @go-parent="goToParent"
           @open-fullscreen="openNodeFullscreen"
+          @context-menu="handleViewContextMenu"
         />
 
         <!-- Cards View -->
@@ -2844,6 +2994,7 @@ onUnmounted(() => {
             @drop="onCardDrop($event, node)"
             @mouseenter="showCardTooltip($event, node)"
             @mouseleave="hideCardTooltip"
+            @contextmenu.prevent="showContextMenu($event, node)"
           >
             <!-- Header - always visible but adapts -->
             <div class="node-card-header">
@@ -2944,6 +3095,7 @@ onUnmounted(() => {
                 @drop.stop="onCardDrop($event, child)"
                 @mouseenter="showCardTooltip($event, child)"
                 @mouseleave="hideCardTooltip"
+                @contextmenu.prevent="showContextMenu($event, child)"
               >
                 <div class="child-card-header">
                   <input
@@ -3000,6 +3152,7 @@ onUnmounted(() => {
                     @drop.stop="onCardDrop($event, grandchild)"
                     @mouseenter="showCardTooltip($event, grandchild)"
                     @mouseleave="hideCardTooltip"
+                    @contextmenu.prevent="showContextMenu($event, grandchild)"
                   >
                     <div class="grandchild-header">
                       <input
@@ -3037,6 +3190,7 @@ onUnmounted(() => {
                         :class="[ggchild.type, { completed: ggchild.completed }]"
                         @click.stop="selectNode(ggchild)"
                         @dblclick.stop="enterContainer(ggchild)"
+                        @contextmenu.prevent="showContextMenu($event, ggchild)"
                       >
                         <input
                           v-if="ggchild.type === 'task'"
@@ -3110,6 +3264,7 @@ onUnmounted(() => {
           @enter="enterContainer"
           @show-tooltip="showCardTooltip"
           @hide-tooltip="hideCardTooltip"
+          @context-menu="handleViewContextMenu"
         />
 
         <!-- Persons View -->
@@ -3119,6 +3274,7 @@ onUnmounted(() => {
           :hide-completed="hideCompleted"
           @select="selectNode"
           @delete="deleteNode"
+          @context-menu="handleViewContextMenu"
         />
 
         <!-- Trash View -->
@@ -3154,6 +3310,7 @@ onUnmounted(() => {
         </div>
 
         </div>
+        </div>
         <!-- Detail Panel (inside content-wrapper) -->
         <DetailPanel
           v-if="showDetail && selectedNode"
@@ -3186,6 +3343,26 @@ onUnmounted(() => {
       :parent-id="addNodeModal.parentId"
       @close="hideAddNodeModal"
       @create="handleAddNodeCreate"
+    />
+
+    <!-- Node Context Menu -->
+    <NodeContextMenu
+      :visible="contextMenu.visible"
+      :x="contextMenu.x"
+      :y="contextMenu.y"
+      :node="contextMenu.node"
+      :linked-nodes="contextMenu.linkedNodes"
+      :workspaces="workspaces"
+      @close="closeContextMenu"
+      @view-details="handleContextMenuViewDetails"
+      @enter="handleContextMenuEnter"
+      @add-child="handleContextMenuAddChild"
+      @toggle-complete="handleContextMenuToggleComplete"
+      @toggle-favorite="handleContextMenuToggleFavorite"
+      @open-link-search="handleContextMenuOpenLinkSearch"
+      @unlink="handleContextMenuUnlink"
+      @move-to-workspace="handleContextMenuMoveToWorkspace"
+      @delete="handleContextMenuDelete"
     />
 
     <!-- Spotlight Search Modal -->
@@ -3274,14 +3451,19 @@ onUnmounted(() => {
 }
 
 .content-header {
-  padding: var(--spacing-lg);
   padding-top: 35px;
+  background: var(--bg-primary);
+  -webkit-app-region: drag;
+}
+
+.header-row {
+  height: 52px;
+  box-sizing: border-box;
+  padding: 0 var(--spacing-lg);
   border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--bg-secondary);
-  -webkit-app-region: drag;
 }
 
 .header-breadcrumbs {
@@ -3289,6 +3471,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   font-size: 1.1rem;
+  padding: var(--spacing-lg) var(--spacing-lg) 0 var(--spacing-lg);
+  background: var(--bg-primary);
 }
 
 .crumb {
@@ -3319,9 +3503,12 @@ onUnmounted(() => {
 }
 
 .add-node-bar {
+  height: 60px;
+  box-sizing: border-box;
   display: flex;
+  align-items: center;
   gap: var(--spacing-sm);
-  padding: var(--spacing-md) var(--spacing-lg);
+  padding: 0 var(--spacing-lg);
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-secondary);
 }
@@ -3539,7 +3726,7 @@ onUnmounted(() => {
   line-height: 1.5;
   color: var(--text-secondary);
   cursor: text;
-  padding: 4px 8px;
+  padding: 4px 8px 4px 16px;
   border-radius: 4px;
   transition: background 0.15s;
   max-height: 150px;

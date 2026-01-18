@@ -8,7 +8,13 @@ const props = defineProps({
   hideCompleted: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['select', 'update', 'delete'])
+const emit = defineEmits(['select', 'update', 'delete', 'context-menu'])
+
+// Context menu handler
+function handleContextMenu(e, node) {
+  e.preventDefault()
+  emit('context-menu', { event: e, node })
+}
 
 const persons = ref([])
 const personLinks = ref({})
@@ -426,6 +432,7 @@ function getOrganizationsForPerson(personId) {
         class="person-card"
         :style="{ borderLeftColor: person.color || '#0f4c75' }"
         @click="editPerson(person)"
+        @contextmenu.prevent="handleContextMenu($event, person)"
       >
         <div class="card-header">
           <div class="person-avatar" :style="{ background: person.color || '#0f4c75' }">
@@ -472,7 +479,7 @@ function getOrganizationsForPerson(personId) {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="person in sortedPersons" :key="person.id" @click="selectPerson(person)">
+          <tr v-for="person in sortedPersons" :key="person.id" @click="selectPerson(person)" @contextmenu.prevent="handleContextMenu($event, person)">
             <td class="col-color">
               <div class="color-dot" :style="{ background: person.color || '#0f4c75' }"></div>
             </td>

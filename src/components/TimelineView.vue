@@ -9,7 +9,13 @@ const props = defineProps({
   colorMap: { type: Object, default: () => ({}) }
 })
 
-const emit = defineEmits(['select', 'enter', 'show-tooltip', 'hide-tooltip'])
+const emit = defineEmits(['select', 'enter', 'show-tooltip', 'hide-tooltip', 'context-menu'])
+
+// Context menu handler
+function handleContextMenu(e, node) {
+  e.preventDefault()
+  emit('context-menu', { event: e, node })
+}
 
 // Zoom level: pixels per day (higher = more zoomed in)
 const zoomLevel = ref(20)
@@ -406,6 +412,7 @@ watch(() => props.nodes, () => {
               @click="emit('select', node)"
               @mouseenter="emit('show-tooltip', $event, node)"
               @mouseleave="emit('hide-tooltip')"
+              @contextmenu.prevent="handleContextMenu($event, node)"
             >
               <span class="tree-indent" :style="{ width: (node.depth * 5) + 'px' }"></span>
               <span v-if="node.type === 'person'" class="type-badge person" v-html="personIconSvg"></span>
@@ -513,6 +520,7 @@ watch(() => props.nodes, () => {
                     @dblclick="emit('enter', node)"
                     @mouseenter="emit('show-tooltip', $event, node)"
                     @mouseleave="emit('hide-tooltip')"
+                    @contextmenu.prevent="handleContextMenu($event, node)"
                   >
                     <span class="bar-label">{{ node.title }}</span>
                   </div>

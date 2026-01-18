@@ -130,7 +130,7 @@ watch(() => props.isEditing, (editing) => {
 .card-notes-display.size-normal {
   font-size: 14px;
   line-height: 1.6;
-  padding: 0 16px;
+  padding: 0 16px 0 24px;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
