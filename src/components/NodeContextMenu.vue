@@ -219,13 +219,15 @@ function getInitials(name) {
   text-transform: uppercase;
 }
 
-.context-menu-type.task { background: #3b82f6; color: white; }
-.context-menu-type.project { background: #8b5cf6; color: white; }
-.context-menu-type.folder { background: #f59e0b; color: white; }
-.context-menu-type.note { background: #10b981; color: white; }
-.context-menu-type.person { background: #e67e22; color: white; }
-.context-menu-type.organization { background: #9b59b6; color: white; }
-.context-menu-type.group { background: #1abc9c; color: white; }
+.context-menu-type.project { background: var(--type-project-bg); color: var(--type-project-text); }
+.context-menu-type.task { background: var(--type-task-bg); color: var(--type-task-text); }
+.context-menu-type.note { background: var(--type-note-bg); color: var(--type-note-text); }
+.context-menu-type.milestone { background: var(--type-milestone-bg); color: var(--type-milestone-text); }
+.context-menu-type.group { background: var(--type-group-bg); color: var(--type-group-text); }
+.context-menu-type.person { background: var(--type-person-bg); color: var(--type-person-text); }
+.context-menu-type.event { background: var(--type-event-bg); color: var(--type-event-text); }
+.context-menu-type.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
+.context-menu-type.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
 
 .context-menu-title {
   flex: 1;

@@ -861,7 +861,6 @@ td.col-title {
 .type-badge.group { background: var(--type-group-bg); color: var(--type-group-text); }
 .type-badge.event { background: var(--type-event-bg); color: var(--type-event-text); }
 .type-badge.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
-.type-badge.folder { background: var(--type-folder-bg); color: var(--type-folder-text); }
 .type-badge.person { background: var(--type-person-bg); color: var(--type-person-text); }
 .type-badge.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
 

@@ -2010,16 +2010,16 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
   color: var(--text-secondary);
 }
 
-.link-type.task { color: #f0c674; }
-.link-type.note { color: #81a2be; }
-.link-type.project { color: #b5bd68; }
-.link-type.milestone { color: #b294bb; }
-.link-type.group { color: #a0a0d0; }
-.link-type.event { color: #f07da0; }
-.link-type.topic { color: #1abc9c; }
-.link-type.folder { color: #95a5a6; }
-.link-type.person { color: #3498db; display: inline-flex; align-items: center; }
+.link-type.project { color: var(--type-project-text); }
+.link-type.task { color: var(--type-task-text); }
+.link-type.note { color: var(--type-note-text); }
+.link-type.milestone { color: var(--type-milestone-text); }
+.link-type.group { color: var(--type-group-text); }
+.link-type.event { color: var(--type-event-text); }
+.link-type.topic { color: var(--type-topic-text); }
+.link-type.person { color: var(--type-person-text); display: inline-flex; align-items: center; }
 .link-type.person :deep(svg) { width: 10px; height: 10px; }
+.link-type.organization { color: var(--type-organization-text); }
 
 .child-expand-btn {
   width: 18px;
@@ -2074,16 +2074,16 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
   color: var(--text-secondary);
 }
 
-.gc-type.task { color: #f0c674; }
-.gc-type.note { color: #81a2be; }
-.gc-type.project { color: #b5bd68; }
-.gc-type.milestone { color: #b294bb; }
-.gc-type.group { color: #a0a0d0; }
-.gc-type.event { color: #f07da0; }
-.gc-type.topic { color: #1abc9c; }
-.gc-type.folder { color: #95a5a6; }
-.gc-type.person { color: #3498db; display: inline-flex; align-items: center; }
+.gc-type.project { color: var(--type-project-text); }
+.gc-type.task { color: var(--type-task-text); }
+.gc-type.note { color: var(--type-note-text); }
+.gc-type.milestone { color: var(--type-milestone-text); }
+.gc-type.group { color: var(--type-group-text); }
+.gc-type.event { color: var(--type-event-text); }
+.gc-type.topic { color: var(--type-topic-text); }
+.gc-type.person { color: var(--type-person-text); display: inline-flex; align-items: center; }
 .gc-type.person :deep(svg) { width: 10px; height: 10px; }
+.gc-type.organization { color: var(--type-organization-text); }
 
 .gc-title {
   flex: 1;

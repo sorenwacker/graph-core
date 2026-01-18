@@ -300,17 +300,8 @@ function formatDate(dateStr) {
 }
 
 function getTypeColor(type) {
-  const colors = {
-    project: '#3b82f6',
-    task: '#eab308',
-    note: '#22c55e',
-    milestone: '#a855f7',
-    topic: '#06b6d4',
-    folder: '#64748b',
-    person: '#f97316',
-    event: '#ef4444'
-  }
-  return colors[type] || colors.task
+  const colors = getTypeColors(type)
+  return colors.text
 }
 
 function getBarStyle(node) {
@@ -891,7 +882,6 @@ watch(() => props.nodes, () => {
 .type-badge.group { background: var(--type-group-bg); color: var(--type-group-text); }
 .type-badge.event { background: var(--type-event-bg); color: var(--type-event-text); }
 .type-badge.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
-.type-badge.folder { background: var(--type-folder-bg); color: var(--type-folder-text); }
 .type-badge.person { background: var(--type-person-bg); color: var(--type-person-text); }
 .type-badge.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
 

@@ -260,21 +260,21 @@ function onDrop(event) {
   margin-bottom: 8px;
 }
 
-/* Type icon styles - using centralized colors */
+/* Type icon styles - using centralized colors from CSS variables */
 .type-icon.task {
-  background: rgba(234, 179, 8, 0.15);
-  color: #fbbf24;
-  border: 1px solid rgba(234, 179, 8, 0.3);
+  background: var(--type-task-bg);
+  color: var(--type-task-text);
+  border: 1px solid var(--type-task-text);
 }
 
 .type-icon.group {
-  background: #3a3a5a;
-  color: #a0a0d0;
+  background: var(--type-group-bg);
+  color: var(--type-group-text);
 }
 
 .type-icon.event {
-  background: #5a1a3a;
-  color: #f07da0;
+  background: var(--type-event-bg);
+  color: var(--type-event-text);
 }
 
 .type-icon.person {

@@ -1634,9 +1634,9 @@ async function wrapWithParent({ nodeId, parentTitle }) {
     // Create new parent at same level as current node
     const newParent = await api.createNode({
       title: parentTitle,
-      type: 'folder',
+      type: 'group',
       parent_id: node.parent_id,
-      workspace_id: getWorkspaceIdForNode('folder')
+      workspace_id: getWorkspaceIdForNode('group')
     })
     if (!newParent || !newParent.id) {
       throw new Error('Failed to create parent node')
@@ -4370,7 +4370,6 @@ onUnmounted(() => {
 .result-type.group { background: var(--type-group-bg); color: var(--type-group-text); }
 .result-type.event { background: var(--type-event-bg); color: var(--type-event-text); }
 .result-type.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
-.result-type.folder { background: var(--type-folder-bg); color: var(--type-folder-text); }
 .result-type.person { background: var(--type-person-bg); color: var(--type-person-text); }
 .result-type.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
 
@@ -4862,7 +4861,6 @@ onUnmounted(() => {
 .result-type-badge.group { background: var(--type-group-bg); color: var(--type-group-text); }
 .result-type-badge.event { background: var(--type-event-bg); color: var(--type-event-text); }
 .result-type-badge.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
-.result-type-badge.folder { background: var(--type-folder-bg); color: var(--type-folder-text); }
 .result-type-badge.person { background: var(--type-person-bg); color: var(--type-person-text); }
 .result-type-badge.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
 

@@ -65,7 +65,7 @@ describe('Delete Node Behavior', () => {
     // Create parent node
     const parent = mockDb.createNode({
       title: 'Parent',
-      type: 'folder',
+      type: 'group',
       parent_id: null
     })
 
