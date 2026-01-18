@@ -930,6 +930,9 @@ function navigateBack() {
   if (navigationHistory.value.length > 0) {
     const previousId = navigationHistory.value.pop()
     enterContainer(previousId, { skipHistory: true, direction: 'back' })
+  } else {
+    // Fallback: go to parent if no history
+    goToParent()
   }
 }
 
@@ -1545,9 +1548,9 @@ async function deleteNode(nodeId) {
     // Get node data for undo before deleting
     const node = await api.getNode(nodeId)
 
-    // Check if we need to navigate back after deletion
-    const needsNavigation = currentContainerId.value === nodeId ||
-      breadcrumbs.value.some(b => b.id === nodeId)
+    // Check if we need to navigate back after deletion (use == for type coercion)
+    const needsNavigation = currentContainerId.value == nodeId ||
+      breadcrumbs.value.some(b => b.id == nodeId)
 
     await api.deleteNode(nodeId, false)  // Soft delete
     if (node) {
@@ -1587,10 +1590,10 @@ async function deleteMultipleNodes(nodeIds) {
       if (node) deletedNodes.push(node)
     }
 
-    // Check if we need to navigate back after deletion
-    const nodeIdSet = new Set(nodeIds)
-    const needsNavigation = nodeIdSet.has(currentContainerId.value) ||
-      breadcrumbs.value.some(b => nodeIdSet.has(b.id))
+    // Check if we need to navigate back after deletion (convert to strings for comparison)
+    const nodeIdSet = new Set(nodeIds.map(String))
+    const needsNavigation = nodeIdSet.has(String(currentContainerId.value)) ||
+      breadcrumbs.value.some(b => nodeIdSet.has(String(b.id)))
 
     // Delete all nodes
     for (const id of nodeIds) {
