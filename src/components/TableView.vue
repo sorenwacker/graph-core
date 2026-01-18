@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useNodeTooltip } from '../composables/useNodeTooltip.js'
+import { useNodeInteractions } from '../composables/useNodeInteractions.js'
 import { getTypeIcon, getTypeIconHtml, getTypeColors, typeConfig, personIconSvg } from '../utils/constants.js'
 
 const props = defineProps({
@@ -10,18 +11,31 @@ const props = defineProps({
   expandedIds: { type: Set, default: () => new Set() },
   hideCompleted: { type: Boolean, default: false },
   hideSensitive: { type: Boolean, default: false },
+  showDetail: { type: Boolean, default: false },
   currentParentId: { type: Number, default: null },
   currentContainer: { type: Object, default: null },
   colorMap: { type: Object, default: () => ({}) }
 })
 
-const emit = defineEmits(['select', 'select-multiple', 'enter', 'toggle-complete', 'toggle-expand', 'add-child', 'delete', 'move', 'move-multiple', 'reorder', 'go-parent', 'open-fullscreen'])
+const emit = defineEmits(['hover', 'select', 'select-multiple', 'enter', 'toggle-complete', 'toggle-expand', 'add-child', 'delete', 'move', 'move-multiple', 'reorder', 'go-parent', 'open-fullscreen'])
 
 // Setup tooltips
 const { showTooltip, hideTooltip } = useNodeTooltip({
   onOpenDetail: (nodeId) => emit('open-fullscreen', nodeId),
   onToggleComplete: (nodeId) => emit('toggle-complete', nodeId),
-  getHideSensitive: () => props.hideSensitive
+  getHideSensitive: () => props.hideSensitive,
+  shouldShowTooltip: () => !props.showDetail
+})
+
+// Setup node interactions (shared logic for hover/click/double-click)
+const { handleHover, handleLeave, handleClick, handleDoubleClick } = useNodeInteractions({
+  onHover: (node) => emit('hover', node),    // Light select on hover
+  onSelect: (node) => emit('select', node),  // Full select + open detail on click
+  onNavigate: (node) => emit('enter', node), // Navigate on double-click
+  onMultiSelect: (node, opts) => emit('select-multiple', { node, ...opts }),
+  getShowDetail: () => props.showDetail,
+  showTooltip,
+  hideTooltip
 })
 
 function getRowStyle(node) {
@@ -323,17 +337,7 @@ function isSelected(nodeId) {
   return props.selectedIds?.has(nodeId) || props.selectedId === nodeId
 }
 
-function handleClick(e, node) {
-  if (e.ctrlKey || e.metaKey) {
-    // Toggle selection
-    emit('select-multiple', { node, add: true })
-  } else if (e.shiftKey) {
-    // Range selection
-    emit('select-multiple', { node, range: true })
-  } else {
-    emit('select', node)
-  }
-}
+// handleHover and handleClick are provided by useNodeInteractions
 </script>
 
 <template>
@@ -385,9 +389,9 @@ function handleClick(e, node) {
             @mousedown="onMouseDown($event, node)"
             @dragstart.prevent
             @click="handleClick($event, node)"
-            @dblclick="emit('enter', node)"
-            @mouseenter="showTooltip($event, node)"
-            @mouseleave="hideTooltip"
+            @dblclick="handleDoubleClick(node)"
+            @mouseenter="handleHover($event, node)"
+            @mouseleave="handleLeave"
           >
             <td class="col-expand">
               <button
@@ -438,9 +442,9 @@ function handleClick(e, node) {
                 @mousedown="onMouseDown($event, child)"
                 @dragstart.prevent
                 @click="handleClick($event, child)"
-                @dblclick="emit('enter', child)"
-                @mouseenter="showTooltip($event, child)"
-                @mouseleave="hideTooltip"
+                @dblclick="handleDoubleClick(child)"
+                @mouseenter="handleHover($event, child)"
+                @mouseleave="handleLeave"
               >
                 <td class="col-expand">
                   <button
@@ -492,9 +496,9 @@ function handleClick(e, node) {
                   @mousedown="onMouseDown($event, grandchild)"
                   @dragstart.prevent
                   @click="handleClick($event, grandchild)"
-                  @dblclick="emit('enter', grandchild)"
-                  @mouseenter="showTooltip($event, grandchild)"
-                  @mouseleave="hideTooltip"
+                  @dblclick="handleDoubleClick(grandchild)"
+                  @mouseenter="handleHover($event, grandchild)"
+                  @mouseleave="handleLeave"
                 >
                   <td class="col-expand"></td>
                   <td class="col-type">

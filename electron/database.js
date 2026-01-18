@@ -313,9 +313,10 @@ class Database {
       )
     `)
 
-    // Migration: Convert person parent-child relationships to links
-    // Persons should be independent entities connected only via links
-    this._migratePersonRelationshipsToLinks()
+    // Person migrations (single responsibility)
+    this._migratePersonsToRootNodes()      // Persons with parent_id -> root + link
+    this._migratePersonChildrenToRoot()    // Children of persons -> root + link
+    this._migrateOrganizationTextToLinks() // Org text field -> org node + link
 
     this.db.run(`
       CREATE TABLE IF NOT EXISTS categories (
@@ -430,57 +431,119 @@ class Database {
   }
 
   /**
-   * Migration: Convert person/organization parent-child relationships to links
-   * Persons and organizations should be independent root nodes connected only via links
+   * Migration: Convert persons with parent_id to root nodes with links.
+   * Persons should be independent root nodes connected via links (not parent-child).
    */
-  _migratePersonRelationshipsToLinks() {
-    let migrated = 0
-
-    // 1. Find all persons and organizations that have a parent_id (they should be root nodes)
-    const entitiesWithParents = this._query(
-      "SELECT id, parent_id, type FROM nodes WHERE type IN ('person', 'organization') AND parent_id IS NOT NULL AND deleted_at IS NULL"
+  _migratePersonsToRootNodes() {
+    const personsWithParents = this._query(
+      "SELECT id, parent_id FROM nodes WHERE type = 'person' AND parent_id IS NOT NULL AND deleted_at IS NULL"
     )
+    if (personsWithParents.length === 0) return
 
-    for (const entity of entitiesWithParents) {
-      // Create a link between the entity and their current parent
-      try {
-        this.db.run(
-          'INSERT OR IGNORE INTO node_links (source_id, target_id) VALUES (?, ?)',
-          [entity.id, entity.parent_id]
-        )
-        migrated++
-      } catch (e) {
-        // Link might already exist, ignore
-      }
-      // Remove the parent relationship (make entity a root node)
-      this.db.run('UPDATE nodes SET parent_id = NULL, path = "", depth = 0 WHERE id = ?', [entity.id])
+    for (const person of personsWithParents) {
+      this.db.run('INSERT OR IGNORE INTO node_links (source_id, target_id) VALUES (?, ?)', [person.id, person.parent_id])
+      this.db.run('UPDATE nodes SET parent_id = NULL, path = "", depth = 0 WHERE id = ?', [person.id])
     }
 
-    // 2. Find all nodes whose parent is a person (nothing should be a child of a person)
-    const nodesWithPersonParent = this._query(`
-      SELECT n.id, n.parent_id
-      FROM nodes n
+    console.log(`Migrated ${personsWithParents.length} person parent-child relationships to links`)
+    this._save()
+  }
+
+  /**
+   * Migration: Move children of persons to root level with links.
+   * Nothing should be a child of a person node.
+   */
+  _migratePersonChildrenToRoot() {
+    const children = this._query(`
+      SELECT n.id, n.parent_id FROM nodes n
       JOIN nodes p ON n.parent_id = p.id
       WHERE p.type = 'person' AND n.deleted_at IS NULL
     `)
+    if (children.length === 0) return
 
-    for (const node of nodesWithPersonParent) {
-      // Create a link between the node and the person
-      try {
-        this.db.run(
-          'INSERT OR IGNORE INTO node_links (source_id, target_id) VALUES (?, ?)',
-          [node.id, node.parent_id]
-        )
-        migrated++
-      } catch (e) {
-        // Link might already exist, ignore
-      }
-      // Remove the parent relationship (make node a root node)
+    for (const node of children) {
+      this.db.run('INSERT OR IGNORE INTO node_links (source_id, target_id) VALUES (?, ?)', [node.id, node.parent_id])
       this.db.run('UPDATE nodes SET parent_id = NULL, path = "", depth = 0 WHERE id = ?', [node.id])
     }
 
+    console.log(`Migrated ${children.length} person children to root with links`)
+    this._save()
+  }
+
+  /**
+   * Migration: Convert organization text field on persons to organization node links
+   * For persons with organization text but no linked organization, create/find org and link
+   */
+  _migrateOrganizationTextToLinks() {
+    // Find persons with organization text field that don't have linked organizations
+    const personsWithOrgText = this._query(
+      "SELECT id, organization FROM nodes WHERE type = 'person' AND organization IS NOT NULL AND organization != '' AND deleted_at IS NULL"
+    )
+
+    if (personsWithOrgText.length === 0) return
+
+    let migrated = 0
+    const orgCache = new Map() // Cache organization nodes by title
+
+    for (const person of personsWithOrgText) {
+      const orgName = person.organization.trim()
+      if (!orgName) continue
+
+      // Check if person already has a linked organization
+      const existingLinks = this._query(
+        `SELECT n.id FROM node_links nl
+         JOIN nodes n ON (nl.target_id = n.id OR nl.source_id = n.id) AND n.id != ?
+         WHERE (nl.source_id = ? OR nl.target_id = ?) AND n.type = 'organization' AND n.deleted_at IS NULL`,
+        [person.id, person.id, person.id]
+      )
+
+      if (existingLinks.length > 0) {
+        // Person already has linked organization, clear the text field
+        this.db.run('UPDATE nodes SET organization = NULL WHERE id = ?', [person.id])
+        continue
+      }
+
+      // Find or create organization node
+      let orgId = orgCache.get(orgName.toLowerCase())
+      if (!orgId) {
+        const existingOrg = this._query(
+          "SELECT id FROM nodes WHERE type = 'organization' AND LOWER(title) = LOWER(?) AND deleted_at IS NULL",
+          [orgName]
+        )[0]
+
+        if (existingOrg) {
+          orgId = existingOrg.id
+        } else {
+          // Create new organization node
+          this.db.run(
+            "INSERT INTO nodes (type, title, workspace_id, path, depth, created_at, updated_at) VALUES (?, ?, NULL, '', 0, datetime('now'), datetime('now'))",
+            ['organization', orgName]
+          )
+          const result = this._query("SELECT last_insert_rowid() as id")
+          orgId = result[0]?.id
+        }
+        orgCache.set(orgName.toLowerCase(), orgId)
+      }
+
+      if (orgId) {
+        // Create link between person and organization
+        try {
+          this.db.run(
+            'INSERT OR IGNORE INTO node_links (source_id, target_id) VALUES (?, ?)',
+            [person.id, orgId]
+          )
+          migrated++
+        } catch (e) {
+          // Link might already exist
+        }
+
+        // Clear the organization text field
+        this.db.run('UPDATE nodes SET organization = NULL WHERE id = ?', [person.id])
+      }
+    }
+
     if (migrated > 0) {
-      console.log(`Migrated ${migrated} person parent-child relationships to links`)
+      console.log(`Migrated ${migrated} person organization text fields to links`)
       this._save()
     }
   }

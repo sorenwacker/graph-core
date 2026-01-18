@@ -1,11 +1,8 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { marked } from 'marked'
-import tippy from 'tippy.js'
-import 'tippy.js/dist/tippy.css'
-import 'tippy.js/themes/translucent.css'
 import { api } from './services/api.js'
-import { buildTooltipHTML, tooltipOptions } from './utils/tooltip.js'
+import { useNodeTooltip } from './composables/useNodeTooltip.js'
 import { nodeTypes, getImportanceLabel, getTypeIcon, getTypeColors, typeConfig, personIconSvg } from './utils/constants.js'
 import DetailPanel from './components/DetailPanel.vue'
 import GraphView from './components/GraphView.vue'
@@ -13,6 +10,9 @@ import TableView from './components/TableView.vue'
 import TimelineView from './components/TimelineView.vue'
 import PersonsView from './components/PersonsView.vue'
 import NodeContextMenu from './components/NodeContextMenu.vue'
+import CardTitleEdit from './components/CardTitleEdit.vue'
+import CardNotes from './components/CardNotes.vue'
+import AddNodeModal from './components/AddNodeModal.vue'
 
 // Click-outside directive
 const vClickOutside = {
@@ -41,17 +41,12 @@ marked.use({
   }
 })
 
-// Track active card tippy instance
-let activeCardTippy = null
-let cardTooltipTimeout = null
-let cardTooltipHideTimeout = null
-const TOOLTIP_HIDE_DELAY = 200
-
 // Navigation state - drill-down model
 const currentContainerId = ref(null)  // null = root level
 const currentContainer = ref(null)
 const breadcrumbs = ref([])  // path from root to current container
 const children = ref([])     // children of current container
+const navigationHistory = ref([])  // Stack of previous container IDs for back navigation
 
 // UI state - restore from localStorage
 const viewMode = ref(localStorage.getItem('graphcore-viewMode') || 'tree')
@@ -172,10 +167,15 @@ function closeDetailIfNotPinned() {
   }
 }
 
+function closeDetail() {
+  showDetail.value = false
+  fullscreenDetail.value = false
+  detailPinned.value = false
+}
+
 // Inline editing state
 const editingCardId = ref(null)
 const editingTitle = ref('')
-const editingNotes = ref('')
 
 // Inline notes-only editing (separate from full card editing)
 const inlineNotesId = ref(null)
@@ -183,6 +183,16 @@ const inlineNotesText = ref('')
 const inlineNotesRef = ref(null)
 // Sensitive info visibility - restore from localStorage
 const hideSensitive = ref(localStorage.getItem('graphcore-hideSensitive') === 'true')
+
+// Setup tooltip composable - single source of truth for all tooltips
+const { showTooltip, hideTooltip, forceHide: forceHideTooltip } = useNodeTooltip({
+  onToggleComplete: async (nodeId) => {
+    const node = flatChildren.value.find(n => n.id === nodeId)
+    if (node) await toggleComplete(node)
+  },
+  getHideSensitive: () => hideSensitive.value,
+  shouldShowTooltip: () => !showDetail.value
+})
 
 // Hide completed items - restore from localStorage (default: true)
 const hideCompleted = ref(localStorage.getItem('graphcore-hideCompleted') !== 'false')
@@ -314,6 +324,13 @@ watch(sidebarPinned, (newVal) => {
   localStorage.setItem('graphcore-sidebarPinned', String(newVal))
 })
 
+// Close any active tooltips when detail panel opens
+watch(showDetail, (isOpen) => {
+  if (isOpen) {
+    forceHideTooltip()
+  }
+})
+
 // Watch for workspace changes - reload data when switching workspaces
 watch(currentWorkspace, async (newWs) => {
   localStorage.setItem('graphcore-workspace', newWs)
@@ -342,6 +359,15 @@ const searchTimeout = ref(null)
 const searchInputRef = ref(null)
 const graphViewRef = ref(null)
 const detailPanelRef = ref(null)
+const addNodeInput = ref(null)
+const addChildParentId = ref(null) // Parent ID when adding via card + button
+
+// Add node modal state
+const addNodeModal = ref({
+  visible: false,
+  parentId: null
+})
+
 const searchMode = ref('normal') // 'normal' or 'link'
 const linkSourceNodeId = ref(null)
 
@@ -497,10 +523,17 @@ const inheritedColorMap = computed(() => {
       }
     }
   }
-  // Start with container's color if any
+  // Find inherited color from ancestors (breadcrumbs)
+  let ancestorColor = null
+  for (const ancestor of breadcrumbs.value) {
+    if (ancestor.color && ancestor.color !== '#0f4c75') {
+      ancestorColor = ancestor.color
+    }
+  }
+  // Start with container's own color, or inherited from ancestors
   const containerColor = currentContainer.value?.color && currentContainer.value.color !== '#0f4c75'
     ? currentContainer.value.color
-    : null
+    : ancestorColor
   buildMap(children.value, containerColor)
   return colorMap
 })
@@ -584,23 +617,16 @@ function getNestedCardSize(parentChildCount, level) {
   }
 }
 
-// Helper to calculate nested grid style based on count
+// Helper to calculate nested grid style based on count and available space
 function nestedGridStyle(count, level = 1) {
   if (!count || count === 0) return {}
 
-  // Simple column calculation - let CSS flex handle the height
-  let cols
-  if (count === 1) cols = 1
-  else if (count <= 2) cols = 2
-  else if (count <= 4) cols = 2
-  else if (count <= 6) cols = 3
-  else cols = Math.min(4, Math.ceil(Math.sqrt(count)))
-
   const gap = level === 1 ? '4px' : '2px'
 
+  // Use auto-fit with minmax - min() ensures cards can shrink to 100% if container is narrow
   return {
     display: 'grid',
-    gridTemplateColumns: `repeat(${cols}, 1fr)`,
+    gridTemplateColumns: `repeat(auto-fit, minmax(min(300px, 100%), 1fr))`,
     gap: gap
   }
 }
@@ -875,18 +901,36 @@ function buildChildTree(flatNodes, parentId, parentCompleted = false) {
   })
 }
 
-async function enterContainer(node) {
-  if (!node) return
+async function enterContainer(node, { skipHistory = false, direction = 'forward' } = {}) {
+  // Handle both node objects and node IDs
+  const nodeId = typeof node === 'object' ? node?.id : node
+
+  // Push current location to history before navigating (unless skipping)
+  if (!skipHistory && currentContainerId.value !== nodeId) {
+    navigationHistory.value.push(currentContainerId.value)
+    // Limit history size
+    if (navigationHistory.value.length > 50) {
+      navigationHistory.value.shift()
+    }
+  }
 
   // Animate transition
-  transitionDirection.value = 'forward'
+  transitionDirection.value = direction
   transitioning.value = true
 
   await nextTick()
   setTimeout(async () => {
-    await loadChildren(node.id)
+    await loadChildren(nodeId ?? null)
     transitioning.value = false
   }, 150)
+}
+
+// Navigate back in history (used after delete)
+function navigateBack() {
+  if (navigationHistory.value.length > 0) {
+    const previousId = navigationHistory.value.pop()
+    enterContainer(previousId, { skipHistory: true, direction: 'back' })
+  }
 }
 
 async function navigateToBreadcrumb(index) {
@@ -919,6 +963,12 @@ function goToParent() {
 // Anchor node for shift+click range selection (like Finder)
 const anchorNode = ref(null)
 
+// Light select for hover - just updates selectedNode, doesn't open detail panel
+function hoverSelectNode(node) {
+  selectedNode.value = node
+}
+
+// Full select - opens detail panel
 function selectNode(node, options = {}) {
   selectedNode.value = node
   lastSelectedNode.value = node
@@ -928,6 +978,16 @@ function selectNode(node, options = {}) {
   // Open fullscreen if explicitly requested OR if setting is enabled
   if (options.fullscreen || openDetailFullscreen.value) {
     fullscreenDetail.value = true
+  }
+}
+
+// Toggle detail panel visibility (for Enter key)
+function toggleDetailPanel() {
+  if (showDetail.value) {
+    showDetail.value = false
+    fullscreenDetail.value = false
+  } else if (selectedNode.value) {
+    showDetail.value = true
   }
 }
 
@@ -1054,6 +1114,8 @@ async function createNode() {
 
   try {
     const nodeType = newNodeType.value
+    // Use addChildParentId if set (from card + button), otherwise use currentContainerId
+    const targetParentId = addChildParentId.value || currentContainerId.value
 
     // Determine parent-child vs link behavior:
     // - Persons always link (never parent-child)
@@ -1063,16 +1125,16 @@ async function createNode() {
 
     if (nodeType === 'person') {
       useParentChild = false
-      linkToId = currentContainerId.value
+      linkToId = targetParentId
     } else if (nodeType === 'organization') {
-      // Check if current container is also an organization
-      if (currentContainerId.value) {
-        const container = await api.getNode(currentContainerId.value)
+      // Check if target parent is also an organization
+      if (targetParentId) {
+        const container = await api.getNode(targetParentId)
         if (container?.type === 'organization') {
           useParentChild = true  // Org inside org = parent-child
         } else {
           useParentChild = false
-          linkToId = currentContainerId.value
+          linkToId = targetParentId
         }
       } else {
         useParentChild = true  // No container = root level org
@@ -1082,7 +1144,7 @@ async function createNode() {
     const nodeData = {
       title: newNodeTitle.value,
       type: nodeType,
-      parent_id: useParentChild ? currentContainerId.value : null,
+      parent_id: useParentChild ? targetParentId : null,
       workspace_id: getWorkspaceIdForNode(nodeType)
     }
     // Assign random color to persons
@@ -1097,8 +1159,16 @@ async function createNode() {
     if (!useParentChild && linkToId) {
       await api.linkNodes(created.id, linkToId)
     }
-    pushUndo({ type: 'create', nodeId: created.id, nodeData, parentId: useParentChild ? currentContainerId.value : null, linkedToId: linkToId })
+    pushUndo({ type: 'create', nodeId: created.id, nodeData, parentId: useParentChild ? targetParentId : null, linkedToId: linkToId })
+
+    // If adding child via card button, expand parent and reload
+    if (addChildParentId.value) {
+      expandedIds.value.add(addChildParentId.value)
+      await loadSidebarTree()
+    }
+
     newNodeTitle.value = ''
+    addChildParentId.value = null // Clear the child parent ID
     await loadChildren(currentContainerId.value)
   } catch (e) {
     error.value = e.message
@@ -1474,13 +1544,25 @@ async function deleteNode(nodeId) {
   try {
     // Get node data for undo before deleting
     const node = await api.getNode(nodeId)
+
+    // Check if we need to navigate back after deletion
+    const needsNavigation = currentContainerId.value === nodeId ||
+      breadcrumbs.value.some(b => b.id === nodeId)
+
     await api.deleteNode(nodeId, false)  // Soft delete
     if (node) {
       pushUndo({ type: 'delete', nodeData: node, parentId: node.parent_id })
     }
     showDetail.value = false
     selectedNode.value = null
-    await loadChildren(currentContainerId.value)
+
+    // Navigate back if we deleted the current container or a node in the breadcrumbs
+    if (needsNavigation) {
+      navigateBack()
+    } else {
+      await loadChildren(currentContainerId.value)
+    }
+
     await loadSidebarTree()
     loadRecentItems()
   } catch (e) {
@@ -1505,6 +1587,11 @@ async function deleteMultipleNodes(nodeIds) {
       if (node) deletedNodes.push(node)
     }
 
+    // Check if we need to navigate back after deletion
+    const nodeIdSet = new Set(nodeIds)
+    const needsNavigation = nodeIdSet.has(currentContainerId.value) ||
+      breadcrumbs.value.some(b => nodeIdSet.has(b.id))
+
     // Delete all nodes
     for (const id of nodeIds) {
       await api.deleteNode(id, false)
@@ -1517,7 +1604,14 @@ async function deleteMultipleNodes(nodeIds) {
 
     showDetail.value = false
     selectedNode.value = null
-    await loadChildren(currentContainerId.value)
+
+    // Navigate back if we deleted the current container or a node in the breadcrumbs
+    if (needsNavigation) {
+      navigateBack()
+    } else {
+      await loadChildren(currentContainerId.value)
+    }
+
     await loadSidebarTree()
     loadRecentItems()
   } catch (e) {
@@ -1849,6 +1943,12 @@ function getSearchActionLabel(node) {
 
 // Card drag and drop
 function onCardDragStart(e, node) {
+  // Don't start drag if it originated from an input or textarea
+  const target = e.target
+  if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.closest('input, textarea')) {
+    e.preventDefault()
+    return
+  }
   cardDraggedNode.value = node
   e.dataTransfer.effectAllowed = 'move'
   e.dataTransfer.setData('text/plain', node.id)
@@ -1930,7 +2030,7 @@ function handleCardClick(e, node) {
     // Range selection
     handleMultiSelect({ node, range: true })
   } else {
-    // Normal click - select (same as child cards)
+    // Normal click - select and open detail panel
     selectNode(node)
   }
 }
@@ -1942,6 +2042,7 @@ function handleChildCardClick(e, node) {
   } else if (e.shiftKey) {
     handleMultiSelect({ node, range: true })
   } else {
+    // Normal click - select and open detail panel
     selectNode(node)
   }
 }
@@ -1955,11 +2056,6 @@ function startEditing(node, e) {
   e?.stopPropagation()
   editingCardId.value = node.id
   editingTitle.value = node.title
-  editingNotes.value = node.notes || ''
-  nextTick(() => {
-    const input = document.querySelector('.node-card-title-input')
-    if (input) input.focus()
-  })
 }
 
 async function saveEditing() {
@@ -1972,13 +2068,10 @@ async function saveEditing() {
     return
   }
 
-  // Only update if something changed
-  if (editingTitle.value !== originalNode.title || editingNotes.value !== originalNode.notes) {
+  // Only update if title changed
+  if (editingTitle.value !== originalNode.title) {
     try {
-      await api.updateNode(nodeId, {
-        title: editingTitle.value,
-        notes: editingNotes.value
-      })
+      await api.updateNode(nodeId, { title: editingTitle.value })
       await loadChildren(currentContainerId.value)
     } catch (e) {
       error.value = e.message
@@ -1991,7 +2084,6 @@ async function saveEditing() {
 function cancelEditing() {
   editingCardId.value = null
   editingTitle.value = ''
-  editingNotes.value = ''
 }
 
 function handleEditKeydown(e) {
@@ -2062,166 +2154,37 @@ function handleInlineNotesKeydown(e) {
   }
 }
 
-// Build tooltip using shared utility
-function buildCardTooltip(node) {
-  return buildTooltipHTML(node, {
-    showCheckbox: node.type !== 'person',
-    hideSensitive: hideSensitive.value
-  })
-}
-
+// Wrapper functions for tooltip - use composable
 function showCardTooltip(event, node) {
-  // Don't show tooltip if editing or detail panel is fullscreen
-  if (editingCardId.value || inlineNotesId.value || fullscreenDetail.value) return
-
-  // Store mouse position for virtual element
-  const mouseX = event.clientX
-  const mouseY = event.clientY
-
-  // Clear any pending hide
-  if (cardTooltipHideTimeout) {
-    clearTimeout(cardTooltipHideTimeout)
-    cardTooltipHideTimeout = null
-  }
-
-  // Clear any pending show
-  if (cardTooltipTimeout) {
-    clearTimeout(cardTooltipTimeout)
-    cardTooltipTimeout = null
-  }
-
-  // Destroy previous tooltip
-  if (activeCardTippy) {
-    activeCardTippy.destroy()
-    activeCardTippy = null
-  }
-
-  const tooltipContent = buildCardTooltip(node)
-
-  // Store position for getReferenceClientRect
-  const posX = mouseX
-  const posY = mouseY
-
-  // Show tooltip after 500ms delay (same as composable)
-  cardTooltipTimeout = setTimeout(() => {
-    activeCardTippy = tippy(document.body, {
-      content: tooltipContent,
-      allowHTML: true,
-      interactive: true,
-      interactiveBorder: 20,
-      duration: [200, 150],
-      placement: 'auto',
-      appendTo: document.body,
-      theme: 'graph-tooltip',
-      maxWidth: 400,
-      trigger: 'manual',
-      showOnCreate: true,
-      hideOnClick: false,
-      // Use getReferenceClientRect for virtual positioning
-      getReferenceClientRect: () => ({
-        width: 0,
-        height: 0,
-        top: posY,
-        bottom: posY,
-        left: posX,
-        right: posX,
-        x: posX,
-        y: posY
-      }),
-      onShown: (instance) => {
-        // Track when mouse enters/leaves the tooltip itself
-        instance.popper.addEventListener('mouseenter', () => {
-          if (cardTooltipHideTimeout) {
-            clearTimeout(cardTooltipHideTimeout)
-            cardTooltipHideTimeout = null
-          }
-        })
-        instance.popper.addEventListener('mouseleave', () => {
-          cardTooltipHideTimeout = setTimeout(() => {
-            instance.hide()
-          }, TOOLTIP_HIDE_DELAY)
-        })
-
-        // Handle checkbox
-        const checkbox = instance.popper.querySelector('input[type="checkbox"][data-node-id]')
-        if (checkbox) {
-          checkbox.addEventListener('change', async (e) => {
-            const nodeId = parseInt(e.target.dataset.nodeId)
-            const targetNode = flatChildren.value.find(n => n.id === nodeId)
-            if (targetNode) {
-              await toggleComplete(targetNode)
-            }
-          })
-        }
-        // Handle open detail button
-        const openBtn = instance.popper.querySelector('.tt-open-detail[data-node-id]')
-        if (openBtn) {
-          openBtn.addEventListener('click', (e) => {
-            const nodeId = parseInt(e.target.dataset.nodeId)
-            const targetNode = flatChildren.value.find(n => n.id === nodeId)
-            if (targetNode) {
-              selectNode(targetNode)
-              fullscreenDetail.value = true
-              instance.hide()
-            }
-          })
-        }
-      },
-      onHidden: (instance) => {
-        instance.destroy()
-        if (activeCardTippy === instance) {
-          activeCardTippy = null
-        }
-      }
-    })
-    cardTooltipTimeout = null
-  }, 500)
+  // Don't show tooltip if editing
+  if (editingCardId.value || inlineNotesId.value) return
+  showTooltip(event, node)
 }
 
 function hideCardTooltip() {
-  // Clear any pending show
-  if (cardTooltipTimeout) {
-    clearTimeout(cardTooltipTimeout)
-    cardTooltipTimeout = null
-  }
-  // Delayed hide to allow mouse to enter tooltip
-  if (activeCardTippy) {
-    cardTooltipHideTimeout = setTimeout(() => {
-      if (activeCardTippy) {
-        activeCardTippy.hide()
-      }
-    }, TOOLTIP_HIDE_DELAY)
+  hideTooltip()
+}
+
+// Add item modal functions
+function showAddNodeModal(parentId = null) {
+  addNodeModal.value = {
+    visible: true,
+    parentId
   }
 }
 
-// Add item dialog functions
-async function addChildToCard(parentId, e) {
+function hideAddNodeModal() {
+  addNodeModal.value.visible = false
+}
+
+async function handleAddNodeCreate({ title, type, parentId }) {
+  await addChildNode({ parentId, title, type })
+}
+
+function addChildToCard(parentId, e) {
   e?.stopPropagation()
   hideCardTooltip()
-
-  try {
-    const nodeType = newNodeType.value
-    const newNode = await api.createNode({
-      title: 'New item',
-      type: nodeType,
-      parent_id: parentId,
-      workspace_id: getWorkspaceIdForNode(nodeType)
-    })
-    if (newNode?.id) {
-      pushUndo({ type: 'create', nodeId: newNode.id, nodeData: { title: 'New item', type: nodeType }, parentId })
-      // Select the new node and open detail panel for editing
-      const fullNode = await api.getNode(newNode.id)
-      if (fullNode) {
-        selectNode(fullNode)
-        showDetail.value = true
-      }
-    }
-    await loadChildren(currentContainerId.value)
-    await loadSidebarTree()
-    expandedIds.value.add(parentId)
-  } catch (err) {
-    error.value = err.message
-  }
+  showAddNodeModal(parentId)
 }
 
 function toggleCompletedVisibility() {
@@ -2355,6 +2318,16 @@ function handleKeydown(e) {
     }
   }
 
+  // Cmd/Ctrl+Enter - add child to selected node (cards/table view)
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    if (viewMode.value === 'cards' || viewMode.value === 'table') {
+      e.preventDefault()
+      const parentId = selectedNode.value?.id || currentContainerId.value
+      showAddNodeModal(parentId)
+      return
+    }
+  }
+
   // Don't trigger other shortcuts if typing in an editable element
   const target = e.target
   if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') return
@@ -2381,6 +2354,12 @@ function handleKeydown(e) {
       selectedNode.value = null
       showDetail.value = false
     }
+  }
+
+  // Enter - toggle detail panel
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    toggleDetailPanel()
   }
 
   // Ctrl/Cmd+A - select all visible
@@ -2788,6 +2767,7 @@ onUnmounted(() => {
           <option v-for="t in nodeTypes" :key="t" :value="t">{{ t.charAt(0).toUpperCase() + t.slice(1) }}</option>
         </select>
         <input
+          ref="addNodeInput"
           v-model="newNodeTitle"
           placeholder="Add new..."
           @keyup.enter="createNode"
@@ -2825,9 +2805,11 @@ onUnmounted(() => {
           :expanded-ids="expandedIds"
           :hide-completed="hideCompleted"
           :hide-sensitive="hideSensitive"
+          :show-detail="showDetail"
           :current-parent-id="currentContainerId"
           :current-container="currentContainer"
           :color-map="inheritedColorMap"
+          @hover="hoverSelectNode"
           @select="selectNode"
           @select-multiple="handleMultiSelect"
           @enter="enterContainer"
@@ -2849,7 +2831,7 @@ onUnmounted(() => {
             class="node-card"
             :class="[cardSizeClass, `type-${node.type}`, { selected: isCardSelected(node.id) }, getCardDropClass(node)]"
             :style="getNodeColor(node) ? { background: `linear-gradient(135deg, ${getNodeColor(node)}33 0%, var(--bg-primary) 80%)` } : {}"
-            draggable="true"
+            :draggable="editingCardId !== node.id && inlineNotesId !== node.id"
             @click="handleCardClick($event, node)"
             @dblclick="enterContainer(node)"
             @dragstart="onCardDragStart($event, node)"
@@ -2888,100 +2870,52 @@ onUnmounted(() => {
                 :title="'Due: ' + node.due_date"
               >{{ getDueDateStatus(node.due_date).text }}</span>
               <button class="card-add-btn" @click.stop="addChildToCard(node.id, $event)" title="Add child item">+</button>
-              <button class="card-delete-btn" @click.stop="deleteNode(node)" title="Delete">×</button>
+              <button class="card-delete-btn" @click.stop="deleteNode(node.id)" title="Delete">×</button>
             </div>
-            <!-- Checkbox positioned top-right -->
-            <input
-              v-if="node.type === 'task'"
-              type="checkbox"
-              class="card-checkbox"
-              :checked="node.completed"
-              @click.stop
-              @change.stop="toggleComplete(node)"
-              title="Mark as complete"
+            <!-- Title row with checkbox -->
+            <div class="node-card-title-row">
+              <input
+                v-if="node.type === 'task'"
+                type="checkbox"
+                class="card-checkbox"
+                :checked="node.completed"
+                @click.stop
+                @change.stop="toggleComplete(node)"
+                title="Mark as complete"
+              />
+              <CardTitleEdit
+                :title="node.title"
+                v-model="editingTitle"
+                :is-editing="editingCardId === node.id"
+                :completed="node.completed"
+                size="normal"
+                @start-edit="startEditing(node, $event)"
+                @save="saveEditing"
+                @cancel="cancelEditing"
+              />
+            </div>
+
+            <!-- Interactive notes area -->
+            <CardNotes
+              :notes="node.notes"
+              v-model="inlineNotesText"
+              :is-editing="inlineNotesId === node.id"
+              :sensitive="isSensitiveNode(node)"
+              size="normal"
+              @start-edit="startInlineNotes(node, $event)"
+              @save="saveInlineNotes"
+              @cancel="cancelInlineNotes"
             />
 
-            <!-- Inline editing mode (xl/lg only) -->
-            <template v-if="editingCardId === node.id && (cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg')">
-              <input
-                class="node-card-title-input"
-                v-model="editingTitle"
-                @keydown="handleEditKeydown"
-                @blur="saveEditing"
-                placeholder="Title"
-              />
-              <textarea
-                class="node-card-notes-input"
-                v-model="editingNotes"
-                @keydown="handleEditKeydown"
-                placeholder="Notes..."
-                rows="3"
-              ></textarea>
-              <!-- Dates for xl cards -->
-              <div v-if="cardSizeClass === 'card-xl'" class="card-dates-inline">
-                <div class="card-date-field">
-                  <label>Due</label>
-                  <input type="date" :value="node.due_date" @change="updateNode({ ...node, due_date: $event.target.value })" />
-                </div>
-                <div class="card-date-field">
-                  <label>Start</label>
-                  <input type="date" :value="node.start_date" @change="updateNode({ ...node, start_date: $event.target.value })" />
-                </div>
-              </div>
-              <div class="card-edit-actions">
-                <button class="card-save-btn" @click.stop="saveEditing">Save</button>
-                <button class="card-cancel-btn" @click.stop="cancelEditing">Cancel</button>
-              </div>
-            </template>
-
-            <!-- Normal display mode -->
-            <template v-else>
-              <!-- Title - adapts to size -->
-              <div
-                class="node-card-title"
-                :class="{ 'title-truncate': cardSizeClass === 'card-xs' || cardSizeClass === 'card-sm' }"
-                @dblclick.stop="(cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg') && startEditing(node, $event)"
-              >{{ node.title }}</div>
-
-              <!-- Interactive notes area - show if has notes or editing -->
-              <div
-                v-if="hasNotes(node) || isSensitiveNode(node) || inlineNotesId === node.id"
-                class="node-card-notes-area"
-                :class="{ 'no-children': !node.children?.length, compact: cardSizeClass === 'card-sm' || cardSizeClass === 'card-xs' }"
-                @click.stop
-              >
-                <textarea
-                  v-if="inlineNotesId === node.id"
-                  ref="inlineNotesRef"
-                  v-model="inlineNotesText"
-                  class="inline-notes-textarea"
-                  placeholder="Add notes..."
-                  @blur="saveInlineNotes"
-                  @keydown="handleInlineNotesKeydown"
-                ></textarea>
-                <div
-                  v-else
-                  class="inline-notes-display"
-                  :class="{ sensitive: isSensitiveNode(node) }"
-                  @click="startInlineNotes(node, $event)"
-                >
-                  <template v-if="isSensitiveNode(node)"><span class="lock-icon-display">&#128274;</span></template>
-                  <template v-else>
-                    <div class="markdown-content" v-html="renderMarkdown(node.notes)"></div>
-                  </template>
-                </div>
-              </div>
-
-              <!-- Metadata - xl/lg only -->
-              <div v-if="(cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg') && (node.due_date || node.start_date)" class="node-card-meta">
-                <span v-if="node.due_date" class="meta-item due">
-                  <span class="meta-icon">D</span>{{ node.due_date }}
-                </span>
-                <span v-if="node.start_date && cardSizeClass === 'card-xl'" class="meta-item start">
-                  <span class="meta-icon">S</span>{{ node.start_date }}
-                </span>
-              </div>
-            </template>
+            <!-- Metadata - xl/lg only -->
+            <div v-if="(cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg') && (node.due_date || node.start_date)" class="node-card-meta">
+              <span v-if="node.due_date" class="meta-item due">
+                <span class="meta-icon">D</span>{{ node.due_date }}
+              </span>
+              <span v-if="node.start_date && cardSizeClass === 'card-xl'" class="meta-item start">
+                <span class="meta-icon">S</span>{{ node.start_date }}
+              </span>
+            </div>
 
             <!-- Nested children cards - always show if children exist -->
             <div
@@ -2997,7 +2931,7 @@ onUnmounted(() => {
                 class="child-card"
                 :class="[child.type, getNestedCardSize(node.children.length, 1), { selected: isCardSelected(child.id) }, getCardDropClass(child)]"
                 :style="getNodeColor(child) ? { background: `linear-gradient(135deg, ${getNodeColor(child)}33 0%, var(--bg-secondary) 80%)` } : {}"
-                draggable="true"
+                :draggable="editingCardId !== child.id && inlineNotesId !== child.id"
                 @click.stop="handleChildCardClick($event, child)"
                 @dblclick.stop="enterContainer(child)"
                 @dragstart.stop="onCardDragStart($event, child)"
@@ -3017,36 +2951,30 @@ onUnmounted(() => {
                     @click.stop
                     @change.stop="toggleComplete(child)"
                   />
-                  <span class="child-card-title" :class="{ completed: child.completed }">{{ child.title }}</span>
+                  <CardTitleEdit
+                    :title="child.title"
+                    v-model="editingTitle"
+                    :is-editing="editingCardId === child.id"
+                    :completed="child.completed"
+                    size="child"
+                    @start-edit="startEditing(child, $event)"
+                    @save="saveEditing"
+                    @cancel="cancelEditing"
+                  />
+                  <button class="child-add-btn" @click.stop="addChildToCard(child.id, $event)" title="Add child">+</button>
+                  <button class="child-delete-btn" @click.stop="deleteNode(child.id)" title="Delete">×</button>
                 </div>
                 <!-- Interactive notes for child cards -->
-                <div
-                  v-if="['child-lg', 'child-md'].includes(getNestedCardSize(node.children.length, 1))"
-                  class="child-card-notes-area"
-                  @click.stop
-                >
-                  <textarea
-                    v-if="inlineNotesId === child.id"
-                    ref="inlineNotesRef"
-                    v-model="inlineNotesText"
-                    class="child-notes-textarea"
-                    placeholder="Add notes..."
-                    @blur="saveInlineNotes"
-                    @keydown="handleInlineNotesKeydown"
-                  ></textarea>
-                  <div
-                    v-else
-                    class="child-notes-display"
-                    :class="{ empty: !hasNotes(child), sensitive: isSensitiveNode(child) }"
-                    @click="startInlineNotes(child, $event)"
-                  >
-                    <template v-if="isSensitiveNode(child)"><span class="lock-icon-display">&#128274;</span></template>
-                    <template v-else-if="hasNotes(child)">
-                      <div class="markdown-content" v-html="renderMarkdown(child.notes)"></div>
-                    </template>
-                    <template v-else>Add notes...</template>
-                  </div>
-                </div>
+                <CardNotes
+                  :notes="child.notes"
+                  v-model="inlineNotesText"
+                  :is-editing="inlineNotesId === child.id"
+                  :sensitive="isSensitiveNode(child)"
+                  size="child"
+                  @start-edit="startInlineNotes(child, $event)"
+                  @save="saveInlineNotes"
+                  @cancel="cancelInlineNotes"
+                />
                 <!-- Grandchildren - row layout for better title readability -->
                 <div
                   v-if="child.children?.length && (cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg')"
@@ -3059,7 +2987,7 @@ onUnmounted(() => {
                     class="grandchild-card"
                     :class="[grandchild.type, { selected: isCardSelected(grandchild.id), completed: grandchild.completed }, getCardDropClass(grandchild)]"
                     :style="getNodeColor(grandchild) ? { background: `linear-gradient(135deg, ${getNodeColor(grandchild)}33 0%, var(--bg-primary) 80%)` } : {}"
-                    draggable="true"
+                    :draggable="editingCardId !== grandchild.id && inlineNotesId !== grandchild.id"
                     @click.stop="handleChildCardClick($event, grandchild)"
                     @dblclick.stop="enterContainer(grandchild)"
                     @dragstart.stop="onCardDragStart($event, grandchild)"
@@ -3079,11 +3007,20 @@ onUnmounted(() => {
                         @click.stop
                         @change.stop="toggleComplete(grandchild)"
                       />
-                      <span class="grandchild-title" :class="{ completed: grandchild.completed }">{{ grandchild.title }}</span>
+                      <CardTitleEdit
+                        :title="grandchild.title"
+                        v-model="editingTitle"
+                        :is-editing="editingCardId === grandchild.id"
+                        :completed="grandchild.completed"
+                        size="grandchild"
+                        @start-edit="startEditing(grandchild, $event)"
+                        @save="saveEditing"
+                        @cancel="cancelEditing"
+                      />
                       <!-- Notes indicator for grandchild -->
                       <span v-if="isSensitiveNode(grandchild)" class="grandchild-notes-indicator lock">&#128274;</span>
                       <span v-else-if="hasNotes(grandchild)" class="grandchild-notes-indicator has-notes" @click.stop="startInlineNotes(grandchild, $event)">&#128221;</span>
-                      <span v-else class="grandchild-notes-indicator add-notes" @click.stop="startInlineNotes(grandchild, $event)">+</span>
+                      <button class="grandchild-delete-btn" @click.stop="deleteNode(grandchild.id)" title="Delete">×</button>
                     </div>
                     <!-- Great-grandchildren - only for xl cards -->
                     <div
@@ -3107,11 +3044,19 @@ onUnmounted(() => {
                           @change.stop="toggleComplete(ggchild)"
                         />
                         <span class="great-grandchild-title" :class="{ completed: ggchild.completed }">{{ ggchild.title }}</span>
+                        <button class="great-grandchild-delete-btn" @click.stop="deleteNode(ggchild.id)" title="Delete">×</button>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
+            </div>
+
+            <!-- Footer metadata for smaller cards -->
+            <div v-if="(cardSizeClass === 'card-md' || cardSizeClass === 'card-sm' || cardSizeClass === 'card-xs') && (node.importance || node.children?.length || getDateCountdown(node))" class="node-card-footer">
+              <span v-if="node.importance" class="card-importance" :class="'imp-' + node.importance">{{ node.importance }}</span>
+              <span v-if="node.children?.length" class="node-card-children">{{ node.children.length }}</span>
+              <span v-if="getDateCountdown(node)" class="date-countdown" :class="getDateCountdown(node).type">{{ getDateCountdown(node).text }}</span>
             </div>
 
           </div>
@@ -3134,6 +3079,7 @@ onUnmounted(() => {
           :hide-sensitive="hideSensitive"
           :workspace="currentWorkspace"
           :workspaces="workspaces"
+          :show-detail="showDetail"
           :fullscreen-detail-open="fullscreenDetail"
           @select="selectNode"
           @enter="enterContainer"
@@ -3223,13 +3169,21 @@ onUnmounted(() => {
           @resize-start="onDetailResizeStart"
           @toggle-fullscreen="fullscreenDetail = !fullscreenDetail"
           @toggle-pin="detailPinned = !detailPinned"
-          @close="showDetail = false; fullscreenDetail = false; detailPinned = false"
+          @close="closeDetail"
           @open-link-search="openLinkSearch"
           @add-child="addChildFromDetail"
           @child-updated="onChildUpdated"
         />
       </div>
     </main>
+
+    <!-- Add Node Modal -->
+    <AddNodeModal
+      :visible="addNodeModal.visible"
+      :parent-id="addNodeModal.parentId"
+      @close="hideAddNodeModal"
+      @create="handleAddNodeCreate"
+    />
 
     <!-- Spotlight Search Modal -->
     <Teleport to="body">
@@ -3318,11 +3272,13 @@ onUnmounted(() => {
 
 .content-header {
   padding: var(--spacing-lg);
+  padding-top: 35px;
   border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
   background: var(--bg-secondary);
+  -webkit-app-region: drag;
 }
 
 .header-breadcrumbs {
@@ -3434,10 +3390,7 @@ onUnmounted(() => {
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s;
-}
-
-.card-edit-btn {
-  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .card-add-btn {
@@ -3448,6 +3401,9 @@ onUnmounted(() => {
 .card-delete-btn {
   font-size: 16px;
   font-weight: bold;
+  position: absolute;
+  top: 8px;
+  right: 8px;
 }
 
 .card-edit-btn:hover,
@@ -3479,6 +3435,39 @@ onUnmounted(() => {
   width: calc(100% - 32px);
   padding: 8px 12px;
   margin: 12px 16px 8px 16px;
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-user-drag: none;
+}
+
+.child-card-title-input {
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--accent-color);
+  border-radius: 4px;
+  outline: none;
+  flex: 1;
+  padding: 4px 8px;
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-user-drag: none;
+}
+
+.grandchild-title-input {
+  font-size: 11px;
+  font-weight: 500;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--accent-color);
+  border-radius: 3px;
+  outline: none;
+  flex: 1;
+  padding: 2px 6px;
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-user-drag: none;
 }
 
 .node-card-notes-input {
@@ -3731,7 +3720,6 @@ onUnmounted(() => {
 
 .node-card.card-xl .node-card-title {
   font-size: 22px;
-  padding: 16px 20px 10px 20px;
 }
 
 .node-card.card-xl .node-card-notes {
@@ -3746,7 +3734,6 @@ onUnmounted(() => {
 
 .node-card.card-md .node-card-title {
   font-size: 16px;
-  padding: 10px 14px 6px 14px;
 }
 
 .node-card.card-md .node-card-notes {
@@ -3764,7 +3751,6 @@ onUnmounted(() => {
 
 .node-card.card-sm .node-card-title {
   font-size: 14px;
-  padding: 6px 10px 8px 10px;
 }
 
 .node-card.card-xs {
@@ -3783,7 +3769,6 @@ onUnmounted(() => {
 
 .node-card.card-xs .node-card-title {
   font-size: 12px;
-  padding: 4px 8px 6px 8px;
   line-height: 1.2;
 }
 
@@ -3918,6 +3903,76 @@ onUnmounted(() => {
   font-size: 10px;
 }
 
+.child-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.child-card-header :deep(.card-title),
+.child-card-header :deep(.card-title-input) {
+  flex: 1;
+  min-width: 0;
+}
+
+.child-card-checkbox {
+  width: 12px;
+  height: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+  accent-color: var(--accent-color);
+}
+
+.child-add-btn {
+  margin-left: auto;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  font-size: 12px;
+  font-weight: bold;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.child-card:hover .child-add-btn {
+  opacity: 0.5;
+}
+
+.child-add-btn:hover {
+  opacity: 1 !important;
+  color: var(--accent-color);
+}
+
+.child-delete-btn {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  font-size: 12px;
+  font-weight: bold;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.child-card:hover .child-delete-btn {
+  opacity: 0.5;
+}
+
+.child-delete-btn:hover {
+  opacity: 1 !important;
+  color: #e74c3c;
+}
+
 .child-card-notes {
   font-size: 11px;
   color: var(--text-tertiary);
@@ -3927,23 +3982,46 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
+/* Card title row with checkbox */
+.node-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.node-card.card-xl .node-card-title-row {
+  padding: 16px 20px 10px 20px;
+}
+
+.node-card.card-lg .node-card-title-row {
+  padding: 14px 16px 8px 16px;
+}
+
+.node-card.card-md .node-card-title-row {
+  padding: 10px 14px 6px 14px;
+}
+
+.node-card.card-sm .node-card-title-row {
+  padding: 6px 10px;
+}
+
+.node-card.card-xs .node-card-title-row {
+  padding: 4px 8px;
+}
+
 /* Card checkbox */
 .card-checkbox {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   cursor: pointer;
-  z-index: 5;
+  flex-shrink: 0;
+  accent-color: var(--accent-color);
 }
 
 .node-card.card-sm .card-checkbox,
 .node-card.card-xs .card-checkbox {
-  top: 6px;
-  right: 6px;
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
 }
 
 /* Importance badge inline in header */
@@ -3988,12 +4066,37 @@ onUnmounted(() => {
   padding: 1px 4px;
 }
 
+/* Hide header metadata on smaller cards - shown in footer instead */
+.node-card.card-md .node-card-header .card-importance,
+.node-card.card-md .node-card-header .node-card-children,
+.node-card.card-md .node-card-header .date-countdown,
+.node-card.card-sm .node-card-header .card-importance,
+.node-card.card-sm .node-card-header .node-card-children,
+.node-card.card-sm .node-card-header .date-countdown,
+.node-card.card-xs .node-card-header .card-importance,
+.node-card.card-xs .node-card-header .node-card-children,
+.node-card.card-xs .node-card-header .date-countdown {
+  display: none;
+}
+
+/* Footer for small cards */
+.node-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  margin-top: auto;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 10px;
+}
+
 /* Completed card styling */
 .node-card:has(.card-checkbox:checked) {
   opacity: 0.6;
 }
 
-.node-card:has(.card-checkbox:checked) .node-card-title {
+.node-card:has(.card-checkbox:checked) .node-card-title,
+.node-card-title.completed {
   text-decoration: line-through;
   color: var(--text-tertiary);
 }

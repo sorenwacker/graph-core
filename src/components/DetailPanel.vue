@@ -130,6 +130,20 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
 })
 
+// Organization linking state (must be before watch that uses them)
+const organizations = ref([])
+const orgQuery = ref('')
+const showOrgDropdown = ref(false)
+const selectedOrgIndex = ref(0)
+const linkedOrganizations = ref([])
+
+// Members linking state for organizations
+const allPersons = ref([])
+const memberQuery = ref('')
+const showMemberDropdown = ref(false)
+const selectedMemberIndex = ref(0)
+const linkedMembers = ref([])
+
 watch(() => props.node, async (newNode) => {
   if (newNode) {
     editedNode.value = { ...newNode }
@@ -227,13 +241,6 @@ const personColors = [
   '#673ab7', '#5e35b1', '#7b1fa2', '#9c27b0',
   '#455a64', '#607d8b', '#78909c'
 ]
-
-// Organization linking for persons
-const organizations = ref([])
-const orgQuery = ref('')
-const showOrgDropdown = ref(false)
-const selectedOrgIndex = ref(0)
-const linkedOrganizations = ref([])
 
 // Load organizations from People workspace
 async function loadOrganizations() {
@@ -400,13 +407,6 @@ function handleOrgInput() {
   showOrgDropdown.value = true
   selectedOrgIndex.value = 0
 }
-
-// Members linking for organizations (reverse direction)
-const allPersons = ref([])
-const memberQuery = ref('')
-const showMemberDropdown = ref(false)
-const selectedMemberIndex = ref(0)
-const linkedMembers = ref([])
 
 // Load all persons for member autocomplete
 async function loadAllPersons() {
@@ -794,8 +794,8 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
             </div>
             <div class="person-quick-info">
               <div v-if="editedNode.role" class="person-role-display">{{ editedNode.role }}</div>
-              <div v-if="linkedOrganizations.length" class="person-orgs-display">
-                {{ linkedOrganizations.map(o => o.path || o.title).join(', ') }}
+              <div v-if="linkedOrganizations.length || editedNode.organization" class="person-orgs-display">
+                {{ linkedOrganizations.length ? linkedOrganizations.map(o => o.path || o.title).join(', ') : editedNode.organization }}
               </div>
             </div>
           </div>

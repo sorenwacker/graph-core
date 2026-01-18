@@ -45,13 +45,10 @@ export function buildTooltipHTML(node, options = {}) {
                       node.notes?.toLowerCase().includes('credential')
 
   let tooltip = `<div class="tt-header">`
-  tooltip += `<div class="tt-title">${node.title}</div>`
-  tooltip += `<div class="tt-header-actions">`
   if (showCheckbox && node.type === 'task') {
     tooltip += `<label class="tt-checkbox"><input type="checkbox" data-node-id="${node.id}" ${isCompleted ? 'checked' : ''} /></label>`
   }
-  tooltip += `<button class="tt-open-detail" data-node-id="${node.id}" title="Open Details">&#8599;</button>`
-  tooltip += `</div>`
+  tooltip += `<div class="tt-title">${node.title}</div>`
   tooltip += `</div>`
 
   tooltip += `<div class="tt-meta">`
@@ -81,14 +78,38 @@ export function buildTooltipHTML(node, options = {}) {
 }
 
 /**
+ * Get or create the fixed tooltip anchor element
+ * Places tooltip at top-right corner of viewport
+ */
+let fixedAnchor = null
+export function getFixedTooltipReference() {
+  if (!fixedAnchor) {
+    fixedAnchor = document.createElement('div')
+    fixedAnchor.id = 'tooltip-anchor'
+    fixedAnchor.style.cssText = `
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      width: 1px;
+      height: 1px;
+      pointer-events: none;
+      z-index: -1;
+    `
+    document.body.appendChild(fixedAnchor)
+  }
+  return fixedAnchor
+}
+
+/**
  * Default tippy options for consistent tooltips
+ * Uses fixed position at top-right corner of viewport
  */
 export const tooltipOptions = {
   allowHTML: true,
   interactive: true,
   interactiveBorder: 20,
   duration: [200, 150],
-  placement: 'auto',
+  placement: 'bottom-end',
   theme: 'graph-tooltip',
   maxWidth: 400,
   trigger: 'manual',

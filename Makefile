@@ -2,15 +2,15 @@
 
 # Start Electron app in dev mode
 dev:
-	cd frontend && npm run electron:dev
+	npm run electron:dev
 
 # Install dependencies
 install:
-	cd frontend && npm install
+	npm install
 
 # Build for production
 build:
-	cd frontend && npm run electron:build
+	npm run electron:build
 
 # Stop dev servers
 stop:
@@ -20,9 +20,9 @@ stop:
 
 # Clean build artifacts
 clean:
-	rm -rf frontend/node_modules/.vite
-	rm -rf frontend/dist
-	rm -rf frontend/dist-electron
+	rm -rf node_modules/.vite
+	rm -rf dist
+	rm -rf dist-electron
 
 # Reset database
 reset-db:

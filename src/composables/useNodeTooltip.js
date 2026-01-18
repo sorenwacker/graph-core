@@ -1,6 +1,6 @@
 import { onUnmounted } from 'vue'
 import tippy from 'tippy.js'
-import { buildTooltipHTML, tooltipOptions } from '../utils/tooltip.js'
+import { buildTooltipHTML, tooltipOptions, getFixedTooltipReference } from '../utils/tooltip.js'
 
 /**
  * Composable for handling node tooltips across all views
@@ -8,23 +8,23 @@ import { buildTooltipHTML, tooltipOptions } from '../utils/tooltip.js'
  * @param {Function} options.onOpenDetail - Callback when "Open Details" is clicked
  * @param {Function} options.onToggleComplete - Callback when checkbox is toggled
  * @param {Function} options.getHideSensitive - Function that returns current hideSensitive state
+ * @param {Function} options.shouldShowTooltip - Function that returns whether tooltip should show for a node
  * @returns {Object} - Tooltip handlers
  */
 export function useNodeTooltip(options = {}) {
-  const { onOpenDetail, onToggleComplete, getHideSensitive = () => false } = options
+  const { onOpenDetail, onToggleComplete, getHideSensitive = () => false, shouldShowTooltip = () => true } = options
 
   let activeTooltip = null
   let tooltipShowTimeout = null
   let tooltipHideTimeout = null
-  let mouseX = 0
-  let mouseY = 0
   const TOOLTIP_DELAY = 500
   const HIDE_DELAY = 200 // Allow time to move mouse to tooltip
 
   function showTooltip(event, node) {
-    // Store mouse position
-    mouseX = event.clientX
-    mouseY = event.clientY
+    // Check if tooltip should be shown for this node
+    if (!shouldShowTooltip(node)) {
+      return
+    }
 
     // Clear any pending hide
     if (tooltipHideTimeout) {
@@ -45,31 +45,24 @@ export function useNodeTooltip(options = {}) {
     }
 
     tooltipShowTimeout = setTimeout(() => {
+      // Recheck if tooltip should still be shown (detail panel may have opened during delay)
+      if (!shouldShowTooltip(node)) {
+        return
+      }
+
       const content = buildTooltipHTML(node, {
         showCheckbox: node.type === 'task',
         hideSensitive: getHideSensitive()
       })
 
-      // Store position for getReferenceClientRect
-      const posX = mouseX
-      const posY = mouseY
+      // Use fixed position reference for top-right corner placement
+      const fixedRef = getFixedTooltipReference()
 
-      activeTooltip = tippy(document.body, {
+      activeTooltip = tippy(fixedRef, {
         ...tooltipOptions,
         content,
         showOnCreate: true,
         hideOnClick: false,
-        // Use getReferenceClientRect for virtual positioning
-        getReferenceClientRect: () => ({
-          width: 0,
-          height: 0,
-          top: posY,
-          bottom: posY,
-          left: posX,
-          right: posX,
-          x: posX,
-          y: posY
-        }),
         onHidden: (instance) => {
           instance.destroy()
           if (activeTooltip === instance) {
@@ -77,19 +70,11 @@ export function useNodeTooltip(options = {}) {
           }
         },
         onShown: (instance) => {
-          // Track when mouse enters/leaves the tooltip itself
+          // Hide tooltip when mouse enters it
           instance.popper.addEventListener('mouseenter', () => {
-            if (tooltipHideTimeout) {
-              clearTimeout(tooltipHideTimeout)
-              tooltipHideTimeout = null
+            if (!instance.state.isDestroyed) {
+              instance.hide()
             }
-          })
-          instance.popper.addEventListener('mouseleave', () => {
-            tooltipHideTimeout = setTimeout(() => {
-              if (!instance.state.isDestroyed) {
-                instance.hide()
-              }
-            }, HIDE_DELAY)
           })
 
           // Attach checkbox listener
@@ -135,6 +120,22 @@ export function useNodeTooltip(options = {}) {
     }
   }
 
+  function forceHide() {
+    // Immediate hide without delay
+    if (tooltipShowTimeout) {
+      clearTimeout(tooltipShowTimeout)
+      tooltipShowTimeout = null
+    }
+    if (tooltipHideTimeout) {
+      clearTimeout(tooltipHideTimeout)
+      tooltipHideTimeout = null
+    }
+    if (activeTooltip && !activeTooltip.state.isDestroyed) {
+      activeTooltip.destroy()
+      activeTooltip = null
+    }
+  }
+
   function cleanup() {
     if (tooltipShowTimeout) {
       clearTimeout(tooltipShowTimeout)
@@ -156,6 +157,7 @@ export function useNodeTooltip(options = {}) {
   return {
     showTooltip,
     hideTooltip,
+    forceHide,
     cleanup
   }
 }

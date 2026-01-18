@@ -75,10 +75,10 @@ describe('Tooltip Utils', () => {
       expect(html).not.toContain('Sensitive content hidden')
     })
 
-    it('should include open detail button', () => {
+    // Detail button removed - now use Enter key to toggle details
+    it('should include node-id data attribute for tasks', () => {
       const node = { id: 1, title: 'Test', type: 'task' }
       const html = buildTooltipHTML(node)
-      expect(html).toContain('tt-open-detail')
       expect(html).toContain('data-node-id="1"')
     })
 

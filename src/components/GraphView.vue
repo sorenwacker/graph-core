@@ -1,7 +1,8 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
 import { api } from '../services/api'
 import { buildTooltipHTML } from '../utils/tooltip.js'
+import { useNodeTooltip } from '../composables/useNodeTooltip.js'
 import { nodeTypes, getTypeIcon, typeConfig, getGraphColors } from '../utils/constants.js'
 import cytoscape from 'cytoscape'
 import coseBilkent from 'cytoscape-cose-bilkent'
@@ -9,10 +10,8 @@ import cola from 'cytoscape-cola'
 import dagre from 'cytoscape-dagre'
 import nodeHtmlLabel from 'cytoscape-node-html-label'
 import { marked } from 'marked'
-import tippy from 'tippy.js'
-import 'tippy.js/dist/tippy.css'
-import 'tippy.js/themes/translucent.css'
 import MarkdownRenderer from './MarkdownRenderer.vue'
+import AddNodeModal from './AddNodeModal.vue'
 
 // Register extensions only once (use global flag to survive HMR)
 if (!window.__cytoscapeExtensionsRegistered) {
@@ -52,6 +51,7 @@ const props = defineProps({
   hideSensitive: { type: Boolean, default: false },
   workspace: { type: String, default: 'work' },
   workspaces: { type: Array, default: () => [] },
+  showDetail: { type: Boolean, default: false },
   fullscreenDetailOpen: { type: Boolean, default: false }
 })
 
@@ -163,6 +163,13 @@ watch(showExternalLinks, (show) => {
   initGraph()
 })
 
+// Close tooltip when detail panel opens (handled by composable via shouldShowTooltip)
+watch(() => props.showDetail, (isOpen) => {
+  if (isOpen) {
+    forceHideTooltip()
+  }
+})
+
 
 // Edit modal state
 const editModal = ref({
@@ -185,12 +192,10 @@ const promptInputRef = ref(null)
 // Add node modal state (Cmd+Enter or Cmd+click)
 const addNodeModal = ref({
   visible: false,
-  title: '',
   parentId: null,  // null = current container, otherwise specific parent
   position: null,  // { x, y } for graph position
   insertBetween: null  // { parentId, childId, isLink } for insert-between mode
 })
-const addNodeTitleRef = ref(null)
 
 function showPrompt(title, placeholder = '') {
   return new Promise((resolve) => {
@@ -232,14 +237,10 @@ function handlePromptKeydown(e) {
 function showAddNodeModal(parentId = null, position = null, insertBetween = null) {
   addNodeModal.value = {
     visible: true,
-    title: '',
     parentId,
     position,
     insertBetween
   }
-  nextTick(() => {
-    addNodeTitleRef.value?.focus()
-  })
 }
 
 function hideAddNodeModal() {
@@ -247,11 +248,7 @@ function hideAddNodeModal() {
   addNodeModal.value.insertBetween = null
 }
 
-function createNodeWithType(type) {
-  const title = addNodeModal.value.title.trim()
-  if (!title) return
-  const { parentId, position, insertBetween } = addNodeModal.value
-
+function handleAddNodeCreate({ title, type, parentId, position, insertBetween }) {
   if (insertBetween) {
     // Insert between two nodes (edge click)
     emit('insert-between', {
@@ -267,14 +264,6 @@ function createNodeWithType(type) {
   } else {
     // Add to current container
     emit('create', { title, type, x: position?.x, y: position?.y })
-  }
-  hideAddNodeModal()
-}
-
-function handleAddNodeKeydown(e) {
-  if (e.key === 'Escape') {
-    e.preventDefault()
-    hideAddNodeModal()
   }
 }
 
@@ -314,16 +303,27 @@ function handleGlobalKeydown(e) {
   }
 }
 
-// Track active tippy instance for cleanup
-let activeTippyInstance = null
-let tippyShowTimeout = null
+// Setup tooltip composable - single source of truth for all tooltips
+const { showTooltip, hideTooltip, forceHide: forceHideTooltip } = useNodeTooltip({
+  onToggleComplete: (nodeId) => {
+    // Find node in our data and emit update
+    const node = props.nodes.flatMap(function flatten(n) {
+      return [n, ...(n.children || []).flatMap(flatten)]
+    }).find(n => n.id === nodeId) || (props.parent?.id === nodeId ? props.parent : null)
+    if (node) {
+      emit('update', { ...node, completed: !node.completed })
+    }
+  },
+  onOpenDetail: (nodeId) => {
+    emit('open-fullscreen', nodeId)
+  },
+  getHideSensitive: () => props.hideSensitive,
+  shouldShowTooltip: () => !props.showDetail && !props.fullscreenDetailOpen && !editModal.value.visible
+})
 
 function showEditModal(node) {
-  // Hide any active tippy tooltip when showing edit modal
-  if (activeTippyInstance) {
-    activeTippyInstance.destroy()
-    activeTippyInstance = null
-  }
+  // Hide any active tooltip when showing edit modal
+  forceHideTooltip()
   editModal.value = {
     visible: true,
     node,
@@ -485,6 +485,16 @@ function getInitials(name) {
   const parts = name.trim().split(/\s+/)
   if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
+}
+
+// Get type-specific styles from constants.js
+function getTypeStyle(type) {
+  const config = typeConfig[type]
+  if (!config) return {}
+  return {
+    background: `${config.bg}33`,
+    color: config.text
+  }
 }
 
 
@@ -996,7 +1006,7 @@ async function initGraph() {
 
       // Person nodes render as compact circular badges with full name
       if (node.type === 'person') {
-        const bgColor = node.color || '#e67e22'
+        const bgColor = node.color || typeConfig.person.text
         return `
           <div class="node-person" style="background-color: ${bgColor};">
             <span class="person-name">${node.title || 'Untitled'}</span>
@@ -1004,7 +1014,7 @@ async function initGraph() {
         `
       }
 
-      const borderColor = data.borderColor || '#1a6fab'
+      const borderColor = data.borderColor || typeConfig.task.text
       const customBgTint = data.customBgTint
       const showDetails = data.showDetails
       const totalNodes = data.totalNodes || 0
@@ -1144,105 +1154,17 @@ async function initGraph() {
     }
   })
 
-  // Tooltip on node hover - simplified
+  // Tooltip on node hover - uses shared composable
   cy.on('mouseover', 'node', (e) => {
-    if (editModal.value.visible) return
-    if (props.fullscreenDetailOpen) return // Skip tooltip when detail panel is fullscreen
-    const tooltipContent = e.target.data('tooltip')
-    if (!tooltipContent) return
-
-    // Clear pending timeout
-    if (tippyShowTimeout) {
-      clearTimeout(tippyShowTimeout)
-      tippyShowTimeout = null
-    }
-
-    // Destroy previous
-    if (activeTippyInstance) {
-      activeTippyInstance.destroy()
-      activeTippyInstance = null
-    }
-
-    // Get the HTML label element for this node
-    const nodeId = e.target.id()
-    const htmlLabels = container.value?.querySelectorAll('.node-html')
-    if (!htmlLabels) return
-
-    // Find closest HTML element to the node position
-    const nodePos = e.target.renderedPosition()
-    let closestEl = null
-    let closestDist = Infinity
-
-    htmlLabels.forEach(el => {
-      const rect = el.getBoundingClientRect()
-      const containerRect = container.value.getBoundingClientRect()
-      const elCenterX = rect.left + rect.width / 2 - containerRect.left
-      const elCenterY = rect.top + rect.height / 2 - containerRect.top
-      const dist = Math.sqrt(Math.pow(elCenterX - nodePos.x, 2) + Math.pow(elCenterY - nodePos.y, 2))
-      if (dist < closestDist) {
-        closestDist = dist
-        closestEl = el
-      }
-    })
-
-    if (closestEl) {
-      // Show tooltip after 500ms delay
-      tippyShowTimeout = setTimeout(() => {
-        activeTippyInstance = tippy(closestEl, {
-          content: tooltipContent,
-          allowHTML: true,
-          interactive: true,
-          interactiveBorder: 20,
-          duration: [200, 150],
-          placement: 'auto',
-          appendTo: document.body,
-          theme: 'graph-tooltip',
-          maxWidth: 400,
-          trigger: 'manual',
-          onShown: (instance) => {
-            // Attach event listener to checkbox in tooltip
-            const checkbox = instance.popper.querySelector('input[type="checkbox"][data-node-id]')
-            if (checkbox) {
-              checkbox.addEventListener('change', (e) => {
-                const nodeId = parseInt(e.target.dataset.nodeId)
-                const completed = e.target.checked
-                const node = props.nodes.flatMap(function flatten(n) {
-                  return [n, ...(n.children || []).flatMap(flatten)]
-                }).find(n => n.id === nodeId) || (props.parent?.id === nodeId ? props.parent : null)
-                if (node) {
-                  emit('update', { ...node, completed })
-                }
-              })
-            }
-            // Attach event listener to open detail button (opens fullscreen)
-            const openDetailBtn = instance.popper.querySelector('.tt-open-detail[data-node-id]')
-            if (openDetailBtn) {
-              openDetailBtn.addEventListener('click', (evt) => {
-                const nodeId = parseInt(evt.target.dataset.nodeId)
-                emit('open-fullscreen', nodeId)
-                instance.hide()
-              })
-            }
-          },
-          onHidden: () => {
-            if (activeTippyInstance) {
-              activeTippyInstance.destroy()
-              activeTippyInstance = null
-            }
-          }
-        })
-        activeTippyInstance.show()
-        tippyShowTimeout = null
-      }, 500)
-    }
+    const nodeData = e.target.data('nodeData')
+    if (!nodeData) return
+    // Use composable's showTooltip - it handles all the logic
+    showTooltip(null, nodeData)
   })
 
   cy.on('mouseout', 'node', () => {
-    // Clear pending tooltip on mouseout
-    if (tippyShowTimeout) {
-      clearTimeout(tippyShowTimeout)
-      tippyShowTimeout = null
-    }
+    // Use composable's hideTooltip
+    hideTooltip()
   })
 
   // Handle clicks on HTML card overlays (for Cmd+click support)
@@ -1287,9 +1209,8 @@ async function initGraph() {
   })
 
   cy.on('drag', 'node', () => {
-    if (activeTippyInstance) {
-      activeTippyInstance.hide()
-    }
+    // Hide tooltip while dragging
+    forceHideTooltip()
   })
 
   // Right-click on node to show context menu
@@ -1721,7 +1642,7 @@ async function updateGraph() {
 
       // Person nodes render as compact circular badges with full name
       if (node.type === 'person') {
-        const bgColor = node.color || '#e67e22'
+        const bgColor = node.color || typeConfig.person.text
         return `
           <div class="node-person" style="background-color: ${bgColor};">
             <span class="person-name">${node.title || 'Untitled'}</span>
@@ -1729,7 +1650,7 @@ async function updateGraph() {
         `
       }
 
-      const borderColor = data.borderColor || '#1a6fab'
+      const borderColor = data.borderColor || typeConfig.task.text
       const customBgTint = data.customBgTint
       const showDetails = data.showDetails
       const totalNodes = data.totalNodes || 0
@@ -1774,13 +1695,20 @@ async function updateGraph() {
     // No saved positions - run full layout
     cy.layout(getLayoutOptions()).run()
     setTimeout(saveNodePositions, 600)
-  } else if (structureChanged) {
-    // Relayout when structure changes: new nodes, edge changes, or node count changes
-    // This ensures the graph displays correctly after any structural modification
+  } else if (hasNewNodes) {
+    // Only run layout if there are truly new nodes that need positioning
+    // Lock existing nodes in place so they don't move
+    cy.nodes().forEach(node => {
+      if (savedPositions[node.id()]) {
+        node.lock()
+      }
+    })
     cy.layout(getLayoutOptions()).run()
+    // Unlock all nodes after layout
+    cy.nodes().unlock()
     setTimeout(saveNodePositions, 600)
   } else {
-    // No changes - preserve existing positions
+    // No new nodes - preserve existing positions
     setTimeout(saveNodePositions, 100)
   }
 }
@@ -1893,13 +1821,9 @@ watch(() => props.workspace, () => {
 })
 watch(() => props.maxDepth, () => {
   updateGraph()
-  // Trigger relayout after depth change
-  setTimeout(reLayout, 100)
 })
 watch(() => props.hideCompleted, () => {
   updateGraph()
-  // Trigger relayout after filtering
-  setTimeout(reLayout, 100)
 })
 watch(() => props.selectedId, (newId) => {
   if (cy && newId) {
@@ -2061,7 +1985,7 @@ onUnmounted(() => {
           <span class="context-menu-title">Multiple selected</span>
         </template>
         <template v-else>
-          <span class="context-menu-type" :class="contextMenu.node?.type">{{ contextMenu.node?.type }}</span>
+          <span class="context-menu-type" :style="getTypeStyle(contextMenu.node?.type)">{{ contextMenu.node?.type }}</span>
           <span class="context-menu-title">{{ contextMenu.node?.title }}</span>
         </template>
       </div>
@@ -2109,7 +2033,7 @@ onUnmounted(() => {
           :key="linked.id"
           class="context-menu-link"
         >
-          <span v-if="linked.type === 'person'" class="link-avatar" :style="{ backgroundColor: linked.color || '#3498db' }">
+          <span v-if="linked.type === 'person'" class="link-avatar" :style="{ backgroundColor: linked.color || typeConfig.person.text }">
             {{ getInitials(linked.title) }}
           </span>
           <span v-else class="link-type-icon" :class="linked.type">{{ linked.type[0].toUpperCase() }}</span>
@@ -2297,35 +2221,15 @@ onUnmounted(() => {
     </div>
 
     <!-- Add Node Modal (Cmd+Enter or edge click) -->
-    <div v-if="addNodeModal.visible" class="add-node-modal-overlay" @click.self="hideAddNodeModal">
-      <div class="add-node-modal" @keydown="handleAddNodeKeydown">
-        <div class="add-node-modal-header">
-          <h3>{{ addNodeModal.insertBetween ? 'Insert Between' : 'Add Node' }}</h3>
-          <button class="modal-close" @click="hideAddNodeModal">x</button>
-        </div>
-        <div class="add-node-modal-content">
-          <input
-            ref="addNodeTitleRef"
-            v-model="addNodeModal.title"
-            placeholder="Enter title..."
-            class="add-node-input"
-            @keydown.enter.prevent
-          />
-          <div class="type-buttons">
-            <button
-              v-for="t in nodeTypes"
-              :key="t"
-              class="type-btn"
-              :class="t"
-              :disabled="!addNodeModal.title.trim()"
-              @click="createNodeWithType(t)"
-            >
-              {{ t }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <AddNodeModal
+      :visible="addNodeModal.visible"
+      :title="addNodeModal.insertBetween ? 'Insert Between' : 'Add Node'"
+      :parent-id="addNodeModal.parentId"
+      :position="addNodeModal.position"
+      :insert-between="addNodeModal.insertBetween"
+      @close="hideAddNodeModal"
+      @create="handleAddNodeCreate"
+    />
   </div>
 </template>
 
@@ -2549,17 +2453,6 @@ onUnmounted(() => {
   margin-right: 6px;
   font-weight: 600;
 }
-
-.context-menu-type.task { background: rgba(52, 152, 219, 0.2); color: #3498db; }
-.context-menu-type.project { background: rgba(155, 89, 182, 0.2); color: #9b59b6; }
-.context-menu-type.note { background: rgba(46, 204, 113, 0.2); color: #2ecc71; }
-.context-menu-type.milestone { background: rgba(241, 196, 15, 0.2); color: #f1c40f; }
-.context-menu-type.person { background: rgba(230, 126, 34, 0.2); color: #e67e22; }
-.context-menu-type.organization { background: rgba(52, 73, 94, 0.2); color: #7f8c9a; }
-.context-menu-type.event { background: rgba(231, 76, 60, 0.2); color: #e74c3c; }
-.context-menu-type.folder { background: rgba(149, 165, 166, 0.2); color: #95a5a6; }
-.context-menu-type.group { background: rgba(26, 188, 156, 0.2); color: #1abc9c; }
-.context-menu-type.topic { background: rgba(26, 188, 156, 0.2); color: #1abc9c; }
 
 .context-icon {
   width: 16px;
@@ -3002,117 +2895,6 @@ onUnmounted(() => {
   padding: 16px 20px;
   border-top: 1px solid #333;
 }
-
-/* Add Node Modal */
-.add-node-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1001;
-  backdrop-filter: blur(4px);
-}
-
-.add-node-modal {
-  background: #0d0d0d;
-  border: 2px solid #333;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 500px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
-}
-
-.add-node-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #333;
-}
-
-.add-node-modal-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #fff;
-}
-
-.add-node-modal-content {
-  padding: 20px;
-}
-
-.add-node-input {
-  width: 100%;
-  padding: 14px 16px;
-  font-size: 16px;
-  background: #1a1a1a;
-  border: 1px solid #444;
-  border-radius: 6px;
-  color: #fff;
-  box-sizing: border-box;
-  margin-bottom: 16px;
-}
-
-.add-node-input:focus {
-  outline: none;
-  border-color: #4a9eff;
-}
-
-.type-buttons {
-  display: flex;
-  gap: 4px;
-}
-
-.type-btn {
-  flex: 1;
-  padding: 4px 2px;
-  font-size: 10px;
-  font-weight: 600;
-  border: 1px solid;
-  border-radius: 3px;
-  background: transparent;
-  cursor: pointer;
-  transition: all 0.15s;
-  text-transform: capitalize;
-}
-
-.type-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.type-btn:not(:disabled):hover {
-  transform: translateY(-1px);
-}
-
-.type-btn.project { border-color: #3498db; color: #5dade2; background: rgba(52, 152, 219, 0.15); }
-.type-btn.project:not(:disabled):hover { background: rgba(52, 152, 219, 0.4); }
-
-.type-btn.task { border-color: #f1c40f; color: #f4d03f; background: rgba(241, 196, 15, 0.15); }
-.type-btn.task:not(:disabled):hover { background: rgba(241, 196, 15, 0.4); }
-
-.type-btn.note { border-color: #2ecc71; color: #58d68d; background: rgba(46, 204, 113, 0.15); }
-.type-btn.note:not(:disabled):hover { background: rgba(46, 204, 113, 0.4); }
-
-.type-btn.milestone { border-color: #9b59b6; color: #bb8fce; background: rgba(155, 89, 182, 0.15); }
-.type-btn.milestone:not(:disabled):hover { background: rgba(155, 89, 182, 0.4); }
-
-.type-btn.topic { border-color: #00bcd4; color: #4dd0e1; background: rgba(0, 188, 212, 0.15); }
-.type-btn.topic:not(:disabled):hover { background: rgba(0, 188, 212, 0.4); }
-
-.type-btn.folder { border-color: #95a5a6; color: #b3c1c2; background: rgba(149, 165, 166, 0.15); }
-.type-btn.folder:not(:disabled):hover { background: rgba(149, 165, 166, 0.4); }
-
-.type-btn.person { border-color: #e67e22; color: #eb984e; background: rgba(230, 126, 34, 0.15); }
-.type-btn.person:not(:disabled):hover { background: rgba(230, 126, 34, 0.4); }
-
-.type-btn.event { border-color: #e74c3c; color: #ec7063; background: rgba(231, 76, 60, 0.15); }
-.type-btn.event:not(:disabled):hover { background: rgba(231, 76, 60, 0.4); }
 
 /* Person node - compact pill badge */
 :global(.node-person) {
