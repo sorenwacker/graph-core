@@ -53,6 +53,17 @@ npm run build
 npm run electron:build
 ```
 
+### Makefile Commands
+
+| Command | Description |
+|---------|-------------|
+| `make dev` | Start Electron app in development mode |
+| `make install` | Install npm dependencies |
+| `make build` | Build Electron app for production |
+| `make stop` | Stop running dev servers (kills Electron and Vite processes) |
+| `make clean` | Remove build artifacts (dist, dist-electron, .vite cache) |
+| `make reset-db` | Delete the SQLite database (with 3s confirmation delay) |
+
 ## Tech Stack
 
 - **Frontend**: Vue 3 with Composition API
