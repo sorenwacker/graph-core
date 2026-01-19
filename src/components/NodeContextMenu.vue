@@ -1,6 +1,7 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { api } from '../services/api'
+import { calculateMenuPosition } from '../utils/menuPosition'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -9,6 +10,15 @@ const props = defineProps({
   node: { type: Object, default: null },
   linkedNodes: { type: Array, default: () => [] },
   workspaces: { type: Array, default: () => [] }
+})
+
+const menuRef = ref(null)
+
+// Compute position keeping menu in viewport
+const menuStyle = computed(() => {
+  if (!props.visible) return { left: '0px', top: '0px' }
+  const pos = calculateMenuPosition(props.x, props.y)
+  return { left: pos.x + 'px', top: pos.y + 'px' }
 })
 
 const emit = defineEmits([
@@ -21,8 +31,12 @@ const emit = defineEmits([
   'open-link-search',
   'unlink',
   'move-to-workspace',
-  'delete'
+  'delete',
+  'open-in-window'
 ])
+
+// Check if running in Electron (for open in window option)
+const isElectron = typeof window !== 'undefined' && !!window.electronAPI?.openDetachedWindow
 
 function close() {
   emit('close')
@@ -70,6 +84,11 @@ function deleteNode() {
   close()
 }
 
+function openInWindow() {
+  emit('open-in-window', props.node)
+  close()
+}
+
 function getInitials(name) {
   if (!name) return '?'
   const parts = name.trim().split(/\s+/)
@@ -82,8 +101,9 @@ function getInitials(name) {
   <Teleport to="body">
     <div
       v-if="visible && node"
+      ref="menuRef"
       class="node-context-menu"
-      :style="{ left: x + 'px', top: y + 'px' }"
+      :style="menuStyle"
       @click.stop
     >
       <div class="context-menu-header">
@@ -95,6 +115,16 @@ function getInitials(name) {
       <div class="context-menu-item" @click="viewDetails">
         <span class="context-icon">i</span>
         View Details
+      </div>
+      <div v-if="isElectron" class="context-menu-item" @click="openInWindow">
+        <span class="context-icon">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+        </span>
+        Open in New Window
       </div>
       <div class="context-menu-item" @click="enter">
         <span class="context-icon">-></span>
@@ -174,7 +204,7 @@ function getInitials(name) {
         Delete
       </div>
     </div>
-    <div v-if="visible" class="context-menu-backdrop" @click="close"></div>
+    <div v-if="visible" class="context-menu-backdrop" @click="close" @contextmenu="close"></div>
   </Teleport>
 </template>
 
@@ -275,6 +305,13 @@ function getInitials(name) {
   width: 16px;
   text-align: center;
   font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.context-icon svg {
+  flex-shrink: 0;
 }
 
 .context-menu-divider {

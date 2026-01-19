@@ -1,9 +1,10 @@
-const { app, BrowserWindow, ipcMain, session } = require('electron')
+const { app, BrowserWindow, ipcMain, session, shell } = require('electron')
 const path = require('path')
 const Database = require('./database')
 
 let mainWindow
 let db
+const detachedWindows = new Map() // Track open detached windows by nodeId
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -35,6 +36,27 @@ function createWindow() {
     })
   })
 
+  // Open external links in default browser
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      shell.openExternal(url)
+      return { action: 'deny' }
+    }
+    return { action: 'allow' }
+  })
+
+  // Also handle clicks on links within the page
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const appUrl = process.env.NODE_ENV === 'development'
+      ? 'http://localhost:9743'
+      : `file://${path.join(__dirname, '../dist/index.html')}`
+
+    if (!url.startsWith(appUrl) && (url.startsWith('http://') || url.startsWith('https://'))) {
+      event.preventDefault()
+      shell.openExternal(url)
+    }
+  })
+
   // In development, load from Vite dev server
   if (process.env.NODE_ENV === 'development') {
     mainWindow.loadURL('http://localhost:9743')
@@ -49,6 +71,75 @@ function createWindow() {
       }
     })
   }
+}
+
+function createDetachedWindow(nodeId, nodeTitle) {
+  // Check if window already exists for this node
+  if (detachedWindows.has(nodeId)) {
+    const existingWindow = detachedWindows.get(nodeId)
+    if (!existingWindow.isDestroyed()) {
+      existingWindow.focus()
+      return { success: true, focused: true }
+    }
+    // Window was destroyed, remove from map
+    detachedWindows.delete(nodeId)
+  }
+
+  const detachedWindow = new BrowserWindow({
+    width: 700,
+    height: 800,
+    minWidth: 400,
+    minHeight: 300,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    },
+    titleBarStyle: 'hiddenInset',
+    backgroundColor: '#0a0a0f',
+    title: nodeTitle || 'Detached Node',
+    icon: path.join(__dirname, '../assets/icon.png')
+  })
+
+  // Track the window
+  detachedWindows.set(nodeId, detachedWindow)
+
+  // Clean up when window is closed
+  detachedWindow.on('closed', () => {
+    detachedWindows.delete(nodeId)
+  })
+
+  // Open external links in default browser
+  detachedWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      shell.openExternal(url)
+      return { action: 'deny' }
+    }
+    return { action: 'allow' }
+  })
+
+  detachedWindow.webContents.on('will-navigate', (event, url) => {
+    const appUrl = process.env.NODE_ENV === 'development'
+      ? 'http://localhost:9743'
+      : `file://${path.join(__dirname, '../dist/index.html')}`
+
+    if (!url.startsWith(appUrl) && (url.startsWith('http://') || url.startsWith('https://'))) {
+      event.preventDefault()
+      shell.openExternal(url)
+    }
+  })
+
+  // Load the app with detached query param
+  if (process.env.NODE_ENV === 'development') {
+    detachedWindow.loadURL(`http://localhost:9743?detached=${nodeId}`)
+  } else {
+    detachedWindow.loadFile(path.join(__dirname, '../dist/index.html'), {
+      query: { detached: String(nodeId) }
+    })
+  }
+
+  return { success: true, focused: false }
 }
 
 app.whenReady().then(async () => {
@@ -137,3 +228,31 @@ ipcMain.handle('db:backup', (event, suffix) => db.backup(suffix))
 ipcMain.handle('db:listBackups', () => db.listBackups())
 ipcMain.handle('db:restoreBackup', (event, backupPath) => db.restoreBackup(backupPath))
 ipcMain.handle('db:reload', () => db.reload())
+
+// =========================================
+// SHELL
+// =========================================
+ipcMain.handle('shell:openExternal', (event, url) => {
+  if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+    return shell.openExternal(url)
+  }
+})
+
+// =========================================
+// DETACHED WINDOWS
+// =========================================
+ipcMain.handle('window:openDetached', (event, nodeId, nodeTitle) => {
+  return createDetachedWindow(nodeId, nodeTitle)
+})
+
+ipcMain.handle('window:closeDetached', (event, nodeId) => {
+  if (detachedWindows.has(nodeId)) {
+    const window = detachedWindows.get(nodeId)
+    if (!window.isDestroyed()) {
+      window.close()
+    }
+    detachedWindows.delete(nodeId)
+    return { success: true }
+  }
+  return { success: false }
+})

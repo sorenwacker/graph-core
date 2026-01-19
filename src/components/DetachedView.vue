@@ -1,0 +1,315 @@
+<script setup>
+import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { api } from '../services/api.js'
+import { useDetachedWindow } from '../composables/useDetachedWindow.js'
+import DetailPanel from './DetailPanel.vue'
+
+const props = defineProps({
+  nodeId: { type: Number, required: true }
+})
+
+const {
+  broadcastNodeUpdate,
+  broadcastNodeDelete,
+  onMessage
+} = useDetachedWindow()
+
+const currentNode = ref(null)
+const navigationHistory = ref([]) // Stack for back navigation
+const loading = ref(true)
+const error = ref(null)
+const workspaces = ref([])
+
+// Load the initial node
+async function loadNode(id) {
+  loading.value = true
+  error.value = null
+  try {
+    currentNode.value = await api.getNode(id)
+    if (!currentNode.value) {
+      error.value = 'Node not found'
+    }
+  } catch (e) {
+    console.error('Failed to load node:', e)
+    error.value = 'Failed to load node'
+  } finally {
+    loading.value = false
+  }
+}
+
+// Load workspaces for DetailPanel
+async function loadWorkspaces() {
+  try {
+    workspaces.value = await api.getWorkspaces()
+  } catch (e) {
+    console.error('Failed to load workspaces:', e)
+    workspaces.value = []
+  }
+}
+
+// Handle node update from DetailPanel
+async function handleUpdate(updatedNode) {
+  try {
+    const newValues = {
+      title: updatedNode.title,
+      type: updatedNode.type,
+      notes: updatedNode.notes,
+      notes_sensitive: updatedNode.notes_sensitive,
+      completed: updatedNode.completed,
+      favorite: updatedNode.favorite,
+      due_date: updatedNode.due_date,
+      start_date: updatedNode.start_date,
+      end_date: updatedNode.end_date,
+      color: updatedNode.color,
+      importance: updatedNode.importance,
+      location: updatedNode.location,
+      email: updatedNode.email,
+      phone: updatedNode.phone,
+      organization: updatedNode.organization,
+      role: updatedNode.role,
+      website: updatedNode.website
+    }
+    await api.updateNode(updatedNode.id, newValues)
+    currentNode.value = { ...updatedNode }
+
+    // Broadcast update to other windows
+    broadcastNodeUpdate(updatedNode)
+
+    // Update window title
+    document.title = updatedNode.title || 'Detached Node'
+  } catch (e) {
+    console.error('Failed to update node:', e)
+  }
+}
+
+// Handle node deletion
+async function handleDelete(node) {
+  try {
+    await api.deleteNode(node.id)
+    broadcastNodeDelete(node.id)
+    // Close the window after deleting
+    window.close()
+  } catch (e) {
+    console.error('Failed to delete node:', e)
+  }
+}
+
+// Navigate to a child node
+function selectChild(childId) {
+  if (currentNode.value) {
+    navigationHistory.value.push(currentNode.value.id)
+  }
+  loadNode(childId)
+}
+
+// Navigate back
+function goBack() {
+  if (navigationHistory.value.length > 0) {
+    const previousId = navigationHistory.value.pop()
+    loadNode(previousId)
+  }
+}
+
+// Handle wrap-with-parent (create parent node)
+async function wrapWithParent(node) {
+  try {
+    // Create new parent node
+    const parentData = {
+      title: 'New Parent',
+      type: 'group',
+      parent_id: node.parent_id,
+      workspace_id: node.workspace_id
+    }
+    const newParent = await api.createNode(parentData)
+
+    // Move current node under new parent
+    await api.moveNode(node.id, newParent.id)
+
+    // Reload node and broadcast
+    await loadNode(node.id)
+    broadcastNodeUpdate(newParent)
+  } catch (e) {
+    console.error('Failed to wrap with parent:', e)
+  }
+}
+
+// Handle move to root
+async function moveToRoot(node) {
+  try {
+    await api.moveNode(node.id, null)
+    await loadNode(node.id)
+    broadcastNodeUpdate(node)
+  } catch (e) {
+    console.error('Failed to move to root:', e)
+  }
+}
+
+// Handle adding child
+async function addChild(parentNode) {
+  try {
+    const childData = {
+      title: 'New Task',
+      type: 'task',
+      parent_id: parentNode.id,
+      workspace_id: parentNode.workspace_id
+    }
+    const newChild = await api.createNode(childData)
+    broadcastNodeUpdate(newChild)
+  } catch (e) {
+    console.error('Failed to add child:', e)
+  }
+}
+
+// Handle child updated
+function onChildUpdated(child) {
+  broadcastNodeUpdate(child)
+}
+
+// Handle close - just close the window
+function handleClose() {
+  window.close()
+}
+
+// Listen for messages from other windows
+onMounted(() => {
+  loadNode(props.nodeId)
+  loadWorkspaces()
+
+  onMessage((data) => {
+    if (data.type === 'node-updated' && data.node) {
+      // Update if this is our current node
+      if (data.node.id === currentNode.value?.id) {
+        currentNode.value = { ...data.node }
+        document.title = data.node.title || 'Detached Node'
+      }
+    } else if (data.type === 'node-deleted' && data.nodeId === currentNode.value?.id) {
+      // Our node was deleted from another window
+      window.close()
+    }
+  })
+})
+
+// Update document title when node changes
+watch(() => currentNode.value?.title, (newTitle) => {
+  if (newTitle) {
+    document.title = newTitle
+  }
+}, { immediate: true })
+</script>
+
+<template>
+  <div class="detached-view">
+    <!-- Back navigation when we've drilled into children -->
+    <div v-if="navigationHistory.length > 0" class="detached-nav">
+      <button class="back-btn" @click="goBack">
+        <span class="back-icon">&larr;</span> Back
+      </button>
+    </div>
+
+    <!-- Loading state -->
+    <div v-if="loading" class="detached-loading">
+      Loading...
+    </div>
+
+    <!-- Error state -->
+    <div v-else-if="error" class="detached-error">
+      {{ error }}
+    </div>
+
+    <!-- Node detail panel -->
+    <DetailPanel
+      v-else-if="currentNode"
+      :node="currentNode"
+      :width="0"
+      :fullscreen="true"
+      :hide-completed="false"
+      :pinned="false"
+      :workspaces="workspaces"
+      @update="handleUpdate"
+      @delete="handleDelete"
+      @wrap-with-parent="wrapWithParent"
+      @move-to-root="moveToRoot"
+      @select-child="selectChild"
+      @toggle-fullscreen="() => {}"
+      @toggle-pin="() => {}"
+      @close="handleClose"
+      @open-link-search="() => {}"
+      @add-child="addChild"
+      @child-updated="onChildUpdated"
+    />
+  </div>
+</template>
+
+<style scoped>
+.detached-view {
+  width: 100vw;
+  height: 100vh;
+  background: #0a0a0f;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.detached-nav {
+  position: fixed;
+  top: 38px;
+  left: 12px;
+  z-index: 1000;
+}
+
+.back-btn {
+  background: #1a1a24;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #888;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.back-btn:hover {
+  background: #2a2a34;
+  color: #fff;
+  border-color: #444;
+}
+
+.back-icon {
+  font-size: 14px;
+}
+
+.detached-loading,
+.detached-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #888;
+  font-size: 14px;
+}
+
+.detached-error {
+  color: #ef4444;
+}
+
+/* Override DetailPanel styles for detached mode */
+:deep(.detail-panel) {
+  position: static !important;
+  width: 100% !important;
+  height: 100vh !important;
+  max-width: none !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+:deep(.detail-panel.fullscreen) {
+  padding-top: 32px !important;
+}
+
+:deep(.resize-handle) {
+  display: none !important;
+}
+</style>

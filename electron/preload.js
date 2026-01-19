@@ -62,5 +62,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   backup: (suffix) => ipcRenderer.invoke('db:backup', suffix),
   listBackups: () => ipcRenderer.invoke('db:listBackups'),
   restoreBackup: (backupPath) => ipcRenderer.invoke('db:restoreBackup', backupPath),
-  reload: () => ipcRenderer.invoke('db:reload')
+  reload: () => ipcRenderer.invoke('db:reload'),
+
+  // Shell
+  openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
+
+  // Detached Windows
+  openDetachedWindow: (nodeId, nodeTitle) => ipcRenderer.invoke('window:openDetached', nodeId, nodeTitle),
+  closeDetachedWindow: (nodeId) => ipcRenderer.invoke('window:closeDetached', nodeId)
 })

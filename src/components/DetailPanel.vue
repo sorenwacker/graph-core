@@ -20,8 +20,11 @@ const props = defineProps({
 const emit = defineEmits([
   'update', 'delete', 'close', 'wrap-with-parent', 'move-to-root',
   'select-child', 'resize-start', 'resize', 'toggle-fullscreen',
-  'open-link-search', 'toggle-pin', 'add-child', 'child-updated'
+  'open-link-search', 'toggle-pin', 'add-child', 'child-updated', 'detach'
 ])
+
+// Check if running in Electron (for detach button visibility)
+const isElectron = typeof window !== 'undefined' && !!window.electronAPI?.openDetachedWindow
 
 const editedNode = ref({})
 const children = ref([])
@@ -763,6 +766,13 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
         </label>
         <button class="pin-btn" :class="{ active: pinned }" @click="$emit('toggle-pin')" :title="pinned ? 'Unpin panel' : 'Pin panel open'">
           {{ pinned ? '&#128205;' : '&#128204;' }}
+        </button>
+        <button v-if="isElectron && !fullscreen" class="detach-btn" @click="$emit('detach', props.node)" title="Open in new window">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
         </button>
         <button class="fullscreen-btn" @click="$emit('toggle-fullscreen')" :title="fullscreen ? 'Exit fullscreen' : 'Fullscreen'">
           {{ fullscreen ? '⊙' : '⛶' }}
@@ -1561,6 +1571,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
 }
 
 .detail-panel-header .pin-btn,
+.detail-panel-header .detach-btn,
 .detail-panel-header .fullscreen-btn,
 .detail-panel-header .close-btn {
   background: none;
@@ -1573,7 +1584,14 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
   flex-shrink: 0;
 }
 
+.detail-panel-header .detach-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .detail-panel-header .pin-btn:hover,
+.detail-panel-header .detach-btn:hover,
 .detail-panel-header .fullscreen-btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);

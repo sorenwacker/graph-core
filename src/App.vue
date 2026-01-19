@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { marked } from 'marked'
 import { api } from './services/api.js'
 import { useNodeTooltip } from './composables/useNodeTooltip.js'
+import { useDetachedWindow } from './composables/useDetachedWindow.js'
 import { nodeTypes, getImportanceLabel, getTypeIcon, getTypeColors, typeConfig, personIconSvg } from './utils/constants.js'
 import DetailPanel from './components/DetailPanel.vue'
 import GraphView from './components/GraphView.vue'
@@ -29,17 +30,34 @@ const vClickOutside = {
   }
 }
 
-// Configure marked for inline rendering with links opening in new tab
+// Configure marked for inline rendering with links handled by click handler
 marked.use({
   breaks: true,
   gfm: true,
   renderer: {
     link({ href, title, text }) {
       const titleAttr = title ? ` title="${title}"` : ''
-      return `<a href="${href}"${titleAttr} target="_blank" rel="noopener">${text}</a>`
+      return `<a href="${href}"${titleAttr} class="external-link" rel="noopener">${text}</a>`
     }
   }
 })
+
+// Global click handler for external links - opens in system browser
+function handleGlobalClick(e) {
+  const link = e.target.closest('a[href]')
+  if (link) {
+    const href = link.getAttribute('href')
+    if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
+      e.preventDefault()
+      e.stopPropagation()
+      if (window.electronAPI?.openExternal) {
+        window.electronAPI.openExternal(href)
+      } else {
+        window.open(href, '_blank')
+      }
+    }
+  }
+}
 
 // Navigation state - drill-down model
 const currentContainerId = ref(null)  // null = root level
@@ -202,6 +220,14 @@ const { showTooltip, hideTooltip, forceHide: forceHideTooltip } = useNodeTooltip
   getHideSensitive: () => hideSensitive.value,
   shouldShowTooltip: () => !showDetail.value
 })
+
+// Setup detached window composable for cross-window sync
+const {
+  openDetachedWindow,
+  broadcastNodeUpdate,
+  broadcastNodeDelete,
+  onMessage: onDetachedMessage
+} = useDetachedWindow()
 
 // Hide completed items - restore from localStorage (default: true)
 const hideCompleted = ref(localStorage.getItem('graphcore-hideCompleted') !== 'false')
@@ -1528,6 +1554,8 @@ async function updateNode(updatedNode, trackUndo = true) {
       website: updatedNode.website
     }
     await api.updateNode(updatedNode.id, newValues)
+    // Broadcast update to detached windows
+    broadcastNodeUpdate(updatedNode)
     if (trackUndo && oldNode) {
       const oldValues = {
         title: oldNode.title,
@@ -1561,6 +1589,12 @@ async function updateNode(updatedNode, trackUndo = true) {
   }
 }
 
+// Handle detach event from DetailPanel - open node in new window
+async function handleDetach(node) {
+  if (!node) return
+  await openDetachedWindow(node.id, node.title)
+}
+
 async function deleteNode(nodeId) {
   try {
     // Get node data for undo before deleting
@@ -1571,6 +1605,8 @@ async function deleteNode(nodeId) {
       breadcrumbs.value.some(b => b.id == nodeId)
 
     await api.deleteNode(nodeId, false)  // Soft delete
+    // Broadcast deletion to detached windows
+    broadcastNodeDelete(nodeId)
     if (node) {
       pushUndo({ type: 'delete', nodeData: node, parentId: node.parent_id })
     }
@@ -2579,9 +2615,32 @@ onMounted(async () => {
   window.addEventListener('resize', updateDimensions)
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('open-link-search', handleOpenLinkSearchEvent)
+  document.addEventListener('click', handleGlobalClick, true)
   resizeObserver = new ResizeObserver(updateDimensions)
   const contentBody = document.querySelector('.content-body')
   if (contentBody) resizeObserver.observe(contentBody)
+
+  // Listen for updates from detached windows
+  onDetachedMessage(async (data) => {
+    if (data.type === 'node-updated' && data.node) {
+      // Refresh the view if the updated node is visible
+      await loadChildren(currentContainerId.value)
+      await loadSidebarTree()
+      loadFavorites()
+      // Update selectedNode if it's the one that was updated
+      if (selectedNode.value?.id === data.node.id) {
+        selectedNode.value = { ...data.node }
+      }
+    } else if (data.type === 'node-deleted' && data.nodeId) {
+      // Handle node deleted from detached window
+      if (selectedNode.value?.id === data.nodeId) {
+        showDetail.value = false
+        selectedNode.value = null
+      }
+      await loadChildren(currentContainerId.value)
+      await loadSidebarTree()
+    }
+  })
 })
 
 // Handle custom open-link-search event from GraphView context menu
@@ -2596,6 +2655,7 @@ onUnmounted(() => {
   window.removeEventListener('resize', () => {})
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('open-link-search', handleOpenLinkSearchEvent)
+  document.removeEventListener('click', handleGlobalClick, true)
   if (resizeObserver) resizeObserver.disconnect()
 })
 </script>
@@ -3251,6 +3311,7 @@ onUnmounted(() => {
           @delete-multiple="deleteMultipleNodes"
           @wrap-with-parent="wrapWithParent"
           @open-fullscreen="openNodeFullscreen"
+          @context-menu="handleViewContextMenu"
         />
 
         <!-- Timeline View -->
@@ -3333,6 +3394,7 @@ onUnmounted(() => {
           @open-link-search="openLinkSearch"
           @add-child="addChildFromDetail"
           @child-updated="onChildUpdated"
+          @detach="handleDetach"
         />
       </div>
     </main>
@@ -3363,6 +3425,7 @@ onUnmounted(() => {
       @unlink="handleContextMenuUnlink"
       @move-to-workspace="handleContextMenuMoveToWorkspace"
       @delete="handleContextMenuDelete"
+      @open-in-window="handleDetach"
     />
 
     <!-- Spotlight Search Modal -->

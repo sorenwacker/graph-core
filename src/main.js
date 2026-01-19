@@ -1,6 +1,7 @@
-import { createApp } from 'vue'
+import { createApp, h } from 'vue'
 import './style.css'
 import App from './App.vue'
+import DetachedView from './components/DetachedView.vue'
 import { typeConfig } from './utils/constants.js'
 
 // Inject CSS variables from typeConfig for single source of truth
@@ -14,4 +15,19 @@ function injectTypeColorVars() {
 
 injectTypeColorVars()
 
-createApp(App).mount('#app')
+// Check if this is a detached window
+const params = new URLSearchParams(window.location.search)
+const detachedNodeId = params.get('detached')
+
+if (detachedNodeId) {
+  // Mount DetachedView for detached windows
+  const nodeId = parseInt(detachedNodeId, 10)
+  createApp({
+    render() {
+      return h(DetachedView, { nodeId })
+    }
+  }).mount('#app')
+} else {
+  // Mount main App
+  createApp(App).mount('#app')
+}
