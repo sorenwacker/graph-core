@@ -21,8 +21,8 @@ export const typeConfig = {
   note: {
     label: 'Note',
     cssClass: 'note',
-    bg: '#1a4a3a',    // Emerald - information, growth
-    text: '#34d399',
+    bg: '#1a4025',    // Green - information, growth
+    text: '#4ade80',
     icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>`
   },
   milestone: {
