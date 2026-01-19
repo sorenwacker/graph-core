@@ -2728,6 +2728,7 @@ onUnmounted(() => {
               <div
                 class="sidebar-tree-item"
                 :class="{ active: currentContainerId === node.id }"
+                @contextmenu.prevent="showContextMenu($event, node)"
               >
                 <button
                   v-if="node.children?.length"
@@ -2744,6 +2745,7 @@ onUnmounted(() => {
                   <div
                     class="sidebar-tree-item level-1"
                     :class="{ active: currentContainerId === child.id }"
+                    @contextmenu.prevent="showContextMenu($event, child)"
                   >
                     <button
                       v-if="child.children?.length"
@@ -2762,6 +2764,7 @@ onUnmounted(() => {
                       class="sidebar-tree-item level-2"
                       :class="{ active: currentContainerId === grandchild.id }"
                       @click="enterContainer(grandchild)"
+                      @contextmenu.prevent="showContextMenu($event, grandchild)"
                     >
                       <span class="tree-spacer"></span>
                       <span class="type-icon" :class="grandchild.type"><span v-html="getTypeIcon(grandchild.type)"></span></span>
@@ -4819,7 +4822,7 @@ onUnmounted(() => {
   border-radius: 8px;
   padding: 12px;
   min-width: 250px;
-  z-index: 100;
+  z-index: 9500;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
