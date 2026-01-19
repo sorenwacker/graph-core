@@ -188,15 +188,14 @@ function onSidebarLeave(event) {
   // Don't hide if pinned
   if (sidebarPinned.value) return
 
-  // Only start hide timer if mouse is moving away from the sidebar area
-  // Check mouse X position - if still near left edge, don't hide
-  if (event && event.clientX < 300) {
+  // Only prevent hide if mouse is still within sidebar bounds (280px width)
+  if (event && event.clientX <= 280) {
     return
   }
 
   sidebarHideTimeout = setTimeout(() => {
     sidebarHovered.value = false
-  }, 300)
+  }, 400)
 }
 
 function closeDetailIfNotPinned() {
