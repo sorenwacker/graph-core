@@ -148,6 +148,10 @@ const sidebarPinned = ref(localStorage.getItem('graphcore-sidebarPinned') === 't
 const sidebarHovered = ref(false)
 let sidebarHideTimeout = null
 
+function toggleSidebarPin() {
+  sidebarPinned.value = !sidebarPinned.value
+}
+
 // Detail panel resize
 const detailWidth = ref(parseInt(localStorage.getItem('graphcore-detailWidth')) || 400)
 const isResizingDetail = ref(false)
@@ -180,10 +184,19 @@ function onSidebarEnter() {
   sidebarHovered.value = true
 }
 
-function onSidebarLeave() {
+function onSidebarLeave(event) {
+  // Don't hide if pinned
+  if (sidebarPinned.value) return
+
+  // Only start hide timer if mouse is moving away from the sidebar area
+  // Check mouse X position - if still near left edge, don't hide
+  if (event && event.clientX < 300) {
+    return
+  }
+
   sidebarHideTimeout = setTimeout(() => {
     sidebarHovered.value = false
-  }, 500)
+  }, 300)
 }
 
 function closeDetailIfNotPinned() {
@@ -2683,7 +2696,8 @@ onUnmounted(() => {
           <button
             class="sidebar-pin-btn"
             :class="{ active: sidebarPinned }"
-            @click="sidebarPinned = !sidebarPinned"
+            @click.stop="toggleSidebarPin"
+            @mouseenter="onSidebarEnter"
             :title="sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'"
           >
             <span v-html="sidebarPinned ? '&#128205;' : '&#128204;'"></span>
@@ -3513,10 +3527,31 @@ onUnmounted(() => {
   cursor: ew-resize !important;
 }
 
+/*
+ * Window drag region fix (2026-01-19):
+ * The content-header must NOT have app-region:drag directly, because native
+ * Electron drag regions don't respect CSS z-index. This caused the sidebar
+ * pin button to be unclickable when the fixed-position sidebar overlaid this area.
+ * Solution: Use a ::before pseudo-element with z-index:-1 for the drag region,
+ * so the sidebar (z-index:9000) remains interactive.
+ */
 .content-header {
   padding-top: 35px;
   background: var(--bg-primary);
+  -webkit-app-region: no-drag;
+  position: relative;
+  z-index: 1;
+}
+
+.content-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 35px;
   -webkit-app-region: drag;
+  z-index: -1;
 }
 
 .header-row {

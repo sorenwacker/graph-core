@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { api } from '../services/api'
 import { buildTooltipHTML } from '../utils/tooltip.js'
 import { useNodeTooltip } from '../composables/useNodeTooltip.js'
@@ -55,7 +55,7 @@ const props = defineProps({
   fullscreenDetailOpen: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['select', 'enter', 'move', 'add-child', 'insert-between', 'update', 'create', 'delete', 'delete-multiple', 'wrap-with-parent', 'open-fullscreen', 'link', 'unlink'])
+const emit = defineEmits(['select', 'enter', 'move', 'add-child', 'insert-between', 'update', 'create', 'delete', 'delete-multiple', 'wrap-with-parent', 'open-fullscreen', 'link', 'unlink', 'context-menu', 'toggle-complete', 'toggle-favorite', 'open-link-search'])
 
 const container = ref(null)
 const editModalEl = ref(null)
@@ -97,15 +97,6 @@ if (typeof document !== 'undefined') {
   })
 }
 
-// Context menu state
-const contextMenu = ref({
-  visible: false,
-  x: 0,
-  y: 0,
-  node: null,
-  selectedNodes: [],  // For multi-select actions
-  linkedNodes: []
-})
 
 const layoutMode = ref(localStorage.getItem('graph-layout-mode') || 'tree')
 const relaxLocked = ref(localStorage.getItem('graph-relax-locked') === 'true')
@@ -372,120 +363,6 @@ async function wrapWithParentFromModal() {
   }
 }
 
-// Context menu functions
-function closeContextMenu() {
-  contextMenu.value.visible = false
-}
-
-function openLinkSearchFromContextMenu() {
-  const node = contextMenu.value.node
-  closeContextMenu()
-  if (node) {
-    // Emit event to open link search modal in App.vue
-    emit('select', node)
-    // Short delay to let the node be selected, then trigger link search
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('open-link-search', { detail: { nodeId: node.id } }))
-    }, 50)
-  }
-}
-
-async function unlinkNodeFromContextMenu(linkedNode) {
-  const node = contextMenu.value.node
-  if (!node || !linkedNode) return
-  try {
-    emit('unlink', { sourceId: node.id, targetId: linkedNode.id })
-    // Refresh the linked nodes list
-    const links = await api.getLinkedNodes(node.id)
-    contextMenu.value.linkedNodes = links
-    // If no more links, close menu
-    if (links.length === 0) {
-      closeContextMenu()
-    }
-  } catch (err) {
-    console.error('Failed to unlink:', err)
-  }
-}
-
-function viewNodeFromContextMenu() {
-  const node = contextMenu.value.node
-  closeContextMenu()
-  if (node) {
-    emit('select', node)
-  }
-}
-
-function enterNodeFromContextMenu() {
-  const node = contextMenu.value.node
-  closeContextMenu()
-  if (node) {
-    emit('enter', node)
-  }
-}
-
-function addChildFromContextMenu() {
-  const node = contextMenu.value.node
-  closeContextMenu()
-  if (node) {
-    emit('add-child', { parentId: node.id, title: '', type: 'task', prompt: true })
-  }
-}
-
-async function toggleCompleteFromContextMenu() {
-  const node = contextMenu.value.node
-  if (!node) return
-  try {
-    const updated = { ...node, completed: !node.completed }
-    emit('update', updated)
-    contextMenu.value.node = updated
-  } catch (err) {
-    console.error('Failed to toggle complete:', err)
-  }
-}
-
-async function toggleFavoriteFromContextMenu() {
-  const node = contextMenu.value.node
-  if (!node) return
-  try {
-    const updated = { ...node, favorite: !node.favorite }
-    emit('update', updated)
-    contextMenu.value.node = updated
-  } catch (err) {
-    console.error('Failed to toggle favorite:', err)
-  }
-}
-
-function deleteNodeFromContextMenu() {
-  const node = contextMenu.value.node
-  closeContextMenu()
-  if (node) {
-    emit('delete', node.id)
-  }
-}
-
-async function moveToWorkspace(workspaceId) {
-  const nodes = contextMenu.value.selectedNodes
-  if (!nodes || nodes.length === 0) return
-  try {
-    const wsId = workspaceId === 'people' ? null : workspaceId
-    // Move all selected nodes
-    for (const node of nodes) {
-      await api.updateNode(node.id, { workspace_id: wsId })
-      const updated = { ...node, workspace_id: wsId }
-      emit('update', updated)
-    }
-    closeContextMenu()
-  } catch (err) {
-    console.error('Failed to move to workspace:', err)
-  }
-}
-
-function getInitials(name) {
-  if (!name) return '?'
-  const parts = name.trim().split(/\s+/)
-  if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
-  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
-}
 
 // Get type-specific styles from constants.js
 function getTypeStyle(type) {
@@ -548,6 +425,21 @@ function buildInheritedColorMap(nodeList, inheritedColor = null, colorMap = {}) 
   return colorMap
 }
 
+// Decode HTML entities for plain text display
+function decodeHtmlEntities(text) {
+  if (!text) return ''
+  return text
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&#34;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+}
+
 // Strip markdown and clean up text for display
 function cleanMarkdown(text, maxLen = 150) {
   if (!text) return ''
@@ -562,6 +454,9 @@ function cleanMarkdown(text, maxLen = 150) {
   result = result.replace(/^#+\s*/gm, '')          // # headers
   result = result.replace(/^[-*]\s+/gm, '- ')      // bullet points
   result = result.replace(/\[(.+?)\]\(.+?\)/g, '$1') // links
+
+  // Decode HTML entities for plain text display
+  result = decodeHtmlEntities(result)
 
   return result.trim()
 }
@@ -635,7 +530,7 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
     const isCompleted = node.completed
 
     // Build clean label - title only when many nodes, add meta for fewer nodes
-    let label = node.title
+    let label = decodeHtmlEntities(node.title)
 
     // Only show meta and notes when not too crowded
     if (totalNodes <= detailThreshold) {
@@ -1214,7 +1109,7 @@ async function initGraph() {
   })
 
   // Right-click on node to show context menu
-  cy.on('cxttap', 'node', async (e) => {
+  cy.on('cxttap', 'node', (e) => {
     e.preventDefault()
     const node = e.target.data('nodeData')
     if (!node) return
@@ -1223,43 +1118,15 @@ async function initGraph() {
     const renderedPos = e.target.renderedPosition()
     const containerRect = container.value.getBoundingClientRect()
 
-    // Get all selected nodes
-    const selectedCyNodes = cy.$('node:selected')
-    const selectedNodes = []
-    selectedCyNodes.forEach(n => {
-      const data = n.data('nodeData')
-      if (data) selectedNodes.push(data)
-    })
-
-    // If clicked node is not in selection, use just the clicked node
-    const clickedNodeInSelection = selectedNodes.some(n => n.id === node.id)
-    const nodesToUse = clickedNodeInSelection && selectedNodes.length > 1 ? selectedNodes : [node]
-
-    // Load linked nodes for the menu (only for single node)
-    let links = []
-    if (nodesToUse.length === 1) {
-      try {
-        links = await api.getLinkedNodes(node.id)
-      } catch (err) {
-        console.error('Failed to load links:', err)
-      }
+    // Create a synthetic event with the correct screen coordinates
+    const syntheticEvent = {
+      clientX: containerRect.left + renderedPos.x,
+      clientY: containerRect.top + renderedPos.y,
+      preventDefault: () => {},
+      stopPropagation: () => {}
     }
 
-    contextMenu.value = {
-      visible: true,
-      x: containerRect.left + renderedPos.x,
-      y: containerRect.top + renderedPos.y,
-      node: node,
-      selectedNodes: nodesToUse,
-      linkedNodes: links
-    }
-  })
-
-  // Click anywhere to close context menu
-  cy.on('tap', () => {
-    if (contextMenu.value.visible) {
-      contextMenu.value.visible = false
-    }
+    emit('context-menu', { event: syntheticEvent, node })
   })
 
   // Drag node onto another to reparent
@@ -1972,108 +1839,6 @@ onUnmounted(() => {
     <!-- Link mode indicator (shows when Option/Alt is held) -->
     <div v-if="linkModeActive" class="link-mode-indicator">Link Mode</div>
 
-    <!-- Context Menu -->
-    <div
-      v-if="contextMenu.visible"
-      class="graph-context-menu"
-      :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
-      @click.stop
-    >
-      <div class="context-menu-header">
-        <template v-if="contextMenu.selectedNodes.length > 1">
-          <span class="context-menu-type multi">{{ contextMenu.selectedNodes.length }} nodes</span>
-          <span class="context-menu-title">Multiple selected</span>
-        </template>
-        <template v-else>
-          <span class="context-menu-type" :style="getTypeStyle(contextMenu.node?.type)">{{ contextMenu.node?.type }}</span>
-          <span class="context-menu-title">{{ contextMenu.node?.title }}</span>
-        </template>
-      </div>
-
-      <!-- Primary actions -->
-      <div class="context-menu-item" @click="viewNodeFromContextMenu">
-        <span class="context-icon">👁</span>
-        View Details
-      </div>
-      <div class="context-menu-item" @click="enterNodeFromContextMenu">
-        <span class="context-icon">→</span>
-        Enter
-      </div>
-      <div v-if="contextMenu.node?.type !== 'person'" class="context-menu-item" @click="addChildFromContextMenu">
-        <span class="context-icon">+</span>
-        Add Child
-      </div>
-
-      <div class="context-menu-divider"></div>
-
-      <!-- Toggle complete (non-person) -->
-      <div v-if="contextMenu.node?.type !== 'person'" class="context-menu-item" @click="toggleCompleteFromContextMenu">
-        <span class="context-icon">{{ contextMenu.node?.completed ? '○' : '✓' }}</span>
-        {{ contextMenu.node?.completed ? 'Mark Incomplete' : 'Mark Complete' }}
-      </div>
-
-      <!-- Toggle favorite -->
-      <div class="context-menu-item" @click="toggleFavoriteFromContextMenu">
-        <span class="context-icon">{{ contextMenu.node?.favorite ? '☆' : '★' }}</span>
-        {{ contextMenu.node?.favorite ? 'Remove Favorite' : 'Add Favorite' }}
-      </div>
-
-      <div class="context-menu-divider"></div>
-
-      <!-- Linking -->
-      <div class="context-menu-item" @click="openLinkSearchFromContextMenu">
-        <span class="context-icon">🔗</span>
-        Link to...
-      </div>
-
-      <div v-if="contextMenu.linkedNodes.length > 0" class="context-menu-section">
-        <span class="context-section-label">Linked ({{ contextMenu.linkedNodes.length }})</span>
-        <div
-          v-for="linked in contextMenu.linkedNodes"
-          :key="linked.id"
-          class="context-menu-link"
-        >
-          <span v-if="linked.type === 'person'" class="link-avatar" :style="{ backgroundColor: linked.color || typeConfig.person.text }">
-            {{ getInitials(linked.title) }}
-          </span>
-          <span v-else class="link-type-icon" :class="linked.type">{{ linked.type[0].toUpperCase() }}</span>
-          <span class="link-title">{{ linked.title }}</span>
-          <button class="unlink-btn" @click.stop="unlinkNodeFromContextMenu(linked)" title="Remove link">×</button>
-        </div>
-      </div>
-
-      <div class="context-menu-divider"></div>
-
-      <!-- Move to Workspace -->
-      <div class="context-menu-section">
-        <span class="context-section-label">Move {{ contextMenu.selectedNodes.length > 1 ? contextMenu.selectedNodes.length + ' nodes' : '' }} to Workspace</span>
-        <div
-          class="context-menu-item workspace-item"
-          :class="{ active: contextMenu.node?.workspace_id === null }"
-          @click="moveToWorkspace('people')"
-        >
-          People
-        </div>
-        <div
-          v-for="ws in workspaces"
-          :key="ws.id"
-          class="context-menu-item workspace-item"
-          :class="{ active: contextMenu.node?.workspace_id === ws.id }"
-          @click="moveToWorkspace(ws.id)"
-        >
-          {{ ws.name }}
-        </div>
-      </div>
-
-      <div class="context-menu-divider"></div>
-
-      <!-- Danger zone -->
-      <div class="context-menu-item danger" @click="deleteNodeFromContextMenu">
-        <span class="context-icon">🗑</span>
-        Delete
-      </div>
-    </div>
-
     <!-- Full Edit Modal -->
     <div v-if="editModal.visible" class="edit-modal-overlay" @click.self="hideEditModal">
       <div ref="editModalEl" class="edit-modal" @keydown="handleEditModalKeydown">
@@ -2387,176 +2152,6 @@ onUnmounted(() => {
   z-index: 9999;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   pointer-events: none;
-}
-
-/* Context Menu */
-.graph-context-menu {
-  position: fixed;
-  background: var(--bg-elevated, #1e1e1e);
-  border: 1px solid var(--border-color, #333);
-  border-radius: 8px;
-  padding: 6px 0;
-  min-width: 180px;
-  max-width: 280px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-  z-index: 1000;
-  transform: translate(-50%, 10px);
-}
-
-.context-menu-header {
-  padding: 6px 12px 8px;
-  border-bottom: 1px solid var(--border-color, #333);
-  margin-bottom: 4px;
-}
-
-.context-menu-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-primary, #fff);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: block;
-}
-
-.context-menu-item {
-  padding: 8px 12px;
-  font-size: 13px;
-  color: var(--text-primary, #fff);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.context-menu-item:hover {
-  background: var(--bg-hover, #2a2a2a);
-}
-
-.context-menu-item.text-muted {
-  color: var(--text-tertiary, #888);
-}
-
-.context-menu-item.danger {
-  color: #e74c3c;
-}
-
-.context-menu-item.danger:hover {
-  background: rgba(231, 76, 60, 0.15);
-}
-
-.context-menu-type {
-  font-size: 10px;
-  text-transform: uppercase;
-  padding: 2px 6px;
-  border-radius: 4px;
-  margin-right: 6px;
-  font-weight: 600;
-}
-
-.context-icon {
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  color: var(--accent-color, #4a9eff);
-}
-
-.context-menu-divider {
-  height: 1px;
-  background: var(--border-color, #333);
-  margin: 4px 0;
-}
-
-.context-menu-section {
-  padding: 4px 0;
-}
-
-.context-section-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  color: var(--text-tertiary, #888);
-  padding: 4px 12px;
-  display: block;
-  letter-spacing: 0.5px;
-}
-
-.context-menu-link {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  font-size: 12px;
-  color: var(--text-secondary, #ccc);
-}
-
-.context-menu-link:hover {
-  background: var(--bg-hover, #2a2a2a);
-}
-
-.link-avatar {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 9px;
-  font-weight: 600;
-  color: white;
-  flex-shrink: 0;
-}
-
-.link-type-icon {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: 600;
-  background: var(--bg-tertiary, #333);
-  color: var(--text-secondary, #ccc);
-  flex-shrink: 0;
-}
-
-.link-type-icon.project { color: #b5bd68; }
-.link-type-icon.task { color: #f0c674; }
-.link-type-icon.organization { color: #e67e22; }
-.link-type-icon.event { color: #f07da0; }
-.link-type-icon.milestone { color: #b294bb; }
-
-.link-title {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.unlink-btn {
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-tertiary, #666);
-  cursor: pointer;
-  border-radius: 4px;
-  font-size: 12px;
-  opacity: 0;
-  transition: opacity 0.15s, color 0.15s;
-}
-
-.context-menu-link:hover .unlink-btn {
-  opacity: 1;
-}
-
-.unlink-btn:hover {
-  background: rgba(255, 100, 100, 0.2);
-  color: #ff6b6b;
 }
 
 /* Edit Modal - full featured */

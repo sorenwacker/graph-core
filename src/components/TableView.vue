@@ -194,7 +194,18 @@ function formatDate(dateStr) {
 
 function truncateNotes(notes) {
   if (!notes) return ''
-  const text = notes.replace(/[#*_`\[\]]/g, '').trim()
+  let text = notes.replace(/[#*_`\[\]]/g, '').trim()
+  // Decode HTML entities for plain text display
+  text = text
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&#34;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
   return text.length > 50 ? text.substring(0, 50) + '...' : text
 }
 

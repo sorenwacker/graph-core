@@ -199,6 +199,9 @@ watch(() => currentNode.value?.title, (newTitle) => {
 
 <template>
   <div class="detached-view">
+    <!-- Draggable title bar region -->
+    <div class="detached-titlebar"></div>
+
     <!-- Back navigation when we've drilled into children -->
     <div v-if="navigationHistory.length > 0" class="detached-nav">
       <button class="back-btn" @click="goBack">
@@ -248,6 +251,13 @@ watch(() => currentNode.value?.title, (newTitle) => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.detached-titlebar {
+  height: 32px;
+  -webkit-app-region: drag;
+  app-region: drag;
+  flex-shrink: 0;
 }
 
 .detached-nav {

@@ -138,10 +138,15 @@ body {
   top: 0;
   bottom: 0;
   box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
-  z-index: 100;
+  z-index: 9000;
   -webkit-app-region: no-drag;
   transition: left 0.2s ease;
   overflow: visible;
+  pointer-events: auto;
+}
+
+.sidebar:not(.pinned) * {
+  -webkit-app-region: no-drag;
   pointer-events: auto;
 }
 
@@ -178,6 +183,8 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  -webkit-app-region: no-drag;
+  pointer-events: auto;
 }
 
 
@@ -196,6 +203,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 100;
+  -webkit-app-region: no-drag;
+}
+
+.sidebar-pin-btn span {
+  pointer-events: none;
 }
 
 .sidebar-pin-btn:hover {

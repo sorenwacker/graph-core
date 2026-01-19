@@ -184,6 +184,16 @@ watch(() => props.node, async (newNode) => {
       await loadLinkedMembers()
     }
 
+    // Set collapsed states based on content
+    // Children: collapse if no children
+    childrenCollapsed.value = children.value.length === 0
+    // Metadata: collapse if all fields are empty/default
+    const hasMetadata = newNode.due_date || newNode.start_date || newNode.end_date ||
+      newNode.importance || newNode.location || newNode.email || newNode.phone ||
+      newNode.website || newNode.role || newNode.organization ||
+      (newNode.tags && newNode.tags.length > 0)
+    metadataCollapsed.value = !hasMetadata
+
     // Auto-resize title for long titles
     nextTick(() => {
       if (titleInput.value) {
@@ -1219,8 +1229,8 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
           </div>
         </div>
 
-        <!-- Bottom sections (children + links side by side in fullscreen) -->
-        <div class="bottom-sections">
+        <!-- Bottom sections (children + metadata) -->
+        <div class="bottom-sections" :class="{ 'both-collapsed': childrenCollapsed && metadataCollapsed }">
           <!-- Children Section -->
           <div class="children-section" :class="{ collapsed: childrenCollapsed }">
             <div class="section-header" @click="childrenCollapsed = !childrenCollapsed">
@@ -1305,9 +1315,8 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
               </div>
             </div>
           </div>
-        </div>
 
-          <!-- Metadata Section (own row) -->
+          <!-- Metadata Section -->
           <div class="meta-section" :class="{ collapsed: metadataCollapsed }">
             <div class="section-header" @click="metadataCollapsed = !metadataCollapsed">
               <span class="section-title">Metadata</span>
@@ -1454,6 +1463,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
 
             </div>
           </div>
+        </div>
       </div>
       </template>
 
@@ -1879,6 +1889,16 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
   flex-direction: column;
   gap: 8px;
   flex-shrink: 0;
+}
+
+.bottom-sections.both-collapsed {
+  flex-direction: row;
+  gap: 8px;
+}
+
+.bottom-sections.both-collapsed .children-section,
+.bottom-sections.both-collapsed .meta-section {
+  flex: 1;
 }
 
 /* Children section */
