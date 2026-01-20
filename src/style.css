@@ -726,6 +726,45 @@ input[type="checkbox"] {
     0 16px 48px rgba(59, 130, 246, 0.2);
 }
 
+/* Drop indicators for card reordering */
+.node-card.drop-before {
+  position: relative;
+}
+
+.node-card.drop-before::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--accent-color);
+  border-radius: 2px;
+  z-index: 10;
+}
+
+.node-card.drop-after {
+  position: relative;
+}
+
+.node-card.drop-after::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--accent-color);
+  border-radius: 2px;
+  z-index: 10;
+}
+
+.node-card.drop-inside {
+  outline: 2px solid var(--accent-color);
+  outline-offset: -2px;
+  background: var(--accent-subtle);
+}
+
 .node-card-header {
   display: flex;
   align-items: center;
@@ -1261,6 +1300,19 @@ input[type="checkbox"] {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+/* Slide-in animation for detail panel */
+.detail-panel-enter-active,
+.detail-panel-leave-active {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.detail-panel-enter-from,
+.detail-panel-leave-to {
+  transform: translateX(100%);
+  opacity: 0;
 }
 
 .detail-header {

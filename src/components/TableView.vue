@@ -341,10 +341,18 @@ function onMouseMove(e) {
       const y = e.clientY - rect.top
       const height = rect.height
 
-      if (y < height * 0.3) {
+      // Shift key forces reorder-only mode (no nesting)
+      const reorderOnly = e.shiftKey
+
+      // Top 35% = before, bottom 35% = after, middle 30% = inside
+      // This makes it easier to reorder without accidentally nesting
+      if (y < height * 0.35) {
         newPosition = 'before'
-      } else if (y > height * 0.7) {
+      } else if (y > height * 0.65) {
         newPosition = 'after'
+      } else if (reorderOnly) {
+        // In reorder-only mode, use top/bottom half for before/after
+        newPosition = y < height * 0.5 ? 'before' : 'after'
       } else {
         newPosition = 'inside'
       }

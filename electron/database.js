@@ -237,6 +237,13 @@ class Database {
       // Column already exists, ignore
     }
 
+    // Migration: add graph_layout column for per-container graph layout preference
+    try {
+      this.db.run(`ALTER TABLE nodes ADD COLUMN graph_layout TEXT DEFAULT NULL`)
+    } catch (e) {
+      // Column already exists, ignore
+    }
+
     // =========================================
     // WORKSPACES FEATURE
     // =========================================
@@ -598,7 +605,7 @@ class Database {
   createNode(data) {
     const fields = ['type', 'title', 'parent_id', 'notes', 'completed', 'color', 'sort_order',
       'importance', 'start_date', 'end_date', 'due_date', 'location', 'email', 'phone',
-      'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive', 'category_id', 'status_id', 'tags', 'workspace_id']
+      'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive', 'category_id', 'status_id', 'tags', 'workspace_id', 'graph_layout']
 
     const presentFields = fields.filter(f => data[f] !== undefined)
     const values = presentFields.map(f => data[f])
@@ -627,7 +634,7 @@ class Database {
   updateNode(id, data) {
     const fields = ['type', 'title', 'parent_id', 'notes', 'completed', 'color', 'sort_order',
       'importance', 'start_date', 'end_date', 'due_date', 'location', 'email', 'phone',
-      'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive', 'category_id', 'status_id', 'tags', 'workspace_id']
+      'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive', 'category_id', 'status_id', 'tags', 'workspace_id', 'graph_layout']
 
     const updates = []
     const values = []

@@ -196,7 +196,7 @@ function onSidebarLeave(event) {
 
   sidebarHideTimeout = setTimeout(() => {
     sidebarHovered.value = false
-  }, 400)
+  }, 150)
 }
 
 function closeDetailIfNotPinned() {
@@ -246,10 +246,13 @@ const {
 const hideCompleted = ref(localStorage.getItem('graphcore-hideCompleted') !== 'false')
 
 // Graph settings - restore from localStorage
-const graphDetailThreshold = ref(parseInt(localStorage.getItem('graphcore-graphDetailThreshold')) || 30)
+const storedThreshold = parseInt(localStorage.getItem('graphcore-graphDetailThreshold'))
+const graphDetailThreshold = ref(isNaN(storedThreshold) ? 30 : storedThreshold)
 const graphMaxDepth = ref(parseInt(localStorage.getItem('graphcore-graphMaxDepth')) || 0) // 0 = all
+const graphRootMaxDepth = ref(parseInt(localStorage.getItem('graphcore-graphRootMaxDepth')) || 2) // Default 2 for root level
 const openDetailFullscreen = ref(localStorage.getItem('graphcore-openDetailFullscreen') === 'true')
 const showSettings = ref(false)
+const sortAlphabetically = ref(false)
 
 // Snapshot/backup management
 const availableSnapshots = ref([])
@@ -369,7 +372,9 @@ watch(hideCompleted, (newVal) => {
 
 // Persist graph detail threshold
 watch(graphDetailThreshold, (newVal) => {
-  localStorage.setItem('graphcore-graphDetailThreshold', String(newVal))
+  if (typeof newVal === 'number' && !isNaN(newVal)) {
+    localStorage.setItem('graphcore-graphDetailThreshold', String(newVal))
+  }
 })
 
 // Persist open detail fullscreen setting
@@ -382,6 +387,11 @@ watch(graphMaxDepth, (newVal) => {
   localStorage.setItem('graphcore-graphMaxDepth', String(newVal))
 })
 
+// Persist graph root max depth
+watch(graphRootMaxDepth, (newVal) => {
+  localStorage.setItem('graphcore-graphRootMaxDepth', String(newVal))
+})
+
 // Persist sidebar pinned state
 watch(sidebarPinned, (newVal) => {
   localStorage.setItem('graphcore-sidebarPinned', String(newVal))
@@ -391,6 +401,13 @@ watch(sidebarPinned, (newVal) => {
 watch(showDetail, (isOpen) => {
   if (isOpen) {
     forceHideTooltip()
+  }
+})
+
+// Close detail panel when node is deselected (if not pinned)
+watch(selectedNode, (node) => {
+  if (!node && !detailPinned.value) {
+    showDetail.value = false
   }
 })
 
@@ -554,6 +571,11 @@ const projects = computed(() => {
   return []
 })
 
+// Use root depth setting when at root level, otherwise use regular max depth
+const effectiveGraphMaxDepth = computed(() => {
+  return currentContainerId.value === null ? graphRootMaxDepth.value : graphMaxDepth.value
+})
+
 const flatChildren = computed(() => {
   const result = []
   function flatten(nodeList) {
@@ -660,7 +682,19 @@ function filterChildrenRecursive(nodeList) {
     }))
 }
 
-const filteredChildren = computed(() => filterChildrenRecursive(children.value))
+const filteredChildren = computed(() => {
+  let result = filterChildrenRecursive(children.value)
+  if (sortAlphabetically.value) {
+    result = [...result].sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+  }
+  return result
+})
+
+// Sorted children for graph/timeline views
+const sortedChildren = computed(() => {
+  if (!sortAlphabetically.value) return children.value
+  return [...children.value].sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+})
 
 // Card size class based on grid dimensions
 // xl: 1-2 cards, lg: 3-4, md: 5-9, sm: 10-16, xs: 17+
@@ -1063,6 +1097,13 @@ function hoverSelectNode(node) {
 
 // Full select - opens detail panel
 function selectNode(node, options = {}) {
+  // Handle deselection when node is null
+  if (!node) {
+    selectedNode.value = null
+    selectedIds.value = new Set()
+    // Detail panel will close via watcher if not pinned
+    return
+  }
   selectedNode.value = node
   lastSelectedNode.value = node
   anchorNode.value = node  // Set anchor for shift+click range selection
@@ -2113,11 +2154,18 @@ function onCardDragOver(e, node) {
   const x = e.clientX - rect.left
   const width = rect.width
 
-  // Left 25% = before, right 25% = after, middle 50% = inside
-  if (x < width * 0.25) {
+  // Shift key forces reorder-only mode (no nesting)
+  const reorderOnly = e.shiftKey
+
+  // Left 35% = before, right 35% = after, middle 30% = inside
+  // This makes it easier to reorder without accidentally nesting
+  if (x < width * 0.35) {
     cardDropPosition.value = 'before'
-  } else if (x > width * 0.75) {
+  } else if (x > width * 0.65) {
     cardDropPosition.value = 'after'
+  } else if (reorderOnly) {
+    // In reorder-only mode, use left/right half for before/after
+    cardDropPosition.value = x < width * 0.5 ? 'before' : 'after'
   } else {
     cardDropPosition.value = 'inside'
   }
@@ -2927,6 +2975,14 @@ onUnmounted(() => {
           <button :class="{ primary: viewMode === 'trash' }" @click="viewMode = 'trash'">Trash</button>
           <span class="toolbar-separator"></span>
           <button
+            :class="{ active: sortAlphabetically }"
+            @click="sortAlphabetically = !sortAlphabetically"
+            title="Sort current level A-Z"
+          >
+            A-Z
+          </button>
+          <span class="toolbar-separator"></span>
+          <button
             class="icon-btn"
             :class="{ active: hideCompleted }"
             @click="toggleCompletedVisibility"
@@ -2958,14 +3014,15 @@ onUnmounted(() => {
           >
             &#x21AA;
           </button>
-          <div class="settings-dropdown" v-click-outside="() => showSettings = false">
+          <div class="settings-dropdown" v-click-outside="(e) => { if (!e.target.closest('.settings-panel')) showSettings = false }">
             <button class="settings-btn" @click="showSettings = !showSettings" title="Settings">
               <span>...</span>
             </button>
-            <div v-if="showSettings" class="settings-panel" @click.stop>
+            <Teleport to="body">
+              <div v-if="showSettings" class="settings-panel" @click.stop>
               <div class="settings-item">
                 <label>Graph detail threshold</label>
-                <input type="number" v-model.number="graphDetailThreshold" min="5" max="100" />
+                <input type="number" v-model.number="graphDetailThreshold" min="5" max="100" @change="localStorage.setItem('graphcore-graphDetailThreshold', String(graphDetailThreshold))" />
                 <span class="settings-hint">Show details when &le; {{ graphDetailThreshold }} nodes</span>
               </div>
               <div class="settings-item">
@@ -2975,6 +3032,14 @@ onUnmounted(() => {
                   <option :value="0">All</option>
                 </select>
                 <span class="settings-hint">{{ graphMaxDepth === 0 ? 'Show all levels' : `Show up to ${graphMaxDepth} levels` }}</span>
+              </div>
+              <div class="settings-item">
+                <label>Root graph depth</label>
+                <select v-model.number="graphRootMaxDepth">
+                  <option v-for="n in 10" :key="n" :value="n">{{ n }}</option>
+                  <option :value="0">All</option>
+                </select>
+                <span class="settings-hint">{{ graphRootMaxDepth === 0 ? 'Show all levels at root' : `Show ${graphRootMaxDepth} levels at root` }}</span>
               </div>
               <div class="settings-item">
                 <label>
@@ -3035,6 +3100,7 @@ onUnmounted(() => {
               </div>
               <div v-else-if="showLostFound" class="settings-hint">No orphaned nodes</div>
             </div>
+            </Teleport>
           </div>
         </div>
       </div>
@@ -3090,7 +3156,7 @@ onUnmounted(() => {
         <!-- Table View -->
         <TableView
           v-else-if="viewMode === 'tree'"
-          :nodes="children"
+          :nodes="sortedChildren"
           :selected-id="selectedNode?.id"
           :selected-ids="selectedIds"
           :expanded-ids="expandedIds"
@@ -3118,7 +3184,7 @@ onUnmounted(() => {
         />
 
         <!-- Cards View -->
-        <div v-else-if="viewMode === 'cards'" class="node-cards" :style="cardsGridStyle">
+        <div v-else-if="viewMode === 'cards'" class="node-cards" :style="cardsGridStyle" @click.self="selectNode(null)">
           <div
             v-for="node in filteredChildren"
             :key="node.id"
@@ -3368,11 +3434,11 @@ onUnmounted(() => {
         <GraphView
           v-else-if="viewMode === 'graph'"
           ref="graphViewRef"
-          :nodes="children"
+          :nodes="sortedChildren"
           :parent="currentContainer"
           :selected-id="selectedNode?.id"
           :detail-threshold="graphDetailThreshold"
-          :max-depth="graphMaxDepth"
+          :max-depth="effectiveGraphMaxDepth"
           :hide-completed="hideCompleted"
           :hide-sensitive="hideSensitive"
           :workspace="currentWorkspace"
@@ -3398,7 +3464,7 @@ onUnmounted(() => {
         <!-- Timeline View -->
         <TimelineView
           v-else-if="viewMode === 'timeline'"
-          :nodes="children"
+          :nodes="sortedChildren"
           :selected-id="selectedNode?.id"
           :hide-completed="hideCompleted"
           :color-map="inheritedColorMap"
@@ -3454,9 +3520,11 @@ onUnmounted(() => {
         </div>
         </div>
         <!-- Detail Panel (inside content-wrapper) -->
+        <Transition name="detail-panel">
         <DetailPanel
           v-if="showDetail && selectedNode"
           ref="detailPanelRef"
+          @click.stop
           :node="selectedNode"
           :width="detailWidth"
           :fullscreen="fullscreenDetail"
@@ -3477,6 +3545,7 @@ onUnmounted(() => {
           @child-updated="onChildUpdated"
           @detach="handleDetach"
         />
+        </Transition>
       </div>
     </main>
 
@@ -4877,16 +4946,17 @@ onUnmounted(() => {
 }
 
 .settings-panel {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 4px;
+  position: fixed;
+  top: 50px;
+  right: 10px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 12px;
   min-width: 250px;
-  z-index: 9500;
+  max-height: calc(100vh - 70px);
+  overflow-y: auto;
+  z-index: 10000;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 

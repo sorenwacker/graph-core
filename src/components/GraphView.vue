@@ -37,8 +37,29 @@ marked.use({
 // Render markdown to HTML for tooltips
 function renderMarkdownHtml(text, maxLen = 500) {
   if (!text) return ''
-  const truncated = text.length > maxLen ? text.substring(0, maxLen) + '...' : text
-  return marked.parse(truncated)
+  if (text.length <= maxLen) return marked.parse(text)
+
+  // Smart truncation: avoid cutting inside markdown links [text](url)
+  let truncated = text.substring(0, maxLen)
+
+  // Check if we're inside a markdown link
+  const lastOpenBracket = truncated.lastIndexOf('[')
+  const lastCloseParen = truncated.lastIndexOf(')')
+
+  // If there's an unclosed link, extend to include it or cut before it
+  if (lastOpenBracket > lastCloseParen) {
+    // Find the closing ) in the full text
+    const linkEnd = text.indexOf(')', lastOpenBracket)
+    if (linkEnd !== -1 && linkEnd < maxLen + 300) {
+      // Include the full link if it's not too far
+      truncated = text.substring(0, linkEnd + 1)
+    } else {
+      // Cut before the link starts
+      truncated = text.substring(0, lastOpenBracket).trimEnd()
+    }
+  }
+
+  return marked.parse(truncated + '...')
 }
 
 const props = defineProps({
@@ -98,12 +119,15 @@ if (typeof document !== 'undefined') {
 }
 
 
-const layoutMode = ref(localStorage.getItem('graph-layout-mode') || 'tree')
+// Initialize layout: use container's saved layout if available, otherwise global default
+const globalDefault = localStorage.getItem('graph-layout-mode') || 'tree'
+const layoutMode = ref(props.parent?.graph_layout || globalDefault)
 const relaxLocked = ref(localStorage.getItem('graph-relax-locked') === 'true')
 const showExternalLinks = ref(localStorage.getItem('graph-show-external-links') !== 'false') // default true
 let relaxClickTimeout = null
 let cy = null
 let isInitializing = false
+let lastKnownParentId = props.parent?.id
 
 // Node positions storage key - includes workspace and parent for proper isolation
 function getPositionsKey() {
@@ -135,7 +159,23 @@ function saveNodePositions() {
 
 // Persist layout mode
 watch(layoutMode, (mode) => {
+  // Always save to global localStorage as fallback
   localStorage.setItem('graph-layout-mode', mode)
+  // Also save to container if inside one (fire and forget - don't wait for response)
+  if (props.parent?.id) {
+    api.updateNode(props.parent.id, { graph_layout: mode }).catch(() => {})
+  }
+})
+
+// Load container's layout when navigating to a different container
+watch(() => props.parent?.id, (newId) => {
+  if (newId !== lastKnownParentId) {
+    lastKnownParentId = newId
+    // Load the new container's layout preference
+    const containerLayout = props.parent?.graph_layout
+    const fallback = localStorage.getItem('graph-layout-mode') || 'tree'
+    layoutMode.value = containerLayout || fallback
+  }
 })
 
 // Persist relax locked state
@@ -741,6 +781,38 @@ const LAYOUTS = {
     tile: false
   },
 
+  // Grid: simple grid layout
+  grid: {
+    name: 'grid',
+    animate: true,
+    animationDuration: 400,
+    fit: true,
+    padding: 50,
+    avoidOverlap: true,
+    avoidOverlapPadding: 20,
+    nodeDimensionsIncludeLabels: true,
+    condense: false,
+    rows: undefined,
+    cols: undefined,
+    sort: (a, b) => a.data('label').localeCompare(b.data('label'))
+  },
+
+  // Circle: nodes arranged in a circle
+  circle: {
+    name: 'circle',
+    animate: true,
+    animationDuration: 400,
+    fit: true,
+    padding: 50,
+    avoidOverlap: true,
+    nodeDimensionsIncludeLabels: true,
+    spacingFactor: 1.2,
+    startAngle: -Math.PI / 2,  // Start from top
+    sweep: 2 * Math.PI,        // Full circle
+    clockwise: true,
+    sort: (a, b) => a.data('label').localeCompare(b.data('label'))
+  },
+
   // Relax (single click): Dagre - clean up edge crossings
   relax: {
     name: 'dagre',
@@ -933,7 +1005,7 @@ async function initGraph() {
         if (node.notes_sensitive || props.hideSensitive) {
           notesHtml = '<span style="opacity: 0.5">🔒</span>'
         } else {
-          const maxLen = totalNodes <= 5 ? 300 : totalNodes <= 10 ? 150 : 60
+          const maxLen = totalNodes <= 5 ? 500 : totalNodes <= 10 ? 300 : 150
           notesHtml = renderMarkdownHtml(node.notes, maxLen)
         }
       }
@@ -976,7 +1048,7 @@ async function initGraph() {
     }
   })
 
-  // Click on background to close edit modal, Cmd+click to add node
+  // Click on background to close edit modal and deselect, Cmd+click to add node
   cy.on('tap', (e) => {
     if (e.target === cy) {
       if (e.originalEvent.metaKey || e.originalEvent.ctrlKey) {
@@ -985,6 +1057,8 @@ async function initGraph() {
         showAddNodeModal(null, { x: pos.x, y: pos.y })
       } else {
         hideEditModal()
+        // Deselect current node (closes detail panel if not pinned)
+        emit('select', null)
       }
     }
   })
@@ -1541,7 +1615,7 @@ async function updateGraph() {
         if (node.notes_sensitive || props.hideSensitive) {
           notesHtml = '<span style="opacity: 0.5">🔒</span>'
         } else {
-          const maxLen = totalNodes <= 5 ? 300 : totalNodes <= 10 ? 150 : 60
+          const maxLen = totalNodes <= 5 ? 500 : totalNodes <= 10 ? 300 : 150
           notesHtml = renderMarkdownHtml(node.notes, maxLen)
         }
       }
@@ -1605,6 +1679,27 @@ function reLayout() {
   if (cy) {
     // Clear saved positions
     localStorage.removeItem(getPositionsKey())
+    cy.layout(getLayoutOptions()).run()
+    // Save new positions after layout
+    setTimeout(saveNodePositions, 800)
+  }
+}
+
+function resetLayout() {
+  if (cy) {
+    // Clear saved positions from storage
+    localStorage.removeItem(getPositionsKey())
+
+    // Reset all node positions to force fresh layout calculation
+    // Place nodes at random positions so layout algorithm starts fresh
+    const center = { x: cy.width() / 2, y: cy.height() / 2 }
+    cy.nodes().forEach(node => {
+      node.position({
+        x: center.x + (Math.random() - 0.5) * 100,
+        y: center.y + (Math.random() - 0.5) * 100
+      })
+    })
+
     cy.layout(getLayoutOptions()).run()
     // Save new positions after layout
     setTimeout(saveNodePositions, 800)
@@ -1817,6 +1912,20 @@ onUnmounted(() => {
       >
         Radial
       </button>
+      <button
+        @click="setLayout('grid')"
+        :class="{ active: layoutMode === 'grid' }"
+        title="Grid layout"
+      >
+        Grid
+      </button>
+      <button
+        @click="setLayout('circle')"
+        :class="{ active: layoutMode === 'circle' }"
+        title="Circular layout"
+      >
+        Circle
+      </button>
       <span class="controls-separator"></span>
       <button
         @click="handleRelaxClick"
@@ -1826,6 +1935,7 @@ onUnmounted(() => {
         {{ relaxLocked ? 'Relax [ON]' : 'Relax' }}
       </button>
       <button @click="fitView" title="Fit to view">Fit</button>
+      <button @click="resetLayout" title="Clear saved positions and regenerate layout from scratch">Reset</button>
       <template v-if="!parent">
         <span class="controls-separator"></span>
         <button
@@ -2020,7 +2130,7 @@ onUnmounted(() => {
   position: absolute;
   top: 10px;
   right: 10px;
-  z-index: 10;
+  z-index: 5;
   display: flex;
   gap: 6px;
   align-items: center;
