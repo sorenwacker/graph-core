@@ -135,7 +135,8 @@ function getRandomPersonColor() {
 // Load available workspaces from database
 async function loadWorkspaces() {
   try {
-    workspaces.value = await api.getWorkspaces()
+    const ws = await api.getWorkspaces()
+    workspaces.value = (ws || []).filter(Boolean)
   } catch (e) {
     console.error('Failed to load workspaces:', e)
     workspaces.value = []
@@ -257,7 +258,8 @@ const snapshotMessage = ref('')
 
 async function loadSnapshots() {
   try {
-    availableSnapshots.value = await api.listBackups()
+    const snapshots = await api.listBackups()
+    availableSnapshots.value = (snapshots || []).filter(Boolean)
   } catch (e) {
     console.error('Failed to load snapshots:', e)
     availableSnapshots.value = []
@@ -533,7 +535,7 @@ const cardDropPosition = ref(null) // 'before', 'after', 'inside'
 // Computed
 const projects = computed(() => {
   if (currentContainerId.value === null) {
-    return children.value.filter(n => n.type === 'project')
+    return children.value.filter(n => n && n.type === 'project')
   }
   return []
 })
@@ -541,7 +543,9 @@ const projects = computed(() => {
 const flatChildren = computed(() => {
   const result = []
   function flatten(nodeList) {
+    if (!nodeList) return
     for (const node of nodeList) {
+      if (!node) continue
       result.push(node)
       if (node.children?.length) {
         flatten(node.children)
@@ -563,7 +567,9 @@ const contextTitle = computed(() => {
 const inheritedColorMap = computed(() => {
   const colorMap = {}
   function buildMap(nodeList, inheritedColor = null) {
+    if (!nodeList) return
     for (const node of nodeList) {
+      if (!node || !node.id) continue
       const hasOwnColor = node.color && node.color !== '#0f4c75'
       const effectiveColor = hasOwnColor ? node.color : inheritedColor
       colorMap[node.id] = effectiveColor
@@ -575,7 +581,7 @@ const inheritedColorMap = computed(() => {
   // Find inherited color from ancestors (breadcrumbs)
   let ancestorColor = null
   for (const ancestor of breadcrumbs.value) {
-    if (ancestor.color && ancestor.color !== '#0f4c75') {
+    if (ancestor && ancestor.color && ancestor.color !== '#0f4c75') {
       ancestorColor = ancestor.color
     }
   }
@@ -630,9 +636,10 @@ const cardsGridStyle = computed(() => {
 
 // Filter children for cards view when hideCompleted is true
 function filterChildrenRecursive(nodeList) {
-  if (!hideCompleted.value) return nodeList
+  if (!nodeList) return []
+  if (!hideCompleted.value) return nodeList.filter(Boolean)
   return nodeList
-    .filter(node => !node.completed && !node.inheritedCompleted)
+    .filter(node => node && !node.completed && !node.inheritedCompleted)
     .map(node => ({
       ...node,
       children: node.children ? filterChildrenRecursive(node.children) : []
@@ -687,9 +694,11 @@ async function loadSidebarTree() {
     const wsFilter = currentWorkspace.value === 'people' ? null : currentWorkspace.value
     const roots = await api.getRoots(wsFilter)
     // In people workspace, show all persons. In other workspaces, exclude persons
-    const filteredRoots = wsFilter === null ? roots : roots.filter(r => r.type !== 'person')
+    // Also filter out any null/undefined entries
+    const filteredRoots = (wsFilter === null ? roots : roots.filter(r => r && r.type !== 'person')).filter(Boolean)
     const rootsWithChildren = await Promise.all(
       filteredRoots.map(async (root) => {
+        if (!root || !root.id) return null
         const descendants = await api.getDescendants(root.id)
         return {
           ...root,
@@ -697,7 +706,7 @@ async function loadSidebarTree() {
         }
       })
     )
-    sidebarTree.value = rootsWithChildren
+    sidebarTree.value = rootsWithChildren.filter(Boolean)
   } catch (e) {
     console.error('Failed to load sidebar tree:', e)
   }
@@ -714,11 +723,12 @@ async function loadRecentItems() {
     const wsFilter = currentWorkspace.value === 'people' ? null : currentWorkspace.value
     const items = await api.getRecent(10, wsFilter)
     const clearedAt = localStorage.getItem(getRecentClearedKey())
+    const validItems = (items || []).filter(Boolean)
     if (clearedAt) {
       // Only show items updated after the clear timestamp
-      recentItems.value = items.filter(item => item.updated_at > clearedAt)
+      recentItems.value = validItems.filter(item => item && item.updated_at > clearedAt)
     } else {
-      recentItems.value = items
+      recentItems.value = validItems
     }
   } catch (e) {
     console.error('Failed to load recent items:', e)
@@ -753,7 +763,8 @@ async function loadFavorites() {
   try {
     if (api.getFavorites) {
       const wsFilter = currentWorkspace.value === 'people' ? null : currentWorkspace.value
-      favoriteItems.value = await api.getFavorites(wsFilter)
+      const items = await api.getFavorites(wsFilter)
+      favoriteItems.value = (items || []).filter(Boolean)
     }
   } catch (e) {
     // Silently fail - favorites API may not be available until restart
@@ -763,7 +774,8 @@ async function loadFavorites() {
 
 async function loadTrashedItems() {
   try {
-    trashedItems.value = await api.getTrash(100)
+    const items = await api.getTrash(100)
+    trashedItems.value = (items || []).filter(Boolean)
   } catch (e) {
     console.error('Failed to load trashed items:', e)
   }
@@ -803,7 +815,8 @@ async function emptyAllTrash() {
 // Lost & Found - orphaned nodes
 async function loadOrphanedNodes() {
   try {
-    orphanedNodes.value = await api.getOrphanedNodes()
+    const nodes = await api.getOrphanedNodes()
+    orphanedNodes.value = (nodes || []).filter(Boolean)
   } catch (e) {
     console.error('Failed to load orphaned nodes:', e)
     orphanedNodes.value = []
@@ -868,10 +881,12 @@ async function loadChildren(containerId = null) {
       const wsFilter = currentWorkspace.value === 'people' ? null : currentWorkspace.value
       const roots = await api.getRoots(wsFilter)
       // In people workspace, show all persons. In other workspaces, exclude persons
-      const filteredRoots = wsFilter === null ? roots : roots.filter(r => r.type !== 'person')
+      // Also filter out any null/undefined entries
+      const filteredRoots = (wsFilter === null ? roots : roots.filter(r => r && r.type !== 'person')).filter(Boolean)
       // Fetch descendants for each root to build nested structure
       const rootsWithChildren = await Promise.all(
         filteredRoots.map(async (root) => {
+          if (!root || !root.id) return null
           const descendants = await api.getDescendants(root.id)
           return {
             ...root,
@@ -879,8 +894,9 @@ async function loadChildren(containerId = null) {
           }
         })
       )
-      children.value = rootsWithChildren
-      sidebarTree.value = rootsWithChildren  // Update sidebar
+      const validRoots = rootsWithChildren.filter(Boolean)
+      children.value = validRoots
+      sidebarTree.value = validRoots  // Update sidebar
       currentContainer.value = null
       breadcrumbs.value = []
     } else {
@@ -897,9 +913,9 @@ async function loadChildren(containerId = null) {
 
       // Build breadcrumbs
       const ancestors = await api.getAncestors(containerId)
-      // Filter out any ancestor that has same id as container (prevents duplicates)
-      breadcrumbs.value = ancestors.filter(a => a.id !== container.id)
-      breadcrumbs.value.push(container)
+      // Filter out any null entries and any ancestor that has same id as container (prevents duplicates)
+      breadcrumbs.value = (ancestors || []).filter(a => a && a.id !== container.id)
+      if (container) breadcrumbs.value.push(container)
 
       // Expand sidebar tree to show current path
       breadcrumbs.value.forEach(crumb => {
@@ -927,26 +943,30 @@ async function loadChildren(containerId = null) {
 }
 
 function buildTree(directChildren, allDescendants, parentCompleted = false) {
-  return directChildren.map(child => {
+  if (!directChildren) return []
+  return directChildren.filter(Boolean).map(child => {
+    if (!child || !child.id) return null
     const inheritedCompleted = parentCompleted || child.completed
     return {
       ...child,
       inheritedCompleted: parentCompleted,  // true if any ancestor is completed
       children: buildChildTree(allDescendants, child.id, inheritedCompleted)
     }
-  })
+  }).filter(Boolean)
 }
 
 function buildChildTree(flatNodes, parentId, parentCompleted = false) {
-  const children = flatNodes.filter(n => n.parent_id === parentId)
+  if (!flatNodes) return []
+  const children = flatNodes.filter(n => n && n.parent_id === parentId)
   return children.map(child => {
+    if (!child || !child.id) return null
     const inheritedCompleted = parentCompleted || child.completed
     return {
       ...child,
       inheritedCompleted: parentCompleted,  // true if any ancestor is completed
       children: buildChildTree(flatNodes, child.id, inheritedCompleted)
     }
-  })
+  }).filter(Boolean)
 }
 
 async function enterContainer(node, { skipHistory = false, direction = 'forward' } = {}) {

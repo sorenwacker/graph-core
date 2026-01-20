@@ -376,7 +376,9 @@ function getTypeStyle(type) {
 
 
 function flattenNodes(nodeList, result = [], skipCompleted = false, maxDepth = 0, currentDepth = 1) {
+  if (!nodeList) return result
   for (const node of nodeList) {
+    if (!node) continue
     // Skip completed nodes AND all their children
     if (skipCompleted && node.completed) continue
     result.push(node)
@@ -390,8 +392,9 @@ function flattenNodes(nodeList, result = [], skipCompleted = false, maxDepth = 0
 
 // Filter nodes recursively by max depth
 function filterByDepth(nodeList, maxDepth, currentDepth = 1) {
-  if (maxDepth === 0) return nodeList // 0 = unlimited
-  return nodeList.map(n => ({
+  if (!nodeList) return []
+  if (maxDepth === 0) return nodeList.filter(Boolean) // 0 = unlimited
+  return nodeList.filter(Boolean).map(n => ({
     ...n,
     children: currentDepth < maxDepth && n.children?.length
       ? filterByDepth(n.children, maxDepth, currentDepth + 1)
@@ -401,8 +404,9 @@ function filterByDepth(nodeList, maxDepth, currentDepth = 1) {
 
 // Filter nodes recursively, removing completed nodes and their children
 function filterCompletedNodes(nodeList) {
+  if (!nodeList) return []
   return nodeList
-    .filter(n => !n.completed)
+    .filter(n => n && !n.completed)
     .map(n => ({
       ...n,
       children: n.children ? filterCompletedNodes(n.children) : []
@@ -411,7 +415,9 @@ function filterCompletedNodes(nodeList) {
 
 // Build inherited color map - parent colors flow to children unless overridden
 function buildInheritedColorMap(nodeList, inheritedColor = null, colorMap = {}) {
+  if (!nodeList) return colorMap
   for (const node of nodeList) {
+    if (!node || !node.id) continue
     // Node's effective color: own color if set, otherwise inherited
     const hasOwnColor = node.color && node.color !== '#0f4c75'
     const effectiveColor = hasOwnColor ? node.color : inheritedColor
@@ -488,8 +494,10 @@ function formatDate(dateStr) {
 }
 
 function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshold = 30, maxDepth = 0) {
+  // Filter out null entries from the start
+  const cleanNodeList = (nodeList || []).filter(n => n && n.id)
   // Apply depth filter first
-  const depthFiltered = filterByDepth(nodeList, maxDepth)
+  const depthFiltered = filterByDepth(cleanNodeList, maxDepth)
   // Filter completed nodes and their children if hideCompleted is enabled
   const filteredList = props.hideCompleted
     ? filterCompletedNodes(depthFiltered)
@@ -497,12 +505,12 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
   const flat = flattenNodes(filteredList, [], false, maxDepth)
 
   // Include parent unless it's completed and we're hiding completed
-  const includeParent = parentNode && !(props.hideCompleted && parentNode.completed)
-  const allNodes = includeParent ? [{ ...parentNode, children: filteredList }, ...flat] : flat
+  const includeParent = parentNode && parentNode.id && !(props.hideCompleted && parentNode.completed)
+  const allNodes = (includeParent ? [{ ...parentNode, children: filteredList }, ...flat] : flat).filter(n => n && n.id)
   const totalNodes = allNodes.length
   const showDetails = totalNodes <= detailThreshold
   // Top-level node IDs in current view (for glow effect)
-  const topLevelIds = new Set(nodeList.map(n => n.id))
+  const topLevelIds = new Set(cleanNodeList.map(n => n.id))
 
   // Build inherited color map - parent colors flow to children
   const parentColor = parentNode?.color && parentNode.color !== '#0f4c75' ? parentNode.color : null

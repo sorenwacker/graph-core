@@ -1,6 +1,12 @@
 // Detect if running in Electron
 const isElectron = typeof window !== 'undefined' && window.electronAPI
 
+// Helper to filter out null/undefined entries from arrays
+function filterNulls(arr) {
+  if (!Array.isArray(arr)) return arr
+  return arr.filter(item => item != null)
+}
+
 // HTTP API for web mode
 const API_BASE = '/api'
 
@@ -225,36 +231,37 @@ const webApi = {
 }
 
 // Electron API implementation (uses IPC)
+// Wrap array-returning methods with filterNulls to prevent null entries
 const electronApi = {
   // Node CRUD
-  getNodes: (params) => window.electronAPI.getNodes(params),
+  getNodes: async (params) => filterNulls(await window.electronAPI.getNodes(params)),
   getNode: (id) => window.electronAPI.getNode(id),
   createNode: (data) => window.electronAPI.createNode(data),
   updateNode: (id, data) => window.electronAPI.updateNode(id, data),
   deleteNode: (id, hard) => window.electronAPI.deleteNode(id, hard),
 
-  // Tree operations
-  getRoots: (workspaceId) => window.electronAPI.getRoots(workspaceId),
-  getProjects: () => window.electronAPI.getProjects(),
-  getInbox: () => window.electronAPI.getInbox(),
-  getRecent: (limit, workspaceId) => window.electronAPI.getRecent(limit, workspaceId),
-  getFavorites: (workspaceId) => window.electronAPI.getFavorites(workspaceId),
-  getChildren: (id, type) => window.electronAPI.getChildren(id, type),
-  getDescendants: (id, maxDepth) => window.electronAPI.getDescendants(id, maxDepth),
-  getAncestors: (id) => window.electronAPI.getAncestors(id),
+  // Tree operations - all return arrays, so wrap with filterNulls
+  getRoots: async (workspaceId) => filterNulls(await window.electronAPI.getRoots(workspaceId)),
+  getProjects: async () => filterNulls(await window.electronAPI.getProjects()),
+  getInbox: async () => filterNulls(await window.electronAPI.getInbox()),
+  getRecent: async (limit, workspaceId) => filterNulls(await window.electronAPI.getRecent(limit, workspaceId)),
+  getFavorites: async (workspaceId) => filterNulls(await window.electronAPI.getFavorites(workspaceId)),
+  getChildren: async (id, type) => filterNulls(await window.electronAPI.getChildren(id, type)),
+  getDescendants: async (id, maxDepth) => filterNulls(await window.electronAPI.getDescendants(id, maxDepth)),
+  getAncestors: async (id) => filterNulls(await window.electronAPI.getAncestors(id)),
   moveNode: (id, newParentId) => window.electronAPI.moveNode(id, newParentId),
 
   // Links
   linkNodes: (sourceId, targetId) => window.electronAPI.linkNodes(sourceId, targetId),
   unlinkNodes: (sourceId, targetId) => window.electronAPI.unlinkNodes(sourceId, targetId),
-  getAllLinks: (nodeIds) => window.electronAPI.getAllLinks(nodeIds),
-  getLinkedNodes: (id) => window.electronAPI.getLinkedNodes(id),
+  getAllLinks: async (nodeIds) => filterNulls(await window.electronAPI.getAllLinks(nodeIds)),
+  getLinkedNodes: async (id) => filterNulls(await window.electronAPI.getLinkedNodes(id)),
 
   // Tree view
   getTree: (rootId) => window.electronAPI.getTree(rootId),
 
   // Search
-  search: (query, type, workspaceId) => window.electronAPI.search(query, type, workspaceId),
+  search: async (query, type, workspaceId) => filterNulls(await window.electronAPI.search(query, type, workspaceId)),
 
   // Reorder
   reorderNode: (nodeId, targetId, position) => window.electronAPI.reorderNode(nodeId, targetId, position),
@@ -263,20 +270,20 @@ const electronApi = {
   exportMarkdown: (nodeId) => window.electronAPI.exportMarkdown(nodeId),
 
   // Trash
-  getTrash: (limit) => window.electronAPI.getTrash(limit),
+  getTrash: async (limit) => filterNulls(await window.electronAPI.getTrash(limit)),
   restoreNode: (id) => window.electronAPI.restoreNode(id),
   emptyTrash: () => window.electronAPI.emptyTrash(),
 
   // Lost & Found
-  getOrphanedNodes: () => window.electronAPI.getOrphanedNodes(),
+  getOrphanedNodes: async () => filterNulls(await window.electronAPI.getOrphanedNodes()),
   reparentToRoot: (id) => window.electronAPI.reparentToRoot(id),
 
   // Tags
-  getAllTags: () => window.electronAPI.getAllTags(),
-  getNodesByTag: (tag) => window.electronAPI.getNodesByTag(tag),
+  getAllTags: async () => filterNulls(await window.electronAPI.getAllTags()),
+  getNodesByTag: async (tag) => filterNulls(await window.electronAPI.getNodesByTag(tag)),
 
   // Workspaces
-  getWorkspaces: () => window.electronAPI.getWorkspaces(),
+  getWorkspaces: async () => filterNulls(await window.electronAPI.getWorkspaces()),
   getWorkspace: (id) => window.electronAPI.getWorkspace(id),
   createWorkspace: (data) => window.electronAPI.createWorkspace(data),
   updateWorkspace: (id, data) => window.electronAPI.updateWorkspace(id, data),
