@@ -50,11 +50,16 @@ export function useDetachedWindow() {
 
   // Broadcast node update to other windows
   function broadcastNodeUpdate(node) {
-    if (channel.value) {
-      channel.value.postMessage({
-        type: 'node-updated',
-        node: node
-      })
+    if (channel.value && node) {
+      // Serialize to plain object to avoid cloning issues with Vue proxies
+      try {
+        channel.value.postMessage({
+          type: 'node-updated',
+          node: JSON.parse(JSON.stringify(node))
+        })
+      } catch (e) {
+        console.warn('Failed to broadcast node update:', e)
+      }
     }
   }
 

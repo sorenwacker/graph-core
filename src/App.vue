@@ -326,6 +326,20 @@ function formatSnapshotDate(dateString) {
   })
 }
 
+// Decode HTML entities for display
+function decodeHtml(text) {
+  if (!text) return ''
+  return text
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&#34;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+}
+
 // Persist view mode changes and load data when switching views
 watch(viewMode, (newMode) => {
   localStorage.setItem('graphcore-viewMode', newMode)
@@ -2325,8 +2339,39 @@ async function startInlineNotes(node, e) {
   }
 }
 
+// Debounced auto-save for inline notes
+let autoSaveTimeout = null
+async function autoSaveInlineNotes() {
+  if (!inlineNotesId.value) return
+
+  const nodeId = inlineNotesId.value
+  try {
+    await api.updateNode(nodeId, { notes: inlineNotesText.value })
+  } catch (e) {
+    console.error('Auto-save failed:', e)
+  }
+}
+
+function debouncedAutoSave() {
+  if (autoSaveTimeout) clearTimeout(autoSaveTimeout)
+  autoSaveTimeout = setTimeout(autoSaveInlineNotes, 500) // Save after 500ms of no typing
+}
+
+// Watch for notes changes and auto-save
+watch(inlineNotesText, (newValue, oldValue) => {
+  if (inlineNotesId.value && newValue !== oldValue) {
+    debouncedAutoSave()
+  }
+})
+
 async function saveInlineNotes() {
   if (!inlineNotesId.value) return
+
+  // Clear any pending auto-save
+  if (autoSaveTimeout) {
+    clearTimeout(autoSaveTimeout)
+    autoSaveTimeout = null
+  }
 
   const nodeId = inlineNotesId.value
   const originalNode = flatChildren.value.find(n => n.id === nodeId)
@@ -3509,7 +3554,7 @@ onUnmounted(() => {
                   <span v-if="result.due_date" class="result-due">Due: {{ result.due_date.split('T')[0] }}</span>
                   <span v-if="result.importance" class="result-priority">{{ getImportanceLabel(result.importance) }}</span>
                 </div>
-                <div v-if="result.notes" class="result-notes">{{ result.notes.substring(0, 80) }}{{ result.notes.length > 80 ? '...' : '' }}</div>
+                <div v-if="result.notes" class="result-notes">{{ decodeHtml(result.notes).substring(0, 80) }}{{ result.notes.length > 80 ? '...' : '' }}</div>
               </div>
               <div class="result-action">
                 {{ getSearchActionLabel(result) }}
