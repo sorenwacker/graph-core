@@ -1,0 +1,296 @@
+import { describe, it, expect, beforeEach } from 'vitest'
+import { ref, computed } from 'vue'
+import { useSelection } from '../composables/useSelection.js'
+
+describe('useSelection composable', () => {
+  let showDetail, fullscreenDetail, openDetailFullscreen, flatChildren
+  let selection
+
+  beforeEach(() => {
+    // Setup mock refs
+    showDetail = ref(false)
+    fullscreenDetail = ref(false)
+    openDetailFullscreen = ref(false)
+    flatChildren = computed(() => [
+      { id: 1, title: 'Node 1' },
+      { id: 2, title: 'Node 2' },
+      { id: 3, title: 'Node 3' },
+      { id: 4, title: 'Node 4' },
+      { id: 5, title: 'Node 5' }
+    ])
+
+    selection = useSelection({
+      showDetail,
+      fullscreenDetail,
+      openDetailFullscreen,
+      flatChildren
+    })
+  })
+
+  describe('initial state', () => {
+    it('should have null selectedNode', () => {
+      expect(selection.selectedNode.value).toBeNull()
+    })
+
+    it('should have empty selectedIds', () => {
+      expect(selection.selectedIds.value.size).toBe(0)
+    })
+
+    it('should have hasSelection as false', () => {
+      expect(selection.hasSelection.value).toBe(false)
+    })
+
+    it('should have selectionCount as 0', () => {
+      expect(selection.selectionCount.value).toBe(0)
+    })
+  })
+
+  describe('selectNode', () => {
+    it('should select a node', () => {
+      const node = { id: 1, title: 'Test Node' }
+      selection.selectNode(node)
+
+      expect(selection.selectedNode.value).toEqual(node)
+      expect(selection.selectedIds.value.has(1)).toBe(true)
+      expect(selection.hasSelection.value).toBe(true)
+    })
+
+    it('should open detail panel when selecting', () => {
+      const node = { id: 1, title: 'Test Node' }
+      selection.selectNode(node)
+
+      expect(showDetail.value).toBe(true)
+    })
+
+    it('should set anchor node for range selection', () => {
+      const node = { id: 1, title: 'Test Node' }
+      selection.selectNode(node)
+
+      expect(selection.anchorNode.value).toEqual(node)
+    })
+
+    it('should set lastSelectedNode', () => {
+      const node = { id: 1, title: 'Test Node' }
+      selection.selectNode(node)
+
+      expect(selection.lastSelectedNode.value).toEqual(node)
+    })
+
+    it('should deselect when called with null', () => {
+      const node = { id: 1, title: 'Test Node' }
+      selection.selectNode(node)
+      selection.selectNode(null)
+
+      expect(selection.selectedNode.value).toBeNull()
+      expect(selection.selectedIds.value.size).toBe(0)
+    })
+
+    it('should open fullscreen when option is passed', () => {
+      const node = { id: 1, title: 'Test Node' }
+      selection.selectNode(node, { fullscreen: true })
+
+      expect(fullscreenDetail.value).toBe(true)
+    })
+
+    it('should open fullscreen when preference is enabled', () => {
+      openDetailFullscreen.value = true
+      const node = { id: 1, title: 'Test Node' }
+      selection.selectNode(node)
+
+      expect(fullscreenDetail.value).toBe(true)
+    })
+  })
+
+  describe('hoverSelectNode', () => {
+    it('should update selectedNode on hover', () => {
+      const node = { id: 1, title: 'Test Node' }
+      selection.hoverSelectNode(node)
+
+      expect(selection.selectedNode.value).toEqual(node)
+    })
+
+    it('should not change selection when detail panel is open', () => {
+      showDetail.value = true
+      const node1 = { id: 1, title: 'Node 1' }
+      const node2 = { id: 2, title: 'Node 2' }
+
+      selection.selectNode(node1)
+      selection.hoverSelectNode(node2)
+
+      expect(selection.selectedNode.value).toEqual(node1)
+    })
+  })
+
+  describe('clearSelection', () => {
+    it('should clear all selection state', () => {
+      const node = { id: 1, title: 'Test Node' }
+      selection.selectNode(node)
+      selection.clearSelection()
+
+      expect(selection.selectedNode.value).toBeNull()
+      expect(selection.selectedIds.value.size).toBe(0)
+      expect(selection.anchorNode.value).toBeNull()
+    })
+  })
+
+  describe('isSelected', () => {
+    it('should return true for selected node', () => {
+      const node = { id: 1, title: 'Test Node' }
+      selection.selectNode(node)
+
+      expect(selection.isSelected(1)).toBe(true)
+    })
+
+    it('should return false for non-selected node', () => {
+      const node = { id: 1, title: 'Test Node' }
+      selection.selectNode(node)
+
+      expect(selection.isSelected(2)).toBe(false)
+    })
+
+    it('should return true for node in selectedIds set', () => {
+      selection.handleMultiSelect({ node: { id: 1 }, add: true })
+      selection.handleMultiSelect({ node: { id: 2 }, add: true })
+
+      expect(selection.isSelected(1)).toBe(true)
+      expect(selection.isSelected(2)).toBe(true)
+    })
+  })
+
+  describe('handleMultiSelect - Ctrl+click (add mode)', () => {
+    it('should add node to selection', () => {
+      selection.handleMultiSelect({ node: { id: 1 }, add: true })
+
+      expect(selection.selectedIds.value.has(1)).toBe(true)
+      expect(selection.selectionCount.value).toBe(1)
+    })
+
+    it('should toggle node selection on second click', () => {
+      selection.handleMultiSelect({ node: { id: 1 }, add: true })
+      selection.handleMultiSelect({ node: { id: 1 }, add: true })
+
+      expect(selection.selectedIds.value.has(1)).toBe(false)
+      expect(selection.selectionCount.value).toBe(0)
+    })
+
+    it('should allow multiple selections', () => {
+      selection.handleMultiSelect({ node: { id: 1 }, add: true })
+      selection.handleMultiSelect({ node: { id: 2 }, add: true })
+      selection.handleMultiSelect({ node: { id: 3 }, add: true })
+
+      expect(selection.selectionCount.value).toBe(3)
+      expect(selection.selectedIds.value.has(1)).toBe(true)
+      expect(selection.selectedIds.value.has(2)).toBe(true)
+      expect(selection.selectedIds.value.has(3)).toBe(true)
+    })
+
+    it('should set anchor on first Ctrl+click', () => {
+      const node = { id: 1, title: 'Node 1' }
+      selection.handleMultiSelect({ node, add: true })
+
+      expect(selection.anchorNode.value).toEqual(node)
+    })
+
+    it('should open detail panel', () => {
+      selection.handleMultiSelect({ node: { id: 1 }, add: true })
+
+      expect(showDetail.value).toBe(true)
+    })
+  })
+
+  describe('handleMultiSelect - Shift+click (range mode)', () => {
+    it('should select range from anchor to clicked node', () => {
+      // Set anchor first
+      selection.selectNode({ id: 2, title: 'Node 2' })
+
+      // Shift+click on node 4
+      selection.handleMultiSelect({ node: { id: 4 }, range: true })
+
+      // Should select nodes 2, 3, 4
+      expect(selection.selectedIds.value.has(2)).toBe(true)
+      expect(selection.selectedIds.value.has(3)).toBe(true)
+      expect(selection.selectedIds.value.has(4)).toBe(true)
+      expect(selection.selectedIds.value.has(1)).toBe(false)
+      expect(selection.selectedIds.value.has(5)).toBe(false)
+    })
+
+    it('should work in reverse direction', () => {
+      // Set anchor at node 4
+      selection.selectNode({ id: 4, title: 'Node 4' })
+
+      // Shift+click on node 2
+      selection.handleMultiSelect({ node: { id: 2 }, range: true })
+
+      // Should select nodes 2, 3, 4
+      expect(selection.selectionCount.value).toBe(3)
+      expect(selection.selectedIds.value.has(2)).toBe(true)
+      expect(selection.selectedIds.value.has(3)).toBe(true)
+      expect(selection.selectedIds.value.has(4)).toBe(true)
+    })
+
+    it('should select single node if no anchor', () => {
+      selection.handleMultiSelect({ node: { id: 3 }, range: true })
+
+      expect(selection.selectionCount.value).toBe(1)
+      expect(selection.selectedIds.value.has(3)).toBe(true)
+    })
+  })
+
+  describe('updateSelectedNode', () => {
+    it('should update selected node data', () => {
+      selection.selectNode({ id: 1, title: 'Old Title' })
+      selection.updateSelectedNode({ id: 1, title: 'New Title' })
+
+      expect(selection.selectedNode.value.title).toBe('New Title')
+    })
+
+    it('should not update if different node', () => {
+      selection.selectNode({ id: 1, title: 'Node 1' })
+      selection.updateSelectedNode({ id: 2, title: 'Node 2' })
+
+      expect(selection.selectedNode.value.title).toBe('Node 1')
+    })
+  })
+
+  describe('removeFromSelection', () => {
+    it('should remove node from selectedIds', () => {
+      selection.handleMultiSelect({ node: { id: 1 }, add: true })
+      selection.handleMultiSelect({ node: { id: 2 }, add: true })
+      selection.removeFromSelection(1)
+
+      expect(selection.selectedIds.value.has(1)).toBe(false)
+      expect(selection.selectedIds.value.has(2)).toBe(true)
+    })
+
+    it('should clear selectedNode if it matches', () => {
+      selection.selectNode({ id: 1, title: 'Node 1' })
+      selection.removeFromSelection(1)
+
+      expect(selection.selectedNode.value).toBeNull()
+    })
+
+    it('should clear anchor if it matches', () => {
+      selection.selectNode({ id: 1, title: 'Node 1' })
+      expect(selection.anchorNode.value.id).toBe(1)
+
+      selection.removeFromSelection(1)
+      expect(selection.anchorNode.value).toBeNull()
+    })
+  })
+
+  describe('without dependencies', () => {
+    it('should work without showDetail ref', () => {
+      const sel = useSelection({})
+      sel.selectNode({ id: 1, title: 'Test' })
+
+      expect(sel.selectedNode.value.id).toBe(1)
+    })
+
+    it('should work without flatChildren for simple selection', () => {
+      const sel = useSelection({ showDetail: ref(false) })
+      sel.selectNode({ id: 1, title: 'Test' })
+
+      expect(sel.selectedNode.value.id).toBe(1)
+    })
+  })
+})

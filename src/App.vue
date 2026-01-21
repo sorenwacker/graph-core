@@ -4,6 +4,7 @@ import { marked } from 'marked'
 import { api } from './services/api.js'
 import { useNodeTooltip } from './composables/useNodeTooltip.js'
 import { useDetachedWindow } from './composables/useDetachedWindow.js'
+import { useSelection } from './composables/useSelection.js'
 import { nodeTypes, getImportanceLabel, getTypeIcon, getTypeColors, typeConfig, personIconSvg } from './utils/constants.js'
 import DetailPanel from './components/DetailPanel.vue'
 import GraphView from './components/GraphView.vue'
@@ -73,9 +74,8 @@ const loading = ref(true)
 const error = ref(null)
 const newNodeTitle = ref('')
 const newNodeType = ref('task')
-const selectedNode = ref(null)
-const selectedIds = ref(new Set())
-const lastSelectedNode = ref(null)  // For shift-click range selection
+// Selection state is managed by useSelection composable (initialized after flatChildren)
+// These refs are passed to the composable and also used for UI state
 const showDetail = ref(false)
 const fullscreenDetail = ref(false)
 const detailPinned = ref(false)
@@ -592,6 +592,28 @@ const flatChildren = computed(() => {
   return result
 })
 
+// Initialize selection composable with dependencies
+const {
+  selectedNode,
+  selectedIds,
+  lastSelectedNode,
+  anchorNode,
+  hasSelection,
+  selectionCount,
+  isSelected: isNodeSelected,
+  clearSelection,
+  hoverSelectNode,
+  selectNode,
+  handleMultiSelect,
+  updateSelectedNode,
+  removeFromSelection
+} = useSelection({
+  showDetail,
+  fullscreenDetail,
+  openDetailFullscreen,
+  flatChildren
+})
+
 const contextTitle = computed(() => {
   if (currentContainer.value) {
     return currentContainer.value.title
@@ -1085,35 +1107,7 @@ function goToParent() {
   }
 }
 
-// Anchor node for shift+click range selection (like Finder)
-const anchorNode = ref(null)
-
-// Light select for hover - just updates selectedNode when detail panel is not open
-function hoverSelectNode(node) {
-  // Don't change selection on hover if detail panel is showing
-  if (showDetail.value) return
-  selectedNode.value = node
-}
-
-// Full select - opens detail panel
-function selectNode(node, options = {}) {
-  // Handle deselection when node is null
-  if (!node) {
-    selectedNode.value = null
-    selectedIds.value = new Set()
-    // Detail panel will close via watcher if not pinned
-    return
-  }
-  selectedNode.value = node
-  lastSelectedNode.value = node
-  anchorNode.value = node  // Set anchor for shift+click range selection
-  selectedIds.value = new Set([node.id])
-  showDetail.value = true
-  // Open fullscreen if explicitly requested OR if setting is enabled
-  if (options.fullscreen || openDetailFullscreen.value) {
-    fullscreenDetail.value = true
-  }
-}
+// Selection functions (hoverSelectNode, selectNode, handleMultiSelect) are now in useSelection composable
 
 // Toggle detail panel visibility (for Enter key)
 function toggleDetailPanel() {
@@ -1148,51 +1142,6 @@ async function openNodeFullscreen(nodeId) {
   } catch (err) {
     console.error('Failed to open node fullscreen:', err)
   }
-}
-
-function handleMultiSelect({ node, add, range }) {
-  if (add) {
-    // Ctrl/Cmd+click: toggle selection
-    const newSet = new Set(selectedIds.value)
-    if (newSet.has(node.id)) {
-      newSet.delete(node.id)
-      // If we removed the anchor, set new anchor to remaining selection
-      if (anchorNode.value?.id === node.id) {
-        anchorNode.value = newSet.size > 0 ? flatChildren.value.find(n => newSet.has(n.id)) : null
-      }
-    } else {
-      newSet.add(node.id)
-      // First Ctrl+click sets the anchor
-      if (!anchorNode.value) {
-        anchorNode.value = node
-      }
-    }
-    selectedIds.value = newSet
-    selectedNode.value = node
-    lastSelectedNode.value = node
-  } else if (range) {
-    // Shift+click: range selection from anchor (like Finder)
-    const anchor = anchorNode.value || lastSelectedNode.value
-    if (anchor) {
-      const allNodes = flatChildren.value
-      const anchorIdx = allNodes.findIndex(n => n.id === anchor.id)
-      const currIdx = allNodes.findIndex(n => n.id === node.id)
-      if (anchorIdx !== -1 && currIdx !== -1) {
-        const start = Math.min(anchorIdx, currIdx)
-        const end = Math.max(anchorIdx, currIdx)
-        const rangeIds = allNodes.slice(start, end + 1).map(n => n.id)
-        // Replace selection with range (Finder behavior)
-        selectedIds.value = new Set(rangeIds)
-      }
-    } else {
-      // No anchor, just select clicked node
-      selectedIds.value = new Set([node.id])
-      anchorNode.value = node
-    }
-    selectedNode.value = node
-    // Don't update lastSelectedNode on shift+click to preserve anchor
-  }
-  showDetail.value = true
 }
 
 async function handleReorder({ nodeId, targetId, position }) {
@@ -2236,7 +2185,7 @@ function handleChildCardClick(e, node) {
 }
 
 function isCardSelected(nodeId) {
-  return selectedIds.value.has(nodeId) || selectedNode.value?.id === nodeId
+  return isNodeSelected(nodeId)
 }
 
 // Context menu functions
