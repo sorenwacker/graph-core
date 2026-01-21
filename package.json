@@ -3,6 +3,11 @@
   "private": true,
   "version": "1.0.0",
   "description": "Graph-based task and note management",
+  "author": {
+    "name": "Your Name",
+    "email": "your.email@example.com"
+  },
+  "license": "MIT",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
@@ -21,6 +26,7 @@
     "electron:build:mac": "npm run build && electron-builder --mac",
     "electron:build:win": "npm run build && electron-builder --win",
     "electron:build:linux": "npm run build && electron-builder --linux",
+    "electron:build:mas": "npm run build && electron-builder --mac mas",
     "dist": "npm run build && electron-builder",
     "release": "npm run build && electron-builder --publish always"
   },
@@ -77,11 +83,21 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
-      "icon": "resources/icon-512.png",
+      "icon": "resources/icon-1024.png",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.inherit.plist",
       "target": [
         "dmg",
         "zip"
       ]
+    },
+    "mas": {
+      "category": "public.app-category.productivity",
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.inherit.plist",
+      "hardenedRuntime": false
     },
     "dmg": {
       "contents": [
