@@ -206,7 +206,7 @@ const { showTooltip, hideTooltip, forceHide: forceHideTooltip } = useNodeTooltip
     if (node) await toggleComplete(node)
   },
   getHideSensitive: () => hideSensitive.value,
-  shouldShowTooltip: () => !showDetail.value
+  shouldShowTooltip: () => hoverPreviewEnabled.value && !showDetail.value
 })
 
 // Setup detached window composable for cross-window sync
@@ -226,6 +226,7 @@ const graphDetailThreshold = ref(isNaN(storedThreshold) ? 30 : storedThreshold)
 const graphMaxDepth = ref(parseInt(localStorage.getItem('graphcore-graphMaxDepth')) || 0) // 0 = all
 const graphRootMaxDepth = ref(parseInt(localStorage.getItem('graphcore-graphRootMaxDepth')) || 2) // Default 2 for root level
 const openDetailFullscreen = ref(localStorage.getItem('graphcore-openDetailFullscreen') === 'true')
+const hoverPreviewEnabled = ref(localStorage.getItem('graphcore-hoverPreview') !== 'false') // Default: enabled
 const showSettings = ref(false)
 const sortAlphabetically = ref(false)
 
@@ -2718,6 +2719,13 @@ onUnmounted(() => {
                 </label>
                 <span class="settings-hint">Open detail panel in fullscreen mode by default</span>
               </div>
+              <div class="settings-item">
+                <label>
+                  <input type="checkbox" v-model="hoverPreviewEnabled" @change="localStorage.setItem('graphcore-hoverPreview', hoverPreviewEnabled)" />
+                  Hover preview
+                </label>
+                <span class="settings-hint">Show preview tooltip when hovering over nodes</span>
+              </div>
               <div class="settings-divider"></div>
               <div class="settings-item">
                 <label>Database Snapshots</label>
@@ -2836,6 +2844,7 @@ onUnmounted(() => {
           :current-parent-id="currentContainerId"
           :current-container="currentContainer"
           :color-map="inheritedColorMap"
+          :hover-preview-enabled="hoverPreviewEnabled"
           @hover="hoverSelectNode"
           @select="selectNode"
           @select-multiple="handleMultiSelect"
@@ -3115,6 +3124,7 @@ onUnmounted(() => {
           :workspaces="workspaces"
           :show-detail="showDetail"
           :fullscreen-detail-open="fullscreenDetail"
+          :hover-preview-enabled="hoverPreviewEnabled"
           @select="selectNode"
           @enter="enterContainer"
           @move="moveNode"

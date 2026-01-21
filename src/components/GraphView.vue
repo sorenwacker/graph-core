@@ -73,7 +73,8 @@ const props = defineProps({
   workspace: { type: String, default: 'work' },
   workspaces: { type: Array, default: () => [] },
   showDetail: { type: Boolean, default: false },
-  fullscreenDetailOpen: { type: Boolean, default: false }
+  fullscreenDetailOpen: { type: Boolean, default: false },
+  hoverPreviewEnabled: { type: Boolean, default: true }
 })
 
 const emit = defineEmits(['select', 'enter', 'move', 'add-child', 'insert-between', 'update', 'create', 'delete', 'delete-multiple', 'wrap-with-parent', 'open-fullscreen', 'link', 'unlink', 'context-menu', 'toggle-complete', 'toggle-favorite', 'open-link-search'])
@@ -349,7 +350,7 @@ const { showTooltip, hideTooltip, forceHide: forceHideTooltip } = useNodeTooltip
     emit('open-fullscreen', nodeId)
   },
   getHideSensitive: () => props.hideSensitive,
-  shouldShowTooltip: () => !props.showDetail && !props.fullscreenDetailOpen && !editModal.value.visible
+  shouldShowTooltip: () => props.hoverPreviewEnabled && !props.showDetail && !props.fullscreenDetailOpen && !editModal.value.visible
 })
 
 function showEditModal(node) {

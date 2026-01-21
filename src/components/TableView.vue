@@ -82,7 +82,8 @@ const props = defineProps({
   showDetail: { type: Boolean, default: false },
   currentParentId: { type: Number, default: null },
   currentContainer: { type: Object, default: null },
-  colorMap: { type: Object, default: () => ({}) }
+  colorMap: { type: Object, default: () => ({}) },
+  hoverPreviewEnabled: { type: Boolean, default: true }
 })
 
 const emit = defineEmits(['hover', 'select', 'select-multiple', 'enter', 'toggle-complete', 'toggle-favorite', 'toggle-expand', 'expand-all', 'collapse-all', 'add-child', 'delete', 'move', 'move-multiple', 'reorder', 'go-parent', 'open-fullscreen', 'context-menu'])
@@ -92,7 +93,7 @@ const { showTooltip, hideTooltip } = useNodeTooltip({
   onOpenDetail: (nodeId) => emit('open-fullscreen', nodeId),
   onToggleComplete: (nodeId) => emit('toggle-complete', nodeId),
   getHideSensitive: () => props.hideSensitive,
-  shouldShowTooltip: () => !props.showDetail
+  shouldShowTooltip: () => props.hoverPreviewEnabled && !props.showDetail
 })
 
 // Setup node interactions (shared logic for hover/click/double-click)
