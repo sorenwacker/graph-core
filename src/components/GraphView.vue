@@ -794,7 +794,7 @@ const LAYOUTS = {
     condense: false,
     rows: undefined,
     cols: undefined,
-    sort: (a, b) => a.data('label').localeCompare(b.data('label'))
+    sort: (a, b) => (a.data('label') || '').localeCompare(b.data('label') || '')
   },
 
   // Circle: nodes arranged in a circle
@@ -810,7 +810,7 @@ const LAYOUTS = {
     startAngle: -Math.PI / 2,  // Start from top
     sweep: 2 * Math.PI,        // Full circle
     clockwise: true,
-    sort: (a, b) => a.data('label').localeCompare(b.data('label'))
+    sort: (a, b) => (a.data('label') || '').localeCompare(b.data('label') || '')
   },
 
   // Relax (single click): Dagre - clean up edge crossings

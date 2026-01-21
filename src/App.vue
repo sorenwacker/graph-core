@@ -337,25 +337,6 @@ watch(showDetail, (isOpen) => {
   }
 })
 
-// Watch for workspace changes - reload data when switching workspaces
-watch(currentWorkspace, async (newWs) => {
-  localStorage.setItem('graphcore-workspace', newWs)
-  // Reset navigation when switching workspaces
-  currentContainerId.value = null
-  currentContainer.value = null
-  breadcrumbs.value = []
-  selectedNode.value = null
-  selectedIds.value = new Set()
-  showDetail.value = false
-  // Reload data for new workspace
-  await loadChildren(null)
-  await loadSidebarTree()
-  await loadRecentItems()
-  await loadFavorites()
-  // Restore expanded state for this workspace
-  loadExpandedState()
-})
-
 // Computed for sidebar visibility
 const sidebarVisible = computed(() => sidebarPinned.value || sidebarHovered.value)
 
@@ -565,6 +546,25 @@ watch(selectedNode, (node) => {
   if (!node && !detailPinned.value) {
     showDetail.value = false
   }
+})
+
+// Watch for workspace changes - reload data when switching workspaces
+watch(currentWorkspace, async (newWs) => {
+  localStorage.setItem('graphcore-workspace', newWs)
+  // Reset navigation when switching workspaces
+  currentContainerId.value = null
+  currentContainer.value = null
+  breadcrumbs.value = []
+  selectedNode.value = null
+  selectedIds.value = new Set()
+  showDetail.value = false
+  // Reload data for new workspace
+  await loadChildren(null)
+  await loadSidebarTree()
+  await loadRecentItems()
+  await loadFavorites()
+  // Restore expanded state for this workspace
+  loadExpandedState()
 })
 
 // Initialize inline editing composable
