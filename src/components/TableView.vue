@@ -194,7 +194,7 @@ function formatDate(dateStr) {
 
 function truncateNotes(notes) {
   if (!notes) return ''
-  let text = notes.replace(/[#*_`\[\]]/g, '').trim()
+  let text = notes.replace(/[#*_`[\]]/g, '').trim()
   // Decode HTML entities for plain text display
   text = text
     .replace(/&#39;/g, "'")
