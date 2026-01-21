@@ -7,6 +7,7 @@ import { useDetachedWindow } from './composables/useDetachedWindow.js'
 import { useSelection } from './composables/useSelection.js'
 import { useCardDrag } from './composables/useCardDrag.js'
 import { useSearch } from './composables/useSearch.js'
+import { useInlineEdit } from './composables/useInlineEdit.js'
 import { nodeTypes, getImportanceLabel, getTypeIcon, getTypeColors, typeConfig, personIconSvg } from './utils/constants.js'
 import DetailPanel from './components/DetailPanel.vue'
 import GraphView from './components/GraphView.vue'
@@ -215,14 +216,7 @@ function closeDetail() {
   detailPinned.value = false
 }
 
-// Inline editing state
-const editingCardId = ref(null)
-const editingTitle = ref('')
-
-// Inline notes-only editing (separate from full card editing)
-const inlineNotesId = ref(null)
-const inlineNotesText = ref('')
-const inlineNotesRef = ref(null)
+// Inline editing state is managed by useInlineEdit composable (initialized after flatChildren)
 // Sensitive info visibility - restore from localStorage
 const hideSensitive = ref(localStorage.getItem('graphcore-hideSensitive') === 'true')
 
@@ -634,6 +628,35 @@ const {
   fullscreenDetail,
   openDetailFullscreen,
   flatChildren
+})
+
+// Initialize inline editing composable
+const {
+  editingCardId,
+  editingTitle,
+  inlineNotesId,
+  inlineNotesText,
+  inlineNotesRef,
+  startEditing,
+  saveEditing,
+  cancelEditing,
+  handleEditKeydown,
+  startInlineNotes,
+  saveInlineNotes,
+  cancelInlineNotes,
+  handleInlineNotesKeydown
+} = useInlineEdit({
+  findNode: (nodeId) => flatChildren.value.find(n => n.id === nodeId),
+  onSaveTitle: async (nodeId, newTitle) => {
+    await api.updateNode(nodeId, { title: newTitle })
+    await loadChildren(currentContainerId.value)
+  },
+  onSaveNotes: async (nodeId, newNotes, { autoSave }) => {
+    await api.updateNode(nodeId, { notes: newNotes })
+    if (!autoSave) {
+      await loadChildren(currentContainerId.value)
+    }
+  }
 })
 
 const contextTitle = computed(() => {
@@ -2213,138 +2236,13 @@ async function handleViewContextMenu({ event, node }) {
   await showContextMenu(event, node)
 }
 
-// Inline editing functions
-function startEditing(node, e) {
-  e?.stopPropagation()
-  editingCardId.value = node.id
-  editingTitle.value = node.title
-}
-
-async function saveEditing() {
-  if (!editingCardId.value) return
-
-  const nodeId = editingCardId.value
-  const originalNode = flatChildren.value.find(n => n.id === nodeId)
-  if (!originalNode) {
-    editingCardId.value = null
-    return
-  }
-
-  // Only update if title changed
-  if (editingTitle.value !== originalNode.title) {
-    try {
-      await api.updateNode(nodeId, { title: editingTitle.value })
-      await loadChildren(currentContainerId.value)
-    } catch (e) {
-      error.value = e.message
-    }
-  }
-
-  editingCardId.value = null
-}
-
-function cancelEditing() {
-  editingCardId.value = null
-  editingTitle.value = ''
-}
-
-function handleEditKeydown(e) {
-  if (e.key === 'Escape') {
-    e.preventDefault()
-    cancelEditing()
-  } else if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault()
-    saveEditing()
-  }
-}
-
-// Inline notes-only editing functions
-async function startInlineNotes(node, e) {
-  e?.stopPropagation()
-  inlineNotesId.value = node.id
-  inlineNotesText.value = node.notes || ''
-  await nextTick()
-  // Handle both single ref and array of refs (when multiple textareas exist)
-  const ref = inlineNotesRef.value
-  if (Array.isArray(ref)) {
-    ref[0]?.focus()
-  } else {
-    ref?.focus()
-  }
-}
-
-// Debounced auto-save for inline notes
-let autoSaveTimeout = null
-async function autoSaveInlineNotes() {
-  if (!inlineNotesId.value) return
-
-  const nodeId = inlineNotesId.value
-  try {
-    await api.updateNode(nodeId, { notes: inlineNotesText.value })
-  } catch (e) {
-    console.error('Auto-save failed:', e)
-  }
-}
-
-function debouncedAutoSave() {
-  if (autoSaveTimeout) clearTimeout(autoSaveTimeout)
-  autoSaveTimeout = setTimeout(autoSaveInlineNotes, 500) // Save after 500ms of no typing
-}
-
-// Watch for notes changes and auto-save
-watch(inlineNotesText, (newValue, oldValue) => {
-  if (inlineNotesId.value && newValue !== oldValue) {
-    debouncedAutoSave()
-  }
-})
-
-async function saveInlineNotes() {
-  if (!inlineNotesId.value) return
-
-  // Clear any pending auto-save
-  if (autoSaveTimeout) {
-    clearTimeout(autoSaveTimeout)
-    autoSaveTimeout = null
-  }
-
-  const nodeId = inlineNotesId.value
-  const originalNode = flatChildren.value.find(n => n.id === nodeId)
-  if (!originalNode) {
-    inlineNotesId.value = null
-    return
-  }
-
-  if (inlineNotesText.value !== (originalNode.notes || '')) {
-    try {
-      await api.updateNode(nodeId, { notes: inlineNotesText.value })
-      // Reload to get fresh data
-      await loadChildren(currentContainerId.value)
-    } catch (e) {
-      error.value = e.message
-    }
-  }
-
-  inlineNotesId.value = null
-}
+// Inline editing functions (startEditing, saveEditing, cancelEditing, handleEditKeydown,
+// startInlineNotes, saveInlineNotes, cancelInlineNotes, handleInlineNotesKeydown)
+// are now provided by useInlineEdit composable initialized above
 
 function renderMarkdown(text) {
   if (!text) return ''
   return marked.parse(text)
-}
-
-function cancelInlineNotes() {
-  inlineNotesId.value = null
-  inlineNotesText.value = ''
-}
-
-function handleInlineNotesKeydown(e) {
-  if (e.key === 'Escape') {
-    e.preventDefault()
-    cancelInlineNotes()
-  } else if (e.key === 'Enter' && e.metaKey) {
-    e.preventDefault()
-    saveInlineNotes()
-  }
 }
 
 // Wrapper functions for tooltip - use composable
