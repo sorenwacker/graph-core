@@ -1011,6 +1011,9 @@ async function initGraph() {
         }
       }
 
+      // Notes indicator when notes exist but not shown in detail
+      const notesIndicator = node.notes && !showDetails ? '<span class="notes-indicator">✎</span>' : ''
+
       // Custom color as subtle background gradient
       const bgStyle = customBgTint
         ? `background: linear-gradient(135deg, ${customBgTint}99 0%, ${customBgTint}44 50%, transparent 100%), #0d0d0d;`
@@ -1018,7 +1021,7 @@ async function initGraph() {
 
       return `
         <div class="node-html ${completedClass} ${glowClass} ${favoriteClass}" style="border-color: ${borderColor}; --glow-color: ${borderColor}; ${bgStyle}">
-          <div class="node-html-title">${node.title || 'Untitled'}</div>
+          <div class="node-html-title">${node.title || 'Untitled'}${notesIndicator}</div>
           ${notesHtml ? `<div class="node-html-notes">${notesHtml}</div>` : ''}
         </div>
       `
@@ -1621,6 +1624,9 @@ async function updateGraph() {
         }
       }
 
+      // Notes indicator when notes exist but not shown in detail
+      const notesIndicator = node.notes && !showDetails ? '<span class="notes-indicator">✎</span>' : ''
+
       // Custom color as subtle background gradient
       const bgStyle = customBgTint
         ? `background: linear-gradient(135deg, ${customBgTint}99 0%, ${customBgTint}44 50%, transparent 100%), #0d0d0d;`
@@ -1628,7 +1634,7 @@ async function updateGraph() {
 
       return `
         <div class="node-html ${completedClass} ${glowClass} ${favoriteClass}" style="border-color: ${borderColor}; --glow-color: ${borderColor}; ${bgStyle}">
-          <div class="node-html-title">${node.title || 'Untitled'}</div>
+          <div class="node-html-title">${node.title || 'Untitled'}${notesIndicator}</div>
           ${notesHtml ? `<div class="node-html-notes">${notesHtml}</div>` : ''}
         </div>
       `
@@ -2720,6 +2726,13 @@ onUnmounted(() => {
   word-wrap: break-word;
   max-height: 40px;
   overflow: hidden;
+}
+
+:global(.notes-indicator) {
+  font-size: 11px;
+  color: #888;
+  margin-left: 4px;
+  opacity: 0.7;
 }
 
 :global(.node-html-notes) {

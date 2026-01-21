@@ -592,6 +592,7 @@ function isSelected(nodeId) {
           <td class="col-title">
             <span v-if="row.node.favorite" class="favorite-star">&#9733;</span>
             {{ row.node.title }}
+            <span v-if="row.node.notes" class="has-notes-icon" title="Has notes">&#9998;</span>
           </td>
           <td class="col-notes">
             <span class="notes-preview" :title="row.node.notes">{{ truncateNotes(row.node.notes) }}</span>
@@ -936,6 +937,13 @@ td.col-title {
   color: #ffd700;
   font-size: 14px;
   flex-shrink: 0;
+}
+
+.has-notes-icon {
+  color: #888;
+  font-size: 12px;
+  margin-left: 6px;
+  opacity: 0.7;
 }
 
 .col-children {
