@@ -1,8 +1,11 @@
 import { createApp, h } from 'vue'
+import { createPinia } from 'pinia'
 import './style.css'
 import App from './App.vue'
 import DetachedView from './components/DetachedView.vue'
 import { typeConfig } from './utils/constants.js'
+
+const pinia = createPinia()
 
 // Inject CSS variables from typeConfig for single source of truth
 function injectTypeColorVars() {
@@ -22,12 +25,16 @@ const detachedNodeId = params.get('detached')
 if (detachedNodeId) {
   // Mount DetachedView for detached windows
   const nodeId = parseInt(detachedNodeId, 10)
-  createApp({
+  const detachedApp = createApp({
     render() {
       return h(DetachedView, { nodeId })
     }
-  }).mount('#app')
+  })
+  detachedApp.use(pinia)
+  detachedApp.mount('#app')
 } else {
   // Mount main App
-  createApp(App).mount('#app')
+  const app = createApp(App)
+  app.use(pinia)
+  app.mount('#app')
 }
