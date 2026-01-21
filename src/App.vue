@@ -9,6 +9,7 @@ import { useCardDrag } from './composables/useCardDrag.js'
 import { useSearch } from './composables/useSearch.js'
 import { useInlineEdit } from './composables/useInlineEdit.js'
 import { useSnapshots } from './composables/useSnapshots.js'
+import { useContextMenu } from './composables/useContextMenu.js'
 import { nodeTypes, getImportanceLabel, getTypeIcon, getTypeColors, typeConfig, personIconSvg } from './utils/constants.js'
 import DetailPanel from './components/DetailPanel.vue'
 import GraphView from './components/GraphView.vue'
@@ -98,14 +99,7 @@ const sidebarTreeCollapsed = ref(false)
 const sidebarFavoritesCollapsed = ref(false)
 const sidebarRecentCollapsed = ref(false)
 
-// Context menu state
-const contextMenu = ref({
-  visible: false,
-  x: 0,
-  y: 0,
-  node: null,
-  linkedNodes: []
-})
+// Context menu state is managed by useContextMenu composable (initialized after functions it needs)
 
 // =========================================
 // WORKSPACES
@@ -2107,93 +2101,42 @@ function isCardSelected(nodeId) {
   return isNodeSelected(nodeId)
 }
 
-// Context menu functions
-async function showContextMenu(e, node) {
-  e.preventDefault()
-  e.stopPropagation()
-
-  // Load linked nodes for the menu
-  let links = []
-  try {
-    links = await api.getLinkedNodes(node.id)
-  } catch (err) {
-    console.error('Failed to load links:', err)
-  }
-
-  contextMenu.value = {
-    visible: true,
-    x: e.clientX,
-    y: e.clientY,
-    node: node,
-    linkedNodes: links
-  }
-}
-
-function closeContextMenu() {
-  contextMenu.value.visible = false
-}
-
-function handleContextMenuViewDetails(node) {
-  selectNode(node)
-  closeContextMenu()
-}
-
-function handleContextMenuEnter(node) {
-  enterContainer(node)
-  closeContextMenu()
-}
-
-function handleContextMenuAddChild(node) {
-  closeContextMenu()
-  showAddNodeModal(node.id)
-}
-
-function handleContextMenuToggleComplete(node) {
-  toggleComplete(node)
-  closeContextMenu()
-}
-
-function handleContextMenuToggleFavorite(node) {
-  toggleFavorite(node)
-  closeContextMenu()
-}
-
-function handleContextMenuOpenLinkSearch(node) {
-  openLinkSearch(node)
-  closeContextMenu()
-}
-
-async function handleContextMenuUnlink({ source, target }) {
-  try {
-    await api.unlinkNodes(source.id, target.id)
-    contextMenu.value.linkedNodes = contextMenu.value.linkedNodes.filter(n => n.id !== target.id)
-    if (showDetail.value && selectedNode.value?.id === source.id) {
-      const updated = await api.getNode(source.id)
+// Context menu - using composable
+const {
+  contextMenu,
+  showContextMenu,
+  closeContextMenu,
+  handleViewDetails: handleContextMenuViewDetails,
+  handleEnter: handleContextMenuEnter,
+  handleAddChild: handleContextMenuAddChild,
+  handleToggleComplete: handleContextMenuToggleComplete,
+  handleToggleFavorite: handleContextMenuToggleFavorite,
+  handleOpenLinkSearch: handleContextMenuOpenLinkSearch,
+  handleUnlink: handleContextMenuUnlink,
+  handleMoveToWorkspace: handleContextMenuMoveToWorkspace,
+  handleDelete: handleContextMenuDelete,
+  handleViewContextMenu
+} = useContextMenu({
+  onLoadLinks: (nodeId) => api.getLinkedNodes(nodeId),
+  onViewDetails: (node) => selectNode(node),
+  onEnter: (node) => enterContainer(node),
+  onAddChild: (node) => showAddNodeModal(node.id),
+  onToggleComplete: (node) => toggleComplete(node),
+  onToggleFavorite: (node) => toggleFavorite(node),
+  onOpenLinkSearch: (node) => openLinkSearch(node),
+  onUnlink: (sourceId, targetId) => api.unlinkNodes(sourceId, targetId),
+  onMoveToWorkspace: async (nodeId, workspaceId) => {
+    await api.updateNode(nodeId, { workspace_id: workspaceId === 'people' ? null : workspaceId })
+    await loadChildren()
+  },
+  onDelete: (nodeId) => deleteNode(nodeId),
+  onRefreshSelectedNode: async (sourceId) => {
+    if (showDetail.value && selectedNode.value?.id === sourceId) {
+      const updated = await api.getNode(sourceId)
       if (updated) selectedNode.value = updated
     }
-  } catch (err) {
-    console.error('Failed to unlink nodes:', err)
   }
-}
-
-async function handleContextMenuMoveToWorkspace({ node, workspaceId }) {
-  try {
-    await api.updateNode(node.id, { workspace_id: workspaceId === 'people' ? null : workspaceId })
-    await loadChildren()
-  } catch (err) {
-    console.error('Failed to move to workspace:', err)
-  }
-  closeContextMenu()
-}
-
-function handleContextMenuDelete(node) {
-  deleteNode(node.id)
-  closeContextMenu()
-}
-
-async function handleViewContextMenu({ event, node }) {
-  await showContextMenu(event, node)
-}
+})
 
 // Inline editing functions (startEditing, saveEditing, cancelEditing, handleEditKeydown,
 // startInlineNotes, saveInlineNotes, cancelInlineNotes, handleInlineNotesKeydown)
