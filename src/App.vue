@@ -8,6 +8,7 @@ import { useSelection } from './composables/useSelection.js'
 import { useCardDrag } from './composables/useCardDrag.js'
 import { useSearch } from './composables/useSearch.js'
 import { useInlineEdit } from './composables/useInlineEdit.js'
+import { useSnapshots } from './composables/useSnapshots.js'
 import { nodeTypes, getImportanceLabel, getTypeIcon, getTypeColors, typeConfig, personIconSvg } from './utils/constants.js'
 import DetailPanel from './components/DetailPanel.vue'
 import GraphView from './components/GraphView.vue'
@@ -250,80 +251,38 @@ const openDetailFullscreen = ref(localStorage.getItem('graphcore-openDetailFulls
 const showSettings = ref(false)
 const sortAlphabetically = ref(false)
 
-// Snapshot/backup management
-const availableSnapshots = ref([])
-const showSnapshotList = ref(false)
-const snapshotMessage = ref('')
-
-async function loadSnapshots() {
-  try {
-    const snapshots = await api.listBackups()
-    availableSnapshots.value = (snapshots || []).filter(Boolean)
-  } catch (e) {
-    console.error('Failed to load snapshots:', e)
-    availableSnapshots.value = []
-  }
-}
-
-async function createSnapshot() {
-  try {
-    const path = await api.backup('-manual')
-    snapshotMessage.value = 'Snapshot created'
-    setTimeout(() => snapshotMessage.value = '', 3000)
-    await loadSnapshots()
-  } catch (e) {
-    snapshotMessage.value = 'Failed to create snapshot'
-    console.error('Failed to create snapshot:', e)
-  }
-}
-
-async function restoreSnapshot(backupPath) {
-  if (!confirm('Restore this snapshot? Current data will be backed up first.')) return
-  try {
-    await api.restoreBackup(backupPath)
-    snapshotMessage.value = 'Snapshot restored - reloading...'
-    // Reload the app data
+// Snapshot/backup management - using composable
+// Note: callbacks reference functions defined below (works due to closure)
+const {
+  availableSnapshots,
+  showSnapshotList,
+  snapshotMessage,
+  loadSnapshots,
+  createSnapshot,
+  restoreSnapshot,
+  reloadDatabase,
+  formatSnapshotDate
+} = useSnapshots({
+  onListBackups: () => api.listBackups(),
+  onCreateBackup: (suffix) => api.backup(suffix),
+  onRestoreBackup: (path) => api.restoreBackup(path),
+  onReload: () => api.reload(),
+  onAfterRestore: async () => {
     await loadChildren(null)
     await loadSidebarTree()
     selectedNode.value = null
     currentContainerId.value = null
     breadcrumbs.value = []
-    snapshotMessage.value = 'Snapshot restored successfully'
-    setTimeout(() => snapshotMessage.value = '', 3000)
-  } catch (e) {
-    snapshotMessage.value = 'Failed to restore snapshot'
-    console.error('Failed to restore snapshot:', e)
-  }
-}
-
-async function reloadDatabase() {
-  try {
-    const result = await api.reload()
-    snapshotMessage.value = `Database reloaded (${result.nodeCount} nodes)`
-    // Reload the app data
+  },
+  onAfterReload: async () => {
     await loadChildren(currentContainerId.value)
     await loadSidebarTree()
     loadRecentItems()
     if (selectedNode.value?.id) {
       selectedNode.value = await api.getNode(selectedNode.value.id)
     }
-    setTimeout(() => snapshotMessage.value = '', 3000)
-  } catch (e) {
-    snapshotMessage.value = 'Failed to reload database'
-    console.error('Failed to reload database:', e)
   }
-}
-
-function formatSnapshotDate(dateString) {
-  const date = new Date(dateString)
-  return date.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
+})
 
 // Decode HTML entities for display
 function decodeHtml(text) {
