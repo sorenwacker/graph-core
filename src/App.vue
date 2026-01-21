@@ -10,6 +10,7 @@ import { useSearch } from './composables/useSearch.js'
 import { useInlineEdit } from './composables/useInlineEdit.js'
 import { useSnapshots } from './composables/useSnapshots.js'
 import { useContextMenu } from './composables/useContextMenu.js'
+import { useDetailResize } from './composables/useDetailResize.js'
 import { nodeTypes, getImportanceLabel, getTypeIcon, getTypeColors, typeConfig, personIconSvg } from './utils/constants.js'
 import DetailPanel from './components/DetailPanel.vue'
 import GraphView from './components/GraphView.vue'
@@ -151,29 +152,12 @@ function toggleSidebarPin() {
   sidebarPinned.value = !sidebarPinned.value
 }
 
-// Detail panel resize
-const detailWidth = ref(parseInt(localStorage.getItem('graphcore-detailWidth')) || 400)
-const isResizingDetail = ref(false)
-
-function onDetailResizeStart(e) {
-  isResizingDetail.value = true
-  document.addEventListener('mousemove', onDetailResizeMove)
-  document.addEventListener('mouseup', onDetailResizeEnd)
-  e.preventDefault()
-}
-
-function onDetailResizeMove(e) {
-  if (!isResizingDetail.value) return
-  const newWidth = window.innerWidth - e.clientX
-  detailWidth.value = Math.max(300, Math.min(newWidth, window.innerWidth * 0.9))
-}
-
-function onDetailResizeEnd() {
-  isResizingDetail.value = false
-  document.removeEventListener('mousemove', onDetailResizeMove)
-  document.removeEventListener('mouseup', onDetailResizeEnd)
-  localStorage.setItem('graphcore-detailWidth', detailWidth.value.toString())
-}
+// Detail panel resize - managed by useDetailResize composable
+const {
+  detailWidth,
+  isResizing: isResizingDetail,
+  onResizeStart: onDetailResizeStart
+} = useDetailResize()
 
 function onSidebarEnter() {
   if (sidebarHideTimeout) {
