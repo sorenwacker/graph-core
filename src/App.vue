@@ -337,13 +337,6 @@ watch(showDetail, (isOpen) => {
   }
 })
 
-// Close detail panel when node is deselected (if not pinned)
-watch(selectedNode, (node) => {
-  if (!node && !detailPinned.value) {
-    showDetail.value = false
-  }
-})
-
 // Watch for workspace changes - reload data when switching workspaces
 watch(currentWorkspace, async (newWs) => {
   localStorage.setItem('graphcore-workspace', newWs)
@@ -565,6 +558,13 @@ const {
   fullscreenDetail,
   openDetailFullscreen,
   flatChildren
+})
+
+// Close detail panel when node is deselected (if not pinned)
+watch(selectedNode, (node) => {
+  if (!node && !detailPinned.value) {
+    showDetail.value = false
+  }
 })
 
 // Initialize inline editing composable
