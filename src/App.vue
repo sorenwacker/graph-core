@@ -5,6 +5,7 @@ import { api } from './services/api.js'
 import { useNodeTooltip } from './composables/useNodeTooltip.js'
 import { useDetachedWindow } from './composables/useDetachedWindow.js'
 import { useSelection } from './composables/useSelection.js'
+import { useCardDrag } from './composables/useCardDrag.js'
 import { nodeTypes, getImportanceLabel, getTypeIcon, getTypeColors, typeConfig, personIconSvg } from './utils/constants.js'
 import DetailPanel from './components/DetailPanel.vue'
 import GraphView from './components/GraphView.vue'
@@ -558,10 +559,30 @@ async function redo() {
 }
 const selectedResultIndex = ref(0)
 
-// Cards drag state
-const cardDraggedNode = ref(null)
-const cardDropTarget = ref(null)
-const cardDropPosition = ref(null) // 'before', 'after', 'inside'
+// Cards drag state - using composable
+// Note: callbacks reference functions defined below (works due to closure/hoisting)
+const {
+  draggedNode: cardDraggedNode,
+  dropTarget: cardDropTarget,
+  dropPosition: cardDropPosition,
+  onDragStart: onCardDragStart,
+  onDragEnd: onCardDragEnd,
+  onDragOver: onCardDragOver,
+  onDragLeave: onCardDragLeave,
+  onDrop: onCardDrop,
+  getDropClass: getCardDropClass
+} = useCardDrag({
+  onMove: async (sourceNode, targetNode) => {
+    await moveNode({ nodeId: sourceNode.id, newParentId: targetNode.id })
+  },
+  onReorder: async (sourceNode, targetNode, position) => {
+    await handleReorder({
+      nodeId: sourceNode.id,
+      targetId: targetNode.id,
+      position
+    })
+  }
+})
 
 // Computed
 const projects = computed(() => {
@@ -2071,93 +2092,8 @@ function getSearchActionLabel(node) {
   return 'Go to item'
 }
 
-// Card drag and drop
-function onCardDragStart(e, node) {
-  // Don't start drag if it originated from an input or textarea
-  const target = e.target
-  if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.closest('input, textarea')) {
-    e.preventDefault()
-    return
-  }
-  cardDraggedNode.value = node
-  e.dataTransfer.effectAllowed = 'move'
-  e.dataTransfer.setData('text/plain', node.id)
-  e.target.classList.add('dragging')
-}
-
-function onCardDragEnd(e) {
-  e.target.classList.remove('dragging')
-  cardDraggedNode.value = null
-  cardDropTarget.value = null
-  cardDropPosition.value = null
-}
-
-function onCardDragOver(e, node) {
-  if (!cardDraggedNode.value || cardDraggedNode.value.id === node.id) return
-  e.preventDefault()
-  e.dataTransfer.dropEffect = 'move'
-  cardDropTarget.value = node
-
-  // Determine drop position based on mouse position
-  const rect = e.currentTarget.getBoundingClientRect()
-  const x = e.clientX - rect.left
-  const width = rect.width
-
-  // Shift key forces reorder-only mode (no nesting)
-  const reorderOnly = e.shiftKey
-
-  // Left 35% = before, right 35% = after, middle 30% = inside
-  // This makes it easier to reorder without accidentally nesting
-  if (x < width * 0.35) {
-    cardDropPosition.value = 'before'
-  } else if (x > width * 0.65) {
-    cardDropPosition.value = 'after'
-  } else if (reorderOnly) {
-    // In reorder-only mode, use left/right half for before/after
-    cardDropPosition.value = x < width * 0.5 ? 'before' : 'after'
-  } else {
-    cardDropPosition.value = 'inside'
-  }
-}
-
-function onCardDragLeave(e) {
-  if (!e.currentTarget.contains(e.relatedTarget)) {
-    cardDropTarget.value = null
-    cardDropPosition.value = null
-  }
-}
-
-async function onCardDrop(e, targetNode) {
-  e.preventDefault()
-  if (!cardDraggedNode.value || cardDraggedNode.value.id === targetNode.id) return
-
-  const sourceNode = cardDraggedNode.value
-
-  if (cardDropPosition.value === 'inside') {
-    // Move dragged card as child of target
-    await moveNode({ nodeId: sourceNode.id, newParentId: targetNode.id })
-  } else {
-    // Reorder: move before or after target (same parent)
-    await handleReorder({
-      nodeId: sourceNode.id,
-      targetId: targetNode.id,
-      position: cardDropPosition.value
-    })
-  }
-
-  cardDraggedNode.value = null
-  cardDropTarget.value = null
-  cardDropPosition.value = null
-}
-
-function getCardDropClass(node) {
-  if (!cardDropTarget.value || cardDropTarget.value.id !== node.id) return {}
-  return {
-    'drop-before': cardDropPosition.value === 'before',
-    'drop-after': cardDropPosition.value === 'after',
-    'drop-inside': cardDropPosition.value === 'inside'
-  }
-}
+// Card drag functions (onCardDragStart, onCardDragEnd, onCardDragOver, onCardDragLeave, onCardDrop, getCardDropClass)
+// are now provided by useCardDrag composable initialized above
 
 function handleCardClick(e, node) {
   if (e.ctrlKey || e.metaKey) {
