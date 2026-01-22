@@ -350,6 +350,22 @@ function handleGlobalKeydown(e) {
       }
     }
   }
+
+  // Cmd+Up to navigate to parent of selected node
+  if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowUp' && !inModal) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+
+    if (cy) {
+      const selectedNodes = cy.$('node:selected')
+      if (selectedNodes.length === 1) {
+        const nodeData = selectedNodes[0].data('nodeData')
+        if (nodeData?.parent_id) {
+          e.preventDefault()
+          emit('enter', { id: nodeData.parent_id })
+        }
+      }
+    }
+  }
 }
 
 // Setup tooltip composable - single source of truth for all tooltips
@@ -409,9 +425,9 @@ function handleEditModalKeydown(e) {
 function goToParentFromModal() {
   if (!editModal.value.node) return
   const parentId = editModal.value.node.parent_id
+  if (!parentId) return // Already at root level
   hideEditModal()
-  // Navigate to parent (emit enter with parent, or null for root)
-  emit('enter', parentId ? { id: parentId } : null)
+  emit('enter', { id: parentId })
 }
 
 async function wrapWithParentFromModal() {
@@ -2118,7 +2134,7 @@ onUnmounted(() => {
         <div class="edit-modal-footer">
           <div class="footer-left">
             <button class="btn-secondary" @click="wrapWithParentFromModal">Wrap with Parent</button>
-            <button class="btn-secondary" @click="goToParentFromModal" title="Navigate to parent (Cmd+Delete to delete)">Go to Parent</button>
+            <button class="btn-secondary" @click="goToParentFromModal" title="Navigate to parent (Cmd+Up)">Go to Parent</button>
           </div>
           <div class="footer-right">
             <button class="btn-secondary" @click="hideEditModal">Cancel</button>
