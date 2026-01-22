@@ -77,7 +77,7 @@ const props = defineProps({
   hoverPreviewEnabled: { type: Boolean, default: true }
 })
 
-const emit = defineEmits(['select', 'select-multiple', 'enter', 'move', 'add-child', 'insert-between', 'update', 'create', 'delete', 'delete-multiple', 'wrap-with-parent', 'open-fullscreen', 'link', 'unlink', 'context-menu', 'toggle-complete', 'toggle-favorite', 'open-link-search', 'go-parent'])
+const emit = defineEmits(['select', 'select-multiple', 'enter', 'move', 'add-child', 'insert-between', 'update', 'create', 'delete', 'delete-multiple', 'wrap-with-parent', 'open-fullscreen', 'link', 'unlink', 'context-menu', 'toggle-complete', 'toggle-favorite', 'open-link-search', 'go-parent', 'go-first-child', 'go-prev-sibling', 'go-next-sibling'])
 
 const container = ref(null)
 const editModalEl = ref(null)
@@ -356,6 +356,27 @@ function handleGlobalKeydown(e) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
     e.preventDefault()
     emit('go-parent')
+  }
+
+  // Cmd+Down to navigate to first child
+  if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowDown' && !inModal) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+    e.preventDefault()
+    emit('go-first-child')
+  }
+
+  // Cmd+Left to navigate to previous sibling
+  if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowLeft' && !inModal) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+    e.preventDefault()
+    emit('go-prev-sibling')
+  }
+
+  // Cmd+Right to navigate to next sibling
+  if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowRight' && !inModal) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+    e.preventDefault()
+    emit('go-next-sibling')
   }
 }
 

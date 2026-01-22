@@ -1079,6 +1079,43 @@ function goToParent() {
   }
 }
 
+function goToFirstChild() {
+  // Navigate to the first child of the current container
+  if (children.value.length > 0) {
+    enterContainer(children.value[0])
+  }
+}
+
+async function goToPrevSibling() {
+  // Navigate to previous sibling of current container
+  if (!currentContainer.value) return // At root, no siblings
+
+  const parentId = currentContainer.value.parent_id
+  const siblings = parentId
+    ? await api.getChildren(parentId)
+    : await api.getRoots(currentWorkspace.value)
+
+  const currentIndex = siblings.findIndex(s => s.id === currentContainer.value.id)
+  if (currentIndex > 0) {
+    enterContainer(siblings[currentIndex - 1])
+  }
+}
+
+async function goToNextSibling() {
+  // Navigate to next sibling of current container
+  if (!currentContainer.value) return // At root, no siblings
+
+  const parentId = currentContainer.value.parent_id
+  const siblings = parentId
+    ? await api.getChildren(parentId)
+    : await api.getRoots(currentWorkspace.value)
+
+  const currentIndex = siblings.findIndex(s => s.id === currentContainer.value.id)
+  if (currentIndex >= 0 && currentIndex < siblings.length - 1) {
+    enterContainer(siblings[currentIndex + 1])
+  }
+}
+
 // Selection functions (hoverSelectNode, selectNode, handleMultiSelect) are now in useSelection composable
 
 // Toggle detail panel visibility (for Enter key)
@@ -2986,6 +3023,9 @@ onUnmounted(() => {
           @open-fullscreen="openNodeFullscreen"
           @context-menu="handleViewContextMenu"
           @go-parent="goToParent"
+          @go-first-child="goToFirstChild"
+          @go-prev-sibling="goToPrevSibling"
+          @go-next-sibling="goToNextSibling"
         />
 
         <!-- Timeline View -->
