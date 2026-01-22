@@ -892,6 +892,7 @@ watch(() => props.nodes, () => {
 .type-badge.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
 .type-badge.person { background: var(--type-person-bg); color: var(--type-person-text); }
 .type-badge.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
+.type-badge.component { background: var(--type-component-bg); color: var(--type-component-text); }
 
 /* SVG icons in type badges */
 .type-badge :deep(svg) {

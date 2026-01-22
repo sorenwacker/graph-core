@@ -5,10 +5,11 @@ import { api } from '../services/api.js'
  * Composable for @person mentions in textarea fields
  * @param {Object} options - Configuration options
  * @param {Function} options.onMentionInserted - Callback when a mention is inserted (receives personId, nodeId)
+ * @param {string} options.workspaceId - Current workspace ID
  * @returns {Object} - Mention handlers and state
  */
 export function useMentions(options = {}) {
-  const { onMentionInserted } = options
+  const { onMentionInserted, workspaceId = 'work' } = options
 
   const showMentions = ref(false)
   const mentionQuery = ref('')
@@ -19,12 +20,10 @@ export function useMentions(options = {}) {
   const selectedMentionIndex = ref(0)
   const textareaEl = ref(null)
 
-  // Load all persons from People workspace (workspace_id = null)
-  // Persons are always accessible for @mentions from any workspace
+  // Load all persons from current workspace
   async function loadPersons() {
     try {
-      // Query People workspace (null) to get all persons regardless of current workspace
-      persons.value = await api.getNodes({ type: 'person', workspace_id: null })
+      persons.value = await api.getNodes({ type: 'person', workspace_id: workspaceId })
     } catch (err) {
       console.error('Failed to load persons for mentions:', err)
       persons.value = []

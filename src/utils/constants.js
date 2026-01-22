@@ -1,5 +1,5 @@
 // Node types - single source of truth
-export const nodeTypes = ['project', 'task', 'milestone', 'note', 'topic', 'group', 'event', 'person', 'organization']
+export const nodeTypes = ['task', 'note', 'project', 'milestone', 'topic', 'component', 'group', 'event', 'person', 'organization']
 
 // Type display config - icons, colors, CSS classes
 // Colors optimized for: distinct hues, good contrast, semantic meaning, accessibility
@@ -66,6 +66,13 @@ export const typeConfig = {
     bg: '#2a2a5a',    // Indigo - corporate, formal
     text: '#818cf8',
     icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/></svg>`
+  },
+  component: {
+    label: 'Component',
+    cssClass: 'component',
+    bg: '#1a3a3a',    // Cyan - technical, modular
+    text: '#22d3d3',
+    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M13 13v8h8v-8h-8zM3 21h8v-8H3v8zM3 3v8h8V3H3zm13.66-1.31L11 7.34 16.66 13l5.66-5.66-5.66-5.65z"/></svg>`
   }
 }
 

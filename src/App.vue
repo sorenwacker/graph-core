@@ -106,16 +106,12 @@ const sidebarRecentCollapsed = ref(false)
 // WORKSPACES
 // =========================================
 // Workspaces provide complete data isolation. Each workspace has its own
-// nodes, graphs, and views. The 'people' workspace is special - it shows
-// only person nodes which can be @mentioned from any workspace.
+// nodes, graphs, and views.
 const currentWorkspace = ref(localStorage.getItem('graphcore-workspace') || 'work')
 const workspaces = ref([])  // Loaded from database
 
 // Helper: Get workspace_id for creating new nodes
-// All nodes in People workspace get NULL, others get current workspace
-function getWorkspaceIdForNode(type) {
-  if (currentWorkspace.value === 'people') return null  // All nodes in People workspace
-  if (type === 'person' || type === 'organization') return null  // Persons and orgs always go to People workspace
+function getWorkspaceIdForNode() {
   return currentWorkspace.value
 }
 
@@ -744,11 +740,9 @@ function nestedGridStyle(count, level = 1) {
 async function loadSidebarTree() {
   try {
     // Filter by current workspace
-    const wsFilter = currentWorkspace.value === 'people' ? null : currentWorkspace.value
-    const roots = await api.getRoots(wsFilter)
-    // In people workspace, show all persons. In other workspaces, exclude persons
-    // Also filter out any null/undefined entries
-    const filteredRoots = (wsFilter === null ? roots : roots.filter(r => r && r.type !== 'person')).filter(Boolean)
+    const roots = await api.getRoots(currentWorkspace.value)
+    // Filter out any null/undefined entries
+    const filteredRoots = (roots || []).filter(Boolean)
     const rootsWithChildren = await Promise.all(
       filteredRoots.map(async (root) => {
         if (!root || !root.id) return null
@@ -767,14 +761,13 @@ async function loadSidebarTree() {
 
 // Get workspace-specific localStorage key for recent cleared timestamp
 function getRecentClearedKey() {
-  const ws = currentWorkspace.value === 'people' ? 'people' : currentWorkspace.value
+  const ws = currentWorkspace.value
   return `graphcore-recentClearedAt-${ws}`
 }
 
 async function loadRecentItems() {
   try {
-    const wsFilter = currentWorkspace.value === 'people' ? null : currentWorkspace.value
-    const items = await api.getRecent(10, wsFilter)
+    const items = await api.getRecent(10, currentWorkspace.value)
     const clearedAt = localStorage.getItem(getRecentClearedKey())
     const validItems = (items || []).filter(Boolean)
     if (clearedAt) {
@@ -815,8 +808,7 @@ function undoClearRecent() {
 async function loadFavorites() {
   try {
     if (api.getFavorites) {
-      const wsFilter = currentWorkspace.value === 'people' ? null : currentWorkspace.value
-      const items = await api.getFavorites(wsFilter)
+      const items = await api.getFavorites(currentWorkspace.value)
       favoriteItems.value = (items || []).filter(Boolean)
     }
   } catch (e) {
@@ -930,12 +922,9 @@ async function loadChildren(containerId = null) {
   try {
     if (containerId === null) {
       // Root level - get all root nodes with their descendants
-      // Filter by current workspace (null = people workspace)
-      const wsFilter = currentWorkspace.value === 'people' ? null : currentWorkspace.value
-      const roots = await api.getRoots(wsFilter)
-      // In people workspace, show all persons. In other workspaces, exclude persons
-      // Also filter out any null/undefined entries
-      const filteredRoots = (wsFilter === null ? roots : roots.filter(r => r && r.type !== 'person')).filter(Boolean)
+      const roots = await api.getRoots(currentWorkspace.value)
+      // Filter out any null/undefined entries
+      const filteredRoots = (roots || []).filter(Boolean)
       // Fetch descendants for each root to build nested structure
       const rootsWithChildren = await Promise.all(
         filteredRoots.map(async (root) => {
@@ -1183,34 +1172,11 @@ async function createNode() {
     // Use addChildParentId if set (from card + button), otherwise use currentContainerId
     const targetParentId = addChildParentId.value || currentContainerId.value
 
-    // Determine parent-child vs link behavior:
-    // - Persons always link (never parent-child)
-    // - Organizations can be children of other organizations, otherwise link
-    let useParentChild = true
-    let linkToId = null
-
-    if (nodeType === 'person') {
-      useParentChild = false
-      linkToId = targetParentId
-    } else if (nodeType === 'organization') {
-      // Check if target parent is also an organization
-      if (targetParentId) {
-        const container = await api.getNode(targetParentId)
-        if (container?.type === 'organization') {
-          useParentChild = true  // Org inside org = parent-child
-        } else {
-          useParentChild = false
-          linkToId = targetParentId
-        }
-      } else {
-        useParentChild = true  // No container = root level org
-      }
-    }
-
+    // Persons and organizations are treated like ordinary nodes - use parent-child
     const nodeData = {
       title: newNodeTitle.value,
       type: nodeType,
-      parent_id: useParentChild ? targetParentId : null,
+      parent_id: targetParentId,
       workspace_id: getWorkspaceIdForNode(nodeType)
     }
     // Assign random color to persons
@@ -1221,11 +1187,7 @@ async function createNode() {
     if (!created || !created.id) {
       throw new Error('Failed to create node')
     }
-    // Create link instead of parent-child if needed
-    if (!useParentChild && linkToId) {
-      await api.linkNodes(created.id, linkToId)
-    }
-    pushUndo({ type: 'create', nodeId: created.id, nodeData, parentId: useParentChild ? targetParentId : null, linkedToId: linkToId })
+    pushUndo({ type: 'create', nodeId: created.id, nodeData, parentId: targetParentId })
 
     // If adding child via card button, expand parent and reload
     if (addChildParentId.value) {
@@ -1245,34 +1207,11 @@ async function addChildNode({ parentId, title, type, x, y }) {
   try {
     const nodeType = type || 'task'
 
-    // Determine parent-child vs link behavior:
-    // - Persons always link (never parent-child)
-    // - Organizations can be children of other organizations, otherwise link
-    let useParentChild = true
-    let linkToId = null
-
-    if (nodeType === 'person') {
-      useParentChild = false
-      linkToId = parentId
-    } else if (nodeType === 'organization') {
-      // Check if parent is also an organization
-      if (parentId) {
-        const parent = await api.getNode(parentId)
-        if (parent?.type === 'organization') {
-          useParentChild = true  // Org inside org = parent-child
-        } else {
-          useParentChild = false
-          linkToId = parentId
-        }
-      } else {
-        useParentChild = true  // No parent = root level org
-      }
-    }
-
+    // Persons and organizations are treated like ordinary nodes - use parent-child
     const nodeData = {
       title,
       type: nodeType,
-      parent_id: useParentChild ? parentId : null,
+      parent_id: parentId,
       workspace_id: getWorkspaceIdForNode(nodeType)
     }
     if (nodeType === 'person') {
@@ -1282,11 +1221,7 @@ async function addChildNode({ parentId, title, type, x, y }) {
     if (!newNode || !newNode.id) {
       throw new Error('Failed to create child node - no result returned')
     }
-    // Create link instead of parent-child if needed
-    if (!useParentChild && linkToId) {
-      await api.linkNodes(newNode.id, linkToId)
-    }
-    pushUndo({ type: 'create', nodeId: newNode.id, nodeData, parentId: useParentChild ? parentId : null })
+    pushUndo({ type: 'create', nodeId: newNode.id, nodeData, parentId })
     // Save position if provided (from graph double-click)
     if (x !== undefined && y !== undefined) {
       const viewId = currentContainerId.value || 'root'
@@ -1319,46 +1254,28 @@ function onChildUpdated() {
   loadSidebarTree()
 }
 
+// Single place for graph refresh after structure changes (links or parent-child)
+// Set reloadData=true for parent-child changes that affect tree structure
+async function refreshGraphAfterStructureChange(reloadData = false) {
+  if (reloadData) {
+    // Load new tree structure (this triggers watch -> updateGraph)
+    await loadChildren(currentContainerId.value)
+    // Wait for Vue reactivity to settle
+    await nextTick()
+    // Then explicitly call updateGraph with zoom preservation
+    if (graphViewRef.value?.updateGraph) {
+      await graphViewRef.value.updateGraph()
+    }
+  } else if (graphViewRef.value?.updateGraph) {
+    // Just refresh the graph (links don't change tree structure)
+    await graphViewRef.value.updateGraph()
+  }
+  // Relax layout after update completes
+  setTimeout(() => graphViewRef.value?.relaxLayout(), 200)
+}
+
 async function moveNode({ nodeId, oldParentId, newParentId }) {
   try {
-    // Check if this should be a link instead of parent-child
-    // Persons ALWAYS use links (never parent-child)
-    // Organizations can be parent-child with OTHER organizations, but link with other types
-    if (newParentId) {
-      const sourceNode = await api.getNode(nodeId)
-      const targetNode = await api.getNode(newParentId)
-
-      // Persons always use links
-      if (sourceNode.type === 'person' || targetNode.type === 'person') {
-        await api.linkNodes(nodeId, newParentId)
-        pushUndo({ type: 'link', sourceId: nodeId, targetId: newParentId })
-        await loadChildren(currentContainerId.value)
-        await loadSidebarTree()
-        loadRecentItems()
-        // Trigger relax after adding link
-        setTimeout(() => graphViewRef.value?.relaxLayout(), 200)
-        return
-      }
-
-      // Organizations can only have parent-child with other organizations
-      const isOrg = (t) => t === 'organization'
-      if (isOrg(sourceNode.type) || isOrg(targetNode.type)) {
-        // Both must be organizations for parent-child relationship
-        if (!(isOrg(sourceNode.type) && isOrg(targetNode.type))) {
-          // One is org, one is not - use link
-          await api.linkNodes(nodeId, newParentId)
-          pushUndo({ type: 'link', sourceId: nodeId, targetId: newParentId })
-          await loadChildren(currentContainerId.value)
-          await loadSidebarTree()
-          loadRecentItems()
-          // Trigger relax after adding link
-          setTimeout(() => graphViewRef.value?.relaxLayout(), 200)
-          return
-        }
-        // Both are organizations - allow parent-child (continue to normal move)
-      }
-    }
-
     // Track for undo (only if oldParentId provided - not from undo/redo)
     if (oldParentId !== undefined) {
       pushUndo({
@@ -1370,11 +1287,10 @@ async function moveNode({ nodeId, oldParentId, newParentId }) {
     }
     await api.moveNode(nodeId, newParentId)
     if (newParentId) expandedIds.value.add(newParentId)
-    await loadChildren(currentContainerId.value)
+    // Use same refresh as links (reloadData=true for parent-child changes)
+    await refreshGraphAfterStructureChange(true)
     await loadSidebarTree()
     loadRecentItems()
-    // Trigger relax after parent-child change
-    setTimeout(() => graphViewRef.value?.relaxLayout(), 200)
   } catch (e) {
     error.value = e.message
   }
@@ -1385,14 +1301,7 @@ async function linkNodesFromGraph({ sourceId, targetId }) {
   try {
     await api.linkNodes(sourceId, targetId)
     pushUndo({ type: 'link', sourceId, targetId })
-    // Refresh graph to show the new link edge
-    if (graphViewRef.value?.updateGraph) {
-      await graphViewRef.value.updateGraph()
-    }
-    // Trigger relax after adding link
-    setTimeout(() => {
-      graphViewRef.value?.relaxLayout()
-    }, 200)
+    await refreshGraphAfterStructureChange()
     // Refresh detail panel if showing one of these nodes
     if (selectedNode.value?.id === sourceId || selectedNode.value?.id === targetId) {
       selectedNode.value = await api.getNode(selectedNode.value.id)
@@ -1412,10 +1321,8 @@ async function unlinkNodesFromGraph({ sourceId, targetId }) {
   try {
     await api.unlinkNodes(sourceId, targetId)
     pushUndo({ type: 'unlink', sourceId, targetId })
-    // Refresh graph to update link edges
-    if (graphViewRef.value?.updateGraph) {
-      await graphViewRef.value.updateGraph()
-    }
+    // Use same refresh as links
+    await refreshGraphAfterStructureChange()
     // Refresh detail panel if showing one of these nodes
     if (selectedNode.value?.id === sourceId || selectedNode.value?.id === targetId) {
       selectedNode.value = await api.getNode(selectedNode.value.id)
@@ -1437,13 +1344,12 @@ async function moveMultipleNodes({ nodeIds, newParentId }) {
       await api.moveNode(nodeId, newParentId)
     }
     if (newParentId) expandedIds.value.add(newParentId)
-    await loadChildren(currentContainerId.value)
+    // Use same refresh as single moves
+    await refreshGraphAfterStructureChange(true)
     await loadSidebarTree()
     loadRecentItems()
     // Clear multi-selection after move
     selectedIds.value.clear()
-    // Trigger relax after moves
-    setTimeout(() => graphViewRef.value?.relaxLayout(), 200)
   } catch (e) {
     error.value = e.message
   }
@@ -1476,11 +1382,10 @@ async function insertBetween({ parentId, childId, title, type, isLink }) {
       expandedIds.value.add(parentId)
       expandedIds.value.add(newNode.id)
     }
-    await loadChildren(currentContainerId.value)
+    // Use same refresh for both link and parent-child structure changes
+    await refreshGraphAfterStructureChange(true)
     await loadSidebarTree()
     loadRecentItems()
-    // Trigger relax after structure change
-    setTimeout(() => graphViewRef.value?.relaxLayout(), 200)
   } catch (e) {
     error.value = e.message
   }
@@ -1490,45 +1395,18 @@ async function createNodeAtPosition({ title, type, x, y }) {
   try {
     const nodeType = type || 'task'
 
-    // Determine parent-child vs link behavior:
-    // - Persons always link (never parent-child)
-    // - Organizations can be children of other organizations, otherwise link
-    let useParentChild = true
-    let linkToId = null
-
-    if (nodeType === 'person') {
-      useParentChild = false
-      linkToId = currentContainerId.value
-    } else if (nodeType === 'organization') {
-      // Check if current container is also an organization
-      if (currentContainerId.value) {
-        const container = await api.getNode(currentContainerId.value)
-        if (container?.type === 'organization') {
-          useParentChild = true  // Org inside org = parent-child
-        } else {
-          useParentChild = false
-          linkToId = currentContainerId.value
-        }
-      } else {
-        useParentChild = true  // No container = root level org
-      }
-    }
-
+    // Persons and organizations are treated like ordinary nodes - use parent-child
     // Double-click far from nodes creates child of current container
     const nodeData = {
       title,
       type: nodeType,
-      parent_id: useParentChild ? currentContainerId.value : null,
+      parent_id: currentContainerId.value,
       workspace_id: getWorkspaceIdForNode(nodeType)
     }
     if (nodeType === 'person') {
       nodeData.color = getRandomPersonColor()
     }
     const newNode = await api.createNode(nodeData)
-    // Create link instead of parent-child if needed
-    if (!useParentChild && linkToId) {
-      await api.linkNodes(newNode.id, linkToId)
-    }
     // Save position for the new node in current view
     const viewId = currentContainerId.value || 'root'
     const posKey = `graph-positions-${viewId}`
@@ -1879,45 +1757,11 @@ async function handleSearch() {
   }
 
   try {
-    // In link mode, search across all workspaces to find persons and other nodes
-    // In normal mode, search within current workspace only
-    let combined = []
-    if (searchMode.value === 'link') {
-      // Search current workspace + entire people workspace (persons, organizations, groups)
-      const wsFilter = currentWorkspace.value === 'people' ? null : currentWorkspace.value
-      const [wsResults, peopleResults] = await Promise.all([
-        api.search(searchQuery.value, null, wsFilter),
-        // Search entire People workspace (null = People workspace)
-        currentWorkspace.value !== 'people' ? api.search(searchQuery.value, null, null) : Promise.resolve([])
-      ])
-      // Combine and dedupe results
-      const seen = new Set()
-      for (const r of [...wsResults, ...peopleResults]) {
-        if (!seen.has(r.id)) {
-          seen.add(r.id)
-          combined.push(r)
-        }
-      }
-    } else {
-      // Normal search - within current workspace + people workspace for persons
-      const wsFilter = currentWorkspace.value === 'people' ? null : currentWorkspace.value
-      const [wsResults, peopleResults] = await Promise.all([
-        api.search(searchQuery.value, null, wsFilter),
-        // Also search for persons in the people workspace
-        currentWorkspace.value !== 'people' ? api.search(searchQuery.value, 'person') : Promise.resolve([])
-      ])
-      // Combine and dedupe results
-      const seen = new Set()
-      for (const r of [...wsResults, ...peopleResults]) {
-        if (!seen.has(r.id)) {
-          seen.add(r.id)
-          combined.push(r)
-        }
-      }
-    }
+    // Search within current workspace
+    const results = await api.search(searchQuery.value, null, currentWorkspace.value)
 
     // Fetch breadcrumbs for all results
-    const resultsWithBreadcrumbs = await fetchBreadcrumbsForResults(combined)
+    const resultsWithBreadcrumbs = await fetchBreadcrumbsForResults(results)
     searchResults.value = resultsWithBreadcrumbs
     selectedResultIndex.value = 0
   } catch (e) {
@@ -1974,13 +1818,15 @@ async function goToSearchResult(node) {
 
   closeSearch()
 
-  // Special handling for persons - switch to persons view
-  if (node.type === 'person') {
-    viewMode.value = 'persons'
-    await nextTick()
+  // Check if node is visible in current graph view (as child, descendant, or linked node)
+  const isVisibleInCurrentView = viewMode.value === 'graph' &&
+    graphViewRef.value?.isNodeVisible?.(node.id)
+
+  if (isVisibleInCurrentView) {
+    // Node is already visible - just select and center on it
     selectNode(node)
-    // Emit event for PersonsView to scroll to person
-    window.dispatchEvent(new CustomEvent('person-select', { detail: { personId: node.id } }))
+    await nextTick()
+    window.dispatchEvent(new CustomEvent('graph-center-node', { detail: { nodeId: node.id } }))
     return
   }
 
@@ -2111,7 +1957,7 @@ const {
   onOpenLinkSearch: (node) => openLinkSearch(node),
   onUnlink: (sourceId, targetId) => api.unlinkNodes(sourceId, targetId),
   onMoveToWorkspace: async (nodeId, workspaceId) => {
-    await api.updateNode(nodeId, { workspace_id: workspaceId === 'people' ? null : workspaceId })
+    await api.updateNode(nodeId, { workspace_id: workspaceId })
     await loadChildren()
   },
   onDelete: (nodeId) => deleteNode(nodeId),
@@ -2630,7 +2476,6 @@ onUnmounted(() => {
           <!-- Workspace Selector -->
           <div class="workspace-selector">
             <select v-model="currentWorkspace" class="workspace-dropdown" title="Switch workspace">
-              <option value="people">People/Organisations</option>
               <option v-for="ws in workspaces" :key="ws.id" :value="ws.id">
                 {{ ws.name }}
               </option>
@@ -2642,7 +2487,7 @@ onUnmounted(() => {
           <button :class="{ primary: viewMode === 'cards' }" @click="viewMode = 'cards'">Cards</button>
           <button :class="{ primary: viewMode === 'tree' }" @click="viewMode = 'tree'">Table</button>
           <button :class="{ primary: viewMode === 'timeline' }" @click="viewMode = 'timeline'">Timeline</button>
-          <button v-if="currentWorkspace === 'people'" :class="{ primary: viewMode === 'persons' }" @click="viewMode = 'persons'">Cards</button>
+          <button :class="{ primary: viewMode === 'persons' }" @click="viewMode = 'persons'">People</button>
           <button :class="{ primary: viewMode === 'trash' }" @click="viewMode = 'trash'">Trash</button>
           <span class="toolbar-separator"></span>
           <button
@@ -3126,6 +2971,7 @@ onUnmounted(() => {
           :fullscreen-detail-open="fullscreenDetail"
           :hover-preview-enabled="hoverPreviewEnabled"
           @select="selectNode"
+          @select-multiple="handleMultiSelect"
           @enter="enterContainer"
           @move="moveNode"
           @link="linkNodesFromGraph"
@@ -3160,6 +3006,7 @@ onUnmounted(() => {
           v-else-if="viewMode === 'persons'"
           :selected-id="selectedNode?.id"
           :hide-completed="hideCompleted"
+          :workspace-id="currentWorkspace"
           @select="selectNode"
           @delete="deleteNode"
           @context-menu="handleViewContextMenu"
@@ -3211,6 +3058,7 @@ onUnmounted(() => {
           :hide-completed="hideCompleted"
           :pinned="detailPinned"
           :workspaces="workspaces"
+          :current-workspace="currentWorkspace"
           @update="updateNode"
           @delete="deleteNode"
           @wrap-with-parent="wrapWithParent"
@@ -4473,6 +4321,7 @@ onUnmounted(() => {
 .result-type.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
 .result-type.person { background: var(--type-person-bg); color: var(--type-person-text); }
 .result-type.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
+.result-type.component { background: var(--type-component-bg); color: var(--type-component-text); }
 
 .result-check {
   color: #4ade80;
@@ -4965,6 +4814,7 @@ onUnmounted(() => {
 .result-type-badge.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
 .result-type-badge.person { background: var(--type-person-bg); color: var(--type-person-text); }
 .result-type-badge.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
+.result-type-badge.component { background: var(--type-component-bg); color: var(--type-component-text); }
 
 .result-body {
   flex: 1;

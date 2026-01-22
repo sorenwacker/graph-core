@@ -61,6 +61,8 @@
   --type-topic-text: #2dd4bf;
   --type-organization-bg: #2a2a5a;
   --type-organization-text: #818cf8;
+  --type-component-bg: #1a3a3a;
+  --type-component-text: #22d3d3;
   --checkbox-bg: #1a1a1a;
   --checkbox-checked-bg: var(--accent-color);
 
@@ -791,6 +793,7 @@ input[type="checkbox"] {
 .node-card-type.group { background: var(--type-group-bg); color: var(--type-group-text); border: 1px solid var(--type-group-text); }
 .node-card-type.topic { background: var(--type-topic-bg); color: var(--type-topic-text); border: 1px solid var(--type-topic-text); }
 .node-card-type.organization { background: var(--type-organization-bg); color: var(--type-organization-text); border: 1px solid var(--type-organization-text); }
+.node-card-type.component { background: var(--type-component-bg); color: var(--type-component-text); border: 1px solid var(--type-component-text); }
 
 /* Type-colored card borders - left border indicates node type */
 .node-card.type-project { border-left: 4px solid var(--type-project-text); }
@@ -802,6 +805,7 @@ input[type="checkbox"] {
 .node-card.type-group { border-left: 4px solid var(--type-group-text); }
 .node-card.type-topic { border-left: 4px solid var(--type-topic-text); }
 .node-card.type-organization { border-left: 4px solid var(--type-organization-text); }
+.node-card.type-component { border-left: 4px solid var(--type-component-text); }
 
 .node-card-title {
   font-size: 18px;
@@ -1407,6 +1411,7 @@ input[type="checkbox"] {
 .type-icon.event { background: var(--type-event-bg); color: var(--type-event-text); }
 .type-icon.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
 .type-icon.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
+.type-icon.component { background: var(--type-component-bg); color: var(--type-component-text); }
 
 /* SVG icons */
 .type-icon svg { width: 14px; height: 14px; }

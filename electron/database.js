@@ -248,11 +248,9 @@ class Database {
     // WORKSPACES FEATURE
     // =========================================
     // Workspaces provide complete data isolation. Each workspace (work, home, hobby)
-    // has its own nodes, graphs, and views. The People workspace is special - it's
-    // shared across all workspaces for @person mentions.
+    // has its own nodes, graphs, and views.
     //
     // Node.workspace_id:
-    //   - NULL = People workspace (persons only, shared across all workspaces)
     //   - "work", "home", "hobby" = Independent workspaces
     // =========================================
 
@@ -320,10 +318,11 @@ class Database {
       )
     `)
 
-    // Person migrations (single responsibility)
-    this._migratePersonsToRootNodes()      // Persons with parent_id -> root + link
-    this._migratePersonChildrenToRoot()    // Children of persons -> root + link
+    // Person migrations - disabled to allow normal parent-child relationships
+    // this._migratePersonsToRootNodes()      // Persons with parent_id -> root + link
+    // this._migratePersonChildrenToRoot()    // Children of persons -> root + link
     this._migrateOrganizationTextToLinks() // Org text field -> org node + link
+    this._migratePersonsOrgsToWorkWorkspace() // Move persons/orgs from People workspace to work
 
     this.db.run(`
       CREATE TABLE IF NOT EXISTS categories (
@@ -553,6 +552,24 @@ class Database {
       console.log(`Migrated ${migrated} person organization text fields to links`)
       this._save()
     }
+  }
+
+  /**
+   * Migration: Move persons and organizations from People workspace (NULL) to work workspace.
+   * This removes the special People workspace - all nodes now live in regular workspaces.
+   */
+  _migratePersonsOrgsToWorkWorkspace() {
+    const nodesToMigrate = this._query(
+      "SELECT id, type FROM nodes WHERE workspace_id IS NULL AND type IN ('person', 'organization', 'group') AND deleted_at IS NULL"
+    )
+    if (nodesToMigrate.length === 0) return
+
+    this.db.run(
+      "UPDATE nodes SET workspace_id = 'work' WHERE workspace_id IS NULL AND type IN ('person', 'organization', 'group') AND deleted_at IS NULL"
+    )
+
+    console.log(`Migrated ${nodesToMigrate.length} persons/organizations/groups to work workspace`)
+    this._save()
   }
 
   // Node CRUD

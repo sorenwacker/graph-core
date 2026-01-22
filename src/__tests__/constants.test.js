@@ -31,6 +31,13 @@ describe('Constants Module', () => {
       expect(nodeTypes).toContain('group')
       expect(nodeTypes).toContain('topic')
       expect(nodeTypes).toContain('organization')
+      expect(nodeTypes).toContain('component')
+    })
+
+    it('should have optimized order with common types first', () => {
+      expect(nodeTypes[0]).toBe('task')
+      expect(nodeTypes[1]).toBe('note')
+      expect(nodeTypes[2]).toBe('project')
     })
   })
 

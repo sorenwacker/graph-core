@@ -14,7 +14,8 @@ const props = defineProps({
   fullscreen: { type: Boolean, default: false },
   hideCompleted: { type: Boolean, default: false },
   pinned: { type: Boolean, default: false },
-  workspaces: { type: Array, default: () => [] }
+  workspaces: { type: Array, default: () => [] },
+  currentWorkspace: { type: String, default: 'work' }
 })
 
 const emit = defineEmits([
@@ -80,7 +81,8 @@ const {
   onMentionInserted: async (personId, nodeId) => {
     // Refresh linked nodes after auto-linking
     await loadLinkedNodes()
-  }
+  },
+  workspaceId: props.currentWorkspace
 })
 
 function onNotesInput(e) {
@@ -255,10 +257,10 @@ const personColors = [
   '#455a64', '#607d8b', '#78909c'
 ]
 
-// Load organizations from People workspace
+// Load organizations from current workspace
 async function loadOrganizations() {
   try {
-    organizations.value = await api.getNodes({ type: 'organization', workspace_id: null })
+    organizations.value = await api.getNodes({ type: 'organization', workspace_id: props.currentWorkspace })
   } catch (err) {
     console.error('Failed to load organizations:', err)
     organizations.value = []
@@ -380,7 +382,7 @@ async function createAndLinkOrganization() {
     const newOrg = await api.createNode({
       title: orgQuery.value.trim(),
       type: 'organization',
-      workspace_id: null
+      workspace_id: props.currentWorkspace
     })
     organizations.value.push(newOrg)
     await linkOrganization(newOrg)
@@ -424,7 +426,7 @@ function handleOrgInput() {
 // Load all persons for member autocomplete
 async function loadAllPersons() {
   try {
-    allPersons.value = await api.getNodes({ type: 'person', workspace_id: null })
+    allPersons.value = await api.getNodes({ type: 'person', workspace_id: props.currentWorkspace })
   } catch (err) {
     console.error('Failed to load persons:', err)
     allPersons.value = []
@@ -495,7 +497,7 @@ async function createAndLinkMember() {
     const newPerson = await api.createNode({
       title: memberQuery.value.trim(),
       type: 'person',
-      workspace_id: null
+      workspace_id: props.currentWorkspace
     })
     allPersons.value.push(newPerson)
     await linkMember(newPerson)
@@ -564,10 +566,8 @@ function saveChanges() {
 }
 
 async function changeWorkspace(newWorkspaceId) {
-  // Convert 'people' to null for database
-  const wsId = newWorkspaceId === 'people' ? null : newWorkspaceId
-  editedNode.value.workspace_id = wsId
-  await api.updateNode(editedNode.value.id, { workspace_id: wsId })
+  editedNode.value.workspace_id = newWorkspaceId
+  await api.updateNode(editedNode.value.id, { workspace_id: newWorkspaceId })
   emit('update', editedNode.value)
 }
 
@@ -1336,10 +1336,9 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
                 <div class="meta-item">
                   <label>Workspace</label>
                   <select
-                    :value="editedNode.workspace_id === null ? 'people' : editedNode.workspace_id"
+                    :value="editedNode.workspace_id"
                     @change="changeWorkspace($event.target.value)"
                   >
-                    <option value="people">People</option>
                     <option v-for="ws in workspaces" :key="ws.id" :value="ws.id">{{ ws.name }}</option>
                   </select>
                 </div>

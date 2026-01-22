@@ -77,7 +77,7 @@ const props = defineProps({
   hoverPreviewEnabled: { type: Boolean, default: true }
 })
 
-const emit = defineEmits(['select', 'enter', 'move', 'add-child', 'insert-between', 'update', 'create', 'delete', 'delete-multiple', 'wrap-with-parent', 'open-fullscreen', 'link', 'unlink', 'context-menu', 'toggle-complete', 'toggle-favorite', 'open-link-search'])
+const emit = defineEmits(['select', 'select-multiple', 'enter', 'move', 'add-child', 'insert-between', 'update', 'create', 'delete', 'delete-multiple', 'wrap-with-parent', 'open-fullscreen', 'link', 'unlink', 'context-menu', 'toggle-complete', 'toggle-favorite', 'open-link-search'])
 
 const container = ref(null)
 const editModalEl = ref(null)
@@ -406,10 +406,12 @@ function handleEditModalKeydown(e) {
   }
 }
 
-function deleteNodeFromModal() {
+function goToParentFromModal() {
   if (!editModal.value.node) return
-  emit('delete', editModal.value.node.id)
+  const parentId = editModal.value.node.parent_id
   hideEditModal()
+  // Navigate to parent (emit enter with parent, or null for root)
+  emit('enter', parentId ? { id: parentId } : null)
 }
 
 async function wrapWithParentFromModal() {
@@ -875,8 +877,8 @@ async function initGraph() {
     const nodeIds = elements.filter(el => !el.data.source).map(el => parseInt(el.data.id))
     if (nodeIds.length > 0) {
       const links = await api.getAllLinks(nodeIds)
-      // Fetch external linked nodes if in subgraph OR if showExternalLinks is enabled
-      if (props.parent || showExternalLinks.value) {
+      // Fetch external linked nodes only if showExternalLinks is enabled
+      if (showExternalLinks.value) {
         await fetchLinkedNodes(elements, links, savedPositions)
       }
       // Add link edges (for nodes already in the graph)
@@ -1043,15 +1045,17 @@ async function initGraph() {
     }
   }])
 
-  // Click to select, Cmd/Ctrl+click to add child
+  // Click to select, Cmd/Ctrl+click to add to multi-selection, Shift+click for range
   cy.on('tap', 'node', (e) => {
     const node = e.target.data('nodeData')
     if (!node) return
 
     if (e.originalEvent.metaKey || e.originalEvent.ctrlKey) {
-      // Cmd/Ctrl+click: open add dialog for child node
-      const pos = e.target.position()
-      showAddNodeModal(node.id, { x: pos.x + 50, y: pos.y + 80 })
+      // Cmd/Ctrl+click: add/toggle in multi-selection
+      emit('select-multiple', { node, add: true })
+    } else if (e.originalEvent.shiftKey) {
+      // Shift+click: range selection
+      emit('select-multiple', { node, range: true })
     } else {
       // Just select the node (sidebar detail will show)
       emit('select', node)
@@ -1350,16 +1354,6 @@ async function initGraph() {
           return
         }
 
-        // Any relationship involving a person should ALWAYS be a link, never parent-child
-        // Persons are independent entities that connect via links only
-        const involvesPersons = sourceNode.type === 'person' || targetNode.type === 'person'
-        if (involvesPersons) {
-          emit('link', { sourceId: sourceNode.id, targetId: targetNode.id })
-          if (dragStartPos) draggedNode.position(dragStartPos)
-          dragStartPos = null
-          return
-        }
-
         // Safety check: prevent moving to own descendant (would create cycle)
         const isDescendant = (parent, childId) => {
           if (!parent.children) return false
@@ -1522,8 +1516,8 @@ async function updateGraph() {
     const nodeIds = elements.filter(el => !el.data.source).map(el => parseInt(el.data.id))
     if (nodeIds.length > 0) {
       const links = await api.getAllLinks(nodeIds)
-      // Fetch external linked nodes if in subgraph OR if showExternalLinks is enabled
-      if (props.parent || showExternalLinks.value) {
+      // Fetch external linked nodes only if showExternalLinks is enabled
+      if (showExternalLinks.value) {
         await fetchLinkedNodes(elements, links, savedPositions)
       }
       // Add link edges (for nodes already in the graph)
@@ -1594,9 +1588,17 @@ async function updateGraph() {
     }
   }
 
+  // Save viewport before updating elements
+  const savedZoom = cy.zoom()
+  const savedPan = cy.pan()
+
   cy.elements().remove()
   cy.add(elements)
   cy.nodes().grabify()
+
+  // Restore viewport after adding elements
+  cy.zoom(savedZoom)
+  cy.pan(savedPan)
   // Update HTML labels
   cy.nodeHtmlLabel([{
     query: 'node',
@@ -1663,7 +1665,7 @@ async function updateGraph() {
 
   const structureChanged = hasNewNodes || hasEdgeChanges || nodeCountChanged
   if (!hasPositions) {
-    // No saved positions - run full layout
+    // No saved positions - run full layout (this is initial load, fit is ok)
     cy.layout(getLayoutOptions()).run()
     setTimeout(saveNodePositions, 600)
   } else if (hasNewNodes) {
@@ -1674,12 +1676,20 @@ async function updateGraph() {
         node.lock()
       }
     })
-    cy.layout(getLayoutOptions()).run()
+    // Disable fit to preserve current viewport when adding new nodes
+    cy.layout({ ...getLayoutOptions(), fit: false }).run()
     // Unlock all nodes after layout
     cy.nodes().unlock()
-    setTimeout(saveNodePositions, 600)
+    // Restore viewport after layout animation
+    setTimeout(() => {
+      cy.zoom(savedZoom)
+      cy.pan(savedPan)
+      saveNodePositions()
+    }, 600)
   } else {
-    // No new nodes - preserve existing positions
+    // No new nodes - preserve existing positions, restore viewport
+    cy.zoom(savedZoom)
+    cy.pan(savedPan)
     setTimeout(saveNodePositions, 100)
   }
 }
@@ -1729,10 +1739,21 @@ function resetLayout() {
 
 function relaxLayout() {
   if (cy) {
+    // Save current viewport
+    const zoom = cy.zoom()
+    const pan = cy.pan()
+
     // Use current layout mode for relax, not always dagre
-    const layout = getLayoutOptions()
+    // Disable fit to preserve current viewport
+    const layout = { ...getLayoutOptions(), fit: false }
     cy.layout(layout).run()
-    setTimeout(saveNodePositions, 600)
+
+    // Restore viewport after layout animation
+    setTimeout(() => {
+      cy.zoom(zoom)
+      cy.pan(pan)
+      saveNodePositions()
+    }, 600)
   }
 }
 
@@ -1886,11 +1907,18 @@ function handleCenterNodeEvent(e) {
 }
 
 // Expose methods for parent to call
+// Check if a node is currently visible in the graph (as child, descendant, or linked node)
+function isNodeVisible(nodeId) {
+  if (!cy) return false
+  return cy.getElementById(String(nodeId)).length > 0
+}
+
 defineExpose({
   relaxLayout,
   fitView,
   saveNodePositions,
-  updateGraph
+  updateGraph,
+  isNodeVisible
 })
 
 onMounted(() => {
@@ -1957,16 +1985,14 @@ onUnmounted(() => {
       </button>
       <button @click="fitView" title="Fit to view">Fit</button>
       <button @click="resetLayout" title="Clear saved positions and regenerate layout from scratch">Reset</button>
-      <template v-if="!parent">
-        <span class="controls-separator"></span>
-        <button
-          @click="toggleExternalLinks"
-          :class="{ active: showExternalLinks }"
-          title="Show linked persons/orgs from other workspaces at root level"
-        >
-          {{ showExternalLinks ? 'Links [ON]' : 'Links' }}
-        </button>
-      </template>
+      <span class="controls-separator"></span>
+      <button
+        @click="toggleExternalLinks"
+        :class="{ active: showExternalLinks }"
+        title="Show linked nodes from outside current view"
+      >
+        {{ showExternalLinks ? 'Links [ON]' : 'Links' }}
+      </button>
     </div>
     <div class="graph-container" ref="container">
       <div v-if="nodes.length === 0" class="graph-empty">
@@ -2092,7 +2118,7 @@ onUnmounted(() => {
         <div class="edit-modal-footer">
           <div class="footer-left">
             <button class="btn-secondary" @click="wrapWithParentFromModal">Wrap with Parent</button>
-            <button class="btn-danger" @click="deleteNodeFromModal">Delete</button>
+            <button class="btn-secondary" @click="goToParentFromModal" title="Navigate to parent (Cmd+Delete to delete)">Go to Parent</button>
           </div>
           <div class="footer-right">
             <button class="btn-secondary" @click="hideEditModal">Cancel</button>

@@ -5,7 +5,8 @@ import NotesEditor from './NotesEditor.vue'
 
 const props = defineProps({
   selectedId: Number,
-  hideCompleted: { type: Boolean, default: false }
+  hideCompleted: { type: Boolean, default: false },
+  workspaceId: { type: String, default: 'work' }
 })
 
 const emit = defineEmits(['select', 'update', 'delete', 'context-menu'])
@@ -63,11 +64,10 @@ onMounted(async () => {
   await loadOrganizations()
 })
 
-// Load organization nodes from People workspace (workspace_id = null)
+// Load organization nodes from current workspace
 async function loadOrganizations() {
   try {
-    // Get all group nodes from People workspace
-    organizations.value = await api.getNodes({ type: 'organization', workspace_id: null })
+    organizations.value = await api.getNodes({ type: 'organization', workspace_id: props.workspaceId })
   } catch (err) {
     console.error('Failed to load organizations:', err)
     organizations.value = []
@@ -242,7 +242,7 @@ async function savePerson() {
       website: editingPerson.value.website || '',
       notes: editingPerson.value.notes || '',
       color: editingPerson.value.color || '#0f4c75',
-      workspace_id: null  // Persons always go to People workspace
+      workspace_id: props.workspaceId
     }
 
     let personId = editingPerson.value.id
@@ -328,11 +328,11 @@ async function createAndLinkOrganization() {
   if (!orgQuery.value.trim()) return
 
   try {
-    // Create new organization node in People workspace (workspace_id = null)
+    // Create new organization node in current workspace
     const newOrg = await api.createNode({
       title: orgQuery.value.trim(),
       type: 'organization',
-      workspace_id: null
+      workspace_id: props.workspaceId
     })
 
     // Add to organizations list

@@ -258,6 +258,7 @@ function getInitials(name) {
 .context-menu-type.event { background: var(--type-event-bg); color: var(--type-event-text); }
 .context-menu-type.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
 .context-menu-type.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
+.context-menu-type.component { background: var(--type-component-bg); color: var(--type-component-text); }
 
 .context-menu-title {
   flex: 1;
