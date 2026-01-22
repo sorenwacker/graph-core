@@ -817,18 +817,16 @@ const LAYOUTS = {
 
   // Circle: nodes arranged in a circle
   circle: {
-    name: 'circle',
+    name: 'concentric',        // Use concentric layout instead
     animate: true,
     animationDuration: 400,
     fit: true,
     padding: 50,
+    minNodeSpacing: 100,
     avoidOverlap: true,
     nodeDimensionsIncludeLabels: true,
-    spacingFactor: 1.2,
-    startAngle: -Math.PI / 2,  // Start from top
-    sweep: 2 * Math.PI,        // Full circle
-    clockwise: true,
-    sort: (a, b) => (a.data('label') || '').localeCompare(b.data('label') || '')
+    concentric: () => 1,       // All nodes on same circle
+    levelWidth: () => 1
   },
 
   // Relax (single click): Dagre - clean up edge crossings
@@ -1704,7 +1702,6 @@ function reLayout() {
     // Clear saved positions
     localStorage.removeItem(getPositionsKey())
     cy.layout(getLayoutOptions()).run()
-    // Save new positions after layout
     setTimeout(saveNodePositions, 800)
   }
 }
