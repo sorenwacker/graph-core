@@ -2985,6 +2985,7 @@ onUnmounted(() => {
           @wrap-with-parent="wrapWithParent"
           @open-fullscreen="openNodeFullscreen"
           @context-menu="handleViewContextMenu"
+          @go-parent="goToParent"
         />
 
         <!-- Timeline View -->

@@ -77,7 +77,7 @@ const props = defineProps({
   hoverPreviewEnabled: { type: Boolean, default: true }
 })
 
-const emit = defineEmits(['select', 'select-multiple', 'enter', 'move', 'add-child', 'insert-between', 'update', 'create', 'delete', 'delete-multiple', 'wrap-with-parent', 'open-fullscreen', 'link', 'unlink', 'context-menu', 'toggle-complete', 'toggle-favorite', 'open-link-search'])
+const emit = defineEmits(['select', 'select-multiple', 'enter', 'move', 'add-child', 'insert-between', 'update', 'create', 'delete', 'delete-multiple', 'wrap-with-parent', 'open-fullscreen', 'link', 'unlink', 'context-menu', 'toggle-complete', 'toggle-favorite', 'open-link-search', 'go-parent'])
 
 const container = ref(null)
 const editModalEl = ref(null)
@@ -354,16 +354,8 @@ function handleGlobalKeydown(e) {
   // Cmd+Up to navigate to parent of current subgraph
   if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowUp' && !inModal) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
-
-    // Navigate to parent of current container (go up one level)
-    if (props.parent?.parent_id) {
-      e.preventDefault()
-      emit('enter', { id: props.parent.parent_id })
-    } else if (props.parent) {
-      // At top level of a subgraph, go to root
-      e.preventDefault()
-      emit('enter', null)
-    }
+    e.preventDefault()
+    emit('go-parent')
   }
 }
 
@@ -423,13 +415,7 @@ function handleEditModalKeydown(e) {
 
 function goToParentFromModal() {
   hideEditModal()
-  // Navigate to parent of current subgraph (not the edited node)
-  if (props.parent?.parent_id) {
-    emit('enter', { id: props.parent.parent_id })
-  } else if (props.parent) {
-    // At top level of a subgraph, go to root
-    emit('enter', null)
-  }
+  emit('go-parent')
 }
 
 async function wrapWithParentFromModal() {
