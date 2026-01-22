@@ -137,23 +137,40 @@ function getPositionsKey() {
   return `graph-positions-${ws}-${parentId}`
 }
 
-// Load saved positions
+// Load saved positions (with validation to filter corrupted values)
 function loadNodePositions() {
   try {
     const saved = localStorage.getItem(getPositionsKey())
-    return saved ? JSON.parse(saved) : {}
+    if (!saved) return {}
+    const positions = JSON.parse(saved)
+    // Filter out corrupted positions (must be finite and within reasonable bounds)
+    const MAX_POS = 50000
+    const validated = {}
+    for (const [id, pos] of Object.entries(positions)) {
+      if (pos && typeof pos.x === 'number' && typeof pos.y === 'number' &&
+          isFinite(pos.x) && isFinite(pos.y) &&
+          Math.abs(pos.x) < MAX_POS && Math.abs(pos.y) < MAX_POS) {
+        validated[id] = pos
+      }
+    }
+    return validated
   } catch {
     return {}
   }
 }
 
-// Save positions
+// Save positions (with validation to prevent corrupted values)
 function saveNodePositions() {
   if (!cy) return
+  const MAX_POS = 50000
   const positions = {}
   cy.nodes().forEach(node => {
     const pos = node.position()
-    positions[node.id()] = { x: pos.x, y: pos.y }
+    // Only save valid positions
+    if (isFinite(pos.x) && isFinite(pos.y) &&
+        Math.abs(pos.x) < MAX_POS && Math.abs(pos.y) < MAX_POS) {
+      positions[node.id()] = { x: pos.x, y: pos.y }
+    }
   })
   localStorage.setItem(getPositionsKey(), JSON.stringify(positions))
 }
