@@ -351,19 +351,18 @@ function handleGlobalKeydown(e) {
     }
   }
 
-  // Cmd+Up to navigate to parent of selected node
+  // Cmd+Up to navigate to parent of current subgraph
   if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowUp' && !inModal) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
 
-    if (cy) {
-      const selectedNodes = cy.$('node:selected')
-      if (selectedNodes.length === 1) {
-        const nodeData = selectedNodes[0].data('nodeData')
-        if (nodeData?.parent_id) {
-          e.preventDefault()
-          emit('enter', { id: nodeData.parent_id })
-        }
-      }
+    // Navigate to parent of current container (go up one level)
+    if (props.parent?.parent_id) {
+      e.preventDefault()
+      emit('enter', { id: props.parent.parent_id })
+    } else if (props.parent) {
+      // At top level of a subgraph, go to root
+      e.preventDefault()
+      emit('enter', null)
     }
   }
 }
@@ -423,11 +422,14 @@ function handleEditModalKeydown(e) {
 }
 
 function goToParentFromModal() {
-  if (!editModal.value.node) return
-  const parentId = editModal.value.node.parent_id
-  if (!parentId) return // Already at root level
   hideEditModal()
-  emit('enter', { id: parentId })
+  // Navigate to parent of current subgraph (not the edited node)
+  if (props.parent?.parent_id) {
+    emit('enter', { id: props.parent.parent_id })
+  } else if (props.parent) {
+    // At top level of a subgraph, go to root
+    emit('enter', null)
+  }
 }
 
 async function wrapWithParentFromModal() {
