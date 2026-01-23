@@ -9,12 +9,26 @@ const props = defineProps({
   colorMap: { type: Object, default: () => ({}) }
 })
 
-const emit = defineEmits(['select', 'enter', 'show-tooltip', 'hide-tooltip', 'context-menu'])
+const emit = defineEmits(['select', 'enter', 'show-tooltip', 'hide-tooltip', 'context-menu', 'add-child', 'delete'])
 
 // Context menu handler
 function handleContextMenu(e, node) {
   e.preventDefault()
   emit('context-menu', { event: e, node })
+}
+
+// Click handler with modifier support
+function handleNodeClick(e, node) {
+  const hasCmd = e.metaKey || e.ctrlKey
+  const hasAlt = e.altKey
+
+  if (hasCmd && hasAlt) {
+    emit('delete', node.id)
+  } else if (hasCmd) {
+    emit('add-child', { parentId: node.id, title: '', prompt: true })
+  } else {
+    emit('select', node)
+  }
 }
 
 // Zoom level: pixels per day (higher = more zoomed in)
@@ -409,7 +423,7 @@ watch(() => props.nodes, () => {
               :key="'label-' + node.id"
               class="row-label"
               :class="{ selected: selectedId === node.id }"
-              @click="emit('select', node)"
+              @click="handleNodeClick($event, node)"
               @mouseenter="emit('show-tooltip', $event, node)"
               @mouseleave="emit('hide-tooltip')"
               @contextmenu.prevent="handleContextMenu($event, node)"
@@ -516,7 +530,7 @@ watch(() => props.nodes, () => {
                     class="timeline-bar"
                     :class="{ selected: selectedId === node.id, completed: node.completed }"
                     :style="getBarStyle(node)"
-                    @click="emit('select', node)"
+                    @click="handleNodeClick($event, node)"
                     @dblclick="emit('enter', node)"
                     @mouseenter="emit('show-tooltip', $event, node)"
                     @mouseleave="emit('hide-tooltip')"

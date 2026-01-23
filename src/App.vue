@@ -1941,9 +1941,15 @@ function getSearchActionLabel(node) {
 // are now provided by useCardDrag composable initialized above
 
 function handleCardClick(e, node) {
-  if (e.ctrlKey || e.metaKey) {
-    // Toggle selection
-    handleMultiSelect({ node, add: true })
+  const hasCmd = e.ctrlKey || e.metaKey
+  const hasAlt = e.altKey
+
+  if (hasCmd && hasAlt) {
+    // Option+Cmd+click: delete the node
+    deleteNode(node.id)
+  } else if (hasCmd) {
+    // Cmd+click: add child node
+    addChildToCard(node.id, e)
   } else if (e.shiftKey) {
     // Range selection
     handleMultiSelect({ node, range: true })
@@ -1954,10 +1960,17 @@ function handleCardClick(e, node) {
 }
 
 function handleChildCardClick(e, node) {
-  // Same as handleCardClick - supports Ctrl/Cmd+click and Shift+click
-  if (e.ctrlKey || e.metaKey) {
-    handleMultiSelect({ node, add: true })
+  const hasCmd = e.ctrlKey || e.metaKey
+  const hasAlt = e.altKey
+
+  if (hasCmd && hasAlt) {
+    // Option+Cmd+click: delete the node
+    deleteNode(node.id)
+  } else if (hasCmd) {
+    // Cmd+click: add child node
+    addChildToCard(node.id, e)
   } else if (e.shiftKey) {
+    // Range selection
     handleMultiSelect({ node, range: true })
   } else {
     // Normal click - select and open detail panel
@@ -2146,7 +2159,15 @@ let resizeObserver = null
  * When not in input fields:
  * - Cmd/Ctrl + Delete/Backspace: Delete selected items
  * - Cmd/Ctrl + A: Select all visible items
+ * - Cmd/Ctrl + ArrowUp: Navigate to parent container
+ * - Cmd/Ctrl + ArrowDown: Navigate to first child
+ * - Cmd/Ctrl + ArrowLeft: Navigate to previous sibling
+ * - Cmd/Ctrl + ArrowRight: Navigate to next sibling
  * - Escape: Exit fullscreen or clear selection
+ *
+ * Click modifiers (all views):
+ * - Cmd/Ctrl + Click: Add child to clicked item
+ * - Option + Cmd/Ctrl + Click: Delete clicked item
  *
  * Note: Plain Delete/Backspace without Cmd/Ctrl does NOT delete items
  * to prevent accidental deletions.
@@ -2204,6 +2225,28 @@ function handleKeydown(e) {
     } else if (selectedNode.value) {
       deleteNode(selectedNode.value.id)
     }
+  }
+
+  // Cmd/Ctrl + Arrow keys - navigation (works in all views)
+  if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowUp') {
+    e.preventDefault()
+    goToParent()
+    return
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowDown') {
+    e.preventDefault()
+    goToFirstChild()
+    return
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowLeft') {
+    e.preventDefault()
+    goToPrevSibling()
+    return
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowRight') {
+    e.preventDefault()
+    goToNextSibling()
+    return
   }
 
   // Escape - exit fullscreen or clear selection (respects pin)

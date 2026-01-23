@@ -102,6 +102,8 @@ const { handleHover, handleLeave, handleClick, handleDoubleClick } = useNodeInte
   onSelect: (node) => emit('select', node),  // Full select + open detail on click
   onNavigate: (node) => emit('enter', node), // Navigate on double-click
   onMultiSelect: (node, opts) => emit('select-multiple', { node, ...opts }),
+  onAddChild: (node) => emit('add-child', { parentId: node.id, title: '', prompt: true }),
+  onDelete: (node) => emit('delete', node.id),
   getShowDetail: () => props.showDetail,
   showTooltip,
   hideTooltip

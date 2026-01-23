@@ -8,7 +8,7 @@ const props = defineProps({
   hideSensitive: Boolean
 })
 
-const emit = defineEmits(['select', 'toggle-complete', 'update-notes'])
+const emit = defineEmits(['select', 'toggle-complete', 'update-notes', 'add-child', 'delete'])
 
 const typeLabel = computed(() => getTypeIcon(props.node.type))
 const isPerson = computed(() => props.node.type === 'person')
@@ -30,8 +30,17 @@ watch(() => props.node.notes, (newNotes) => {
   }
 }, { immediate: true })
 
-function selectNode() {
-  emit('select', props.node)
+function selectNode(event) {
+  const hasCmd = event.metaKey || event.ctrlKey
+  const hasAlt = event.altKey
+
+  if (hasCmd && hasAlt) {
+    emit('delete', props.node.id)
+  } else if (hasCmd) {
+    emit('add-child', { parentId: props.node.id, title: '', prompt: true })
+  } else {
+    emit('select', props.node)
+  }
 }
 
 function toggleComplete(event) {
@@ -73,7 +82,7 @@ function handleNotesKeydown(event) {
   <div
     class="node-card"
     :class="[{ selected }, `type-${node.type}`]"
-    @click="selectNode"
+    @click="selectNode($event)"
   >
     <div class="node-card-header">
       <span v-if="isPerson" class="node-card-type person" :style="personStyle" v-html="personIconSvg"></span>

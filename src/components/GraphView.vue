@@ -1070,14 +1070,21 @@ async function initGraph() {
     }
   }])
 
-  // Click to select, Cmd/Ctrl+click to add to multi-selection, Shift+click for range
+  // Click to select, Cmd/Ctrl+click to add child, Option+Cmd/Ctrl+click to delete, Shift+click for range
   cy.on('tap', 'node', (e) => {
     const node = e.target.data('nodeData')
     if (!node) return
 
-    if (e.originalEvent.metaKey || e.originalEvent.ctrlKey) {
-      // Cmd/Ctrl+click: add/toggle in multi-selection
-      emit('select-multiple', { node, add: true })
+    const hasCmd = e.originalEvent.metaKey || e.originalEvent.ctrlKey
+    const hasAlt = e.originalEvent.altKey
+
+    if (hasCmd && hasAlt) {
+      // Option+Cmd/Ctrl+click: delete the node
+      emit('delete', node.id)
+    } else if (hasCmd) {
+      // Cmd/Ctrl+click: add child node
+      const pos = e.target.position()
+      showAddNodeModal(node.id, { x: pos.x + 50, y: pos.y + 80 })
     } else if (e.originalEvent.shiftKey) {
       // Shift+click: range selection
       emit('select-multiple', { node, range: true })
@@ -1146,7 +1153,7 @@ async function initGraph() {
     saveNodePositions()
   })
 
-  // Click on edge to insert node between
+  // Click on edge: Cmd+click to insert node between, Option+Cmd+click to delete edge
   cy.on('tap', 'edge', async (e) => {
     const edge = e.target
     const sourceId = parseInt(edge.source().id())
@@ -1154,18 +1161,19 @@ async function initGraph() {
     const sourceNode = edge.source().data('nodeData')
     const targetNode = edge.target().data('nodeData')
     const isLinkEdge = edge.data('isLink')
-    const isCmdClick = e.originalEvent?.metaKey || e.originalEvent?.ctrlKey
+    const hasCmd = e.originalEvent?.metaKey || e.originalEvent?.ctrlKey
+    const hasAlt = e.originalEvent?.altKey
 
     if (sourceNode && targetNode) {
-      if (isCmdClick) {
-        // Cmd+click - delete/remove the edge
+      if (hasCmd && hasAlt) {
+        // Option+Cmd+click - delete/remove the edge
         if (isLinkEdge) {
           emit('unlink', { sourceId, targetId })
         } else {
           emit('move', { nodeId: targetId, oldParentId: sourceId, newParentId: null })
         }
-      } else {
-        // Normal click - show add node modal for insert between
+      } else if (hasCmd) {
+        // Cmd+click - show add node modal for insert between
         const midPos = {
           x: (edge.source().position().x + edge.target().position().x) / 2,
           y: (edge.source().position().y + edge.target().position().y) / 2
@@ -1176,6 +1184,7 @@ async function initGraph() {
           isLink: isLinkEdge
         })
       }
+      // Normal click - no action (could select edge in future)
     }
   })
 

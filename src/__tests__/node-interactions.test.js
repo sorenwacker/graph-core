@@ -14,7 +14,8 @@ import {
  * - Hover: Light select (updates detail panel if open)
  * - Click: Select + open detail panel
  * - Double-click: Navigate into node
- * - Ctrl/Cmd + Click: Toggle persistent multi-select
+ * - Cmd/Ctrl + Click: Add child node
+ * - Option + Cmd/Ctrl + Click: Delete node
  * - Shift + Click: Range select
  * - Enter: Toggle detail panel
  */
@@ -35,20 +36,20 @@ describe('Node Interactions', () => {
   describe('Click (Select + Open Detail)', () => {
     it('should call onSelect for plain click', () => {
       const callbacks = { onSelect: vi.fn() }
-      const event = { ctrlKey: false, metaKey: false, shiftKey: false }
+      const event = { ctrlKey: false, metaKey: false, shiftKey: false, altKey: false }
 
       handleNodeClick(event, mockNode, callbacks)
 
       expect(callbacks.onSelect).toHaveBeenCalledWith(mockNode)
     })
 
-    it('should NOT call onMultiSelect for plain click', () => {
-      const callbacks = { onSelect: vi.fn(), onMultiSelect: vi.fn() }
-      const event = { ctrlKey: false, metaKey: false, shiftKey: false }
+    it('should NOT call onAddChild for plain click', () => {
+      const callbacks = { onSelect: vi.fn(), onAddChild: vi.fn() }
+      const event = { ctrlKey: false, metaKey: false, shiftKey: false, altKey: false }
 
       handleNodeClick(event, mockNode, callbacks)
 
-      expect(callbacks.onMultiSelect).not.toHaveBeenCalled()
+      expect(callbacks.onAddChild).not.toHaveBeenCalled()
     })
   })
 
@@ -62,28 +63,28 @@ describe('Node Interactions', () => {
     })
   })
 
-  describe('Ctrl/Cmd + Click (Multi-select)', () => {
-    it('should call onMultiSelect with add:true for Ctrl+click', () => {
-      const callbacks = { onMultiSelect: vi.fn() }
-      const event = { ctrlKey: true, metaKey: false, shiftKey: false }
+  describe('Cmd/Ctrl + Click (Add Child)', () => {
+    it('should call onAddChild for Ctrl+click', () => {
+      const callbacks = { onAddChild: vi.fn() }
+      const event = { ctrlKey: true, metaKey: false, shiftKey: false, altKey: false }
 
       handleNodeClick(event, mockNode, callbacks)
 
-      expect(callbacks.onMultiSelect).toHaveBeenCalledWith(mockNode, { add: true })
+      expect(callbacks.onAddChild).toHaveBeenCalledWith(mockNode)
     })
 
-    it('should call onMultiSelect with add:true for Cmd+click (macOS)', () => {
-      const callbacks = { onMultiSelect: vi.fn() }
-      const event = { ctrlKey: false, metaKey: true, shiftKey: false }
+    it('should call onAddChild for Cmd+click (macOS)', () => {
+      const callbacks = { onAddChild: vi.fn() }
+      const event = { ctrlKey: false, metaKey: true, shiftKey: false, altKey: false }
 
       handleNodeClick(event, mockNode, callbacks)
 
-      expect(callbacks.onMultiSelect).toHaveBeenCalledWith(mockNode, { add: true })
+      expect(callbacks.onAddChild).toHaveBeenCalledWith(mockNode)
     })
 
     it('should NOT call onSelect for Ctrl+click', () => {
-      const callbacks = { onSelect: vi.fn(), onMultiSelect: vi.fn() }
-      const event = { ctrlKey: true, metaKey: false, shiftKey: false }
+      const callbacks = { onSelect: vi.fn(), onAddChild: vi.fn() }
+      const event = { ctrlKey: true, metaKey: false, shiftKey: false, altKey: false }
 
       handleNodeClick(event, mockNode, callbacks)
 
@@ -91,10 +92,39 @@ describe('Node Interactions', () => {
     })
   })
 
+  describe('Option + Cmd/Ctrl + Click (Delete)', () => {
+    it('should call onDelete for Option+Ctrl+click', () => {
+      const callbacks = { onDelete: vi.fn() }
+      const event = { ctrlKey: true, metaKey: false, shiftKey: false, altKey: true }
+
+      handleNodeClick(event, mockNode, callbacks)
+
+      expect(callbacks.onDelete).toHaveBeenCalledWith(mockNode)
+    })
+
+    it('should call onDelete for Option+Cmd+click (macOS)', () => {
+      const callbacks = { onDelete: vi.fn() }
+      const event = { ctrlKey: false, metaKey: true, shiftKey: false, altKey: true }
+
+      handleNodeClick(event, mockNode, callbacks)
+
+      expect(callbacks.onDelete).toHaveBeenCalledWith(mockNode)
+    })
+
+    it('should NOT call onAddChild for Option+Cmd+click', () => {
+      const callbacks = { onAddChild: vi.fn(), onDelete: vi.fn() }
+      const event = { ctrlKey: false, metaKey: true, shiftKey: false, altKey: true }
+
+      handleNodeClick(event, mockNode, callbacks)
+
+      expect(callbacks.onAddChild).not.toHaveBeenCalled()
+    })
+  })
+
   describe('Shift + Click (Range select)', () => {
     it('should call onMultiSelect with range:true for Shift+click', () => {
       const callbacks = { onMultiSelect: vi.fn() }
-      const event = { ctrlKey: false, metaKey: false, shiftKey: true }
+      const event = { ctrlKey: false, metaKey: false, shiftKey: true, altKey: false }
 
       handleNodeClick(event, mockNode, callbacks)
 
@@ -103,7 +133,7 @@ describe('Node Interactions', () => {
 
     it('should NOT call onSelect for Shift+click', () => {
       const callbacks = { onSelect: vi.fn(), onMultiSelect: vi.fn() }
-      const event = { ctrlKey: false, metaKey: false, shiftKey: true }
+      const event = { ctrlKey: false, metaKey: false, shiftKey: true, altKey: false }
 
       handleNodeClick(event, mockNode, callbacks)
 

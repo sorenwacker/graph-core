@@ -34,11 +34,18 @@ export function handleNodeLeave(callbacks) {
  * Handle click on a node - selects and opens detail panel
  * @param {Event} e - Mouse event
  * @param {Object} node - The clicked node
- * @param {Object} callbacks - { onSelect, onMultiSelect }
+ * @param {Object} callbacks - { onSelect, onMultiSelect, onAddChild, onDelete }
  */
 export function handleNodeClick(e, node, callbacks) {
-  if (e.ctrlKey || e.metaKey) {
-    callbacks.onMultiSelect?.(node, { add: true })
+  const hasCmd = e.ctrlKey || e.metaKey
+  const hasAlt = e.altKey
+
+  if (hasCmd && hasAlt) {
+    // Option+Cmd/Ctrl+click: delete the node
+    callbacks.onDelete?.(node)
+  } else if (hasCmd) {
+    // Cmd/Ctrl+click: add child node
+    callbacks.onAddChild?.(node)
   } else if (e.shiftKey) {
     callbacks.onMultiSelect?.(node, { range: true })
   } else {

@@ -8,7 +8,9 @@ import { handleNodeClick, handleNodeHover, handleNodeDoubleClick, shouldShowTool
  * @param {Function} options.onHover - Called on hover (light select, updates detail if open)
  * @param {Function} options.onSelect - Called on click (full select + open detail)
  * @param {Function} options.onNavigate - Called on double-click (enter container)
- * @param {Function} options.onMultiSelect - Called on Ctrl/Shift+click
+ * @param {Function} options.onMultiSelect - Called on Shift+click
+ * @param {Function} options.onAddChild - Called on Cmd/Ctrl+click (add child)
+ * @param {Function} options.onDelete - Called on Option+Cmd/Ctrl+click (delete)
  * @param {Function} options.getShowDetail - Returns current showDetail state
  * @param {Function} options.showTooltip - Tooltip show function
  * @param {Function} options.hideTooltip - Tooltip hide function
@@ -19,13 +21,15 @@ export function useNodeInteractions(options = {}) {
     onSelect,
     onNavigate,
     onMultiSelect,
+    onAddChild,
+    onDelete,
     getShowDetail = () => false,
     showTooltip,
     hideTooltip
   } = options
 
   const hoverCallbacks = { onHover }
-  const clickCallbacks = { onSelect, onMultiSelect }
+  const clickCallbacks = { onSelect, onMultiSelect, onAddChild, onDelete }
   const dblClickCallbacks = { onNavigate }
 
   /**
