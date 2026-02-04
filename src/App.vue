@@ -17,6 +17,7 @@ import GraphView from './components/GraphView.vue'
 import TableView from './components/TableView.vue'
 import TimelineView from './components/TimelineView.vue'
 import PersonsView from './components/PersonsView.vue'
+import TasksView from './components/TasksView.vue'
 import NodeContextMenu from './components/NodeContextMenu.vue'
 import CardTitleEdit from './components/CardTitleEdit.vue'
 import CardNotes from './components/CardNotes.vue'
@@ -113,18 +114,6 @@ const workspaces = ref([])  // Loaded from database
 // Helper: Get workspace_id for creating new nodes
 function getWorkspaceIdForNode() {
   return currentWorkspace.value
-}
-
-// Random color for persons
-const personColors = [
-  '#e74c3c', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5',
-  '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50',
-  '#8bc34a', '#cddc39', '#ffc107', '#ff9800', '#ff5722',
-  '#795548', '#607d8b', '#f44336', '#7c4dff', '#00e676'
-]
-
-function getRandomPersonColor() {
-  return personColors[Math.floor(Math.random() * personColors.length)]
 }
 
 // Load available workspaces from database
@@ -344,6 +333,7 @@ const showSearch = ref(false)
 const searchTimeout = ref(null)
 const searchInputRef = ref(null)
 const graphViewRef = ref(null)
+const tasksViewRef = ref(null)
 const detailPanelRef = ref(null)
 const addNodeInput = ref(null)
 const addChildParentId = ref(null) // Parent ID when adding via card + button
@@ -410,10 +400,8 @@ async function undo() {
     }
     // Push same action to redo stack (redo will re-apply the original action)
     redoStack.value.push(action)
-    await loadChildren(currentContainerId.value)
+    await loadChildren(currentContainerId.value, { silent: true })
     await loadSidebarTree()
-    // Trigger relax after structure change
-    setTimeout(() => graphViewRef.value?.relaxLayout(), 200)
   } catch (e) {
     console.error('Undo failed:', e, action)
     undoStack.value.push(action)
@@ -451,10 +439,8 @@ async function redo() {
     }
     // Push same action back to undo stack
     undoStack.value.push(action)
-    await loadChildren(currentContainerId.value)
+    await loadChildren(currentContainerId.value, { silent: true })
     await loadSidebarTree()
-    // Trigger relax after structure change
-    setTimeout(() => graphViewRef.value?.relaxLayout(), 200)
   } catch (e) {
     console.error('Redo failed:', e)
     redoStack.value.push(action)
@@ -739,17 +725,34 @@ function nestedGridStyle(count, level = 1) {
 // Methods
 async function loadSidebarTree() {
   try {
+    const ws = currentWorkspace.value
     // Filter by current workspace
-    const roots = await api.getRoots(currentWorkspace.value)
-    // Filter out any null/undefined entries
-    const filteredRoots = (roots || []).filter(Boolean)
+    const roots = await api.getRoots(ws)
+    // Filter out any null/undefined entries AND verify workspace match
+    // For 'people' workspace (null), match nodes with null workspace_id
+    // For other workspaces, match nodes with that workspace_id
+    const filteredRoots = (roots || []).filter(root => {
+      if (!root) return false
+      if (ws === null || ws === 'null') {
+        return root.workspace_id === null
+      }
+      return root.workspace_id === ws
+    })
     const rootsWithChildren = await Promise.all(
       filteredRoots.map(async (root) => {
         if (!root || !root.id) return null
         const descendants = await api.getDescendants(root.id)
+        // Also filter descendants by workspace for safety
+        const filteredDescendants = (descendants || []).filter(d => {
+          if (!d) return false
+          if (ws === null || ws === 'null') {
+            return d.workspace_id === null
+          }
+          return d.workspace_id === ws
+        })
         return {
           ...root,
-          children: buildChildTree(descendants, root.id)
+          children: buildChildTree(filteredDescendants, root.id)
         }
       })
     )
@@ -901,7 +904,8 @@ let isLoadingChildren = false
 let lastLoadTime = 0
 let lastLoadedContainerId = null
 
-async function loadChildren(containerId = null) {
+async function loadChildren(containerId = null, options = {}) {
+  const { silent = false } = options
   const now = Date.now()
   const timeSinceLastLoad = now - lastLoadTime
 
@@ -917,7 +921,11 @@ async function loadChildren(containerId = null) {
 
   isLoadingChildren = true
   lastLoadedContainerId = containerId
-  loading.value = true
+  // Only show loading state if not silent (silent mode preserves mounted components)
+  const showLoading = !silent
+  if (showLoading) {
+    loading.value = true
+  }
   error.value = null
   try {
     if (containerId === null) {
@@ -978,7 +986,9 @@ async function loadChildren(containerId = null) {
     }
     error.value = e.message
   } finally {
-    loading.value = false
+    if (showLoading) {
+      loading.value = false
+    }
     isLoadingChildren = false
     lastLoadTime = Date.now()
   }
@@ -1216,10 +1226,7 @@ async function createNode() {
       parent_id: targetParentId,
       workspace_id: getWorkspaceIdForNode(nodeType)
     }
-    // Assign random color to persons
-    if (nodeType === 'person') {
-      nodeData.color = getRandomPersonColor()
-    }
+    // Persons default to neutral color (can inherit from parent)
     const created = await api.createNode(nodeData)
     if (!created || !created.id) {
       throw new Error('Failed to create node')
@@ -1251,9 +1258,6 @@ async function addChildNode({ parentId, title, type, x, y }) {
       parent_id: parentId,
       workspace_id: getWorkspaceIdForNode(nodeType)
     }
-    if (nodeType === 'person') {
-      nodeData.color = getRandomPersonColor()
-    }
     const newNode = await api.createNode(nodeData)
     if (!newNode || !newNode.id) {
       throw new Error('Failed to create child node - no result returned')
@@ -1262,17 +1266,14 @@ async function addChildNode({ parentId, title, type, x, y }) {
     // Save position if provided (from graph double-click)
     if (x !== undefined && y !== undefined) {
       const viewId = currentContainerId.value || 'root'
-      const posKey = `graph-positions-${viewId}`
+      const ws = currentWorkspace.value || 'work'
+      const posKey = `graph-positions-${ws}-${viewId}`
       const positions = JSON.parse(localStorage.getItem(posKey) || '{}')
       positions[newNode.id] = { x, y }
       localStorage.setItem(posKey, JSON.stringify(positions))
     }
     expandedIds.value.add(parentId)
     await loadChildren(currentContainerId.value)
-    // Trigger relax on graph view after adding child
-    setTimeout(() => {
-      graphViewRef.value?.relaxLayout()
-    }, 200)
   } catch (e) {
     error.value = e.message
   }
@@ -1295,20 +1296,16 @@ function onChildUpdated() {
 // Set reloadData=true for parent-child changes that affect tree structure
 async function refreshGraphAfterStructureChange(reloadData = false) {
   if (reloadData) {
-    // Load new tree structure (this triggers watch -> updateGraph)
-    await loadChildren(currentContainerId.value)
-    // Wait for Vue reactivity to settle
+    // Load new tree structure without showing loading state (prevents graph remount)
+    await loadChildren(currentContainerId.value, { silent: true })
+    // Wait for Vue reactivity and graph update to settle
     await nextTick()
-    // Then explicitly call updateGraph with zoom preservation
-    if (graphViewRef.value?.updateGraph) {
-      await graphViewRef.value.updateGraph()
-    }
+    // Don't auto-relax - preserve node positions, user can manually relax if needed
   } else if (graphViewRef.value?.updateGraph) {
     // Just refresh the graph (links don't change tree structure)
+    // No relax needed - preserves current view
     await graphViewRef.value.updateGraph()
   }
-  // Relax layout after update completes
-  setTimeout(() => graphViewRef.value?.relaxLayout(), 200)
 }
 
 async function moveNode({ nodeId, oldParentId, newParentId }) {
@@ -1440,13 +1437,11 @@ async function createNodeAtPosition({ title, type, x, y }) {
       parent_id: currentContainerId.value,
       workspace_id: getWorkspaceIdForNode(nodeType)
     }
-    if (nodeType === 'person') {
-      nodeData.color = getRandomPersonColor()
-    }
     const newNode = await api.createNode(nodeData)
     // Save position for the new node in current view
     const viewId = currentContainerId.value || 'root'
-    const posKey = `graph-positions-${viewId}`
+    const ws = currentWorkspace.value || 'work'
+    const posKey = `graph-positions-${ws}-${viewId}`
     const positions = JSON.parse(localStorage.getItem(posKey) || '{}')
     positions[newNode.id] = { x, y }
     localStorage.setItem(posKey, JSON.stringify(positions))
@@ -1455,10 +1450,6 @@ async function createNodeAtPosition({ title, type, x, y }) {
     await loadSidebarTree()
     loadRecentItems()
     selectNode(newNode)
-    // Trigger relax on graph view after adding node
-    setTimeout(() => {
-      graphViewRef.value?.relaxLayout()
-    }, 200)
   } catch (e) {
     error.value = e.message
   }
@@ -1468,6 +1459,13 @@ async function updateNode(updatedNode, trackUndo = true) {
   try {
     // Get old values for undo
     const oldNode = trackUndo ? await api.getNode(updatedNode.id) : null
+
+    // Auto-set end_date when marking complete (if no end_date)
+    let endDate = updatedNode.end_date
+    if (updatedNode.completed && !oldNode?.completed && !updatedNode.end_date) {
+      endDate = new Date().toISOString().split('T')[0]
+    }
+
     const newValues = {
       title: updatedNode.title,
       type: updatedNode.type,
@@ -1477,7 +1475,7 @@ async function updateNode(updatedNode, trackUndo = true) {
       favorite: updatedNode.favorite,
       due_date: updatedNode.due_date,
       start_date: updatedNode.start_date,
-      end_date: updatedNode.end_date,
+      end_date: endDate,
       color: updatedNode.color,
       importance: updatedNode.importance,
       location: updatedNode.location,
@@ -1512,12 +1510,11 @@ async function updateNode(updatedNode, trackUndo = true) {
       }
       pushUndo({ type: 'edit', nodeId: updatedNode.id, oldValues, newValues })
     }
-    await loadChildren(currentContainerId.value)
+    // Use silent mode to avoid triggering full re-render
+    await loadChildren(currentContainerId.value, { silent: true })
     await loadSidebarTree()
     loadRecentItems()
     loadFavorites()
-    // Force graph to refresh (for hideCompleted filtering)
-    graphViewRef.value?.updateGraph()
   } catch (e) {
     error.value = e.message
   }
@@ -1533,23 +1530,46 @@ async function deleteNode(nodeId) {
   try {
     // Get node data for undo before deleting
     const node = await api.getNode(nodeId)
+    if (!node) return
+
+    // Get all descendants for cascade delete
+    const descendants = await api.getDescendants(nodeId) || []
+    const allNodesToDelete = [node, ...descendants]
 
     // Check if we need to navigate back after deletion (use == for type coercion)
-    const needsNavigation = currentContainerId.value == nodeId ||
-      breadcrumbs.value.some(b => b.id == nodeId)
+    const allIds = new Set(allNodesToDelete.map(n => String(n.id)))
+    const needsNavigation = allIds.has(String(currentContainerId.value)) ||
+      breadcrumbs.value.some(b => allIds.has(String(b.id)))
 
-    await api.deleteNode(nodeId, false)  // Soft delete
-    // Broadcast deletion to detached windows
+    // Delete all nodes (descendants first, then the root)
+    // Reverse order so children are deleted before parents
+    for (const n of [...descendants].reverse()) {
+      await api.deleteNode(n.id, false)  // Soft delete
+      broadcastNodeDelete(n.id)
+    }
+    await api.deleteNode(nodeId, false)  // Soft delete the root node
     broadcastNodeDelete(nodeId)
-    if (node) {
+
+    // Push undo with all deleted nodes
+    if (allNodesToDelete.length > 1) {
+      pushUndo({ type: 'delete-multiple', nodes: allNodesToDelete })
+    } else {
       pushUndo({ type: 'delete', nodeData: node, parentId: node.parent_id })
     }
+
     showDetail.value = false
     selectedNode.value = null
 
-    // Navigate back if we deleted the current container or a node in the breadcrumbs
+    // Navigate to parent if we deleted the current container or a node in the breadcrumbs
     if (needsNavigation) {
-      navigateBack()
+      if (node.parent_id) {
+        await navigateTo({ id: node.parent_id })
+      } else {
+        // Deleted a root node - go to workspace root
+        currentContainerId.value = null
+        breadcrumbs.value = []
+        await loadChildren(null)
+      }
     } else {
       await loadChildren(currentContainerId.value)
     }
@@ -1644,8 +1664,6 @@ async function wrapWithParent({ nodeId, parentTitle }) {
         selectedNode.value = updatedNode
       }
     }
-    // Trigger relax after structure change
-    setTimeout(() => graphViewRef.value?.relaxLayout(), 200)
   } catch (e) {
     error.value = e.message
   }
@@ -1657,8 +1675,6 @@ async function moveNodeToRoot(nodeId) {
     await loadChildren(currentContainerId.value)
     await loadSidebarTree()
     loadRecentItems()
-    // Trigger relax after structure change
-    setTimeout(() => graphViewRef.value?.relaxLayout(), 200)
   } catch (e) {
     error.value = e.message
   }
@@ -1667,9 +1683,20 @@ async function moveNodeToRoot(nodeId) {
 async function toggleComplete(node) {
   try {
     const oldCompleted = node.completed
-    await api.updateNode(node.id, { completed: !oldCompleted })
-    pushUndo({ type: 'complete', nodeId: node.id, oldCompleted, newCompleted: !oldCompleted })
+    const newCompleted = !oldCompleted
+
+    // Build update with new completed state
+    const updates = { completed: newCompleted }
+
+    // Auto-set end_date when marking complete (if no end_date)
+    if (newCompleted && !node.end_date) {
+      updates.end_date = new Date().toISOString().split('T')[0]
+    }
+
+    await api.updateNode(node.id, updates)
+    pushUndo({ type: 'complete', nodeId: node.id, oldCompleted, newCompleted })
     await loadChildren(currentContainerId.value)
+    tasksViewRef.value?.loadTasks()
   } catch (e) {
     error.value = e.message
   }
@@ -1842,10 +1869,14 @@ async function goToSearchResult(node) {
     closeSearch()
     try {
       await api.linkNodes(sourceId, node.id)
+      pushUndo({ type: 'link', sourceId, targetId: node.id })
+      // Refresh graph to show new link (without relayout)
+      await refreshGraphAfterStructureChange()
       // Refresh the selected node to update links
       if (selectedNode.value?.id === sourceId) {
         const updatedNode = await api.getNode(sourceId)
         selectedNode.value = updatedNode
+        detailPanelRef.value?.loadLinkedNodes()
       }
     } catch (e) {
       console.error('Failed to create link:', e)
@@ -2508,28 +2539,6 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Recent Items -->
-        <div v-if="recentItems.length > 0" class="sidebar-section collapsible-section">
-          <div class="sidebar-section-header" @click="sidebarRecentCollapsed = !sidebarRecentCollapsed">
-            <span class="collapse-btn">{{ sidebarRecentCollapsed ? '+' : '-' }}</span>
-            <span>Recent</span>
-            <span class="section-count">{{ recentItems.length }}</span>
-            <span class="clear-btn" @click.stop="clearRecent" title="Clear recent">x</span>
-            <span v-if="previousRecentClearedAt !== null" class="undo-btn" @click.stop="undoClearRecent" title="Undo clear">undo</span>
-          </div>
-          <div v-show="!sidebarRecentCollapsed">
-            <div
-              v-for="item in recentItems"
-              :key="'recent-' + item.id"
-              class="sidebar-item recent-item"
-              :class="{ active: selectedNode?.id === item.id }"
-              @click="navigateToNode(item)"
-            >
-              <span class="type-icon" :class="item.type"><span v-html="getTypeIcon(item.type)"></span></span>
-              <span class="label">{{ item.title }}</span>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- Legend (fixed at bottom, outside scrollable content) -->
@@ -2566,6 +2575,7 @@ onUnmounted(() => {
           <button :class="{ primary: viewMode === 'graph' }" @click="viewMode = 'graph'">Graph</button>
           <button :class="{ primary: viewMode === 'cards' }" @click="viewMode = 'cards'">Cards</button>
           <button :class="{ primary: viewMode === 'tree' }" @click="viewMode = 'tree'">Table</button>
+          <button :class="{ primary: viewMode === 'tasks' }" @click="viewMode = 'tasks'">Tasks</button>
           <button :class="{ primary: viewMode === 'timeline' }" @click="viewMode = 'timeline'">Timeline</button>
           <button :class="{ primary: viewMode === 'persons' }" @click="viewMode = 'persons'">People</button>
           <button :class="{ primary: viewMode === 'trash' }" @click="viewMode = 'trash'">Trash</button>
@@ -3096,6 +3106,18 @@ onUnmounted(() => {
           @context-menu="handleViewContextMenu"
         />
 
+        <!-- Tasks View -->
+        <TasksView
+          v-else-if="viewMode === 'tasks'"
+          ref="tasksViewRef"
+          :workspace-id="currentWorkspace"
+          :hide-sensitive="hideSensitive"
+          :container-id="currentContainerId"
+          :container-title="currentContainer?.title"
+          @navigate="navigateToNode"
+          @toggle-complete="toggleComplete"
+        />
+
         <!-- Trash View -->
         <div v-else-if="viewMode === 'trash'" class="trash-view">
           <div class="trash-header">
@@ -3249,14 +3271,30 @@ onUnmounted(() => {
             <div class="empty-hint">Try different keywords</div>
           </div>
 
+          <div class="spotlight-recents" v-else-if="recentItems.length > 0">
+            <div class="spotlight-results-header">
+              Recent
+              <span class="clear-recents" @click="clearRecent">clear</span>
+            </div>
+            <div
+              v-for="(item, index) in recentItems.slice(0, 10)"
+              :key="'recent-' + item.id"
+              class="spotlight-result"
+              :class="{ selected: index === selectedResultIndex }"
+              @click="goToSearchResult(item)"
+              @mouseenter="selectedResultIndex = index"
+            >
+              <div class="result-type-badge" :class="item.type">
+                <span v-html="getTypeIcon(item.type)"></span>
+              </div>
+              <div class="result-body">
+                <div class="result-title">{{ item.title }}</div>
+              </div>
+            </div>
+          </div>
+
           <div class="spotlight-hint-footer" v-else>
             <div class="hint-text">Type to search all nodes</div>
-            <div class="hint-examples">
-              <span>Titles</span>
-              <span>Notes</span>
-              <span>Projects</span>
-              <span>Tasks</span>
-            </div>
           </div>
         </div>
       </div>
@@ -4823,6 +4861,17 @@ onUnmounted(() => {
   letter-spacing: 0.5px;
   background: #111;
   border-bottom: 1px solid #222;
+}
+
+.clear-recents {
+  font-size: 10px;
+  color: #666;
+  cursor: pointer;
+  text-transform: lowercase;
+}
+
+.clear-recents:hover {
+  color: #e74c3c;
 }
 
 .current-view-badge {

@@ -88,6 +88,30 @@ const webApi = {
     return request(url)
   },
 
+  async getTasks(params = {}) {
+    const queryParams = new URLSearchParams()
+    if (params.workspaceId !== undefined) {
+      queryParams.append('workspaceId', params.workspaceId === null ? 'null' : params.workspaceId)
+    }
+    if (params.completed !== undefined) {
+      queryParams.append('completed', String(params.completed))
+    }
+    if (params.dueDateFrom) {
+      queryParams.append('dueDateFrom', params.dueDateFrom)
+    }
+    if (params.dueDateTo) {
+      queryParams.append('dueDateTo', params.dueDateTo)
+    }
+    if (params.importance !== undefined) {
+      queryParams.append('importance', String(params.importance))
+    }
+    if (params.parentId !== undefined) {
+      queryParams.append('parentId', String(params.parentId))
+    }
+    const queryString = queryParams.toString()
+    return request(`/tasks${queryString ? '?' + queryString : ''}`)
+  },
+
   async getChildren(id, type = null) {
     const query = type ? `?type=${type}` : ''
     return request(`/nodes/${id}/children${query}`)
@@ -246,6 +270,7 @@ const electronApi = {
   getInbox: async () => filterNulls(await window.electronAPI.getInbox()),
   getRecent: async (limit, workspaceId) => filterNulls(await window.electronAPI.getRecent(limit, workspaceId)),
   getFavorites: async (workspaceId) => filterNulls(await window.electronAPI.getFavorites(workspaceId)),
+  getTasks: async (params) => filterNulls(await window.electronAPI.getTasks(params)),
   getChildren: async (id, type) => filterNulls(await window.electronAPI.getChildren(id, type)),
   getDescendants: async (id, maxDepth) => filterNulls(await window.electronAPI.getDescendants(id, maxDepth)),
   getAncestors: async (id) => filterNulls(await window.electronAPI.getAncestors(id)),

@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getInbox: () => ipcRenderer.invoke('db:getInbox'),
   getRecent: (limit, workspaceId) => ipcRenderer.invoke('db:getRecent', limit, workspaceId),
   getFavorites: (workspaceId) => ipcRenderer.invoke('db:getFavorites', workspaceId),
+  getTasks: (params) => ipcRenderer.invoke('db:getTasks', params),
   getChildren: (id, type) => ipcRenderer.invoke('db:getChildren', id, type),
   getDescendants: (id, maxDepth) => ipcRenderer.invoke('db:getDescendants', id, maxDepth),
   getAncestors: (id) => ipcRenderer.invoke('db:getAncestors', id),
@@ -63,6 +64,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listBackups: () => ipcRenderer.invoke('db:listBackups'),
   restoreBackup: (backupPath) => ipcRenderer.invoke('db:restoreBackup', backupPath),
   reload: () => ipcRenderer.invoke('db:reload'),
+  repairWorkspaces: () => ipcRenderer.invoke('db:repairWorkspaces'),
 
   // Shell
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),

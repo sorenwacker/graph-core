@@ -768,13 +768,89 @@ class Database {
     return this._query(sql, values).map(r => this._rowToNode(r))
   }
 
-  getChildren(id, type = null) {
+  /**
+   * Get tasks with optional filtering
+   * @param {Object} params - Filter parameters
+   * @param {string} params.workspaceId - Filter by workspace
+   * @param {boolean} params.completed - Filter by completion status
+   * @param {string} params.dueDateFrom - Filter by due date >= this value (YYYY-MM-DD)
+   * @param {string} params.dueDateTo - Filter by due date <= this value (YYYY-MM-DD)
+   * @param {number} params.importance - Filter by importance level (1-5)
+   * @param {number} params.parentId - Filter by parent/project ID
+   * @returns {Array} List of task nodes
+   */
+  getTasks(params = {}) {
+    let sql = "SELECT * FROM nodes WHERE type = 'task' AND deleted_at IS NULL"
+    const values = []
+
+    // Workspace filtering
+    if (params.workspaceId === null || params.workspaceId === 'null') {
+      sql += ' AND workspace_id IS NULL'
+    } else if (params.workspaceId !== undefined) {
+      sql += ' AND workspace_id = ?'
+      values.push(params.workspaceId)
+    }
+
+    // Completion filtering
+    if (params.completed !== undefined) {
+      sql += ' AND completed = ?'
+      values.push(params.completed ? 1 : 0)
+    }
+
+    // Due date range filtering
+    if (params.dueDateFrom) {
+      sql += ' AND due_date >= ?'
+      values.push(params.dueDateFrom)
+    }
+    if (params.dueDateTo) {
+      sql += ' AND due_date <= ?'
+      values.push(params.dueDateTo)
+    }
+
+    // Importance filtering
+    if (params.importance !== undefined) {
+      sql += ' AND importance = ?'
+      values.push(params.importance)
+    }
+
+    // Parent/project filtering
+    if (params.parentId !== undefined) {
+      sql += ' AND parent_id = ?'
+      values.push(params.parentId)
+    }
+
+    // Order: due_date first (nulls last), then sort_order, then created_at
+    sql += ' ORDER BY CASE WHEN due_date IS NULL THEN 1 ELSE 0 END, due_date, sort_order, created_at'
+
+    return this._query(sql, values).map(r => this._rowToNode(r))
+  }
+
+  getChildren(id, type = null, workspaceId = undefined) {
+    const parent = this.getNode(id)
     let sql = 'SELECT * FROM nodes WHERE parent_id = ? AND deleted_at IS NULL'
     const values = [id]
 
     if (type) {
       sql += ' AND type = ?'
       values.push(type)
+    }
+
+    // Filter by workspace if provided or if parent has a workspace
+    if (workspaceId !== undefined) {
+      if (workspaceId === null) {
+        sql += ' AND workspace_id IS NULL'
+      } else {
+        sql += ' AND workspace_id = ?'
+        values.push(workspaceId)
+      }
+    } else if (parent) {
+      // Use parent's workspace for consistency
+      if (parent.workspace_id === null) {
+        sql += ' AND workspace_id IS NULL'
+      } else if (parent.workspace_id) {
+        sql += ' AND workspace_id = ?'
+        values.push(parent.workspace_id)
+      }
     }
 
     sql += ' ORDER BY sort_order, created_at'
@@ -789,6 +865,14 @@ class Database {
 
     let sql = "SELECT * FROM nodes WHERE (path = ? OR path LIKE ?) AND deleted_at IS NULL"
     const values = [pathPrefix, `${pathPrefix}/%`]
+
+    // Filter by workspace to ensure descendants match parent's workspace
+    if (node.workspace_id === null) {
+      sql += ' AND workspace_id IS NULL'
+    } else if (node.workspace_id) {
+      sql += ' AND workspace_id = ?'
+      values.push(node.workspace_id)
+    }
 
     if (maxDepth !== null) {
       sql += ' AND depth <= ?'
@@ -808,7 +892,7 @@ class Database {
 
     const placeholders = ancestorIds.map(() => '?').join(', ')
     return this._query(
-      `SELECT * FROM nodes WHERE id IN (${placeholders}) ORDER BY depth`,
+      `SELECT * FROM nodes WHERE id IN (${placeholders}) AND deleted_at IS NULL ORDER BY depth`,
       ancestorIds
     ).map(r => this._rowToNode(r))
   }
@@ -1100,6 +1184,37 @@ class Database {
       'SELECT * FROM nodes WHERE deleted_at IS NULL AND tags LIKE ?',
       [`%"${tag}"%`]
     ).map(r => this._rowToNode(r))
+  }
+
+  // Repair workspace_id for all descendants to match their root ancestor
+  repairWorkspaces() {
+    const roots = this._query('SELECT * FROM nodes WHERE parent_id IS NULL AND deleted_at IS NULL')
+    let fixed = 0
+
+    for (const root of roots) {
+      const rootWorkspace = root.workspace_id
+      // Get all descendants of this root
+      const pathPrefix = root.path ? `${root.path}/${root.id}` : `${root.id}`
+      const descendants = this._query(
+        "SELECT id, workspace_id FROM nodes WHERE (path = ? OR path LIKE ?) AND deleted_at IS NULL",
+        [pathPrefix, `${pathPrefix}/%`]
+      )
+
+      for (const desc of descendants) {
+        // Fix if workspace_id doesn't match root
+        const descWorkspace = desc.workspace_id
+        const needsFix = (rootWorkspace === null && descWorkspace !== null) ||
+                        (rootWorkspace !== null && descWorkspace !== rootWorkspace)
+        if (needsFix) {
+          this._run('UPDATE nodes SET workspace_id = ? WHERE id = ?', [rootWorkspace, desc.id])
+          fixed++
+        }
+      }
+    }
+
+    console.log(`repairWorkspaces: fixed ${fixed} nodes`)
+    if (fixed > 0) this._save()
+    return { fixed }
   }
 }
 

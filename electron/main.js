@@ -176,6 +176,7 @@ ipcMain.handle('db:getProjects', () => db.getProjects())
 ipcMain.handle('db:getInbox', () => db.getInbox())
 ipcMain.handle('db:getRecent', (event, limit, workspaceId) => db.getRecent(limit, workspaceId))
 ipcMain.handle('db:getFavorites', (event, workspaceId) => db.getFavorites(workspaceId))
+ipcMain.handle('db:getTasks', (event, params) => db.getTasks(params))
 ipcMain.handle('db:getChildren', (event, id, type) => db.getChildren(id, type))
 ipcMain.handle('db:getDescendants', (event, id, maxDepth) => db.getDescendants(id, maxDepth))
 ipcMain.handle('db:getAncestors', (event, id) => db.getAncestors(id))
@@ -228,6 +229,7 @@ ipcMain.handle('db:backup', (event, suffix) => db.backup(suffix))
 ipcMain.handle('db:listBackups', () => db.listBackups())
 ipcMain.handle('db:restoreBackup', (event, backupPath) => db.restoreBackup(backupPath))
 ipcMain.handle('db:reload', () => db.reload())
+ipcMain.handle('db:repairWorkspaces', () => db.repairWorkspaces())
 
 // =========================================
 // SHELL

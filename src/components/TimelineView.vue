@@ -126,8 +126,10 @@ const timelineNodes = computed(() => {
       }
       // Only include nodes that actually have dates
       if (hasDate(node)) {
-        const displayDate = node.start_date || node.due_date || node.end_date
-        const endDisplayDate = node.end_date || node.due_date || node.start_date
+        // Use created_at as start date if no explicit start_date but has due_date
+        const startFallback = node.due_date && node.created_at ? node.created_at.split('T')[0] : null
+        const displayDate = node.start_date || startFallback || node.due_date || node.end_date
+        const endDisplayDate = node.end_date || node.due_date || node.start_date || startFallback
         // Double check we have valid dates
         if (displayDate) {
           result.push({

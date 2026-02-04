@@ -243,20 +243,6 @@ async function removeLink(targetNode) {
 const isPerson = computed(() => editedNode.value.type === 'person')
 const isOrganization = computed(() => editedNode.value.type === 'organization')
 
-// Color palette for persons
-const personColors = [
-  '#d93025', '#ea4335', '#ef5350', '#ff5252',
-  '#c2185b', '#e91e63', '#f06292',
-  '#ef6c00', '#ff7043', '#ff9800',
-  '#f9a825', '#ffb300', '#ffc107',
-  '#0f9d58', '#34a853', '#43a047', '#4caf50',
-  '#009688', '#00897b', '#26a69a',
-  '#00bcd4', '#00acc1',
-  '#0288d1', '#039be5', '#03a9f4', '#4285f4',
-  '#673ab7', '#5e35b1', '#7b1fa2', '#9c27b0',
-  '#455a64', '#607d8b', '#78909c'
-]
-
 // Load organizations from current workspace
 async function loadOrganizations() {
   try {
@@ -338,9 +324,14 @@ async function loadLinkedOrganizations() {
       currentNode = parent
     }
 
-    // Add paths to all organizations
+    // Filter to only show leaf organizations (those without children in the list)
+    // This shows "TU Delft / CS / Intelligent Systems" instead of all three levels
+    const parentIds = new Set(allOrgs.map(org => org.parent_id).filter(Boolean))
+    const leafOrgs = allOrgs.filter(org => !parentIds.has(org.id))
+
+    // Add paths to leaf organizations only
     const orgsWithPaths = await Promise.all(
-      allOrgs.map(async (org) => ({
+      leafOrgs.map(async (org) => ({
         ...org,
         path: await getOrgPath(org)
       }))
@@ -677,6 +668,19 @@ function updateDate(field, value) {
   saveChanges()
 }
 
+// Check due date status: 'overdue', 'soon' (within 3 days), or null
+function getDueStatus(node) {
+  if (!node?.due_date || node.completed) return null
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const due = new Date(node.due_date)
+  due.setHours(0, 0, 0, 0)
+  const daysUntilDue = Math.ceil((due - today) / (1000 * 60 * 60 * 24))
+  if (daysUntilDue < 0) return 'overdue'
+  if (daysUntilDue <= 3) return 'soon'
+  return null
+}
+
 function updateTags(newTags) {
   editedNode.value.tags = newTags
   saveChanges()
@@ -948,16 +952,19 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
 
           <!-- Color picker -->
           <div class="color-picker-section">
-            <label>Color</label>
-            <div class="color-grid">
-              <div
-                v-for="color in personColors"
-                :key="color"
-                class="color-option"
-                :class="{ selected: editedNode.color === color }"
-                :style="{ background: color }"
-                @click="editedNode.color = color; saveChanges()"
-              ></div>
+            <label>Color <span v-if="!editedNode.color || editedNode.color === '#0f4c75'" class="inherit-hint">(inherits from parent)</span></label>
+            <div class="color-field">
+              <input
+                type="color"
+                :value="editedNode.color || '#6b7280'"
+                @change="editedNode.color = $event.target.value; saveChanges()"
+              />
+              <button
+                v-if="editedNode.color && editedNode.color !== '#0f4c75'"
+                class="clear-btn"
+                title="Inherit from parent"
+                @click="editedNode.color = null; saveChanges()"
+              >x</button>
             </div>
           </div>
 
@@ -1103,16 +1110,19 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
 
           <!-- Color picker for organization -->
           <div class="color-picker-section">
-            <label>Color</label>
-            <div class="color-grid">
-              <div
-                v-for="color in personColors"
-                :key="color"
-                class="color-option"
-                :class="{ selected: editedNode.color === color }"
-                :style="{ background: color }"
-                @click="editedNode.color = color; saveChanges()"
-              ></div>
+            <label>Color <span v-if="!editedNode.color || editedNode.color === '#0f4c75'" class="inherit-hint">(inherits from parent)</span></label>
+            <div class="color-field">
+              <input
+                type="color"
+                :value="editedNode.color || '#6b7280'"
+                @change="editedNode.color = $event.target.value; saveChanges()"
+              />
+              <button
+                v-if="editedNode.color && editedNode.color !== '#0f4c75'"
+                class="clear-btn"
+                title="Inherit from parent"
+                @click="editedNode.color = null; saveChanges()"
+              >x</button>
             </div>
           </div>
 
@@ -1293,7 +1303,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
                     </span>
                     <span class="child-title">{{ child.title?.slice(0, 30) }}{{ child.title?.length > 30 ? '...' : '' }}</span>
                     <span v-if="child.end_date && (fullscreen || width >= 500)" class="child-end-date">{{ child.end_date.split('T')[0] }}</span>
-                    <span v-if="child.due_date" class="child-due">{{ child.due_date }}</span>
+                    <span v-if="child.due_date" class="child-due" :class="{ 'due-warning': getDueStatus(child) === 'soon', 'due-overdue': getDueStatus(child) === 'overdue' }">{{ child.due_date }}</span>
                     <button class="add-subtask-btn" @click.stop="emit('add-child', { parentId: child.id, title: '', type: 'task', prompt: true })" title="Add subtask">+</button>
                   </div>
                   <!-- Grandchildren -->
@@ -1367,6 +1377,19 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
                       @change="updateDate('start_date', $event.target.value)"
                     />
                     <button v-if="editedNode.start_date" class="clear-btn" @click="clearDate('start_date')">x</button>
+                  </div>
+                </div>
+
+                <!-- Due Date -->
+                <div class="meta-item">
+                  <label :class="{ 'due-warning': getDueStatus(editedNode) === 'soon', 'due-overdue': getDueStatus(editedNode) === 'overdue' }">Due</label>
+                  <div class="date-field" :class="{ 'due-warning': getDueStatus(editedNode) === 'soon', 'due-overdue': getDueStatus(editedNode) === 'overdue' }">
+                    <input
+                      type="date"
+                      :value="editedNode.due_date?.split('T')[0] || ''"
+                      @change="updateDate('due_date', $event.target.value)"
+                    />
+                    <button v-if="editedNode.due_date" class="clear-btn" @click="clearDate('due_date')">x</button>
                   </div>
                 </div>
 
@@ -2001,6 +2024,12 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
   font-size: 11px;
   color: var(--text-tertiary);
 }
+.child-due.due-warning {
+  color: #e67e22;
+}
+.child-due.due-overdue {
+  color: #e74c3c;
+}
 
 .child-end-date {
   font-size: 11px;
@@ -2409,6 +2438,22 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
   gap: 4px;
 }
 
+/* Due date warning states */
+label.due-warning {
+  color: #e67e22 !important;
+}
+label.due-overdue {
+  color: #e74c3c !important;
+}
+.date-field.due-warning input {
+  border-color: #e67e22;
+  background: rgba(230, 126, 34, 0.1);
+}
+.date-field.due-overdue input {
+  border-color: #e74c3c;
+  background: rgba(231, 76, 60, 0.1);
+}
+
 .clear-btn {
   background: none;
   border: none;
@@ -2758,29 +2803,11 @@ textarea::selection {
   margin-bottom: 8px;
 }
 
-.color-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.color-option {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  cursor: pointer;
-  border: 2px solid transparent;
-  transition: all 0.15s;
-}
-
-.color-option:hover {
-  transform: scale(1.1);
-}
-
-.color-option.selected {
-  border-color: white;
-  transform: scale(1.15);
-  box-shadow: 0 0 0 2px var(--accent-color);
+.inherit-hint {
+  font-weight: normal;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-transform: none;
 }
 
 /* Person links section */

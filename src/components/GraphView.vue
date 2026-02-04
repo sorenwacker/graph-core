@@ -112,10 +112,10 @@ if (typeof document !== 'undefined') {
       linkModeActive.value = false
     }
   })
-  // Track via mouse events - if altKey is held during mouse movement
-  // Don't activate when inside editors
+  // Track via mouse events - sync link mode with actual altKey state
   document.addEventListener('mousemove', (e) => {
-    if (e.altKey && !isInsideEditor(e.target)) linkModeActive.value = true
+    if (isInsideEditor(e.target)) return
+    linkModeActive.value = e.altKey
   })
 }
 
@@ -125,10 +125,29 @@ const globalDefault = localStorage.getItem('graph-layout-mode') || 'tree'
 const layoutMode = ref(props.parent?.graph_layout || globalDefault)
 const relaxLocked = ref(localStorage.getItem('graph-relax-locked') === 'true')
 const showExternalLinks = ref(localStorage.getItem('graph-show-external-links') !== 'false') // default true
+const showRootNode = ref(localStorage.getItem('graph-show-root-node') !== 'false') // default true
+
+// Node type filter - which types to show in the graph
+const allNodeTypes = ['task', 'note', 'project', 'milestone', 'topic', 'component', 'group', 'event', 'person', 'organization']
+const savedTypeFilter = localStorage.getItem('graph-type-filter')
+const visibleTypes = ref(savedTypeFilter ? JSON.parse(savedTypeFilter) : [...allNodeTypes])
+const showTypeFilter = ref(false)
 let relaxClickTimeout = null
 let cy = null
 let isInitializing = false
 let lastKnownParentId = props.parent?.id
+let updateDebounceTimer = null
+
+// Debounce utility for graph updates
+function debounce(fn, delay) {
+  return (...args) => {
+    if (updateDebounceTimer) clearTimeout(updateDebounceTimer)
+    updateDebounceTimer = setTimeout(() => fn(...args), delay)
+  }
+}
+
+// Debounced update for performance (avoids rapid updates from deep watchers)
+const debouncedUpdateGraph = debounce(() => updateGraph(), 50)
 
 // Node positions storage key - includes workspace and parent for proper isolation
 function getPositionsKey() {
@@ -211,6 +230,45 @@ watch(showExternalLinks, (show) => {
   }
   initGraph()
 })
+
+// Persist show root node setting
+watch(showRootNode, (show) => {
+  localStorage.setItem('graph-show-root-node', show ? 'true' : 'false')
+  // Reinitialize graph when toggled
+  if (cy) {
+    cy.destroy()
+    cy = null
+  }
+  initGraph()
+})
+
+// Persist type filter and update graph when changed
+watch(visibleTypes, (types) => {
+  localStorage.setItem('graph-type-filter', JSON.stringify(types))
+  // Reinitialize graph when filter changes
+  if (cy) {
+    cy.destroy()
+    cy = null
+  }
+  initGraph()
+}, { deep: true })
+
+function toggleTypeFilter(type) {
+  const idx = visibleTypes.value.indexOf(type)
+  if (idx >= 0) {
+    visibleTypes.value.splice(idx, 1)
+  } else {
+    visibleTypes.value.push(type)
+  }
+}
+
+function selectAllTypes() {
+  visibleTypes.value = [...allNodeTypes]
+}
+
+function selectNoTypes() {
+  visibleTypes.value = []
+}
 
 // Close tooltip when detail panel opens (handled by composable via shouldShowTooltip)
 watch(() => props.showDetail, (isOpen) => {
@@ -498,6 +556,17 @@ function filterCompletedNodes(nodeList) {
     }))
 }
 
+// Filter nodes recursively by type
+function filterByType(nodeList, types) {
+  if (!nodeList || !types || types.length === 0) return []
+  return nodeList
+    .filter(n => n && types.includes(n.type))
+    .map(n => ({
+      ...n,
+      children: n.children ? filterByType(n.children, types) : []
+    }))
+}
+
 // Build inherited color map - parent colors flow to children unless overridden
 function buildInheritedColorMap(nodeList, inheritedColor = null, colorMap = {}) {
   if (!nodeList) return colorMap
@@ -514,6 +583,18 @@ function buildInheritedColorMap(nodeList, inheritedColor = null, colorMap = {}) 
     }
   }
   return colorMap
+}
+
+// Get contrasting text color (white or black) based on background luminance
+function getContrastColor(hexColor) {
+  if (!hexColor) return '#ffffff'
+  const hex = hexColor.replace('#', '')
+  const r = parseInt(hex.substr(0, 2), 16)
+  const g = parseInt(hex.substr(2, 2), 16)
+  const b = parseInt(hex.substr(4, 2), 16)
+  // Calculate relative luminance (use lower threshold for better contrast)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return luminance > 0.4 ? '#000000' : '#ffffff'
 }
 
 // Decode HTML entities for plain text display
@@ -584,13 +665,16 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
   // Apply depth filter first
   const depthFiltered = filterByDepth(cleanNodeList, maxDepth)
   // Filter completed nodes and their children if hideCompleted is enabled
-  const filteredList = props.hideCompleted
+  const completedFiltered = props.hideCompleted
     ? filterCompletedNodes(depthFiltered)
     : depthFiltered
+  // Filter by visible node types
+  const filteredList = filterByType(completedFiltered, visibleTypes.value)
   const flat = flattenNodes(filteredList, [], false, maxDepth)
 
-  // Include parent unless it's completed and we're hiding completed
-  const includeParent = parentNode && parentNode.id && !(props.hideCompleted && parentNode.completed)
+  // Include parent unless hidden by settings, completed when hiding completed, or type is filtered out
+  const parentTypeVisible = !parentNode || visibleTypes.value.includes(parentNode.type)
+  const includeParent = parentNode && parentNode.id && showRootNode.value && parentTypeVisible && !(props.hideCompleted && parentNode.completed)
   const allNodes = (includeParent ? [{ ...parentNode, children: filteredList }, ...flat] : flat).filter(n => n && n.id)
   const totalNodes = allNodes.length
   const showDetails = totalNodes <= detailThreshold
@@ -758,13 +842,27 @@ async function fetchLinkedNodes(elements, links, savedPositions) {
     try {
       const node = await api.getNode(nodeId)
       if (node && !node.deleted_at) {
+        // Skip completed nodes if hideCompleted is enabled
+        if (props.hideCompleted && node.completed) continue
+
         const savedPos = savedPositions[node.id]
+        // Get proper colors for this node type
+        const colors = getGraphColors(node.type, node.id)
+        const isCompleted = node.completed
+        const bgColor = isCompleted ? darkenColor(colors.bg) : colors.bg
+        const textColor = isCompleted ? '#888888' : colors.text
+
         elements.push({
           data: {
             id: String(node.id),
             nodeData: node,
+            type: node.type,
             isPerson: node.type === 'person',
-            isLinkedExternal: true  // Mark as externally linked (not a descendant)
+            isLinkedExternal: true,
+            bgColor,
+            borderColor: colors.border,
+            textColor,
+            isCompleted
           },
           position: savedPos ? { x: savedPos.x, y: savedPos.y } : undefined
         })
@@ -784,7 +882,7 @@ const LAYOUTS = {
   tree: {
     name: 'dagre',
     animate: true,
-    animationDuration: 600,
+    animationDuration: 300,
     rankDir: 'TB',
     nodeSep: 80,
     rankSep: 120,
@@ -798,7 +896,7 @@ const LAYOUTS = {
   horizontal: {
     name: 'dagre',
     animate: true,
-    animationDuration: 500,
+    animationDuration: 300,
     fit: true,
     padding: 50,
     rankDir: 'LR',
@@ -812,17 +910,17 @@ const LAYOUTS = {
   radial: {
     name: 'cose-bilkent',
     animate: 'end',
-    animationDuration: 400,
+    animationDuration: 300,
     fit: true,
     padding: 50,
-    randomize: false,
-    nodeRepulsion: 12000,
-    idealEdgeLength: 70,
-    edgeElasticity: 0.5,
+    randomize: true,
+    nodeRepulsion: 15000,
+    idealEdgeLength: 120,
+    edgeElasticity: 0.45,
     nestingFactor: 0.1,
-    gravity: 0.4,
-    gravityRange: 1.5,
-    numIter: 2000,
+    gravity: 0.25,
+    gravityRange: 2.0,
+    numIter: 1000,
     tile: false
   },
 
@@ -830,7 +928,7 @@ const LAYOUTS = {
   grid: {
     name: 'grid',
     animate: true,
-    animationDuration: 400,
+    animationDuration: 250,
     fit: true,
     padding: 50,
     avoidOverlap: true,
@@ -846,7 +944,7 @@ const LAYOUTS = {
   circle: {
     name: 'concentric',        // Use concentric layout instead
     animate: true,
-    animationDuration: 400,
+    animationDuration: 250,
     fit: true,
     padding: 50,
     minNodeSpacing: 100,
@@ -860,7 +958,7 @@ const LAYOUTS = {
   relax: {
     name: 'dagre',
     animate: true,
-    animationDuration: 500,
+    animationDuration: 300,
     rankDir: 'TB',
     nodeSep: 80,
     rankSep: 120,
@@ -876,8 +974,31 @@ const LAYOUTS = {
     animate: true,
     infinite: true,
     fit: false,
-    nodeSpacing: 60,
-    edgeLength: 180,
+    nodeSpacing: (node) => {
+      // Smaller spacing for large graphs
+      const nodeCount = node.cy().nodes().length
+      if (nodeCount > 100) return 30
+      if (nodeCount > 50) return 40
+      return 50
+    },
+    edgeLength: (edge) => {
+      const nodeCount = edge.cy().nodes().length
+      const source = edge.source()
+      const target = edge.target()
+      const sourceDegree = source.degree()
+      const targetDegree = target.degree()
+      const avgDegree = (sourceDegree + targetDegree) / 2
+
+      // Scale base length by graph size
+      let baseLength = 120
+      if (nodeCount > 100) baseLength = 60
+      else if (nodeCount > 50) baseLength = 80
+      else if (nodeCount > 30) baseLength = 100
+
+      // Add less per degree for large graphs
+      const perDegree = nodeCount > 50 ? 10 : 15
+      return baseLength + Math.min(avgDegree * perDegree, baseLength)
+    },
     avoidOverlap: true,
     handleDisconnected: true,
     convergenceThreshold: 0.001,
@@ -898,19 +1019,20 @@ async function initGraph() {
   const elements = buildElements(props.nodes, props.parent, savedPositions, props.detailThreshold, props.maxDepth)
 
   // Fetch links and include linked nodes that are outside the hierarchy
-  try {
-    const nodeIds = elements.filter(el => !el.data.source).map(el => parseInt(el.data.id))
-    if (nodeIds.length > 0) {
-      const links = await api.getAllLinks(nodeIds)
-      // Fetch external linked nodes only if showExternalLinks is enabled
-      if (showExternalLinks.value) {
+  // Only if showExternalLinks is enabled
+  if (showExternalLinks.value) {
+    try {
+      const nodeIds = elements.filter(el => !el.data.source).map(el => parseInt(el.data.id))
+      if (nodeIds.length > 0) {
+        const links = await api.getAllLinks(nodeIds)
+        // Fetch external linked nodes
         await fetchLinkedNodes(elements, links, savedPositions)
+        // Add link edges (for nodes already in the graph)
+        addLinkEdges(elements, links)
       }
-      // Add link edges (for nodes already in the graph)
-      addLinkEdges(elements, links)
+    } catch (err) {
+      console.error('Failed to load links:', err)
     }
-  } catch (err) {
-    console.error('Failed to load links:', err)
   }
 
   const hasPositions = Object.keys(savedPositions).length > 0
@@ -1024,9 +1146,12 @@ async function initGraph() {
 
       // Person nodes render as compact circular badges with full name
       if (node.type === 'person') {
-        const bgColor = node.color || typeConfig.person.text
+        // Use own color, inherited color from parent, or neutral gray
+        const hasOwnColor = node.color && node.color !== '#0f4c75'
+        const bgColor = hasOwnColor ? node.color : (data.customBgTint || '#6b7280')
+        const textColor = getContrastColor(bgColor)
         return `
-          <div class="node-person" style="background-color: ${bgColor};">
+          <div class="node-person" style="background-color: ${bgColor}; color: ${textColor};">
             <span class="person-name">${node.title || 'Untitled'}</span>
           </div>
         `
@@ -1104,46 +1229,39 @@ async function initGraph() {
   })
 
   // Click on background to close edit modal and deselect, Cmd+click to add node
+  // Use manual double-click detection for reliable behavior
+  let lastBackgroundClickTime = 0
+  let backgroundClickPending = false
+
   cy.on('tap', (e) => {
     if (e.target === cy) {
+      const now = Date.now()
+      const timeSinceLastClick = now - lastBackgroundClickTime
+      lastBackgroundClickTime = now
+
       if (e.originalEvent.metaKey || e.originalEvent.ctrlKey) {
         // Cmd/Ctrl+click on background: open add dialog
         const pos = e.position
         showAddNodeModal(null, { x: pos.x, y: pos.y })
-      } else {
-        hideEditModal()
-        // Deselect current node (closes detail panel if not pinned)
-        emit('select', null)
+        return
       }
-    }
-  })
 
-  // Double-click on background to create new node connected to nearest node
-  cy.on('dbltap', (e) => {
-    if (e.target === cy) {
-      const pos = e.position
-
-      // Find nearest node within threshold
-      let nearestNode = null
-      let nearestDist = Infinity
-      const threshold = 200
-
-      cy.nodes().forEach(n => {
-        const nPos = n.position()
-        const dist = Math.sqrt(Math.pow(pos.x - nPos.x, 2) + Math.pow(pos.y - nPos.y, 2))
-        if (dist < threshold && dist < nearestDist) {
-          nearestDist = dist
-          nearestNode = n
-        }
-      })
-
-      if (nearestNode) {
-        // Create as child of nearest node
-        const parentData = nearestNode.data('nodeData')
-        showAddNodeModal(parentData.id, { x: pos.x, y: pos.y })
+      if (timeSinceLastClick < 350) {
+        // Double-click detected - add node as child of current container
+        backgroundClickPending = false
+        const pos = e.position
+        const parentId = props.parent?.id || null
+        showAddNodeModal(parentId, { x: pos.x, y: pos.y })
       } else {
-        // No nearby node - create child of current container
-        showAddNodeModal(null, { x: pos.x, y: pos.y })
+        // Single click - delay to check for double-click
+        backgroundClickPending = true
+        setTimeout(() => {
+          if (backgroundClickPending) {
+            backgroundClickPending = false
+            hideEditModal()
+            emit('select', null)
+          }
+        }, 350)
       }
     }
   })
@@ -1281,7 +1399,7 @@ async function initGraph() {
   cy.on('drag', 'node', (e) => {
     const draggedNode = e.target
     const pos = draggedNode.position()
-    const dropThreshold = 100
+    const dropThreshold = 50
 
     // Clear previous highlight
     if (highlightedNode) {
@@ -1309,10 +1427,45 @@ async function initGraph() {
     if (closestNode && dropHighlightEl.value) {
       closestNode.addClass('drop-target')
       highlightedNode = closestNode
+
+      // Try to find the actual HTML label element for this node
       const renderedPos = closestNode.renderedPosition()
+      const containerRect = container.value.getBoundingClientRect()
+      let highlightRect = null
+
+      // Find the HTML label closest to this node's position
+      const htmlLabels = container.value.querySelectorAll('.node-html, .node-person')
+      let closestLabel = null
+      let closestLabelDist = Infinity
+      htmlLabels.forEach(label => {
+        const rect = label.getBoundingClientRect()
+        const labelCenterX = rect.left + rect.width / 2 - containerRect.left
+        const labelCenterY = rect.top + rect.height / 2 - containerRect.top
+        const dist = Math.sqrt(Math.pow(labelCenterX - renderedPos.x, 2) + Math.pow(labelCenterY - renderedPos.y, 2))
+        if (dist < closestLabelDist) {
+          closestLabelDist = dist
+          closestLabel = label
+          highlightRect = rect
+        }
+      })
+
+      const padding = 4
+      if (highlightRect && closestLabelDist < 50) {
+        // Use HTML label dimensions
+        dropHighlightEl.value.style.left = (highlightRect.left - containerRect.left - padding) + 'px'
+        dropHighlightEl.value.style.top = (highlightRect.top - containerRect.top - padding) + 'px'
+        dropHighlightEl.value.style.width = (highlightRect.width + padding * 2) + 'px'
+        dropHighlightEl.value.style.height = (highlightRect.height + padding * 2) + 'px'
+      } else {
+        // Fallback to cytoscape bounding box
+        const bb = closestNode.renderedBoundingBox()
+        dropHighlightEl.value.style.left = (bb.x1 - padding) + 'px'
+        dropHighlightEl.value.style.top = (bb.y1 - padding) + 'px'
+        dropHighlightEl.value.style.width = (bb.w + padding * 2) + 'px'
+        dropHighlightEl.value.style.height = (bb.h + padding * 2) + 'px'
+      }
+
       dropHighlightEl.value.style.display = 'block'
-      dropHighlightEl.value.style.left = (renderedPos.x - 80) + 'px'
-      dropHighlightEl.value.style.top = (renderedPos.y - 35) + 'px'
       // Add link-mode class when Option/Alt is held
       if (linkModeActive.value) {
         dropHighlightEl.value.classList.add('link-mode')
@@ -1350,7 +1503,7 @@ async function initGraph() {
     }
 
     // Find closest node within drop threshold (100px)
-    const dropThreshold = 100
+    const dropThreshold = 50
     let closestNode = null
     let closestDist = Infinity
 
@@ -1526,39 +1679,42 @@ async function updateGraph() {
     return
   }
 
+  // Save viewport FIRST before any operations
+  const savedZoom = cy.zoom()
+  const savedPan = { ...cy.pan() }
+
   const savedPositions = loadNodePositions()
 
   // Get current node IDs from cytoscape BEFORE removing elements
   // Only update positions for nodes that have been explicitly positioned (not at origin)
   const existingNodeIds = new Set()
-  if (cy) {
-    cy.nodes().forEach(node => {
-      existingNodeIds.add(node.id())
-      const pos = node.position()
-      // Only save position if it looks valid (not at origin or default position)
-      // and the node has actually been positioned in the graph
-      if (pos.x !== 0 || pos.y !== 0) {
-        savedPositions[node.id()] = { x: pos.x, y: pos.y }
-      }
-    })
-  }
+  cy.nodes().forEach(node => {
+    existingNodeIds.add(node.id())
+    const pos = node.position()
+    // Only save position if it looks valid (not at origin or default position)
+    // and the node has actually been positioned in the graph
+    if (pos.x !== 0 || pos.y !== 0) {
+      savedPositions[node.id()] = { x: pos.x, y: pos.y }
+    }
+  })
 
   const elements = buildElements(props.nodes, props.parent, savedPositions, props.detailThreshold, props.maxDepth)
 
   // Fetch links and include linked nodes that are outside the hierarchy
-  try {
-    const nodeIds = elements.filter(el => !el.data.source).map(el => parseInt(el.data.id))
-    if (nodeIds.length > 0) {
-      const links = await api.getAllLinks(nodeIds)
-      // Fetch external linked nodes only if showExternalLinks is enabled
-      if (showExternalLinks.value) {
+  // Only if showExternalLinks is enabled
+  if (showExternalLinks.value) {
+    try {
+      const nodeIds = elements.filter(el => !el.data.source).map(el => parseInt(el.data.id))
+      if (nodeIds.length > 0) {
+        const links = await api.getAllLinks(nodeIds)
+        // Fetch external linked nodes
         await fetchLinkedNodes(elements, links, savedPositions)
+        // Add link edges (for nodes already in the graph)
+        addLinkEdges(elements, links)
       }
-      // Add link edges (for nodes already in the graph)
-      addLinkEdges(elements, links)
+    } catch (err) {
+      console.error('Failed to load links:', err)
     }
-  } catch (err) {
-    console.error('Failed to load links:', err)
   }
   const hasPositions = Object.keys(savedPositions).length > 0
 
@@ -1572,6 +1728,7 @@ async function updateGraph() {
 
   // Detect new nodes and edge changes
   let hasNewNodes = false
+  let hasNewNodesWithoutPosition = false  // Track if any new node needs layout
   let hasEdgeChanges = false
   const newElementIds = new Set()
   const newEdges = new Set()
@@ -1597,8 +1754,14 @@ async function updateGraph() {
       // It's a node
       newElementIds.add(el.data.id)
       // Check if this is a truly new node (not in existing set)
-      if (!existingNodeIds.has(el.data.id)) {
+      // External linked nodes don't count as "new" for layout purposes
+      const isNewNode = !existingNodeIds.has(el.data.id) && !el.data.isLinkedExternal
+      if (isNewNode) {
         hasNewNodes = true
+        // Check if this new node has a position (from click) or needs layout
+        if (!el.position) {
+          hasNewNodesWithoutPosition = true
+        }
       }
       if (!el.position) {
         const nodeData = el.data.nodeData
@@ -1622,109 +1785,77 @@ async function updateGraph() {
     }
   }
 
-  // Save viewport before updating elements
-  const savedZoom = cy.zoom()
-  const savedPan = cy.pan()
-
-  cy.elements().remove()
-  cy.add(elements)
-  cy.nodes().grabify()
-
-  // Restore viewport after adding elements
-  cy.zoom(savedZoom)
-  cy.pan(savedPan)
-  // Update HTML labels
-  cy.nodeHtmlLabel([{
-    query: 'node',
-    halign: 'center',
-    valign: 'center',
-    halignBox: 'center',
-    valignBox: 'center',
-    tpl: (data) => {
-      const node = data.nodeData
-      if (!node) return ''
-
-      // Person nodes render as compact circular badges with full name
-      if (node.type === 'person') {
-        const bgColor = node.color || typeConfig.person.text
-        return `
-          <div class="node-person" style="background-color: ${bgColor};">
-            <span class="person-name">${node.title || 'Untitled'}</span>
-          </div>
-        `
-      }
-
-      const borderColor = data.borderColor || typeConfig.task.text
-      const customBgTint = data.customBgTint
-      const showDetails = data.showDetails
-      const totalNodes = data.totalNodes || 0
-      const isCompleted = node.completed
-      const completedClass = isCompleted ? 'completed' : ''
-      const shouldGlow = data.shouldGlow
-      const glowClass = shouldGlow ? "current-container" : ""
-      const favoriteClass = node.favorite ? "favorite" : ""
-
-      // Only show notes based on detail threshold
-      let notesHtml = ''
-      if (showDetails && node.notes) {
-        if (node.notes_sensitive || props.hideSensitive) {
-          notesHtml = '<span style="opacity: 0.5">🔒</span>'
-        } else {
-          const maxLen = totalNodes <= 5 ? 500 : totalNodes <= 10 ? 300 : 150
-          notesHtml = renderMarkdownHtml(node.notes, maxLen)
-        }
-      }
-
-      // Notes indicator when notes exist but not shown in detail
-      const notesIndicator = node.notes && !showDetails ? '<span class="notes-indicator">✎</span>' : ''
-
-      // Custom color as subtle background gradient
-      const bgStyle = customBgTint
-        ? `background: linear-gradient(135deg, ${customBgTint}99 0%, ${customBgTint}44 50%, transparent 100%), #0d0d0d;`
-        : ''
-
-      return `
-        <div class="node-html ${completedClass} ${glowClass} ${favoriteClass}" style="border-color: ${borderColor}; --glow-color: ${borderColor}; ${bgStyle}">
-          <div class="node-html-title">${node.title || 'Untitled'}${notesIndicator}</div>
-          ${notesHtml ? `<div class="node-html-notes">${notesHtml}</div>` : ''}
-        </div>
-      `
+  // Check for removed nodes
+  let hasRemovedNodes = false
+  for (const existingId of existingNodeIds) {
+    if (!newElementIds.has(existingId)) {
+      hasRemovedNodes = true
+      break
     }
-  }])
-  // Check if element count changed
-  const prevNodeCount = existingNodeIds.size
-  const newNodeCount = newElementIds.size
-  const nodeCountChanged = prevNodeCount !== newNodeCount
-  const elementsChanged = hasNewNodes || hasEdgeChanges || nodeCountChanged
+  }
 
-  const structureChanged = hasNewNodes || hasEdgeChanges || nodeCountChanged
+  // Determine if this is a data-only update (no structural changes)
+  const isDataOnlyUpdate = !hasNewNodes && !hasRemovedNodes && !hasEdgeChanges && hasPositions
+
+  if (isDataOnlyUpdate) {
+    // Data-only update: just update node data in place, don't rebuild
+    // This preserves viewport completely
+    const elementMap = new Map()
+    elements.forEach(el => {
+      if (!el.data.source) {
+        elementMap.set(el.data.id, el)
+      }
+    })
+
+    cy.batch(() => {
+      cy.nodes().forEach(node => {
+        const newEl = elementMap.get(node.id())
+        if (newEl) {
+          // Update data properties that affect display
+          node.data(newEl.data)
+        }
+      })
+    })
+
+    // No viewport change needed - we didn't touch the structure
+    saveNodePositions()
+    return
+  }
+
+  // Structural change: rebuild graph but preserve positions
+  cy.batch(() => {
+    cy.elements().remove()
+    cy.add(elements)
+    cy.nodes().grabify()
+  })
+
+  // Restore viewport immediately after batch
+  cy.viewport({ zoom: savedZoom, pan: savedPan })
+
+  // Only run layout for truly new nodes without positions
   if (!hasPositions) {
-    // No saved positions - run full layout (this is initial load, fit is ok)
+    // No saved positions - run full layout (initial load)
     cy.layout(getLayoutOptions()).run()
     setTimeout(saveNodePositions, 600)
-  } else if (hasNewNodes) {
-    // Only run layout if there are truly new nodes that need positioning
-    // Lock existing nodes in place so they don't move
+  } else if (hasNewNodesWithoutPosition) {
+    // New nodes need positioning - lock existing nodes
     cy.nodes().forEach(node => {
       if (savedPositions[node.id()]) {
         node.lock()
       }
     })
-    // Disable fit to preserve current viewport when adding new nodes
     cy.layout({ ...getLayoutOptions(), fit: false }).run()
-    // Unlock all nodes after layout
     cy.nodes().unlock()
-    // Restore viewport after layout animation
     setTimeout(() => {
-      cy.zoom(savedZoom)
-      cy.pan(savedPan)
+      cy.viewport({ zoom: savedZoom, pan: savedPan })
       saveNodePositions()
     }, 600)
   } else {
-    // No new nodes - preserve existing positions, restore viewport
-    cy.zoom(savedZoom)
-    cy.pan(savedPan)
-    setTimeout(saveNodePositions, 100)
+    // Edge changes only OR new nodes with positions - no layout needed
+    requestAnimationFrame(() => {
+      cy.viewport({ zoom: savedZoom, pan: savedPan })
+      saveNodePositions()
+    })
   }
 }
 
@@ -1745,8 +1876,46 @@ function reLayout() {
   if (cy) {
     // Clear saved positions
     localStorage.removeItem(getPositionsKey())
-    cy.layout(getLayoutOptions()).run()
-    setTimeout(saveNodePositions, 800)
+    const layoutOptions = getLayoutOptions()
+
+    // For radial, chain a smooth cola relax after initial layout
+    if (layoutMode.value === 'radial') {
+      const layout = cy.layout({
+        ...layoutOptions,
+        stop: () => {
+          // Smoothly transition to cola for overlap removal
+          const nodeCount = cy.nodes().length
+          const relaxLayout = cy.layout({
+            name: 'cola',
+            animate: true,
+            animationDuration: nodeCount > 50 ? 500 : 800,
+            animationEasing: 'ease-out',
+            randomize: false,
+            fit: false,
+            nodeSpacing: nodeCount > 100 ? 30 : nodeCount > 50 ? 40 : 50,
+            edgeLength: (edge) => {
+              const source = edge.source()
+              const target = edge.target()
+              const avgDegree = (source.degree() + target.degree()) / 2
+              let baseLength = nodeCount > 100 ? 60 : nodeCount > 50 ? 80 : 100
+              const perDegree = nodeCount > 50 ? 10 : 15
+              return baseLength + Math.min(avgDegree * perDegree, baseLength)
+            },
+            avoidOverlap: true,
+            handleDisconnected: true,
+            convergenceThreshold: nodeCount > 50 ? 0.01 : 0.005,
+            maxSimulationTime: nodeCount > 50 ? 1000 : 1500,
+            ungrabifyWhileSimulating: false
+          })
+          relaxLayout.run()
+          setTimeout(saveNodePositions, nodeCount > 50 ? 1500 : 2000)
+        }
+      })
+      layout.run()
+    } else {
+      cy.layout(layoutOptions).run()
+      setTimeout(saveNodePositions, 800)
+    }
   }
 }
 
@@ -1791,6 +1960,44 @@ function relaxLayout() {
   }
 }
 
+// Local optimization - only adjusts a node and its immediate neighborhood
+function localRelax(nodeId) {
+  if (!cy) return
+
+  const node = cy.getElementById(String(nodeId))
+  if (!node || node.length === 0) return
+
+  // Get the node and its immediate neighbors (connected by edges)
+  const neighborhood = node.neighborhood().add(node)
+
+  // Lock all other nodes
+  cy.nodes().not(neighborhood).lock()
+
+  // Save viewport
+  const zoom = cy.zoom()
+  const pan = cy.pan()
+
+  // Run a short cola layout on just the neighborhood
+  neighborhood.layout({
+    name: 'cola',
+    animate: true,
+    animationDuration: 200,
+    fit: false,
+    randomize: false,
+    nodeSpacing: 30,
+    edgeLength: 80,
+    maxSimulationTime: 500
+  }).run()
+
+  // Unlock and restore viewport
+  setTimeout(() => {
+    cy.nodes().unlock()
+    cy.zoom(zoom)
+    cy.pan(pan)
+    saveNodePositions()
+  }, 300)
+}
+
 // Continuous simulation layout
 let continuousLayout = null
 
@@ -1800,8 +2007,21 @@ function startContinuousRelax() {
   // Stop any existing layout
   stopContinuousRelax()
 
-  // Start cola layout with infinite simulation
-  continuousLayout = cy.layout(LAYOUTS.continuous)
+  // Use current layout mode with fit: false to preserve viewport
+  // For cola-based layouts, enable infinite mode for continuous relaxation
+  const baseLayout = getLayoutOptions()
+  const layoutOptions = {
+    ...baseLayout,
+    fit: false,
+    animate: true
+  }
+
+  // Only cola supports infinite mode - for other layouts, just run once
+  if (baseLayout.name === 'cola') {
+    layoutOptions.infinite = true
+  }
+
+  continuousLayout = cy.layout(layoutOptions)
   continuousLayout.run()
 }
 
@@ -1813,33 +2033,25 @@ function stopContinuousRelax() {
   saveNodePositions()
 }
 
-let relaxClickCount = 0
+let lastRelaxClickTime = 0
 
 function handleRelaxClick() {
-  relaxClickCount++
+  const now = Date.now()
+  const timeSinceLastClick = now - lastRelaxClickTime
+  lastRelaxClickTime = now
 
-  if (relaxClickCount === 1) {
-    // Wait to see if it's a double click
-    relaxClickTimeout = setTimeout(() => {
-      if (relaxClickCount === 1) {
-        // Single click - run relax once (unless locked)
-        if (!relaxLocked.value) {
-          relaxLayout()
-        }
-      }
-      relaxClickCount = 0
-    }, 300)
-  } else if (relaxClickCount === 2) {
-    // Double click - toggle lock
-    clearTimeout(relaxClickTimeout)
-    relaxClickCount = 0
-
+  if (timeSinceLastClick < 350) {
+    // Double click detected - toggle lock
     relaxLocked.value = !relaxLocked.value
-
     if (relaxLocked.value) {
       startContinuousRelax()
     } else {
       stopContinuousRelax()
+    }
+  } else {
+    // Single click - run relax once (unless locked)
+    if (!relaxLocked.value) {
+      relaxLayout()
     }
   }
 }
@@ -1854,9 +2066,13 @@ function toggleExternalLinks() {
   showExternalLinks.value = !showExternalLinks.value
 }
 
-watch(() => props.nodes, updateGraph, { deep: true })
-watch(() => props.parent, updateGraph, { deep: true })
-watch(() => props.detailThreshold, updateGraph)
+function toggleRootNode() {
+  showRootNode.value = !showRootNode.value
+}
+
+watch(() => props.nodes, debouncedUpdateGraph, { deep: true })
+watch(() => props.parent, debouncedUpdateGraph, { deep: true })
+watch(() => props.detailThreshold, debouncedUpdateGraph)
 watch(() => props.workspace, () => {
   // Workspace changed - reinitialize graph to load correct positions
   if (cy) {
@@ -1949,6 +2165,7 @@ function isNodeVisible(nodeId) {
 
 defineExpose({
   relaxLayout,
+  localRelax,
   fitView,
   saveNodePositions,
   updateGraph,
@@ -1959,11 +2176,20 @@ onMounted(() => {
   initGraph()
   window.addEventListener('graph-center-node', handleCenterNodeEvent)
   window.addEventListener('keydown', handleGlobalKeydown)
+  window.addEventListener('click', handleClickOutside)
 })
+
+function handleClickOutside(e) {
+  if (showTypeFilter.value && !e.target.closest('.type-filter-wrapper')) {
+    showTypeFilter.value = false
+  }
+}
 
 onUnmounted(() => {
   window.removeEventListener('graph-center-node', handleCenterNodeEvent)
   window.removeEventListener('keydown', handleGlobalKeydown)
+  window.removeEventListener('click', handleClickOutside)
+  if (updateDebounceTimer) clearTimeout(updateDebounceTimer)
   if (cy) {
     cy.destroy()
     cy = null
@@ -2012,6 +2238,7 @@ onUnmounted(() => {
       <span class="controls-separator"></span>
       <button
         @click="handleRelaxClick"
+        @dblclick="handleRelaxDblClick"
         :class="{ 'relax-locked': relaxLocked }"
         title="Click to relax, double-click to lock"
       >
@@ -2027,6 +2254,42 @@ onUnmounted(() => {
       >
         {{ showExternalLinks ? 'Links [ON]' : 'Links' }}
       </button>
+      <button
+        v-if="parent"
+        @click="toggleRootNode"
+        :class="{ active: showRootNode }"
+        title="Show/hide the root container node"
+      >
+        {{ showRootNode ? 'Root [ON]' : 'Root' }}
+      </button>
+      <span class="controls-separator"></span>
+      <div class="type-filter-wrapper">
+        <button
+          @click="showTypeFilter = !showTypeFilter"
+          :class="{ active: visibleTypes.length < allNodeTypes.length }"
+          title="Filter which node types to show"
+        >
+          Types {{ visibleTypes.length < allNodeTypes.length ? `(${visibleTypes.length})` : '' }}
+        </button>
+        <div v-if="showTypeFilter" class="type-filter-dropdown">
+          <div class="type-filter-actions">
+            <button @click="selectAllTypes">All</button>
+            <button @click="selectNoTypes">None</button>
+          </div>
+          <label
+            v-for="type in allNodeTypes"
+            :key="type"
+            class="type-filter-item"
+          >
+            <input
+              type="checkbox"
+              :checked="visibleTypes.includes(type)"
+              @change="toggleTypeFilter(type)"
+            />
+            <span>{{ type }}</span>
+          </label>
+        </div>
+      </div>
     </div>
     <div class="graph-container" ref="container">
       <div v-if="nodes.length === 0" class="graph-empty">
@@ -2245,6 +2508,56 @@ onUnmounted(() => {
   cursor: not-allowed;
 }
 
+.type-filter-wrapper {
+  position: relative;
+}
+
+.type-filter-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px;
+  min-width: 150px;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.type-filter-actions {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.type-filter-actions button {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+}
+
+.type-filter-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-transform: capitalize;
+}
+
+.type-filter-item:hover {
+  color: var(--accent-color);
+}
+
+.type-filter-item input {
+  cursor: pointer;
+}
+
 .graph-controls button.relax-locked {
   background: #1a4a1a !important;
   border-color: #4a9a4a !important;
@@ -2282,10 +2595,8 @@ onUnmounted(() => {
 .drop-highlight {
   display: none;
   position: absolute;
-  width: 160px;
-  height: 70px;
   border: 2px dashed #4a9eff;
-  border-radius: 8px;
+  border-radius: 4px;
   background: rgba(74, 158, 255, 0.08);
   pointer-events: none;
   z-index: 50;
@@ -2717,8 +3028,8 @@ onUnmounted(() => {
 :global(.person-name) {
   font-size: 12px;
   font-weight: 600;
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  color: inherit;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   user-select: none;
   white-space: nowrap;
   overflow: hidden;

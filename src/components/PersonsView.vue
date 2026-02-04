@@ -45,20 +45,6 @@ function maskPhone(phone) {
   return phone.slice(0, 4) + '****' + phone.slice(-2)
 }
 
-// Color palette
-const personColors = [
-  '#d93025', '#ea4335', '#ef5350', '#ff5252',
-  '#c2185b', '#e91e63', '#f06292',
-  '#ef6c00', '#ff7043', '#ff9800',
-  '#f9a825', '#ffb300', '#ffc107',
-  '#0f9d58', '#34a853', '#43a047', '#4caf50',
-  '#009688', '#00897b', '#26a69a',
-  '#00bcd4', '#00acc1',
-  '#0288d1', '#039be5', '#03a9f4', '#4285f4',
-  '#673ab7', '#5e35b1', '#7b1fa2', '#9c27b0',
-  '#455a64', '#607d8b', '#78909c'
-]
-
 onMounted(async () => {
   await loadPersons()
   await loadOrganizations()
@@ -139,6 +125,41 @@ function getRandomColor() {
   return personColors[Math.floor(Math.random() * personColors.length)]
 }
 
+// Get contrasting text color (white or black) based on background luminance
+function getContrastColor(hexColor) {
+  if (!hexColor) return '#ffffff'
+  const hex = hexColor.replace('#', '')
+  const r = parseInt(hex.substr(0, 2), 16)
+  const g = parseInt(hex.substr(2, 2), 16)
+  const b = parseInt(hex.substr(4, 2), 16)
+  // Calculate relative luminance (use lower threshold for better contrast)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return luminance > 0.4 ? '#000000' : '#ffffff'
+}
+
+// Get effective color for a person (own color or inherited from parent/organization)
+function getEffectiveColor(person) {
+  // Use own color if set
+  if (person.color && person.color !== '#0f4c75') {
+    return person.color
+  }
+  // Try to get color from parent
+  if (person.parent_id) {
+    const parent = organizations.value.find(o => o.id === person.parent_id)
+    if (parent?.color && parent.color !== '#0f4c75') {
+      return parent.color
+    }
+  }
+  // Try to get color from linked organization
+  const links = personLinks.value[person.id] || []
+  const linkedOrg = links.find(n => n.type === 'organization' && n.color && n.color !== '#0f4c75')
+  if (linkedOrg) {
+    return linkedOrg.color
+  }
+  // Neutral gray default
+  return '#6b7280'
+}
+
 // Get full organization path (e.g., "TU Delft / REIT group")
 async function getOrgPath(org) {
   if (!org) return ''
@@ -178,21 +199,39 @@ async function loadLinkedOrganizations(personId) {
       }
     }
 
-    // 2. Get parent organizations (hierarchical relationship)
+    // 2. Get the deepest parent organization (hierarchical relationship)
+    // Only add the most specific org in the chain, not all ancestors
     const person = await api.getNode(personId)
     let currentNode = person
+    let deepestParentOrg = null
     while (currentNode?.parent_id) {
       const parent = await api.getNode(currentNode.parent_id)
-      if (parent?.type === 'organization' && !seenIds.has(parent.id)) {
-        seenIds.add(parent.id)
-        allOrgs.push({ ...parent, isParent: true })
+      if (parent?.type === 'organization') {
+        deepestParentOrg = parent
+        break // Stop at first (deepest) org parent
       }
       currentNode = parent
     }
+    if (deepestParentOrg && !seenIds.has(deepestParentOrg.id)) {
+      seenIds.add(deepestParentOrg.id)
+      allOrgs.push({ ...deepestParentOrg, isParent: true })
+    }
 
-    // Add paths to all organizations
+    // Filter out ancestors - only keep leaf orgs (orgs that don't have children in the list)
+    const orgIds = new Set(allOrgs.map(o => o.id))
+    const leafOrgs = allOrgs.filter(org => {
+      // Check if any other org in the list has this org as an ancestor
+      for (const other of allOrgs) {
+        if (other.id !== org.id && other.parent_id === org.id) {
+          return false // This org is a parent of another, skip it
+        }
+      }
+      return true
+    })
+
+    // Add paths to leaf organizations only
     const orgsWithPaths = await Promise.all(
-      allOrgs.map(async (org) => ({
+      leafOrgs.map(async (org) => ({
         ...org,
         path: await getOrgPath(org)
       }))
@@ -430,12 +469,12 @@ function getOrganizationsForPerson(personId) {
         v-for="person in sortedPersons"
         :key="person.id"
         class="person-card"
-        :style="{ borderLeftColor: person.color || '#0f4c75' }"
+        :style="{ borderLeftColor: getEffectiveColor(person) }"
         @click="editPerson(person)"
         @contextmenu.prevent="handleContextMenu($event, person)"
       >
         <div class="card-header">
-          <div class="person-avatar" :style="{ background: person.color || '#0f4c75' }">
+          <div class="person-avatar" :style="{ background: getEffectiveColor(person), color: getContrastColor(getEffectiveColor(person)) }">
             {{ getInitials(person.title) }}
           </div>
           <div class="person-info">
@@ -481,7 +520,7 @@ function getOrganizationsForPerson(personId) {
         <tbody>
           <tr v-for="person in sortedPersons" :key="person.id" @click="selectPerson(person)" @contextmenu.prevent="handleContextMenu($event, person)">
             <td class="col-color">
-              <div class="color-dot" :style="{ background: person.color || '#0f4c75' }"></div>
+              <div class="color-dot" :style="{ background: getEffectiveColor(person) }"></div>
             </td>
             <td class="col-name">{{ person.title }}</td>
             <td class="col-role">{{ person.role || '-' }}</td>
@@ -589,16 +628,19 @@ function getOrganizationsForPerson(personId) {
           </div>
 
           <div class="color-picker">
-            <label>Color</label>
-            <div class="color-grid">
-              <div
-                v-for="color in personColors"
-                :key="color"
-                class="color-option"
-                :class="{ selected: editingPerson.color === color }"
-                :style="{ background: color }"
-                @click="editingPerson.color = color"
-              ></div>
+            <label>Color <span v-if="!editingPerson.color || editingPerson.color === '#0f4c75'" class="inherit-hint">(inherits from parent)</span></label>
+            <div class="color-field">
+              <input
+                type="color"
+                :value="editingPerson.color || '#6b7280'"
+                @input="editingPerson.color = $event.target.value"
+              />
+              <button
+                v-if="editingPerson.color && editingPerson.color !== '#0f4c75'"
+                class="clear-btn"
+                title="Inherit from parent"
+                @click="editingPerson.color = null"
+              >x</button>
             </div>
           </div>
 
@@ -983,28 +1025,40 @@ function getOrganizationsForPerson(personId) {
   color: var(--text-secondary, #aaa);
 }
 
-.person-modal .color-grid {
+.person-modal .color-field {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
 }
 
-.person-modal .color-option {
-  width: 28px;
+.person-modal .color-field input[type="color"] {
+  width: 32px;
   height: 28px;
-  border-radius: 50%;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
   cursor: pointer;
-  border: 2px solid transparent;
-  transition: all 0.15s;
 }
 
-.person-modal .color-option:hover {
-  transform: scale(1.1);
+.person-modal .color-field .clear-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 12px;
 }
 
-.person-modal .color-option.selected {
-  border-color: white;
-  transform: scale(1.15);
+.person-modal .color-field .clear-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+.person-modal .inherit-hint {
+  font-weight: normal;
+  font-size: 10px;
+  color: var(--text-tertiary);
 }
 
 .person-modal .modal-actions {
