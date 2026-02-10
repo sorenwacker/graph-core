@@ -2739,6 +2739,7 @@ onUnmounted(() => {
         <div class="content-main">
           <!-- Breadcrumbs / Path -->
           <nav class="header-breadcrumbs">
+            <div id="view-controls-target"></div>
             <div class="breadcrumb-path">
               <span class="crumb" @click="navigateToBreadcrumb(-1)">~</span>
               <template v-for="(crumb, index) in breadcrumbs" :key="crumb.id">
@@ -2752,7 +2753,6 @@ onUnmounted(() => {
                 </span>
               </template>
             </div>
-            <div id="view-controls-target"></div>
           </nav>
         <!-- Content with transition -->
         <div
@@ -3355,11 +3355,10 @@ onUnmounted(() => {
 
 .header-breadcrumbs {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 12px;
+  flex-direction: column;
+  gap: 8px;
   font-size: 1.1rem;
-  padding: var(--spacing-lg) var(--spacing-lg) 0 var(--spacing-lg);
+  padding: var(--spacing-sm) var(--spacing-lg);
   background: var(--bg-primary);
 }
 
@@ -3367,12 +3366,17 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 1;
-  min-width: 200px;
+}
+
+#view-controls-target:empty {
+  display: none;
 }
 
 #view-controls-target {
-  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
 }
 
 .crumb {

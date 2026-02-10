@@ -2463,7 +2463,7 @@ onUnmounted(() => {
   display: flex;
   gap: 6px;
   align-items: center;
-  flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .controls-separator {
