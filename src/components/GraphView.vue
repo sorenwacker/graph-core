@@ -2186,6 +2186,7 @@ onUnmounted(() => {
 
 <template>
   <div class="graph-wrapper">
+    <Teleport to="#view-controls-target">
     <div class="graph-controls">
       <button
         @click="setLayout('tree')"
@@ -2278,6 +2279,7 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+    </Teleport>
     <div class="graph-container" ref="container">
       <div v-if="nodes.length === 0" class="graph-empty">
         No nodes to display
@@ -2458,13 +2460,10 @@ onUnmounted(() => {
 }
 
 .graph-controls {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 5;
   display: flex;
   gap: 6px;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .controls-separator {
