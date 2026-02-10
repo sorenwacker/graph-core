@@ -2007,21 +2007,8 @@ function startContinuousRelax() {
   // Stop any existing layout
   stopContinuousRelax()
 
-  // Use current layout mode with fit: false to preserve viewport
-  // For cola-based layouts, enable infinite mode for continuous relaxation
-  const baseLayout = getLayoutOptions()
-  const layoutOptions = {
-    ...baseLayout,
-    fit: false,
-    animate: true
-  }
-
-  // Only cola supports infinite mode - for other layouts, just run once
-  if (baseLayout.name === 'cola') {
-    layoutOptions.infinite = true
-  }
-
-  continuousLayout = cy.layout(layoutOptions)
+  // Always use cola continuous layout for relax lock (supports infinite mode)
+  continuousLayout = cy.layout(LAYOUTS.continuous)
   continuousLayout.run()
 }
 
