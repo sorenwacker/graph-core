@@ -2189,75 +2189,117 @@ onUnmounted(() => {
     <Teleport to="#view-controls-target">
     <div class="graph-controls">
       <button
+        class="icon-btn"
         @click="setLayout('tree')"
         :class="{ active: layoutMode === 'tree' }"
-        title="Top-to-bottom hierarchy"
+        title="Vertical layout"
       >
-        Vertical
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/>
+        </svg>
       </button>
       <button
+        class="icon-btn"
         @click="setLayout('horizontal')"
         :class="{ active: layoutMode === 'horizontal' }"
-        title="Left-to-right hierarchy"
+        title="Horizontal layout"
       >
-        Horizontal
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+        </svg>
       </button>
       <button
+        class="icon-btn"
         @click="setLayout('radial')"
         :class="{ active: layoutMode === 'radial' }"
-        title="Organic radial spread"
+        title="Radial layout"
       >
-        Radial
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/>
+          <line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
+        </svg>
       </button>
       <button
+        class="icon-btn"
         @click="setLayout('grid')"
         :class="{ active: layoutMode === 'grid' }"
         title="Grid layout"
       >
-        Grid
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+          <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+        </svg>
       </button>
       <button
+        class="icon-btn"
         @click="setLayout('circle')"
         :class="{ active: layoutMode === 'circle' }"
-        title="Circular layout"
+        title="Circle layout"
       >
-        Circle
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+        </svg>
       </button>
       <span class="controls-separator"></span>
       <button
+        class="icon-btn"
         @click="handleRelaxClick"
         @dblclick="handleRelaxDblClick"
         :class="{ 'relax-locked': relaxLocked }"
-        title="Click to relax, double-click to lock"
+        title="Relax layout (double-click to lock)"
       >
-        {{ relaxLocked ? 'Relax [ON]' : 'Relax' }}
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 12c0-2 2-4 4-2s4-2 4-2 2-2 4 0 4 2 4 2"/>
+          <path d="M4 18c0-2 2-4 4-2s4-2 4-2 2-2 4 0 4 2 4 2"/>
+        </svg>
       </button>
-      <button @click="fitView" title="Fit to view">Fit</button>
-      <button @click="resetLayout" title="Clear saved positions and regenerate layout from scratch">Reset</button>
+      <button class="icon-btn" @click="fitView" title="Fit to view">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
+          <path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+        </svg>
+      </button>
+      <button class="icon-btn" @click="resetLayout" title="Reset layout">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+          <path d="M3 3v5h5"/>
+        </svg>
+      </button>
       <span class="controls-separator"></span>
       <button
+        class="icon-btn"
         @click="toggleExternalLinks"
         :class="{ active: showExternalLinks }"
-        title="Show linked nodes from outside current view"
+        title="Show external links"
       >
-        {{ showExternalLinks ? 'Links [ON]' : 'Links' }}
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+        </svg>
       </button>
       <button
         v-if="parent"
+        class="icon-btn"
         @click="toggleRootNode"
         :class="{ active: showRootNode }"
-        title="Show/hide the root container node"
+        title="Show root node"
       >
-        {{ showRootNode ? 'Root [ON]' : 'Root' }}
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
       </button>
       <span class="controls-separator"></span>
       <div class="type-filter-wrapper">
         <button
+          class="icon-btn"
           @click="showTypeFilter = !showTypeFilter"
           :class="{ active: visibleTypes.length < allNodeTypes.length }"
-          title="Filter which node types to show"
+          title="Filter node types"
         >
-          Types {{ visibleTypes.length < allNodeTypes.length ? `(${visibleTypes.length})` : '' }}
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
         </button>
         <div v-if="showTypeFilter" class="type-filter-dropdown">
           <div class="type-filter-actions">
