@@ -3164,6 +3164,7 @@ onUnmounted(() => {
           :nodes="sortedChildren"
           :parent="currentContainer"
           :selected-id="selectedNode?.id"
+          :selected-ids="[...selectedIds]"
           :detail-threshold="graphDetailThreshold"
           :max-depth="effectiveGraphMaxDepth"
           :hide-completed="hideCompleted"

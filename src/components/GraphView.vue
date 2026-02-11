@@ -66,6 +66,7 @@ const props = defineProps({
   nodes: { type: Array, default: () => [] },
   parent: { type: Object, default: null },
   selectedId: Number,
+  selectedIds: { type: Array, default: () => [] },
   detailThreshold: { type: Number, default: 30 },
   maxDepth: { type: Number, default: 0 }, // 0 = all levels
   hideCompleted: { type: Boolean, default: false },
@@ -771,6 +772,7 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
         isCompleted,
         showDetails,
         totalNodes,
+        isSelected: props.selectedIds?.has(node.id) || props.selectedId === node.id,
         nodeData: node
       }
     }
@@ -872,7 +874,8 @@ async function fetchLinkedNodes(elements, links, savedPositions) {
             bgColor,
             borderColor: colors.border,
             textColor,
-            isCompleted
+            isCompleted,
+            isSelected: props.selectedIds?.has(node.id) || props.selectedId === node.id
           },
           position: savedPos ? { x: savedPos.x, y: savedPos.y } : undefined
         })
@@ -1163,7 +1166,7 @@ async function initGraph() {
         const bgColor = hasOwnColor ? node.color : (data.customBgTint || '#6b7280')
         const textColor = getContrastColor(bgColor)
         return `
-          <div class="node-person" style="background-color: ${bgColor}; color: ${textColor};">
+          <div class="node-person" data-node-id="${node.id}" data-selected="${data.isSelected ? 'true' : 'false'}" style="background-color: ${bgColor}; color: ${textColor};">
             <span class="person-name">${node.title || 'Untitled'}</span>
           </div>
         `
@@ -1199,7 +1202,7 @@ async function initGraph() {
         : ''
 
       return `
-        <div class="node-html ${completedClass} ${glowClass} ${favoriteClass}" data-node-id="${node.id}" style="border-color: ${borderColor}; --glow-color: ${borderColor}; ${bgStyle}">
+        <div class="node-html ${completedClass} ${glowClass} ${favoriteClass}" data-node-id="${node.id}" data-selected="${data.isSelected ? 'true' : 'false'}" style="border-color: ${borderColor}; --glow-color: ${borderColor}; ${bgStyle}">
           <div class="node-html-title">${node.title || 'Untitled'}${notesIndicator}</div>
           ${notesHtml ? `<div class="node-html-notes">${notesHtml}</div>` : ''}
         </div>
@@ -1207,7 +1210,7 @@ async function initGraph() {
     }
   }])
 
-  // Finder-like selection: Click to select, Cmd+click to toggle, Shift+click for range
+  // Click to select, Cmd+click to add child, Shift+click for multi-select
   cy.on('tap', 'node', (e) => {
     const node = e.target.data('nodeData')
     if (!node) return
@@ -1219,13 +1222,14 @@ async function initGraph() {
       // Option+Cmd/Ctrl+click: delete the node
       emit('delete', node.id)
     } else if (hasCmd) {
-      // Cmd/Ctrl+click: toggle selection (Finder-like)
-      emit('select-multiple', { node, add: true })
+      // Cmd/Ctrl+click: add child node
+      const pos = e.target.position()
+      showAddNodeModal(node.id, { x: pos.x + 50, y: pos.y + 80 })
     } else if (e.originalEvent.shiftKey) {
-      // Shift+click: range selection
-      emit('select-multiple', { node, range: true })
+      // Shift+click: toggle selection (multi-select)
+      emit('select-multiple', { node, add: true })
     } else {
-      // Just select the node (clears other selections)
+      // Just select the node
       emit('select', node)
     }
   })
@@ -1356,44 +1360,63 @@ async function initGraph() {
     hideTooltip()
   })
 
-  // Handle clicks on HTML card overlays (for Cmd+click support)
+  // Handle clicks on HTML card overlays
   container.value?.addEventListener('click', (e) => {
     const htmlLabel = e.target.closest('.node-html')
     if (!htmlLabel) return
 
-    // Find the corresponding cytoscape node
-    const rect = htmlLabel.getBoundingClientRect()
-    const centerX = rect.left + rect.width / 2
-    const centerY = rect.top + rect.height / 2
+    // Cancel any pending background click that would clear selection
+    backgroundClickPending = false
 
-    // Convert to cytoscape coordinates
-    const containerRect = container.value.getBoundingClientRect()
-    const relX = centerX - containerRect.left
-    const relY = centerY - containerRect.top
+    // Get node ID from data attribute
+    const nodeId = htmlLabel.dataset.nodeId
+    if (!nodeId) return
 
-    // Find node at this position
-    const pan = cy.pan()
-    const zoom = cy.zoom()
-    const cyX = (relX - pan.x) / zoom
-    const cyY = (relY - pan.y) / zoom
+    const cyNode = cy.$(`#${nodeId}`)
+    if (!cyNode || cyNode.length === 0) return
 
-    let closestNode = null
-    let closestDist = Infinity
-    cy.nodes().forEach(n => {
-      const pos = n.position()
-      const dist = Math.sqrt(Math.pow(pos.x - cyX, 2) + Math.pow(pos.y - cyY, 2))
-      if (dist < closestDist) {
-        closestDist = dist
-        closestNode = n
-      }
-    })
+    const nodeData = cyNode.data('nodeData')
+    if (!nodeData) return
 
-    if (closestNode && (e.metaKey || e.ctrlKey)) {
+    const hasCmd = e.metaKey || e.ctrlKey
+    const hasAlt = e.altKey
+
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (hasCmd && hasAlt) {
+      // Option+Cmd/Ctrl+click: delete the node
+      emit('delete', nodeData.id)
+    } else if (hasCmd) {
+      // Cmd/Ctrl+click: add child node
+      const pos = cyNode.position()
+      showAddNodeModal(nodeData.id, { x: pos.x + 50, y: pos.y + 80 })
+    } else if (e.shiftKey) {
+      // Shift+click: toggle selection (multi-select)
+      emit('select-multiple', { node: nodeData, add: true })
+    } else {
+      // Normal click: select the node
+      emit('select', nodeData)
+    }
+  })
+
+  // Handle double-clicks on HTML card overlays for navigation
+  container.value?.addEventListener('dblclick', (e) => {
+    const htmlLabel = e.target.closest('.node-html')
+    if (!htmlLabel) return
+
+    const nodeId = htmlLabel.dataset.nodeId
+    if (!nodeId) return
+
+    const cyNode = cy.$(`#${nodeId}`)
+    if (!cyNode || cyNode.length === 0) return
+
+    const nodeData = cyNode.data('nodeData')
+    if (nodeData) {
       e.preventDefault()
       e.stopPropagation()
-      const node = closestNode.data('nodeData')
-      const pos = closestNode.position()
-      showAddNodeModal(node.id, { x: pos.x + 50, y: pos.y + 80 })
+      hideEditModal()
+      emit('enter', nodeData)
     }
   })
 
@@ -1603,7 +1626,11 @@ async function initGraph() {
   })
 
   // Update selection styling
-  if (props.selectedId) {
+  if (props.selectedIds && props.selectedIds.size > 0) {
+    props.selectedIds.forEach(id => {
+      cy.$(`#${id}`).select()
+    })
+  } else if (props.selectedId) {
     cy.$(`#${props.selectedId}`).select()
   }
 
@@ -2111,43 +2138,94 @@ watch(() => props.maxDepth, () => {
 watch(() => props.hideCompleted, () => {
   updateGraph()
 })
-watch(() => props.selectedId, (newId) => {
-  if (cy && newId) {
-    cy.nodes().unselect()
-    cy.$(`#${newId}`).select()
-  }
-  // Update HTML label selection styling
-  updateHtmlLabelSelection(newId)
-})
+watch(() => props.selectedIds, (newIds) => {
+  if (!cy) return
 
-function updateHtmlLabelSelection(selectedId) {
-  if (!container.value) return
-  // Remove selected class from all labels
-  container.value.querySelectorAll('.node-html.selected').forEach(el => {
-    el.classList.remove('selected')
+  // Convert array to Set for efficient lookups
+  const newIdSet = new Set(newIds || [])
+
+  // Update isSelected in node data to trigger HTML label re-render
+  cy.nodes().forEach(node => {
+    const nodeId = parseInt(node.id())
+    const isSelected = newIdSet.has(nodeId)
+    if (node.data('isSelected') !== isSelected) {
+      node.data('isSelected', isSelected)
+    }
   })
-  // Add selected class using data-node-id attribute
-  if (selectedId) {
-    const label = container.value.querySelector(`[data-node-id="${selectedId}"]`)
-    if (label) {
-      label.classList.add('selected')
+
+  // Check if cytoscape selection already matches - avoid unnecessary updates
+  const currentSelected = new Set()
+  cy.$(':selected').forEach(n => currentSelected.add(parseInt(n.id())))
+
+  const sameSelection = currentSelected.size === newIdSet.size &&
+    [...currentSelected].every(id => newIdSet.has(id))
+
+  if (!sameSelection) {
+    // Update cytoscape selection to match Vue state
+    cy.nodes().unselect()
+    if (newIdSet.size > 0) {
+      newIdSet.forEach(id => {
+        cy.$(`#${id}`).select()
+      })
     }
   }
+
+  // Also update HTML label classes directly
+  updateHtmlLabelSelectionFromIds(newIdSet)
+}, { deep: true })
+
+// Also watch selectedId for single selections (when selectedIds might not be in sync)
+watch(() => props.selectedId, (newId) => {
+  // Only act if selectedIds is empty (single selection case)
+  if (props.selectedIds && props.selectedIds.length > 0) return
+  if (cy) {
+    // Update isSelected in node data
+    cy.nodes().forEach(node => {
+      const nodeId = parseInt(node.id())
+      const isSelected = nodeId === newId
+      if (node.data('isSelected') !== isSelected) {
+        node.data('isSelected', isSelected)
+      }
+    })
+    if (newId) {
+      cy.nodes().unselect()
+      cy.$(`#${newId}`).select()
+    }
+  }
+  updateHtmlLabelSelectionFromIds(newId ? new Set([newId]) : new Set())
+})
+
+function updateHtmlLabelSelectionFromIds(selectedIdSet) {
+  // Update all labels - set data-selected and class
+  document.querySelectorAll('.node-html, .node-person').forEach(el => {
+    const nodeId = el.dataset.nodeId
+    const isSelected = selectedIdSet && selectedIdSet.has(parseInt(nodeId))
+    el.dataset.selected = isSelected ? 'true' : 'false'
+    if (isSelected) {
+      el.classList.add('selected')
+    } else {
+      el.classList.remove('selected')
+    }
+  })
 }
 
 // Update HTML labels for multi-selection (from cytoscape)
 function updateHtmlLabelsFromCySelection() {
-  if (!container.value || !cy) return
-  // Remove selected class from all labels
-  container.value.querySelectorAll('.node-html.selected').forEach(el => {
-    el.classList.remove('selected')
-  })
-  // Add selected class to all selected cytoscape nodes
+  if (!cy) return
+  // Get set of selected node IDs
+  const selectedIds = new Set()
   cy.$(':selected').forEach(node => {
-    const nodeId = node.id()
-    const label = container.value.querySelector(`[data-node-id="${nodeId}"]`)
-    if (label) {
-      label.classList.add('selected')
+    selectedIds.add(node.id())
+  })
+  // Update all labels
+  document.querySelectorAll('.node-html, .node-person').forEach(el => {
+    const nodeId = el.dataset.nodeId
+    const isSelected = selectedIds.has(nodeId)
+    el.dataset.selected = isSelected ? 'true' : 'false'
+    if (isSelected) {
+      el.classList.add('selected')
+    } else {
+      el.classList.remove('selected')
     }
   })
 }
@@ -3085,9 +3163,11 @@ onUnmounted(() => {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
-:global(.node-person.selected) {
-  outline: 2px solid var(--accent-color, #4a9eff);
-  outline-offset: 2px;
+:global(.node-person.selected),
+:global(.node-person[data-selected="true"]) {
+  outline: 3px solid var(--accent-color, #4a9eff) !important;
+  outline-offset: 3px;
+  box-shadow: 0 0 12px rgba(74, 158, 255, 0.6);
 }
 
 :global(.person-name) {
@@ -3122,7 +3202,8 @@ onUnmounted(() => {
 }
 
 /* Selected node - cyan outline matching node shape */
-:global(.node-html.selected) {
+:global(.node-html.selected),
+:global(.node-html[data-selected="true"]) {
   outline: 3px solid var(--accent-color, #4a9eff) !important;
   outline-offset: 3px;
   box-shadow: 0 0 12px rgba(74, 158, 255, 0.6);
