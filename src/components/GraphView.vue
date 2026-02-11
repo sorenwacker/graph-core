@@ -100,7 +100,7 @@ function isInsideEditor(target) {
   return false
 }
 
-// Track modifier keys for box selection mode (Shift enables lasso)
+// Track modifier keys for box selection mode (Shift or Cmd enables lasso)
 const boxSelectModeActive = ref(false)
 
 if (typeof document !== 'undefined') {
@@ -110,7 +110,7 @@ if (typeof document !== 'undefined') {
     if (e.key === 'Alt' || e.code === 'AltLeft' || e.code === 'AltRight' || e.altKey) {
       linkModeActive.value = true
     }
-    if (e.key === 'Shift') {
+    if (e.key === 'Shift' || e.key === 'Meta' || e.key === 'Control') {
       boxSelectModeActive.value = true
     }
   })
@@ -118,7 +118,8 @@ if (typeof document !== 'undefined') {
     if (e.key === 'Alt' || e.code === 'AltLeft' || e.code === 'AltRight') {
       linkModeActive.value = false
     }
-    if (e.key === 'Shift') {
+    if (e.key === 'Shift' || e.key === 'Meta' || e.key === 'Control') {
+      // Only deactivate if neither Shift nor Cmd/Ctrl is still pressed
       boxSelectModeActive.value = false
     }
   })
@@ -126,7 +127,7 @@ if (typeof document !== 'undefined') {
   document.addEventListener('mousemove', (e) => {
     if (isInsideEditor(e.target)) return
     linkModeActive.value = e.altKey
-    boxSelectModeActive.value = e.shiftKey
+    boxSelectModeActive.value = e.shiftKey || e.metaKey || e.ctrlKey
   })
 }
 
@@ -143,6 +144,7 @@ const allNodeTypes = ['task', 'note', 'project', 'milestone', 'topic', 'componen
 const savedTypeFilter = localStorage.getItem('graph-type-filter')
 const visibleTypes = ref(savedTypeFilter ? JSON.parse(savedTypeFilter) : [...allNodeTypes])
 const showTypeFilter = ref(false)
+const showHotkeyHelp = ref(false)
 let relaxClickTimeout = null
 let cy = null
 let isInitializing = false
@@ -2439,6 +2441,18 @@ onUnmounted(() => {
           </label>
         </div>
       </div>
+      <span class="controls-separator"></span>
+      <button
+        class="icon-btn"
+        @click="showHotkeyHelp = !showHotkeyHelp"
+        title="Keyboard shortcuts"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </button>
     </div>
     </Teleport>
     <div class="graph-container" :class="{ 'box-select-mode': boxSelectModeActive }" ref="container">
@@ -2450,6 +2464,39 @@ onUnmounted(() => {
 
     <!-- Link mode indicator (shows when Option/Alt is held) -->
     <div v-if="linkModeActive" class="link-mode-indicator">Link Mode</div>
+
+    <!-- Hotkey help popup -->
+    <div v-if="showHotkeyHelp" class="hotkey-help-overlay" @click.self="showHotkeyHelp = false">
+      <div class="hotkey-help-modal">
+        <h3>Keyboard Shortcuts</h3>
+        <div class="hotkey-list">
+          <div class="hotkey-section">
+            <h4>Selection</h4>
+            <div class="hotkey-item"><kbd>Click</kbd> Select node</div>
+            <div class="hotkey-item"><kbd>Shift</kbd>+<kbd>Click</kbd> Multi-select (toggle)</div>
+            <div class="hotkey-item"><kbd>Shift</kbd>+<kbd>Drag</kbd> Lasso select</div>
+          </div>
+          <div class="hotkey-section">
+            <h4>Actions</h4>
+            <div class="hotkey-item"><kbd>Cmd</kbd>+<kbd>Click</kbd> Add child node</div>
+            <div class="hotkey-item"><kbd>Double-click</kbd> Enter node</div>
+            <div class="hotkey-item"><kbd>Opt</kbd>+<kbd>Cmd</kbd>+<kbd>Click</kbd> Delete node</div>
+          </div>
+          <div class="hotkey-section">
+            <h4>Navigation</h4>
+            <div class="hotkey-item"><kbd>Cmd</kbd>+<kbd>Up</kbd> Go to parent</div>
+            <div class="hotkey-item"><kbd>Cmd</kbd>+<kbd>Down</kbd> Go to first child</div>
+            <div class="hotkey-item"><kbd>Cmd</kbd>+<kbd>Left/Right</kbd> Go to sibling</div>
+          </div>
+          <div class="hotkey-section">
+            <h4>Links</h4>
+            <div class="hotkey-item"><kbd>Option</kbd> Hold for link mode</div>
+            <div class="hotkey-item"><kbd>Option</kbd>+<kbd>Drag</kbd> Create link</div>
+          </div>
+        </div>
+        <button class="hotkey-close" @click="showHotkeyHelp = false">Close</button>
+      </div>
+    </div>
 
     <!-- Full Edit Modal -->
     <div v-if="editModal.visible" class="edit-modal-overlay" @click.self="hideEditModal">
@@ -2809,6 +2856,92 @@ onUnmounted(() => {
   z-index: 9999;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   pointer-events: none;
+}
+
+/* Hotkey help modal */
+.hotkey-help-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(2px);
+}
+
+.hotkey-help-modal {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.hotkey-help-modal h3 {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  color: #fff;
+  border-bottom: 1px solid #333;
+  padding-bottom: 12px;
+}
+
+.hotkey-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.hotkey-section h4 {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.hotkey-item {
+  font-size: 13px;
+  color: #ccc;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hotkey-item kbd {
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: -apple-system, BlinkMacSystemFont, monospace;
+  font-size: 11px;
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.hotkey-close {
+  margin-top: 20px;
+  width: 100%;
+  padding: 10px;
+  background: #333;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.hotkey-close:hover {
+  background: #444;
 }
 
 /* Edit Modal - full featured */
