@@ -8,6 +8,7 @@ import cytoscape from 'cytoscape'
 import coseBilkent from 'cytoscape-cose-bilkent'
 import cola from 'cytoscape-cola'
 import dagre from 'cytoscape-dagre'
+import d3Force from 'cytoscape-d3-force'
 import nodeHtmlLabel from 'cytoscape-node-html-label'
 import { marked } from 'marked'
 import MarkdownRenderer from './MarkdownRenderer.vue'
@@ -18,6 +19,7 @@ if (!window.__cytoscapeExtensionsRegistered) {
   cytoscape.use(coseBilkent)
   cytoscape.use(cola)
   cytoscape.use(dagre)
+  cytoscape.use(d3Force)
   nodeHtmlLabel(cytoscape)
   window.__cytoscapeExtensionsRegistered = true
 }
@@ -136,6 +138,7 @@ if (typeof document !== 'undefined') {
 const globalDefault = localStorage.getItem('graph-layout-mode') || 'tree'
 const layoutMode = ref(props.parent?.graph_layout || globalDefault)
 const relaxLocked = ref(localStorage.getItem('graph-relax-locked') === 'true')
+const fitLocked = ref(localStorage.getItem('graph-fit-locked') === 'true')
 const showExternalLinks = ref(localStorage.getItem('graph-show-external-links') !== 'false') // default true
 const showRootNode = ref(localStorage.getItem('graph-show-root-node') !== 'false') // default true
 
@@ -145,6 +148,17 @@ const savedTypeFilter = localStorage.getItem('graph-type-filter')
 const visibleTypes = ref(savedTypeFilter ? JSON.parse(savedTypeFilter) : [...allNodeTypes])
 const showTypeFilter = ref(false)
 const showHotkeyHelp = ref(false)
+const showLayoutSettings = ref(false)
+
+// Radial layout settings (user-adjustable)
+const radialNodeRepulsion = ref(Number(localStorage.getItem('graph-radial-repulsion')) || 5000)
+const radialEdgeLength = ref(Number(localStorage.getItem('graph-radial-edge-length')) || 100)
+const radialElasticity = ref(Number(localStorage.getItem('graph-radial-elasticity')) || 0.5)
+const radialGravity = ref(Number(localStorage.getItem('graph-radial-gravity')) || 10000)
+const radialGravityRange = ref(Number(localStorage.getItem('graph-radial-gravity-range')) || 3.8)
+const radialNestingFactor = ref(Number(localStorage.getItem('graph-radial-nesting')) || 0.1)
+const radialNumIter = ref(Number(localStorage.getItem('graph-radial-iterations')) || 2500)
+
 let relaxClickTimeout = null
 let cy = null
 let isInitializing = false
@@ -233,6 +247,11 @@ watch(relaxLocked, (locked) => {
   localStorage.setItem('graph-relax-locked', locked ? 'true' : 'false')
 })
 
+// Persist fit locked state
+watch(fitLocked, (locked) => {
+  localStorage.setItem('graph-fit-locked', locked ? 'true' : 'false')
+})
+
 // Persist show external links setting
 watch(showExternalLinks, (show) => {
   localStorage.setItem('graph-show-external-links', show ? 'true' : 'false')
@@ -265,6 +284,23 @@ watch(visibleTypes, (types) => {
   }
   initGraph()
 }, { deep: true })
+
+// Persist radial layout settings and restart continuous relax if locked
+function onSettingChange(key, val) {
+  localStorage.setItem(key, val)
+  // If relax is locked, restart with new settings
+  if (relaxLocked.value) {
+    restartContinuousRelax()
+  }
+}
+
+watch(radialNodeRepulsion, (val) => onSettingChange('graph-radial-repulsion', val))
+watch(radialEdgeLength, (val) => onSettingChange('graph-radial-edge-length', val))
+watch(radialElasticity, (val) => onSettingChange('graph-radial-elasticity', val))
+watch(radialGravity, (val) => onSettingChange('graph-radial-gravity', val))
+watch(radialGravityRange, (val) => onSettingChange('graph-radial-gravity-range', val))
+watch(radialNestingFactor, (val) => onSettingChange('graph-radial-nesting', val))
+watch(radialNumIter, (val) => onSettingChange('graph-radial-iterations', val))
 
 function toggleTypeFilter(type) {
   const idx = visibleTypes.value.indexOf(type)
@@ -921,7 +957,7 @@ const LAYOUTS = {
     ranker: 'network-simplex'
   },
 
-  // Radial: cose-bilkent tuned
+  // Radial: cola force-directed
   radial: {
     name: 'cose-bilkent',
     animate: 'end',
@@ -929,13 +965,12 @@ const LAYOUTS = {
     fit: true,
     padding: 50,
     randomize: true,
-    nodeRepulsion: 15000,
-    idealEdgeLength: 120,
+    nodeRepulsion: 4500,
+    idealEdgeLength: 100,
     edgeElasticity: 0.45,
-    nestingFactor: 0.1,
-    gravity: 0.25,
-    gravityRange: 2.0,
-    numIter: 1000,
+    gravity: 1.0,
+    gravityRange: 10,
+    numIter: 2500,
     tile: false
   },
 
@@ -1019,12 +1054,27 @@ const LAYOUTS = {
     convergenceThreshold: 0.001,
     maxSimulationTime: 0,
     ungrabifyWhileSimulating: false,
-    centerGraph: true
+    centerGraph: false
   }
 }
 
 function getLayoutOptions() {
-  return LAYOUTS[layoutMode.value] || LAYOUTS.tree
+  const mode = layoutMode.value
+  if (mode === 'radial') {
+    // Use reactive settings for radial layout
+    // Scale gravity from slider (0-50000) to cose-bilkent range (0-5)
+    const scaledGravity = radialGravity.value / 10000
+    return {
+      ...LAYOUTS.radial,
+      nodeRepulsion: radialNodeRepulsion.value,
+      idealEdgeLength: radialEdgeLength.value,
+      edgeElasticity: radialElasticity.value,
+      gravity: scaledGravity,
+      gravityRange: 10,
+      numIter: radialNumIter.value
+    }
+  }
+  return LAYOUTS[mode] || LAYOUTS.tree
 }
 
 async function initGraph() {
@@ -1655,6 +1705,10 @@ async function initGraph() {
         if (relaxLocked.value) {
           startContinuousRelax()
         }
+        // Start continuous fit if it was locked from previous session
+        if (fitLocked.value) {
+          startContinuousFit()
+        }
       }, 500)
     }, 100)
   } else {
@@ -1662,6 +1716,10 @@ async function initGraph() {
     // Start continuous relax if it was locked from previous session
     if (relaxLocked.value) {
       startContinuousRelax()
+    }
+    // Start continuous fit if it was locked from previous session
+    if (fitLocked.value) {
+      startContinuousFit()
     }
   }
 }
@@ -1935,10 +1993,14 @@ async function updateGraph() {
 function setLayout(mode) {
   if (layoutMode.value === mode) return
 
-  // Stop relax when switching layouts
+  // Stop relax and fit when switching layouts
   if (relaxLocked.value) {
     relaxLocked.value = false
     stopContinuousRelax()
+  }
+  if (fitLocked.value) {
+    fitLocked.value = false
+    stopContinuousFit()
   }
 
   layoutMode.value = mode
@@ -1962,45 +2024,89 @@ function reLayout() {
   }
 }
 
-function resetLayout() {
-  if (cy) {
-    // Clear saved positions from storage
-    localStorage.removeItem(getPositionsKey())
+function applyRadialSettings() {
+  if (!cy) return
 
-    // Reset all node positions to force fresh layout calculation
-    // Place nodes at random positions so layout algorithm starts fresh
-    const center = { x: cy.width() / 2, y: cy.height() / 2 }
-    cy.nodes().forEach(node => {
-      node.position({
-        x: center.x + (Math.random() - 0.5) * 100,
-        y: center.y + (Math.random() - 0.5) * 100
-      })
-    })
-
-    cy.layout(getLayoutOptions()).run()
-    // Save new positions after layout
-    setTimeout(saveNodePositions, 800)
+  // Same as relaxLayout but with fit: true
+  const layoutOptions = {
+    name: 'cose-bilkent',
+    animate: 'end',
+    animationDuration: 300,
+    fit: true,
+    randomize: false,
+    nodeRepulsion: radialNodeRepulsion.value,
+    idealEdgeLength: radialEdgeLength.value,
+    edgeElasticity: radialElasticity.value,
+    gravity: radialGravity.value / 10000,
+    gravityRange: 3.8,
+    numIter: 2500,
+    tile: true,
+    tilingPaddingVertical: Math.max(5, 50 - radialGravity.value / 1000),
+    tilingPaddingHorizontal: Math.max(5, 50 - radialGravity.value / 1000)
   }
+
+  const layout = cy.layout(layoutOptions)
+  layout.on('layoutstop', () => {
+    saveNodePositions()
+  })
+  layout.run()
 }
 
-function relaxLayout() {
-  if (cy) {
-    // Save current viewport
-    const zoom = cy.zoom()
-    const pan = cy.pan()
+function resetLayout() {
+  if (!cy) return
 
-    // Use current layout mode for relax, not always dagre
-    // Disable fit to preserve current viewport
-    const layout = { ...getLayoutOptions(), fit: false }
-    cy.layout(layout).run()
+  // Clear saved positions from storage
+  localStorage.removeItem(getPositionsKey())
 
-    // Restore viewport after layout animation
-    setTimeout(() => {
-      cy.zoom(zoom)
-      cy.pan(pan)
-      saveNodePositions()
-    }, 600)
+  // Use cose-bilkent with randomize: true for fresh layout
+  const opts = {
+    name: 'cose-bilkent',
+    animate: 'end',
+    animationDuration: 500,
+    fit: true,
+    padding: 50,
+    randomize: true,
+    nodeRepulsion: 5000,
+    idealEdgeLength: 100,
+    edgeElasticity: 0.5,
+    gravity: 0.5,
+    gravityRange: 3.8,
+    numIter: 2500,
+    tile: false
   }
+
+  cy.layout(opts).run()
+  setTimeout(saveNodePositions, 1000)
+}
+
+// Single-click relax: run layout with current settings
+// Double-click relax: uses cola for continuous physics simulation
+function relaxLayout() {
+  if (!cy) return
+
+  // cose-bilkent creates more organic/circular layouts
+  const layoutOptions = {
+    name: 'cose-bilkent',
+    animate: 'end',
+    animationDuration: 300,
+    fit: false,
+    randomize: false,
+    nodeRepulsion: radialNodeRepulsion.value,
+    idealEdgeLength: radialEdgeLength.value,
+    edgeElasticity: radialElasticity.value,
+    gravity: radialGravity.value / 10000,
+    gravityRange: 3.8,
+    numIter: 2500,
+    tile: true,
+    tilingPaddingVertical: Math.max(5, 50 - radialGravity.value / 1000),
+    tilingPaddingHorizontal: Math.max(5, 50 - radialGravity.value / 1000)
+  }
+
+  const layout = cy.layout(layoutOptions)
+  layout.on('layoutstop', () => {
+    saveNodePositions()
+  })
+  layout.run()
 }
 
 // Local optimization - only adjusts a node and its immediate neighborhood
@@ -2050,9 +2156,34 @@ function startContinuousRelax() {
   // Stop any existing layout
   stopContinuousRelax()
 
-  // Always use cola continuous layout for relax lock (supports infinite mode)
-  continuousLayout = cy.layout(LAYOUTS.continuous)
+  // Each slider has independent effect
+  const spacing = Math.max(5, Math.round(radialNodeRepulsion.value / 50))
+  const edgeLen = Math.max(20, Math.round(radialEdgeLength.value))
+  const gravityEffect = Math.max(0.1, 1 - (radialGravity.value / 50000))
+
+  // Cola infinite layout with slider settings
+  const layoutOptions = {
+    name: 'cola',
+    animate: true,
+    infinite: true,
+    fit: false,
+    nodeSpacing: Math.round(spacing * gravityEffect),
+    edgeLength: edgeLen,
+    avoidOverlap: true,
+    handleDisconnected: true,
+    centerGraph: false,
+    convergenceThreshold: 0.001,
+    ungrabifyWhileSimulating: false
+  }
+
+  continuousLayout = cy.layout(layoutOptions)
   continuousLayout.run()
+}
+
+function restartContinuousRelax() {
+  if (!cy || !relaxLocked.value) return
+  stopContinuousRelax()
+  startContinuousRelax()
 }
 
 function stopContinuousRelax() {
@@ -2089,6 +2220,49 @@ function handleRelaxClick() {
 function fitView() {
   if (cy) {
     cy.fit(50)
+  }
+}
+
+// Continuous fit - keeps graph fitted to viewport
+let continuousFitInterval = null
+
+function startContinuousFit() {
+  if (!cy) return
+  stopContinuousFit()
+  // Fit immediately, then smoothly every 300ms
+  cy.animate({ fit: { padding: 50 } }, { duration: 200 })
+  continuousFitInterval = setInterval(() => {
+    if (cy) cy.animate({ fit: { padding: 50 } }, { duration: 250 })
+  }, 300)
+}
+
+function stopContinuousFit() {
+  if (continuousFitInterval) {
+    clearInterval(continuousFitInterval)
+    continuousFitInterval = null
+  }
+}
+
+let lastFitClickTime = 0
+
+function handleFitClick() {
+  const now = Date.now()
+  const timeSinceLastClick = now - lastFitClickTime
+  lastFitClickTime = now
+
+  if (timeSinceLastClick < 350) {
+    // Double click detected - toggle lock
+    fitLocked.value = !fitLocked.value
+    if (fitLocked.value) {
+      startContinuousFit()
+    } else {
+      stopContinuousFit()
+    }
+  } else {
+    // Single click - fit once (unless locked)
+    if (!fitLocked.value) {
+      fitView()
+    }
   }
 }
 
@@ -2264,6 +2438,7 @@ function handleClickOutside(e) {
   if (showTypeFilter.value && !e.target.closest('.type-filter-wrapper')) {
     showTypeFilter.value = false
   }
+  // Layout settings stays open until manually closed
 }
 
 onUnmounted(() => {
@@ -2347,7 +2522,12 @@ onUnmounted(() => {
           <path d="M4 18c0-2 2-4 4-2s4-2 4-2 2-2 4 0 4 2 4 2"/>
         </svg>
       </button>
-      <button class="icon-btn" @click="fitView" title="Fit to view">
+      <button
+        class="icon-btn"
+        @click="handleFitClick"
+        :class="{ 'fit-locked': fitLocked }"
+        title="Fit to view (double-click to lock)"
+      >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
           <path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
@@ -2412,6 +2592,41 @@ onUnmounted(() => {
             />
             <span>{{ type }}</span>
           </label>
+        </div>
+      </div>
+      <div class="layout-settings-wrapper">
+        <button
+          class="icon-btn"
+          @click="showLayoutSettings = !showLayoutSettings"
+          title="Layout settings"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+        <div v-if="showLayoutSettings" class="layout-settings-dropdown">
+          <div class="layout-setting">
+            <label>Node Repulsion: {{ radialNodeRepulsion }}</label>
+            <input type="range" v-model.number="radialNodeRepulsion" min="100" max="10000" step="100" />
+          </div>
+          <div class="layout-setting">
+            <label>Edge Length: {{ radialEdgeLength }}</label>
+            <input type="range" v-model.number="radialEdgeLength" min="20" max="200" step="10" />
+          </div>
+          <div class="layout-setting">
+            <label>Elasticity: {{ radialElasticity.toFixed(2) }}</label>
+            <input type="range" v-model.number="radialElasticity" min="0.1" max="1.5" step="0.05" />
+          </div>
+          <div class="layout-setting">
+            <label>Gravity: {{ radialGravity }}</label>
+            <input type="range" v-model.number="radialGravity" min="0" max="50000" step="1000" />
+          </div>
+          <div class="layout-setting">
+            <label>Iterations: {{ radialNumIter }}</label>
+            <input type="range" v-model.number="radialNumIter" min="1000" max="500000" step="1000" />
+          </div>
+          <button class="apply-btn" @click="applyRadialSettings">Apply</button>
         </div>
       </div>
       <span class="controls-separator"></span>
@@ -2725,7 +2940,64 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
+.layout-settings-wrapper {
+  position: relative;
+}
+
+.layout-settings-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: #111;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 12px;
+  min-width: 220px;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.layout-setting {
+  margin-bottom: 12px;
+}
+
+.layout-setting label {
+  display: block;
+  font-size: 0.75rem;
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+}
+
+.layout-setting input[type="range"] {
+  width: 100%;
+  cursor: pointer;
+}
+
+.layout-settings-dropdown .apply-btn {
+  width: 100%;
+  padding: 6px 12px;
+  background: var(--accent-color);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.layout-settings-dropdown .apply-btn:hover {
+  opacity: 0.9;
+}
+
 .graph-controls button.relax-locked {
+  background: #1a4a1a !important;
+  border-color: #4a9a4a !important;
+  color: #4f4 !important;
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+  animation: pulse-relax 1s ease-in-out infinite;
+}
+
+.graph-controls button.fit-locked {
   background: #1a4a1a !important;
   border-color: #4a9a4a !important;
   color: #4f4 !important;

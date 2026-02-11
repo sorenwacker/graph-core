@@ -571,6 +571,7 @@ const {
   clearSelection,
   hoverSelectNode,
   selectNode,
+  cancelDetailOpen,
   handleMultiSelect,
   updateSelectedNode,
   removeFromSelection
@@ -1079,6 +1080,9 @@ function buildChildTree(flatNodes, parentId, parentCompleted = false) {
 }
 
 async function enterContainer(node, { skipHistory = false, direction = 'forward' } = {}) {
+  // Cancel pending detail panel open (user double-clicked to navigate)
+  cancelDetailOpen()
+
   // Handle both node objects and node IDs
   const nodeId = typeof node === 'object' ? node?.id : node
 
@@ -2738,7 +2742,7 @@ onUnmounted(() => {
               <div v-if="showSettings" class="settings-panel" @click.stop>
               <div class="settings-item">
                 <label>Graph detail threshold</label>
-                <input type="number" v-model.number="graphDetailThreshold" min="5" max="100" @change="localStorage.setItem('graphcore-graphDetailThreshold', String(graphDetailThreshold))" />
+                <input type="number" v-model.number="graphDetailThreshold" min="5" max="100" @change="window.localStorage.setItem('graphcore-graphDetailThreshold', String(graphDetailThreshold))" />
                 <span class="settings-hint">Show details when &le; {{ graphDetailThreshold }} nodes</span>
               </div>
               <div class="settings-item">

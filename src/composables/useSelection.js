@@ -51,13 +51,24 @@ export function useSelection({
     selectedNode.value = node
   }
 
+  // Timer for delayed detail panel opening
+  let detailOpenTimer = null
+
   /**
-   * Full select - selects a node and opens detail panel.
+   * Full select - selects a node and opens detail panel after a delay.
+   * The delay allows for double-click to navigate without opening detail.
    * @param {Object|null} node - Node to select, or null to deselect
    * @param {Object} options - Selection options
    * @param {boolean} options.fullscreen - Open in fullscreen mode
+   * @param {boolean} options.immediate - Open detail immediately (no delay)
    */
   function selectNode(node, options = {}) {
+    // Cancel any pending detail open
+    if (detailOpenTimer) {
+      clearTimeout(detailOpenTimer)
+      detailOpenTimer = null
+    }
+
     // Handle deselection when node is null
     if (!node) {
       selectedNode.value = null
@@ -71,13 +82,31 @@ export function useSelection({
     anchorNode.value = node // Set anchor for shift+click range selection
     selectedIds.value = new Set([node.id])
 
-    if (showDetail) {
-      showDetail.value = true
+    // Open detail panel after delay (to allow for double-click)
+    if (showDetail && !showDetail.value) {
+      if (options.immediate) {
+        showDetail.value = true
+      } else {
+        detailOpenTimer = setTimeout(() => {
+          showDetail.value = true
+          detailOpenTimer = null
+        }, 300)
+      }
     }
 
     // Open fullscreen if explicitly requested OR if setting is enabled
     if (fullscreenDetail && (options.fullscreen || openDetailFullscreen?.value)) {
       fullscreenDetail.value = true
+    }
+  }
+
+  /**
+   * Cancel pending detail panel opening (call on double-click)
+   */
+  function cancelDetailOpen() {
+    if (detailOpenTimer) {
+      clearTimeout(detailOpenTimer)
+      detailOpenTimer = null
     }
   }
 
@@ -196,6 +225,7 @@ export function useSelection({
     clearSelection,
     hoverSelectNode,
     selectNode,
+    cancelDetailOpen,
     handleMultiSelect,
     updateSelectedNode,
     removeFromSelection
