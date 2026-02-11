@@ -111,7 +111,7 @@ export const tooltipOptions = {
   duration: [200, 150],
   placement: 'bottom-end',
   theme: 'graph-tooltip',
-  maxWidth: 400,
+  maxWidth: 'none',
   trigger: 'manual',
   appendTo: () => document.body
 }

@@ -2164,7 +2164,7 @@ function toggleSensitiveVisibility() {
 
 // Check if a node has sensitive content
 function isSensitiveNode(node) {
-  return node.notes_sensitive || false
+  return !!node.notes_sensitive
 }
 
 function hasNotes(node) {
@@ -2853,7 +2853,6 @@ onUnmounted(() => {
         <div class="content-main">
           <!-- Breadcrumbs / Path -->
           <nav class="header-breadcrumbs">
-            <div id="view-controls-target"></div>
             <div class="breadcrumb-path">
               <span class="crumb" @click="navigateToBreadcrumb(-1)">~</span>
               <template v-for="(crumb, index) in breadcrumbs" :key="crumb.id">
@@ -2867,6 +2866,7 @@ onUnmounted(() => {
                 </span>
               </template>
             </div>
+            <div id="view-controls-target"></div>
           </nav>
         <!-- Content with transition -->
         <div
@@ -3479,9 +3479,8 @@ onUnmounted(() => {
 
 @media (min-width: 1200px) {
   .header-breadcrumbs {
-    flex-direction: row-reverse;
+    flex-direction: row;
     align-items: center;
-    justify-content: space-between;
   }
 }
 
@@ -3499,6 +3498,7 @@ onUnmounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  margin-left: auto;
 }
 
 .crumb {

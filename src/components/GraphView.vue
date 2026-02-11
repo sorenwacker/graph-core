@@ -1410,6 +1410,8 @@ async function initGraph() {
   cy.on('mouseover', 'node', (e) => {
     const nodeData = e.target.data('nodeData')
     if (!nodeData) return
+    // Skip tooltip for sensitive nodes
+    if (nodeData.notes_sensitive) return
     // Use composable's showTooltip - it handles all the logic
     showTooltip(null, nodeData)
   })
