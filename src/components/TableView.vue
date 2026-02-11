@@ -734,8 +734,9 @@ td {
   background: #1a1a1a;
 }
 
-.node-row.selected {
-  background: #1a3a5a;
+.node-row.selected,
+.node-row.selected:hover {
+  background: #1a3a5a !important;
   border-left: 3px solid #4a9eff;
 }
 

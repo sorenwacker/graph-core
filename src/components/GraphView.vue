@@ -99,6 +99,9 @@ function isInsideEditor(target) {
   return false
 }
 
+// Track Cmd/Ctrl key for box selection mode
+const cmdKeyActive = ref(false)
+
 if (typeof document !== 'undefined') {
   document.addEventListener('keydown', (e) => {
     // Don't activate link mode when inside editors (for multi-cursor shortcuts)
@@ -106,16 +109,23 @@ if (typeof document !== 'undefined') {
     if (e.key === 'Alt' || e.code === 'AltLeft' || e.code === 'AltRight' || e.altKey) {
       linkModeActive.value = true
     }
+    if (e.key === 'Meta' || e.key === 'Control') {
+      cmdKeyActive.value = true
+    }
   })
   document.addEventListener('keyup', (e) => {
     if (e.key === 'Alt' || e.code === 'AltLeft' || e.code === 'AltRight') {
       linkModeActive.value = false
     }
+    if (e.key === 'Meta' || e.key === 'Control') {
+      cmdKeyActive.value = false
+    }
   })
-  // Track via mouse events - sync link mode with actual altKey state
+  // Track via mouse events - sync with actual key state
   document.addEventListener('mousemove', (e) => {
     if (isInsideEditor(e.target)) return
     linkModeActive.value = e.altKey
+    cmdKeyActive.value = e.metaKey || e.ctrlKey
   })
 }
 
@@ -1042,7 +1052,6 @@ async function initGraph() {
     elements,
     boxSelectionEnabled: true,
     selectionType: 'additive',
-    activeSelectionCriteria: 'center',
     style: [
       {
         selector: 'node',
@@ -1076,7 +1085,10 @@ async function initGraph() {
       {
         selector: 'node:selected',
         style: {
-          'underlay-opacity': 0
+          'underlay-opacity': 0,
+          'border-width': 3,
+          'border-color': '#4a9eff',
+          'border-style': 'solid'
         }
       },
       {
@@ -1187,7 +1199,7 @@ async function initGraph() {
         : ''
 
       return `
-        <div class="node-html ${completedClass} ${glowClass} ${favoriteClass}" style="border-color: ${borderColor}; --glow-color: ${borderColor}; ${bgStyle}">
+        <div class="node-html ${completedClass} ${glowClass} ${favoriteClass}" data-node-id="${node.id}" style="border-color: ${borderColor}; --glow-color: ${borderColor}; ${bgStyle}">
           <div class="node-html-title">${node.title || 'Untitled'}${notesIndicator}</div>
           ${notesHtml ? `<div class="node-html-notes">${notesHtml}</div>` : ''}
         </div>
@@ -1195,7 +1207,7 @@ async function initGraph() {
     }
   }])
 
-  // Click to select, Cmd/Ctrl+click to add child, Option+Cmd/Ctrl+click to delete, Shift+click for range
+  // Finder-like selection: Click to select, Cmd+click to toggle, Shift+click for range
   cy.on('tap', 'node', (e) => {
     const node = e.target.data('nodeData')
     if (!node) return
@@ -1207,14 +1219,13 @@ async function initGraph() {
       // Option+Cmd/Ctrl+click: delete the node
       emit('delete', node.id)
     } else if (hasCmd) {
-      // Cmd/Ctrl+click: add child node
-      const pos = e.target.position()
-      showAddNodeModal(node.id, { x: pos.x + 50, y: pos.y + 80 })
+      // Cmd/Ctrl+click: toggle selection (Finder-like)
+      emit('select-multiple', { node, add: true })
     } else if (e.originalEvent.shiftKey) {
       // Shift+click: range selection
       emit('select-multiple', { node, range: true })
     } else {
-      // Just select the node (sidebar detail will show)
+      // Just select the node (clears other selections)
       emit('select', node)
     }
   })
@@ -1269,6 +1280,32 @@ async function initGraph() {
   // Save positions after drag
   cy.on('dragfree', 'node', () => {
     saveNodePositions()
+  })
+
+  // Box selection (lasso) - sync selected nodes to Vue state
+  cy.on('boxend', () => {
+    const selectedNodes = cy.$(':selected')
+    if (selectedNodes.length > 0) {
+      const nodeIds = []
+      const nodes = []
+      selectedNodes.forEach(node => {
+        const nodeData = node.data('nodeData')
+        if (nodeData) {
+          nodeIds.push(nodeData.id)
+          nodes.push(nodeData)
+        }
+      })
+      if (nodeIds.length > 0) {
+        emit('select-multiple', { nodes, nodeIds })
+      }
+      // Update HTML labels to show selection
+      updateHtmlLabelsFromCySelection()
+    }
+  })
+
+  // Update HTML label styling when nodes are selected/unselected
+  cy.on('select unselect', 'node', () => {
+    updateHtmlLabelsFromCySelection()
   })
 
   // Click on edge: Cmd+click to insert node between, Option+Cmd+click to delete edge
@@ -2089,30 +2126,30 @@ function updateHtmlLabelSelection(selectedId) {
   container.value.querySelectorAll('.node-html.selected').forEach(el => {
     el.classList.remove('selected')
   })
-  // Add selected class to the selected node's label
-  if (selectedId && cy) {
-    const node = cy.$(`#${selectedId}`)
-    if (node.length > 0) {
-      const nodePos = node.renderedPosition()
-      const htmlLabels = container.value.querySelectorAll('.node-html')
-      let closestEl = null
-      let closestDist = Infinity
-      htmlLabels.forEach(el => {
-        const rect = el.getBoundingClientRect()
-        const containerRect = container.value.getBoundingClientRect()
-        const elCenterX = rect.left + rect.width / 2 - containerRect.left
-        const elCenterY = rect.top + rect.height / 2 - containerRect.top
-        const dist = Math.sqrt(Math.pow(elCenterX - nodePos.x, 2) + Math.pow(elCenterY - nodePos.y, 2))
-        if (dist < closestDist) {
-          closestDist = dist
-          closestEl = el
-        }
-      })
-      if (closestEl) {
-        closestEl.classList.add('selected')
-      }
+  // Add selected class using data-node-id attribute
+  if (selectedId) {
+    const label = container.value.querySelector(`[data-node-id="${selectedId}"]`)
+    if (label) {
+      label.classList.add('selected')
     }
   }
+}
+
+// Update HTML labels for multi-selection (from cytoscape)
+function updateHtmlLabelsFromCySelection() {
+  if (!container.value || !cy) return
+  // Remove selected class from all labels
+  container.value.querySelectorAll('.node-html.selected').forEach(el => {
+    el.classList.remove('selected')
+  })
+  // Add selected class to all selected cytoscape nodes
+  cy.$(':selected').forEach(node => {
+    const nodeId = node.id()
+    const label = container.value.querySelector(`[data-node-id="${nodeId}"]`)
+    if (label) {
+      label.classList.add('selected')
+    }
+  })
 }
 
 // Center on a specific node (triggered by search)
@@ -2322,7 +2359,7 @@ onUnmounted(() => {
       </div>
     </div>
     </Teleport>
-    <div class="graph-container" ref="container">
+    <div class="graph-container" :class="{ 'box-select-mode': cmdKeyActive }" ref="container">
       <div v-if="nodes.length === 0" class="graph-empty">
         No nodes to display
       </div>
@@ -3086,8 +3123,15 @@ onUnmounted(() => {
 
 /* Selected node - cyan outline matching node shape */
 :global(.node-html.selected) {
-  outline: 2px solid var(--accent-color, #4a9eff);
-  outline-offset: 2px;
+  outline: 3px solid var(--accent-color, #4a9eff) !important;
+  outline-offset: 3px;
+  box-shadow: 0 0 12px rgba(74, 158, 255, 0.6);
+}
+
+/* When in box-select mode (Cmd held), allow clicks through to cytoscape canvas */
+.graph-container.box-select-mode :global(.node-html),
+.graph-container.box-select-mode :global(.node-person) {
+  pointer-events: none;
 }
 
 /* Current container - static glow using node's type color */

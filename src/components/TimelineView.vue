@@ -111,37 +111,49 @@ const timelineWidth = computed(() => {
 })
 
 // Flatten nodes and filter those with dates, keeping depth for indentation
+// Nodes without dates can inherit end_date from parent
 const timelineNodes = computed(() => {
   const result = []
 
-  function hasDate(node) {
+  function hasOwnDate(node) {
     return !!(node.start_date || node.end_date || node.due_date)
   }
 
-  function flatten(nodeList, depth = 0) {
+  function flatten(nodeList, depth = 0, inheritedEndDate = null) {
     for (const node of nodeList) {
       // Skip completed items if hideCompleted is true
       if (props.hideCompleted && (node.completed || node.inheritedCompleted)) {
         continue
       }
-      // Only include nodes that actually have dates
-      if (hasDate(node)) {
-        // Use created_at as start date if no explicit start_date but has due_date
-        const startFallback = node.due_date && node.created_at ? node.created_at.split('T')[0] : null
-        const displayDate = node.start_date || startFallback || node.due_date || node.end_date
-        const endDisplayDate = node.end_date || node.due_date || node.start_date || startFallback
+
+      // Calculate effective end date (own or inherited)
+      const effectiveEndDate = node.end_date || node.due_date || inheritedEndDate
+
+      // Include nodes that have own dates OR can inherit a date
+      if (hasOwnDate(node) || effectiveEndDate) {
+        // Use created_at as start date if no explicit start_date but has due_date or inherited end
+        const startFallback = (node.due_date || effectiveEndDate) && node.created_at
+          ? node.created_at.split('T')[0]
+          : null
+        const displayDate = node.start_date || startFallback || node.due_date || effectiveEndDate
+        const endDisplayDate = node.end_date || node.due_date || effectiveEndDate || node.start_date || startFallback
+
         // Double check we have valid dates
         if (displayDate) {
           result.push({
             ...node,
             depth,
             displayDate,
-            endDisplayDate
+            endDisplayDate,
+            inheritedDate: !hasOwnDate(node) // Mark if date was inherited
           })
         }
       }
+
       if (node.children?.length) {
-        flatten(node.children, depth + 1)
+        // Pass down the effective end date for inheritance
+        const childInheritedEndDate = node.end_date || node.due_date || inheritedEndDate
+        flatten(node.children, depth + 1, childInheritedEndDate)
       }
     }
   }
@@ -530,7 +542,7 @@ watch(() => props.nodes, () => {
                 <div class="row-track">
                   <div
                     class="timeline-bar"
-                    :class="{ selected: selectedId === node.id, completed: node.completed }"
+                    :class="{ selected: selectedId === node.id, completed: node.completed, inherited: node.inheritedDate }"
                     :style="getBarStyle(node)"
                     @click="handleNodeClick($event, node)"
                     @dblclick="emit('enter', node)"
@@ -877,6 +889,11 @@ watch(() => props.nodes, () => {
 
 .timeline-bar.completed {
   opacity: 0.5;
+}
+
+.timeline-bar.inherited {
+  opacity: 0.7;
+  border-style: dashed;
 }
 
 .bar-label {

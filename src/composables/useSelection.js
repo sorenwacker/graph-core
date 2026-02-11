@@ -82,13 +82,28 @@ export function useSelection({
   }
 
   /**
-   * Handle multi-selection with Ctrl+click (toggle) or Shift+click (range).
+   * Handle multi-selection with Ctrl+click (toggle), Shift+click (range), or box selection.
    * @param {Object} params - Multi-select parameters
-   * @param {Object} params.node - The clicked node
+   * @param {Object} params.node - The clicked node (for single node operations)
+   * @param {Array} params.nodes - Array of nodes (for box selection)
+   * @param {Array} params.nodeIds - Array of node IDs (for box selection)
    * @param {boolean} params.add - Ctrl/Cmd+click mode (toggle selection)
    * @param {boolean} params.range - Shift+click mode (range selection)
    */
-  function handleMultiSelect({ node, add, range }) {
+  function handleMultiSelect({ node, nodes, nodeIds, add, range }) {
+    // Box selection - set all selected nodes at once
+    if (nodeIds && nodeIds.length > 0) {
+      selectedIds.value = new Set(nodeIds)
+      if (nodes && nodes.length > 0) {
+        selectedNode.value = nodes[0]
+        anchorNode.value = nodes[0]
+      }
+      if (showDetail) {
+        showDetail.value = true
+      }
+      return
+    }
+
     if (add) {
       // Ctrl/Cmd+click: toggle selection
       const newSet = new Set(selectedIds.value)

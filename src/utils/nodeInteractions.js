@@ -2,14 +2,15 @@
  * Node Interaction Handlers
  *
  * Shared across Cards, Table, and Graph views.
- * See docs/INTERACTIONS.md for full specification.
+ * Finder-like selection behavior.
  *
  * Interaction model:
  * - Hover: Light select (updates detail panel if open, shows tooltip if closed)
- * - Click: Select + open detail panel
+ * - Click: Select (clears other selections)
  * - Double-click: Navigate into node
- * - Ctrl/Cmd + Click: Toggle persistent multi-select
- * - Shift + Click: Range select
+ * - Cmd/Ctrl + Click: Toggle selection (add/remove from selection)
+ * - Shift + Click: Range select (from last selected to clicked)
+ * - Option + Cmd/Ctrl + Click: Delete node
  * - Enter: Toggle detail panel
  */
 
@@ -31,7 +32,7 @@ export function handleNodeLeave(callbacks) {
 }
 
 /**
- * Handle click on a node - selects and opens detail panel
+ * Handle click on a node - Finder-like selection
  * @param {Event} e - Mouse event
  * @param {Object} node - The clicked node
  * @param {Object} callbacks - { onSelect, onMultiSelect, onAddChild, onDelete }
@@ -44,9 +45,10 @@ export function handleNodeClick(e, node, callbacks) {
     // Option+Cmd/Ctrl+click: delete the node
     callbacks.onDelete?.(node)
   } else if (hasCmd) {
-    // Cmd/Ctrl+click: add child node
-    callbacks.onAddChild?.(node)
+    // Cmd/Ctrl+click: toggle selection (Finder-like)
+    callbacks.onMultiSelect?.(node, { add: true })
   } else if (e.shiftKey) {
+    // Shift+click: range select
     callbacks.onMultiSelect?.(node, { range: true })
   } else {
     callbacks.onSelect?.(node)

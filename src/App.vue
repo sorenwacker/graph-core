@@ -127,6 +127,62 @@ async function loadWorkspaces() {
   }
 }
 
+const showNewWorkspaceInput = ref(false)
+const newWorkspaceName = ref('')
+
+function openNewWorkspaceDialog() {
+  newWorkspaceName.value = ''
+  showNewWorkspaceInput.value = true
+  nextTick(() => newWorkspaceInputRef.value?.focus())
+}
+
+async function createNewWorkspace() {
+  const name = newWorkspaceName.value.trim()
+  if (!name) {
+    showNewWorkspaceInput.value = false
+    return
+  }
+
+  try {
+    const newWs = await api.createWorkspace({ name })
+    await loadWorkspaces()
+    if (newWs?.id) {
+      currentWorkspace.value = newWs.id
+    }
+    showNewWorkspaceInput.value = false
+    newWorkspaceName.value = ''
+  } catch (e) {
+    console.error('Failed to create workspace:', e)
+  }
+}
+
+async function deleteCurrentWorkspace() {
+  if (workspaces.value.length <= 1) return
+
+  const ws = workspaces.value.find(w => w.id === currentWorkspace.value)
+  if (!ws) return
+
+  // Check if workspace has nodes
+  const roots = await api.getRoots(currentWorkspace.value)
+  if (roots && roots.length > 0) {
+    alert(`Cannot delete workspace "${ws.name}". It still contains ${roots.length} root node(s). Move or delete them first.`)
+    return
+  }
+
+  const confirmed = confirm(`Delete workspace "${ws.name}"?`)
+  if (!confirmed) return
+
+  try {
+    await api.deleteWorkspace(currentWorkspace.value)
+    await loadWorkspaces()
+    if (workspaces.value.length > 0) {
+      currentWorkspace.value = workspaces.value[0].id
+    }
+  } catch (e) {
+    console.error('Failed to delete workspace:', e)
+  }
+}
+
 // Favorites computed from all loaded nodes
 const favoriteItems = ref([])
 const sidebarPinned = ref(localStorage.getItem('graphcore-sidebarPinned') === 'true')
@@ -335,6 +391,7 @@ const searchInputRef = ref(null)
 const graphViewRef = ref(null)
 const tasksViewRef = ref(null)
 const detailPanelRef = ref(null)
+const newWorkspaceInputRef = ref(null)
 const addNodeInput = ref(null)
 const addChildParentId = ref(null) // Parent ID when adding via card + button
 
@@ -2569,6 +2626,25 @@ onUnmounted(() => {
                 {{ ws.name }}
               </option>
             </select>
+            <button v-if="!showNewWorkspaceInput" class="workspace-add-btn" @click="openNewWorkspaceDialog" title="Create new workspace">+</button>
+            <button
+              v-if="!showNewWorkspaceInput && workspaces.length > 1"
+              class="workspace-delete-btn"
+              @click="deleteCurrentWorkspace"
+              title="Delete current workspace"
+            >-</button>
+            <div v-if="showNewWorkspaceInput" class="workspace-input-wrapper">
+              <input
+                v-model="newWorkspaceName"
+                class="workspace-input"
+                placeholder="Workspace name"
+                @keyup.enter="createNewWorkspace"
+                @keyup.escape="showNewWorkspaceInput = false"
+                ref="newWorkspaceInputRef"
+              />
+              <button class="workspace-add-btn" @click="createNewWorkspace">OK</button>
+              <button class="workspace-add-btn" @click="showNewWorkspaceInput = false">X</button>
+            </div>
           </div>
 
           <div class="toolbar">
@@ -4606,6 +4682,61 @@ onUnmounted(() => {
   background: var(--bg-primary);
   color: var(--text-primary);
   padding: 8px;
+}
+
+.workspace-add-btn {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 6px;
+  transition: all 0.15s;
+}
+
+.workspace-add-btn:hover {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: white;
+}
+
+.workspace-delete-btn {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 2px;
+  transition: all 0.15s;
+}
+
+.workspace-delete-btn:hover {
+  background: #c53030;
+  border-color: #c53030;
+  color: white;
+}
+
+.workspace-input-wrapper {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.workspace-input {
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent-color);
+  color: var(--text-primary);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  width: 150px;
+  outline: none;
 }
 
 .icon-btn {
