@@ -1018,7 +1018,8 @@ const LAYOUTS = {
     handleDisconnected: true,
     convergenceThreshold: 0.001,
     maxSimulationTime: 0,
-    ungrabifyWhileSimulating: false
+    ungrabifyWhileSimulating: false,
+    centerGraph: true
   }
 }
 
@@ -1950,44 +1951,10 @@ function reLayout() {
     localStorage.removeItem(getPositionsKey())
     const layoutOptions = getLayoutOptions()
 
-    // For radial, chain a smooth cola relax after initial layout
+    // For radial, just run the layout (it has fit:true already)
     if (layoutMode.value === 'radial') {
-      const layout = cy.layout({
-        ...layoutOptions,
-        stop: () => {
-          // Smoothly transition to cola for overlap removal
-          const nodeCount = cy.nodes().length
-          const relaxLayout = cy.layout({
-            name: 'cola',
-            animate: true,
-            animationDuration: nodeCount > 50 ? 500 : 800,
-            animationEasing: 'ease-out',
-            randomize: false,
-            fit: false,
-            nodeSpacing: nodeCount > 100 ? 30 : nodeCount > 50 ? 40 : 50,
-            edgeLength: (edge) => {
-              const source = edge.source()
-              const target = edge.target()
-              const avgDegree = (source.degree() + target.degree()) / 2
-              let baseLength = nodeCount > 100 ? 60 : nodeCount > 50 ? 80 : 100
-              const perDegree = nodeCount > 50 ? 10 : 15
-              return baseLength + Math.min(avgDegree * perDegree, baseLength)
-            },
-            avoidOverlap: true,
-            handleDisconnected: true,
-            convergenceThreshold: nodeCount > 50 ? 0.01 : 0.005,
-            maxSimulationTime: nodeCount > 50 ? 1000 : 1500,
-            ungrabifyWhileSimulating: false
-          })
-          relaxLayout.run()
-          // Fit view after relax completes
-          setTimeout(() => {
-            cy.fit(50)
-            saveNodePositions()
-          }, nodeCount > 50 ? 1500 : 2000)
-        }
-      })
-      layout.run()
+      cy.layout(layoutOptions).run()
+      setTimeout(saveNodePositions, 800)
     } else {
       cy.layout(layoutOptions).run()
       setTimeout(saveNodePositions, 800)
