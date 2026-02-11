@@ -100,8 +100,8 @@ function isInsideEditor(target) {
   return false
 }
 
-// Track Cmd/Ctrl key for box selection mode
-const cmdKeyActive = ref(false)
+// Track modifier keys for box selection mode (Shift enables lasso)
+const boxSelectModeActive = ref(false)
 
 if (typeof document !== 'undefined') {
   document.addEventListener('keydown', (e) => {
@@ -110,23 +110,23 @@ if (typeof document !== 'undefined') {
     if (e.key === 'Alt' || e.code === 'AltLeft' || e.code === 'AltRight' || e.altKey) {
       linkModeActive.value = true
     }
-    if (e.key === 'Meta' || e.key === 'Control') {
-      cmdKeyActive.value = true
+    if (e.key === 'Shift') {
+      boxSelectModeActive.value = true
     }
   })
   document.addEventListener('keyup', (e) => {
     if (e.key === 'Alt' || e.code === 'AltLeft' || e.code === 'AltRight') {
       linkModeActive.value = false
     }
-    if (e.key === 'Meta' || e.key === 'Control') {
-      cmdKeyActive.value = false
+    if (e.key === 'Shift') {
+      boxSelectModeActive.value = false
     }
   })
   // Track via mouse events - sync with actual key state
   document.addEventListener('mousemove', (e) => {
     if (isInsideEditor(e.target)) return
     linkModeActive.value = e.altKey
-    cmdKeyActive.value = e.metaKey || e.ctrlKey
+    boxSelectModeActive.value = e.shiftKey
   })
 }
 
@@ -772,7 +772,7 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
         isCompleted,
         showDetails,
         totalNodes,
-        isSelected: props.selectedIds?.has(node.id) || props.selectedId === node.id,
+        isSelected: props.selectedIds?.includes(node.id) || props.selectedId === node.id,
         nodeData: node
       }
     }
@@ -875,7 +875,7 @@ async function fetchLinkedNodes(elements, links, savedPositions) {
             borderColor: colors.border,
             textColor,
             isCompleted,
-            isSelected: props.selectedIds?.has(node.id) || props.selectedId === node.id
+            isSelected: props.selectedIds?.includes(node.id) || props.selectedId === node.id
           },
           position: savedPos ? { x: savedPos.x, y: savedPos.y } : undefined
         })
@@ -1972,7 +1972,11 @@ function reLayout() {
             ungrabifyWhileSimulating: false
           })
           relaxLayout.run()
-          setTimeout(saveNodePositions, nodeCount > 50 ? 1500 : 2000)
+          // Fit view after relax completes
+          setTimeout(() => {
+            cy.fit(50)
+            saveNodePositions()
+          }, nodeCount > 50 ? 1500 : 2000)
         }
       })
       layout.run()
@@ -2437,7 +2441,7 @@ onUnmounted(() => {
       </div>
     </div>
     </Teleport>
-    <div class="graph-container" :class="{ 'box-select-mode': cmdKeyActive }" ref="container">
+    <div class="graph-container" :class="{ 'box-select-mode': boxSelectModeActive }" ref="container">
       <div v-if="nodes.length === 0" class="graph-empty">
         No nodes to display
       </div>
