@@ -2770,7 +2770,7 @@ onUnmounted(() => {
               </div>
               <div class="settings-item">
                 <label>
-                  <input type="checkbox" v-model="hoverPreviewEnabled" @change="localStorage.setItem('graphcore-hoverPreview', hoverPreviewEnabled)" />
+                  <input type="checkbox" v-model="hoverPreviewEnabled" @change="window.localStorage.setItem('graphcore-hoverPreview', hoverPreviewEnabled)" />
                   Hover preview
                 </label>
                 <span class="settings-hint">Show preview tooltip when hovering over nodes</span>
