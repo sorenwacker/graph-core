@@ -1304,14 +1304,20 @@ async function initGraph() {
       if (nodeIds.length > 0) {
         emit('select-multiple', { nodes, nodeIds })
       }
-      // Update HTML labels to show selection
-      updateHtmlLabelsFromCySelection()
+      // Update HTML labels after Vue reactivity settles
+      nextTick(() => {
+        updateHtmlLabelsFromCySelection()
+      })
     }
   })
 
-  // Update HTML label styling when nodes are selected/unselected
+  // Update HTML label styling when nodes are selected/unselected (debounced)
+  let selectionUpdateTimer = null
   cy.on('select unselect', 'node', () => {
-    updateHtmlLabelsFromCySelection()
+    if (selectionUpdateTimer) clearTimeout(selectionUpdateTimer)
+    selectionUpdateTimer = setTimeout(() => {
+      updateHtmlLabelsFromCySelection()
+    }, 10)
   })
 
   // Click on edge: Cmd+click to insert node between, Option+Cmd+click to delete edge
