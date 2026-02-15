@@ -1698,9 +1698,8 @@ input[type="checkbox"] {
     font-size: 11px;
   }
 
-  .grandchild-card {
-    padding: 3px 5px;
-    font-size: 10px;
+  .grandchild-item {
+    font-size: 8px;
   }
 }
 
@@ -1770,7 +1769,7 @@ input[type="checkbox"] {
 @media (prefers-reduced-motion: reduce) {
   .node-card,
   .child-card,
-  .grandchild-card {
+  .grandchild-item {
     animation: none;
     transition: none;
   }
