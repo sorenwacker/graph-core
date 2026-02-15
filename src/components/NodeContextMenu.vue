@@ -99,294 +99,603 @@ function getInitials(name) {
 
 <template>
   <Teleport to="body">
-    <div
-      v-if="visible && node"
-      ref="menuRef"
-      class="node-context-menu"
-      :style="menuStyle"
-      @click.stop
-    >
-      <div class="context-menu-header">
-        <span class="context-menu-type" :class="node?.type">{{ node?.type }}</span>
-        <span class="context-menu-title">{{ node?.title }}</span>
-      </div>
+    <Transition name="menu">
+      <div
+        v-if="visible && node"
+        ref="menuRef"
+        class="context-menu"
+        :style="menuStyle"
+        @click.stop
+      >
+        <!-- Header with node info -->
+        <div class="menu-header">
+          <span class="menu-type-badge" :class="node?.type">{{ node?.type }}</span>
+          <span class="menu-title">{{ node?.title }}</span>
+        </div>
 
-      <!-- Primary actions -->
-      <div class="context-menu-item" @click="viewDetails">
-        <span class="context-icon">i</span>
-        View Details
-      </div>
-      <div v-if="isElectron" class="context-menu-item" @click="openInWindow">
-        <span class="context-icon">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-            <polyline points="15 3 21 3 21 9"/>
-            <line x1="10" y1="14" x2="21" y2="3"/>
-          </svg>
-        </span>
-        Open in New Window
-      </div>
-      <div class="context-menu-item" @click="enter">
-        <span class="context-icon">-></span>
-        Enter
-      </div>
-      <div v-if="node?.type !== 'person'" class="context-menu-item" @click="addChild">
-        <span class="context-icon">+</span>
-        Add Child
-      </div>
+        <!-- Primary actions -->
+        <div class="menu-group">
+          <button class="menu-item" @click="viewDetails">
+            <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 16v-4M12 8h.01"/>
+            </svg>
+            <span>View Details</span>
+            <kbd class="menu-shortcut">Enter</kbd>
+          </button>
 
-      <div class="context-menu-divider"></div>
+          <button v-if="isElectron" class="menu-item" @click="openInWindow">
+            <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            <span>Open in Window</span>
+          </button>
 
-      <!-- Toggle complete (non-person) -->
-      <div v-if="node?.type !== 'person'" class="context-menu-item" @click="toggleComplete">
-        <span class="context-icon">{{ node?.completed ? 'o' : 'v' }}</span>
-        {{ node?.completed ? 'Mark Incomplete' : 'Mark Complete' }}
-      </div>
+          <button class="menu-item" @click="enter">
+            <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M15 3h6v6M14 10l6.1-6.1M9 21H3v-6M10 14l-6.1 6.1"/>
+            </svg>
+            <span>Enter</span>
+          </button>
 
-      <!-- Toggle favorite -->
-      <div class="context-menu-item" @click="toggleFavorite">
-        <span class="context-icon">{{ node?.favorite ? '*' : '*' }}</span>
-        {{ node?.favorite ? 'Remove Favorite' : 'Add Favorite' }}
-      </div>
+          <button v-if="node?.type !== 'person'" class="menu-item" @click="addChild">
+            <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 8v8M8 12h8"/>
+            </svg>
+            <span>Add Child</span>
+            <kbd class="menu-shortcut">Cmd+Click</kbd>
+          </button>
+        </div>
 
-      <div class="context-menu-divider"></div>
+        <div class="menu-divider"></div>
 
-      <!-- Linking -->
-      <div class="context-menu-item" @click="openLinkSearch">
-        <span class="context-icon">~</span>
-        Link to...
-      </div>
+        <!-- Status toggles -->
+        <div class="menu-group">
+          <button v-if="node?.type !== 'person'" class="menu-item" @click="toggleComplete">
+            <svg v-if="node?.completed" class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"/>
+            </svg>
+            <svg v-else class="menu-icon completed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            <span>{{ node?.completed ? 'Mark Incomplete' : 'Mark Complete' }}</span>
+          </button>
 
-      <div v-if="linkedNodes.length > 0" class="context-menu-section">
-        <span class="context-section-label">Linked ({{ linkedNodes.length }})</span>
-        <div
-          v-for="linked in linkedNodes"
-          :key="linked.id"
-          class="context-menu-link"
-        >
-          <span v-if="linked.type === 'person'" class="link-avatar" :style="{ backgroundColor: linked.color || '#3498db' }">
-            {{ getInitials(linked.title) }}
-          </span>
-          <span v-else class="link-type-icon" :class="linked.type">{{ linked.type[0].toUpperCase() }}</span>
-          <span class="link-title">{{ linked.title }}</span>
-          <button class="unlink-btn" @click.stop="unlinkNode(linked)" title="Remove link">x</button>
+          <button class="menu-item" @click="toggleFavorite">
+            <svg v-if="node?.favorite" class="menu-icon starred" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            <svg v-else class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            <span>{{ node?.favorite ? 'Remove Favorite' : 'Add Favorite' }}</span>
+          </button>
+        </div>
+
+        <div class="menu-divider"></div>
+
+        <!-- Linking section -->
+        <div class="menu-group">
+          <button class="menu-item" @click="openLinkSearch">
+            <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+            <span>Link to...</span>
+          </button>
+        </div>
+
+        <!-- Linked nodes list -->
+        <div v-if="linkedNodes.length > 0" class="menu-section">
+          <div class="section-header">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+            <span>Linked</span>
+            <span class="section-count">{{ linkedNodes.length }}</span>
+          </div>
+          <div class="linked-list">
+            <div
+              v-for="linked in linkedNodes"
+              :key="linked.id"
+              class="linked-item"
+            >
+              <span v-if="linked.type === 'person'" class="linked-avatar" :style="{ backgroundColor: linked.color || 'var(--type-person-bg)' }">
+                {{ getInitials(linked.title) }}
+              </span>
+              <span v-else class="linked-type" :class="linked.type">
+                {{ linked.type[0].toUpperCase() }}
+              </span>
+              <span class="linked-title">{{ linked.title }}</span>
+              <button class="unlink-btn" @click.stop="unlinkNode(linked)" title="Remove link">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="menu-divider"></div>
+
+        <!-- Workspace section -->
+        <div class="menu-section">
+          <div class="section-header">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+            <span>Move to Workspace</span>
+          </div>
+          <div class="workspace-list">
+            <button
+              class="workspace-item"
+              :class="{ active: node?.workspace_id === null }"
+              @click="moveToWorkspace('people')"
+            >
+              <svg class="workspace-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+              <span>People</span>
+            </button>
+            <button
+              v-for="ws in workspaces"
+              :key="ws.id"
+              class="workspace-item"
+              :class="{ active: node?.workspace_id === ws.id }"
+              @click="moveToWorkspace(ws.id)"
+            >
+              <svg class="workspace-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <line x1="3" y1="9" x2="21" y2="9"/>
+                <line x1="9" y1="21" x2="9" y2="9"/>
+              </svg>
+              <span>{{ ws.name }}</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="menu-divider"></div>
+
+        <!-- Danger zone -->
+        <div class="menu-group">
+          <button class="menu-item danger" @click="deleteNode">
+            <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              <line x1="10" y1="11" x2="10" y2="17"/>
+              <line x1="14" y1="11" x2="14" y2="17"/>
+            </svg>
+            <span>Delete</span>
+            <kbd class="menu-shortcut">Opt+Cmd+Click</kbd>
+          </button>
         </div>
       </div>
-
-      <div class="context-menu-divider"></div>
-
-      <!-- Move to Workspace -->
-      <div class="context-menu-section">
-        <span class="context-section-label">Move to Workspace</span>
-        <div
-          class="context-menu-item workspace-item"
-          :class="{ active: node?.workspace_id === null }"
-          @click="moveToWorkspace('people')"
-        >
-          People
-        </div>
-        <div
-          v-for="ws in workspaces"
-          :key="ws.id"
-          class="context-menu-item workspace-item"
-          :class="{ active: node?.workspace_id === ws.id }"
-          @click="moveToWorkspace(ws.id)"
-        >
-          {{ ws.name }}
-        </div>
-      </div>
-
-      <div class="context-menu-divider"></div>
-
-      <!-- Danger zone -->
-      <div class="context-menu-item danger" @click="deleteNode">
-        <span class="context-icon">x</span>
-        Delete
-      </div>
-    </div>
-    <div v-if="visible" class="context-menu-backdrop" @click="close" @contextmenu="close"></div>
+    </Transition>
+    <Transition name="backdrop">
+      <div v-if="visible" class="menu-backdrop" @click="close" @contextmenu.prevent="close"></div>
+    </Transition>
   </Teleport>
 </template>
 
 <style scoped>
-.node-context-menu {
+/* Menu container */
+.context-menu {
   position: fixed;
-  background: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 8px;
-  padding: 8px 0;
-  min-width: 200px;
-  max-width: 280px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   z-index: 10000;
+  min-width: 240px;
+  max-width: 320px;
+  padding: 6px;
+  background: rgba(12, 12, 12, 0.95);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 8px 40px rgba(0, 0, 0, 0.6),
+    0 0 80px rgba(0, 0, 0, 0.4);
   font-size: 13px;
+  transform-origin: top left;
 }
 
-.context-menu-backdrop {
+/* Subtle inner glow */
+.context-menu::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    transparent 50%,
+    transparent 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Backdrop */
+.menu-backdrop {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 9999;
+  background: rgba(0, 0, 0, 0.2);
 }
 
-.context-menu-header {
-  padding: 8px 12px;
-  border-bottom: 1px solid #333;
-  margin-bottom: 4px;
+/* Header */
+.menu-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.context-menu-type {
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: #333;
-  color: #888;
+.menu-type-badge {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 3px 7px;
+  border-radius: 5px;
   text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
 }
 
-.context-menu-type.project { background: var(--type-project-bg); color: var(--type-project-text); }
-.context-menu-type.task { background: var(--type-task-bg); color: var(--type-task-text); }
-.context-menu-type.note { background: var(--type-note-bg); color: var(--type-note-text); }
-.context-menu-type.milestone { background: var(--type-milestone-bg); color: var(--type-milestone-text); }
-.context-menu-type.group { background: var(--type-group-bg); color: var(--type-group-text); }
-.context-menu-type.person { background: var(--type-person-bg); color: var(--type-person-text); }
-.context-menu-type.event { background: var(--type-event-bg); color: var(--type-event-text); }
-.context-menu-type.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
-.context-menu-type.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
-.context-menu-type.component { background: var(--type-component-bg); color: var(--type-component-text); }
+.menu-type-badge.project { background: var(--type-project-bg); color: var(--type-project-text); }
+.menu-type-badge.task { background: var(--type-task-bg); color: var(--type-task-text); }
+.menu-type-badge.note { background: var(--type-note-bg); color: var(--type-note-text); }
+.menu-type-badge.milestone { background: var(--type-milestone-bg); color: var(--type-milestone-text); }
+.menu-type-badge.group { background: var(--type-group-bg); color: var(--type-group-text); }
+.menu-type-badge.person { background: var(--type-person-bg); color: var(--type-person-text); }
+.menu-type-badge.event { background: var(--type-event-bg); color: var(--type-event-text); }
+.menu-type-badge.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
+.menu-type-badge.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
+.menu-type-badge.component { background: var(--type-component-bg); color: var(--type-component-text); }
 
-.context-menu-title {
+.menu-title {
   flex: 1;
+  font-weight: 500;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #fff;
-  font-weight: 500;
 }
 
-.context-menu-item {
+/* Menu groups */
+.menu-group {
+  padding: 2px 0;
+}
+
+/* Menu items */
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
   padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-family: inherit;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #ccc;
+  transition: all 0.15s ease;
+  position: relative;
 }
 
-.context-menu-item:hover {
-  background: #2a2a2a;
-  color: #fff;
+.menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
 }
 
-.context-menu-item.danger {
-  color: #ef4444;
+.menu-item:hover .menu-icon {
+  color: var(--accent-color);
+  transform: scale(1.1);
 }
 
-.context-menu-item.danger:hover {
-  background: #ef4444;
-  color: white;
+.menu-item:active {
+  background: rgba(255, 255, 255, 0.12);
+  transform: scale(0.98);
 }
 
-.context-menu-item.workspace-item {
-  padding-left: 24px;
-  font-size: 12px;
-}
-
-.context-menu-item.workspace-item.active {
-  color: #3b82f6;
-  font-weight: 600;
-}
-
-.context-icon {
+/* Icons */
+.menu-icon {
   width: 16px;
-  text-align: center;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.context-icon svg {
+  height: 16px;
   flex-shrink: 0;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: all 0.2s var(--ease-out-expo);
 }
 
-.context-menu-divider {
+.menu-icon.completed {
+  color: var(--success-color);
+}
+
+.menu-icon.starred {
+  color: var(--warning-color);
+}
+
+/* Keyboard shortcuts */
+.menu-shortcut {
+  margin-left: auto;
+  font-size: 10px;
+  font-family: inherit;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-tertiary);
+  border: none;
+}
+
+/* Divider */
+.menu-divider {
   height: 1px;
-  background: #333;
-  margin: 4px 0;
+  margin: 4px 8px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.08) 20%,
+    rgba(255, 255, 255, 0.08) 80%,
+    transparent
+  );
 }
 
-.context-menu-section {
+/* Sections */
+.menu-section {
   padding: 4px 0;
 }
 
-.context-section-label {
-  display: block;
-  padding: 4px 12px;
-  font-size: 10px;
-  color: #666;
-  text-transform: uppercase;
-}
-
-.context-menu-link {
-  padding: 6px 12px;
+.section-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #aaa;
+  padding: 6px 12px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
 }
 
-.context-menu-link:hover {
-  background: #2a2a2a;
+.section-icon {
+  width: 12px;
+  height: 12px;
+  opacity: 0.6;
 }
 
-.link-avatar {
-  width: 20px;
-  height: 20px;
+.section-count {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 10px;
+}
+
+/* Linked items */
+.linked-list {
+  padding: 2px 6px;
+}
+
+.linked-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+}
+
+.linked-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.linked-avatar {
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 9px;
-  color: white;
   font-weight: 600;
+  color: white;
+  flex-shrink: 0;
 }
 
-.link-type-icon {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
+.linked-type {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 10px;
-  background: #333;
-  color: #888;
+  font-weight: 600;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-tertiary);
 }
 
-.link-title {
+.linked-type.project { background: var(--type-project-bg); color: var(--type-project-text); }
+.linked-type.task { background: var(--type-task-bg); color: var(--type-task-text); }
+.linked-type.note { background: var(--type-note-bg); color: var(--type-note-text); }
+.linked-type.milestone { background: var(--type-milestone-bg); color: var(--type-milestone-text); }
+.linked-type.event { background: var(--type-event-bg); color: var(--type-event-text); }
+.linked-type.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
+.linked-type.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
+.linked-type.component { background: var(--type-component-bg); color: var(--type-component-text); }
+
+.linked-title {
   flex: 1;
+  font-size: 12px;
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
 }
 
 .unlink-btn {
-  background: transparent;
+  width: 20px;
+  height: 20px;
+  padding: 0;
   border: none;
-  color: #666;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-tertiary);
   cursor: pointer;
-  padding: 2px 6px;
-  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.15s ease;
+}
+
+.linked-item:hover .unlink-btn {
+  opacity: 1;
 }
 
 .unlink-btn:hover {
-  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--error-color);
+}
+
+.unlink-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Workspace list */
+.workspace-list {
+  padding: 2px 6px;
+}
+
+.workspace-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.workspace-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
+
+.workspace-item.active {
+  background: var(--accent-subtle);
+  color: var(--accent-color);
+}
+
+.workspace-item.active .workspace-icon {
+  color: var(--accent-color);
+}
+
+.workspace-icon {
+  width: 14px;
+  height: 14px;
+  opacity: 0.6;
+}
+
+/* Danger items */
+.menu-item.danger {
+  color: var(--error-color);
+}
+
+.menu-item.danger:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--error-color);
+}
+
+.menu-item.danger:hover .menu-icon {
+  color: var(--error-color);
+}
+
+/* Entrance/exit animations */
+.menu-enter-active {
+  animation: menu-in 0.2s var(--ease-out-expo);
+}
+
+.menu-leave-active {
+  animation: menu-out 0.15s ease-in forwards;
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes menu-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+.backdrop-enter-active {
+  animation: backdrop-in 0.2s ease;
+}
+
+.backdrop-leave-active {
+  animation: backdrop-out 0.15s ease forwards;
+}
+
+@keyframes backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .menu-enter-active,
+  .menu-leave-active,
+  .backdrop-enter-active,
+  .backdrop-leave-active {
+    animation: none;
+  }
+
+  .menu-item,
+  .menu-icon {
+    transition: none;
+  }
 }
 </style>

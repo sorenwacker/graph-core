@@ -2872,80 +2872,31 @@ onUnmounted(() => {
                   @save="saveInlineNotes"
                   @cancel="cancelInlineNotes"
                 />
-                <!-- Grandchildren - row layout for better title readability -->
+                <!-- Grandchildren - compact single-line list -->
                 <div
                   v-if="child.children?.length && (cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg')"
-                  class="grandchild-row"
+                  class="grandchild-list"
                   @click.stop
                 >
                   <div
                     v-for="grandchild in child.children"
                     :key="grandchild.id"
-                    class="grandchild-card"
-                    :class="[grandchild.type, { selected: isCardSelected(grandchild.id), completed: grandchild.completed }, getCardDropClass(grandchild)]"
-                    :style="getNodeColor(grandchild) ? { background: `linear-gradient(135deg, ${getNodeColor(grandchild)}33 0%, var(--bg-primary) 80%)` } : {}"
-                    :draggable="editingCardId !== grandchild.id && inlineNotesId !== grandchild.id"
-                    @click.stop="handleChildCardClick($event, grandchild)"
+                    class="grandchild-item"
+                    :class="[grandchild.type, { selected: isCardSelected(grandchild.id), completed: grandchild.completed }]"
+                    @click.stop="selectNode(grandchild)"
                     @dblclick.stop="enterContainer(grandchild)"
-                    @dragstart.stop="onCardDragStart($event, grandchild)"
-                    @dragend="onCardDragEnd"
-                    @dragover.stop="onCardDragOver($event, grandchild)"
-                    @dragleave="onCardDragLeave"
-                    @drop.stop="onCardDrop($event, grandchild)"
-                    @mouseenter="showCardTooltip($event, grandchild)"
-                    @mouseleave="hideCardTooltip"
                     @contextmenu.prevent="showContextMenu($event, grandchild)"
                   >
-                    <div class="grandchild-header">
-                      <input
-                        v-if="grandchild.type === 'task'"
-                        type="checkbox"
-                        class="grandchild-checkbox"
-                        :checked="grandchild.completed"
-                        @click.stop
-                        @change.stop="toggleComplete(grandchild)"
-                      />
-                      <CardTitleEdit
-                        :title="grandchild.title"
-                        v-model="editingTitle"
-                        :is-editing="editingCardId === grandchild.id"
-                        :completed="grandchild.completed"
-                        size="grandchild"
-                        @start-edit="startEditing(grandchild, $event)"
-                        @save="saveEditing"
-                        @cancel="cancelEditing"
-                      />
-                      <!-- Notes indicator for grandchild -->
-                      <span v-if="isSensitiveNode(grandchild)" class="grandchild-notes-indicator lock">&#128274;</span>
-                      <span v-else-if="hasNotes(grandchild)" class="grandchild-notes-indicator has-notes" @click.stop="startInlineNotes(grandchild, $event)">&#128221;</span>
-                      <button class="grandchild-delete-btn" @click.stop="deleteNode(grandchild.id)" title="Delete">×</button>
-                    </div>
-                    <!-- Great-grandchildren - only for xl cards -->
-                    <div
-                      v-if="grandchild.children?.length && cardSizeClass === 'card-xl'"
-                      class="great-grandchild-row"
-                    >
-                      <div
-                        v-for="ggchild in grandchild.children"
-                        :key="ggchild.id"
-                        class="great-grandchild-item"
-                        :class="[ggchild.type, { completed: ggchild.completed }]"
-                        @click.stop="selectNode(ggchild)"
-                        @dblclick.stop="enterContainer(ggchild)"
-                        @contextmenu.prevent="showContextMenu($event, ggchild)"
-                      >
-                        <input
-                          v-if="ggchild.type === 'task'"
-                          type="checkbox"
-                          class="great-grandchild-checkbox"
-                          :checked="ggchild.completed"
-                          @click.stop
-                          @change.stop="toggleComplete(ggchild)"
-                        />
-                        <span class="great-grandchild-title" :class="{ completed: ggchild.completed }">{{ ggchild.title }}</span>
-                        <button class="great-grandchild-delete-btn" @click.stop="deleteNode(ggchild.id)" title="Delete">×</button>
-                      </div>
-                    </div>
+                    <input
+                      v-if="grandchild.type === 'task'"
+                      type="checkbox"
+                      class="grandchild-check"
+                      :checked="grandchild.completed"
+                      @click.stop
+                      @change.stop="toggleComplete(grandchild)"
+                    />
+                    <span class="grandchild-title" :class="{ completed: grandchild.completed }">{{ grandchild.title }}</span>
+                    <span v-if="grandchild.children?.length" class="grandchild-count">{{ grandchild.children.length }}</span>
                   </div>
                 </div>
               </div>

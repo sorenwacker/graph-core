@@ -906,7 +906,8 @@ input[type="checkbox"] {
 
 /* Hide grandchild rows when container is narrow (single column mode) */
 @container (max-width: 400px) {
-  .grandchild-row {
+  .grandchild-row,
+  .grandchild-list {
     display: none;
   }
 }
@@ -938,7 +939,8 @@ input[type="checkbox"] {
 }
 
 .node-card-children-grid.compact .child-card-notes-area,
-.node-card-children-grid.compact .grandchild-row {
+.node-card-children-grid.compact .grandchild-row,
+.node-card-children-grid.compact .grandchild-list {
   display: none;
 }
 
@@ -1107,6 +1109,102 @@ input[type="checkbox"] {
 }
 
 /* Row layout for grandchildren - better horizontal space for titles */
+/* Grandchild list - compact single-line items */
+.grandchild-list {
+  margin-top: 8px;
+  padding: 4px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.grandchild-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.12s ease;
+  position: relative;
+}
+
+.grandchild-item::before {
+  content: '';
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.4;
+  flex-shrink: 0;
+}
+
+/* Type-colored bullets */
+.grandchild-item.project::before { background: var(--type-project-text); opacity: 0.8; }
+.grandchild-item.task::before { background: var(--type-task-text); opacity: 0.8; }
+.grandchild-item.note::before { background: var(--type-note-text); opacity: 0.8; }
+.grandchild-item.milestone::before { background: var(--type-milestone-text); opacity: 0.8; }
+.grandchild-item.person::before { background: var(--type-person-text); opacity: 0.8; }
+.grandchild-item.event::before { background: var(--type-event-text); opacity: 0.8; }
+.grandchild-item.topic::before { background: var(--type-topic-text); opacity: 0.8; }
+.grandchild-item.organization::before { background: var(--type-organization-text); opacity: 0.8; }
+.grandchild-item.group::before { background: var(--type-group-text); opacity: 0.8; }
+.grandchild-item.component::before { background: var(--type-component-text); opacity: 0.8; }
+
+/* Task checkbox replaces bullet */
+.grandchild-item.task::before {
+  display: none;
+}
+
+.grandchild-check {
+  width: 11px;
+  height: 11px;
+  margin: 0;
+  accent-color: var(--type-task-text);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.grandchild-title {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.grandchild-title.completed {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.grandchild-count {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.grandchild-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+}
+
+.grandchild-item.selected {
+  background: var(--accent-subtle);
+  color: var(--accent-color);
+}
+
+.grandchild-item.completed {
+  opacity: 0.6;
+}
+
+/* Legacy support - keep old class for backwards compat */
 .grandchild-row {
   margin-top: 6px;
   background: rgba(0, 0, 0, 0.2);
