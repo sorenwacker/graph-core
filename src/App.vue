@@ -899,12 +899,6 @@ async function enterContainer(node, { skipHistory = false, direction = 'forward'
   // Handle both node objects and node IDs
   const nodeId = typeof node === 'object' ? node?.id : node
 
-  // For notes with no children, open fullscreen detail view instead of navigating
-  if (typeof node === 'object' && node.type === 'note' && !node.children?.length) {
-    selectNode(node, { fullscreen: true })
-    return
-  }
-
   // Push current location to history before navigating (unless skipping)
   if (!skipHistory && currentContainerId.value !== nodeId) {
     navigationHistory.value.push(currentContainerId.value)
