@@ -389,7 +389,7 @@ const {
   isSelected: isNodeSelected,
   clearSelection: _clearSelection,
   hoverSelectNode,
-  selectNode,
+  selectNode: _selectNode,
   cancelDetailOpen,
   handleMultiSelect,
   updateSelectedNode: _updateSelectedNode,
@@ -400,6 +400,15 @@ const {
   openDetailFullscreen,
   flatChildren
 })
+
+// Wrap selectNode to respect pin state - don't deselect when pinned
+function selectNode(node, options = {}) {
+  // If trying to deselect (node is null) but detail is pinned, ignore
+  if (!node && detailPinned.value) {
+    return
+  }
+  _selectNode(node, options)
+}
 
 // Close detail panel when node is deselected (if not pinned)
 watch(selectedNode, (node) => {

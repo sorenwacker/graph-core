@@ -293,4 +293,75 @@ describe('useSelection composable', () => {
       expect(sel.selectedNode.value.id).toBe(1)
     })
   })
+
+  describe('pin-protected selection (App.vue pattern)', () => {
+    // Tests the wrapper pattern used in App.vue to prevent deselection when pinned
+    let detailPinned
+    let sel
+    let wrappedSelectNode
+
+    beforeEach(() => {
+      detailPinned = ref(false)
+      sel = useSelection({
+        showDetail: ref(false),
+        fullscreenDetail: ref(false),
+        openDetailFullscreen: ref(false),
+        flatChildren: computed(() => [])
+      })
+
+      // Recreate the wrapper pattern used in App.vue
+      wrappedSelectNode = (node, options = {}) => {
+        if (!node && detailPinned.value) {
+          return
+        }
+        sel.selectNode(node, options)
+      }
+    })
+
+    it('should allow deselection when not pinned', () => {
+      const node = { id: 1, title: 'Test Node' }
+      wrappedSelectNode(node)
+      expect(sel.selectedNode.value).toEqual(node)
+
+      wrappedSelectNode(null)
+      expect(sel.selectedNode.value).toBeNull()
+    })
+
+    it('should prevent deselection when pinned', () => {
+      const node = { id: 1, title: 'Test Node' }
+      wrappedSelectNode(node)
+      expect(sel.selectedNode.value).toEqual(node)
+
+      detailPinned.value = true
+      wrappedSelectNode(null)
+
+      // Selection should remain because detail is pinned
+      expect(sel.selectedNode.value).toEqual(node)
+    })
+
+    it('should allow selecting a different node when pinned', () => {
+      const node1 = { id: 1, title: 'Node 1' }
+      const node2 = { id: 2, title: 'Node 2' }
+
+      wrappedSelectNode(node1)
+      detailPinned.value = true
+      wrappedSelectNode(node2)
+
+      // Selecting a new node should work even when pinned
+      expect(sel.selectedNode.value).toEqual(node2)
+    })
+
+    it('should allow deselection again after unpinning', () => {
+      const node = { id: 1, title: 'Test Node' }
+      wrappedSelectNode(node)
+      detailPinned.value = true
+
+      wrappedSelectNode(null)
+      expect(sel.selectedNode.value).toEqual(node) // Still selected
+
+      detailPinned.value = false
+      wrappedSelectNode(null)
+      expect(sel.selectedNode.value).toBeNull() // Now deselected
+    })
+  })
 })
