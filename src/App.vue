@@ -12,6 +12,7 @@ import { useSnapshots } from './composables/useSnapshots.js'
 import { useContextMenu } from './composables/useContextMenu.js'
 import { useDetailResize } from './composables/useDetailResize.js'
 import { useUndoRedo } from './composables/useUndoRedo.js'
+import { useSettings } from './composables/useSettings.js'
 import {
   MoveCommand,
   CreateCommand,
