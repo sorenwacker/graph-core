@@ -2883,6 +2883,7 @@ onUnmounted(() => {
                       @change.stop="toggleComplete(grandchild)"
                     />
                     <span class="grandchild-title" :class="{ completed: grandchild.completed }">{{ grandchild.title }}</span>
+                    <span v-if="grandchild.notes" class="grandchild-notes">{{ grandchild.notes }}</span>
                     <span v-if="grandchild.children?.length" class="grandchild-count">{{ grandchild.children.length }}</span>
                   </div>
                 </div>
@@ -3846,7 +3847,7 @@ onUnmounted(() => {
 
 .child-card.child-sm {
   padding: 3px 6px;
-  min-height: auto;
+  min-height: 24px;
 }
 
 .child-card.child-sm .child-card-title {

@@ -1187,6 +1187,17 @@ input[type="checkbox"] {
   flex-shrink: 0;
 }
 
+.grandchild-notes {
+  font-size: 8px;
+  color: var(--text-tertiary);
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+  flex-shrink: 1;
+}
+
 .grandchild-item:hover {
   background: rgba(255, 255, 255, 0.03);
   color: var(--text-secondary);
