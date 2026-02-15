@@ -31,6 +31,7 @@ import {
 } from './commands/index.js'
 import { nodeTypes, getImportanceLabel, getTypeIcon, typeConfig } from './utils/constants.js'
 import { decodeHtmlEntities as decodeHtml } from './utils/html.js'
+import { pickNodeFields } from './utils/nodeFields.js'
 import { MAX_HISTORY_SIZE, SIDEBAR_HIDE_DELAY_MS } from './utils/uiConstants.js'
 import DetailPanel from './components/DetailPanel.vue'
 import GraphView from './components/GraphView.vue'
@@ -42,22 +43,6 @@ import NodeContextMenu from './components/NodeContextMenu.vue'
 import CardTitleEdit from './components/CardTitleEdit.vue'
 import CardNotes from './components/CardNotes.vue'
 import AddNodeModal from './components/AddNodeModal.vue'
-
-// Node update field list - used for building old/new value objects
-const NODE_UPDATE_FIELDS = [
-  'title', 'type', 'notes', 'notes_sensitive', 'completed', 'favorite',
-  'due_date', 'start_date', 'end_date', 'color', 'importance',
-  'location', 'email', 'phone', 'organization', 'role', 'website'
-]
-
-// Extract specified fields from a node object
-function pickNodeFields(node, fields = NODE_UPDATE_FIELDS) {
-  const result = {}
-  for (const field of fields) {
-    result[field] = node[field]
-  }
-  return result
-}
 
 // Click-outside directive
 const vClickOutside = {
