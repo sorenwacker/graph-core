@@ -11,6 +11,18 @@ import { useInlineEdit } from './composables/useInlineEdit.js'
 import { useSnapshots } from './composables/useSnapshots.js'
 import { useContextMenu } from './composables/useContextMenu.js'
 import { useDetailResize } from './composables/useDetailResize.js'
+import { useUndoRedo } from './composables/useUndoRedo.js'
+import {
+  MoveCommand,
+  CreateCommand,
+  DeleteCommand,
+  DeleteMultipleCommand,
+  EditCommand,
+  ReorderCommand,
+  CompleteCommand,
+  LinkCommand,
+  UnlinkCommand
+} from './commands/index.js'
 import { nodeTypes, getImportanceLabel, getTypeIcon, getTypeColors, typeConfig, personIconSvg } from './utils/constants.js'
 import DetailPanel from './components/DetailPanel.vue'
 import GraphView from './components/GraphView.vue'
@@ -404,105 +416,22 @@ const addNodeModal = ref({
 const searchMode = ref('normal') // 'normal' or 'link'
 const linkSourceNodeId = ref(null)
 
-// Global undo/redo stacks
-const undoStack = ref([])
-const redoStack = ref([])
-
-function pushUndo(action) {
-  undoStack.value.push(action)
-  redoStack.value = []
-  if (undoStack.value.length > 50) {
-    undoStack.value.shift()
-  }
-}
-
-async function undo() {
-  if (undoStack.value.length === 0) return
-  const action = undoStack.value.pop()
-  try {
-    if (action.type === 'move') {
-      await api.moveNode(action.nodeId, action.oldParentId)
-    } else if (action.type === 'create') {
-      // Remove link if it was a person/org that was linked
-      if (action.linkedToId) {
-        await api.unlinkNodes(action.nodeId, action.linkedToId)
-      }
-      await api.deleteNode(action.nodeId, true)  // Hard delete since it was just created
-    } else if (action.type === 'delete') {
-      const restored = await api.restoreNode(action.nodeData.id)
-      // Restore original parent if it was changed
-      if (restored && action.nodeData.parent_id !== restored.parent_id) {
-        await api.updateNode(action.nodeData.id, { parent_id: action.nodeData.parent_id })
-      }
-    } else if (action.type === 'delete-multiple') {
-      // Restore all deleted nodes
-      for (const node of action.nodes) {
-        const restored = await api.restoreNode(node.id)
-        if (restored && node.parent_id !== restored.parent_id) {
-          await api.updateNode(node.id, { parent_id: node.parent_id })
-        }
-      }
-    } else if (action.type === 'edit') {
-      await api.updateNode(action.nodeId, action.oldValues)
-    } else if (action.type === 'reorder') {
-      await api.reorderNode(action.nodeId, action.oldTargetId, action.oldPosition)
-    } else if (action.type === 'complete') {
-      await api.updateNode(action.nodeId, { completed: action.oldCompleted })
-    } else if (action.type === 'link') {
-      // Undo link by unlinking
-      await api.unlinkNodes(action.sourceId, action.targetId)
-    } else if (action.type === 'unlink') {
-      // Undo unlink by re-linking
-      await api.linkNodes(action.sourceId, action.targetId)
-    }
-    // Push same action to redo stack (redo will re-apply the original action)
-    redoStack.value.push(action)
+// Undo/redo using Command pattern
+const {
+  undoStack,
+  redoStack,
+  canUndo,
+  canRedo,
+  pushCommand,
+  undo,
+  redo
+} = useUndoRedo({
+  api,
+  onSuccess: async () => {
     await loadChildren(currentContainerId.value, { silent: true })
     await loadSidebarTree()
-  } catch (e) {
-    console.error('Undo failed:', e, action)
-    undoStack.value.push(action)
   }
-}
-
-async function redo() {
-  if (redoStack.value.length === 0) return
-  const action = redoStack.value.pop()
-  try {
-    if (action.type === 'move') {
-      await api.moveNode(action.nodeId, action.newParentId)
-    } else if (action.type === 'create') {
-      const created = await api.createNode({ ...action.nodeData, parent_id: action.parentId })
-      action.nodeId = created.id  // Update nodeId in case it changed
-    } else if (action.type === 'delete') {
-      await api.deleteNode(action.nodeData.id, false)
-    } else if (action.type === 'delete-multiple') {
-      // Delete all nodes again
-      for (const node of action.nodes) {
-        await api.deleteNode(node.id, false)
-      }
-    } else if (action.type === 'edit') {
-      await api.updateNode(action.nodeId, action.newValues)
-    } else if (action.type === 'reorder') {
-      await api.reorderNode(action.nodeId, action.newTargetId, action.newPosition)
-    } else if (action.type === 'complete') {
-      await api.updateNode(action.nodeId, { completed: action.newCompleted })
-    } else if (action.type === 'link') {
-      // Redo link by re-linking
-      await api.linkNodes(action.sourceId, action.targetId)
-    } else if (action.type === 'unlink') {
-      // Redo unlink by unlinking
-      await api.unlinkNodes(action.sourceId, action.targetId)
-    }
-    // Push same action back to undo stack
-    undoStack.value.push(action)
-    await loadChildren(currentContainerId.value, { silent: true })
-    await loadSidebarTree()
-  } catch (e) {
-    console.error('Redo failed:', e)
-    redoStack.value.push(action)
-  }
-}
+})
 const selectedResultIndex = ref(0)
 
 // Cards drag state - using composable
@@ -1254,14 +1183,13 @@ async function handleReorder({ nodeId, targetId, position }) {
     await api.reorderNode(nodeId, targetId, position)
 
     if (oldTargetId) {
-      pushUndo({
-        type: 'reorder',
+      pushCommand(new ReorderCommand({
         nodeId,
         oldTargetId,
         oldPosition,
         newTargetId: targetId,
         newPosition: position
-      })
+      }))
     }
 
     await loadChildren(currentContainerId.value)
@@ -1292,7 +1220,7 @@ async function createNode() {
     if (!created || !created.id) {
       throw new Error('Failed to create node')
     }
-    pushUndo({ type: 'create', nodeId: created.id, nodeData, parentId: targetParentId })
+    pushCommand(new CreateCommand({ nodeId: created.id, nodeData, parentId: targetParentId }))
 
     // If adding child via card button, expand parent and reload
     if (addChildParentId.value) {
@@ -1323,7 +1251,7 @@ async function addChildNode({ parentId, title, type, x, y }) {
     if (!newNode || !newNode.id) {
       throw new Error('Failed to create child node - no result returned')
     }
-    pushUndo({ type: 'create', nodeId: newNode.id, nodeData, parentId })
+    pushCommand(new CreateCommand({ nodeId: newNode.id, nodeData, parentId }))
     // Save position if provided (from graph double-click)
     if (x !== undefined && y !== undefined) {
       const viewId = currentContainerId.value || 'root'
@@ -1373,12 +1301,7 @@ async function moveNode({ nodeId, oldParentId, newParentId }) {
   try {
     // Track for undo (only if oldParentId provided - not from undo/redo)
     if (oldParentId !== undefined) {
-      pushUndo({
-        type: 'move',
-        nodeId,
-        oldParentId,
-        newParentId
-      })
+      pushCommand(new MoveCommand({ nodeId, oldParentId, newParentId }))
     }
     await api.moveNode(nodeId, newParentId)
     if (newParentId) expandedIds.value.add(newParentId)
@@ -1395,7 +1318,7 @@ async function moveNode({ nodeId, oldParentId, newParentId }) {
 async function linkNodesFromGraph({ sourceId, targetId }) {
   try {
     await api.linkNodes(sourceId, targetId)
-    pushUndo({ type: 'link', sourceId, targetId })
+    pushCommand(new LinkCommand({ sourceId, targetId }))
     await refreshGraphAfterStructureChange()
     // Refresh detail panel if showing one of these nodes
     if (selectedNode.value?.id === sourceId || selectedNode.value?.id === targetId) {
@@ -1415,7 +1338,7 @@ async function linkNodesFromGraph({ sourceId, targetId }) {
 async function unlinkNodesFromGraph({ sourceId, targetId }) {
   try {
     await api.unlinkNodes(sourceId, targetId)
-    pushUndo({ type: 'unlink', sourceId, targetId })
+    pushCommand(new UnlinkCommand({ sourceId, targetId }))
     // Use same refresh as links
     await refreshGraphAfterStructureChange()
     // Refresh detail panel if showing one of these nodes
@@ -1569,7 +1492,7 @@ async function updateNode(updatedNode, trackUndo = true) {
         role: oldNode.role,
         website: oldNode.website
       }
-      pushUndo({ type: 'edit', nodeId: updatedNode.id, oldValues, newValues })
+      pushCommand(new EditCommand({ nodeId: updatedNode.id, oldValues, newValues }))
     }
     // Use silent mode to avoid triggering full re-render
     await loadChildren(currentContainerId.value, { silent: true })
@@ -1613,9 +1536,9 @@ async function deleteNode(nodeId) {
 
     // Push undo with all deleted nodes
     if (allNodesToDelete.length > 1) {
-      pushUndo({ type: 'delete-multiple', nodes: allNodesToDelete })
+      pushCommand(new DeleteMultipleCommand({ nodes: allNodesToDelete }))
     } else {
-      pushUndo({ type: 'delete', nodeData: node, parentId: node.parent_id })
+      pushCommand(new DeleteCommand({ nodeData: node }))
     }
 
     showDetail.value = false
@@ -1671,7 +1594,7 @@ async function deleteMultipleNodes(nodeIds) {
 
     // Push single undo action for all deletions
     if (deletedNodes.length > 0) {
-      pushUndo({ type: 'delete-multiple', nodes: deletedNodes })
+      pushCommand(new DeleteMultipleCommand({ nodes: deletedNodes }))
     }
 
     showDetail.value = false
@@ -1755,7 +1678,7 @@ async function toggleComplete(node) {
     }
 
     await api.updateNode(node.id, updates)
-    pushUndo({ type: 'complete', nodeId: node.id, oldCompleted, newCompleted })
+    pushCommand(new CompleteCommand({ nodeId: node.id, oldCompleted, newCompleted }))
     await loadChildren(currentContainerId.value)
     tasksViewRef.value?.loadTasks()
   } catch (e) {
@@ -1930,7 +1853,7 @@ async function goToSearchResult(node) {
     closeSearch()
     try {
       await api.linkNodes(sourceId, node.id)
-      pushUndo({ type: 'link', sourceId, targetId: node.id })
+      pushCommand(new LinkCommand({ sourceId, targetId: node.id }))
       // Refresh graph to show new link (without relayout)
       await refreshGraphAfterStructureChange()
       // Refresh the selected node to update links
@@ -2384,7 +2307,7 @@ async function deleteSelectedNodes() {
 
   // Push single undo action for all deletions
   if (deletedNodes.length > 0) {
-    pushUndo({ type: 'delete-multiple', nodes: deletedNodes })
+    pushCommand(new DeleteMultipleCommand({ nodes: deletedNodes }))
   }
 
   selectedIds.value = new Set()
