@@ -142,7 +142,7 @@ const {
   relaxLocked,
   fitLocked,
   showExternalLinks,
-  showRootNode,
+  showRootNode: _showRootNode,
   visibleTypes,
   radialSettings,
   toggleTypeVisibility: _toggleTypeVisibility,
@@ -151,6 +151,13 @@ const {
 
 // Use container's saved layout if available, otherwise use global default from composable
 const layoutMode = ref(props.parent?.graph_layout || _layoutMode.value)
+
+// Use container's saved show_root_node if available (1/0/null), otherwise use global default
+const showRootNode = ref(
+  props.parent?.show_root_node !== null && props.parent?.show_root_node !== undefined
+    ? Boolean(props.parent.show_root_node)
+    : _showRootNode.value
+)
 
 // Local UI state (not persisted)
 const showTypeFilter = ref(false)
@@ -229,16 +236,41 @@ watch(layoutMode, (mode) => {
   }
 })
 
-// Load container's layout when navigating to a different container
-watch(() => props.parent?.id, (newId) => {
+// Sync showRootNode to composable and save to container
+watch(showRootNode, (visible) => {
+  // Sync to composable (which handles localStorage)
+  _showRootNode.value = visible
+  // Also save to container if inside one (fire and forget)
+  if (props.parent?.id) {
+    api.updateNode(props.parent.id, { show_root_node: visible ? 1 : 0 }).catch(() => {})
+  }
+})
+
+// Load container's settings when navigating to a different container
+watch(() => props.parent?.id, (newId, oldId) => {
+  // Skip if this is the initial mount and we already initialized correctly
+  const expectedLayout = props.parent?.graph_layout || _layoutMode.value
+  const expectedShowRoot = props.parent?.show_root_node !== null && props.parent?.show_root_node !== undefined
+    ? Boolean(props.parent.show_root_node)
+    : _showRootNode.value
+  if (oldId === undefined && layoutMode.value === expectedLayout && showRootNode.value === expectedShowRoot) {
+    lastKnownParentId = newId
+    return
+  }
   if (newId !== lastKnownParentId) {
     lastKnownParentId = newId
     // Load the new container's layout preference
     const containerLayout = props.parent?.graph_layout
     const fallback = localStorage.getItem('graph-layout-mode') || 'tree'
     layoutMode.value = containerLayout || fallback
+    // Load the new container's show_root_node preference
+    if (props.parent?.show_root_node !== null && props.parent?.show_root_node !== undefined) {
+      showRootNode.value = Boolean(props.parent.show_root_node)
+    } else {
+      showRootNode.value = _showRootNode.value
+    }
   }
-})
+}, { immediate: true })
 
 // Note: Persistence for relaxLocked and fitLocked handled by useGraphSettings composable
 
