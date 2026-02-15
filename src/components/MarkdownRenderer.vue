@@ -2,6 +2,7 @@
 import { ref, watch, onMounted, nextTick } from 'vue'
 import { marked } from 'marked'
 import mermaid from 'mermaid'
+import { decodeHtmlEntities } from '../utils/html.js'
 
 const props = defineProps({
   content: { type: String, default: '' }
@@ -29,20 +30,6 @@ mermaid.initialize({
     tertiaryColor: '#1a1a2e'
   }
 })
-
-// Decode HTML entities before rendering
-function decodeHtmlEntities(text) {
-  if (!text) return ''
-  return text
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&#x27;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&#34;/g, '"')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-}
 
 async function renderContent() {
   if (!props.content) {

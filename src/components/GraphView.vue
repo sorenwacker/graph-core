@@ -5,6 +5,7 @@ import { buildTooltipHTML } from '../utils/tooltip.js'
 import { useNodeTooltip } from '../composables/useNodeTooltip.js'
 import { useGraphSettings, ALL_NODE_TYPES } from '../composables/useGraphSettings.js'
 import { nodeTypes, typeConfig, getGraphColors } from '../utils/constants.js'
+import { decodeHtmlEntities } from '../utils/html.js'
 import cytoscape from 'cytoscape'
 import coseBilkent from 'cytoscape-cose-bilkent'
 import cola from 'cytoscape-cola'
@@ -617,21 +618,6 @@ function getContrastColor(hexColor) {
   // Calculate relative luminance (use lower threshold for better contrast)
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
   return luminance > 0.4 ? '#000000' : '#ffffff'
-}
-
-// Decode HTML entities for plain text display
-function decodeHtmlEntities(text) {
-  if (!text) return ''
-  return text
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&#x27;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&#34;/g, '"')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&nbsp;/g, ' ')
 }
 
 // Strip markdown and clean up text for display

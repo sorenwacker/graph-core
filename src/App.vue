@@ -30,6 +30,7 @@ import {
   UnlinkCommand
 } from './commands/index.js'
 import { nodeTypes, getImportanceLabel, getTypeIcon, typeConfig } from './utils/constants.js'
+import { decodeHtmlEntities as decodeHtml } from './utils/html.js'
 import { MAX_HISTORY_SIZE, SIDEBAR_HIDE_DELAY_MS } from './utils/uiConstants.js'
 import DetailPanel from './components/DetailPanel.vue'
 import GraphView from './components/GraphView.vue'
@@ -41,6 +42,22 @@ import NodeContextMenu from './components/NodeContextMenu.vue'
 import CardTitleEdit from './components/CardTitleEdit.vue'
 import CardNotes from './components/CardNotes.vue'
 import AddNodeModal from './components/AddNodeModal.vue'
+
+// Node update field list - used for building old/new value objects
+const NODE_UPDATE_FIELDS = [
+  'title', 'type', 'notes', 'notes_sensitive', 'completed', 'favorite',
+  'due_date', 'start_date', 'end_date', 'color', 'importance',
+  'location', 'email', 'phone', 'organization', 'role', 'website'
+]
+
+// Extract specified fields from a node object
+function pickNodeFields(node, fields = NODE_UPDATE_FIELDS) {
+  const result = {}
+  for (const field of fields) {
+    result[field] = node[field]
+  }
+  return result
+}
 
 // Click-outside directive
 const vClickOutside = {
@@ -260,20 +277,6 @@ const {
     }
   }
 })
-
-// Decode HTML entities for display
-function decodeHtml(text) {
-  if (!text) return ''
-  return text
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&#x27;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&#34;/g, '"')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-}
 
 // Load trash items when switching to trash view
 // Note: Persistence is handled by useSettings composable
@@ -1326,53 +1329,16 @@ async function updateNode(updatedNode, trackUndo = true) {
     const oldNode = trackUndo ? await api.getNode(updatedNode.id) : null
 
     // Auto-set end_date when marking complete (if no end_date)
-    let endDate = updatedNode.end_date
     if (updatedNode.completed && !oldNode?.completed && !updatedNode.end_date) {
-      endDate = new Date().toISOString().split('T')[0]
+      updatedNode.end_date = new Date().toISOString().split('T')[0]
     }
 
-    const newValues = {
-      title: updatedNode.title,
-      type: updatedNode.type,
-      notes: updatedNode.notes,
-      notes_sensitive: updatedNode.notes_sensitive,
-      completed: updatedNode.completed,
-      favorite: updatedNode.favorite,
-      due_date: updatedNode.due_date,
-      start_date: updatedNode.start_date,
-      end_date: endDate,
-      color: updatedNode.color,
-      importance: updatedNode.importance,
-      location: updatedNode.location,
-      email: updatedNode.email,
-      phone: updatedNode.phone,
-      organization: updatedNode.organization,
-      role: updatedNode.role,
-      website: updatedNode.website
-    }
+    const newValues = pickNodeFields(updatedNode)
     await api.updateNode(updatedNode.id, newValues)
     // Broadcast update to detached windows
     broadcastNodeUpdate(updatedNode)
     if (trackUndo && oldNode) {
-      const oldValues = {
-        title: oldNode.title,
-        type: oldNode.type,
-        notes: oldNode.notes,
-        notes_sensitive: oldNode.notes_sensitive,
-        completed: oldNode.completed,
-        favorite: oldNode.favorite,
-        due_date: oldNode.due_date,
-        start_date: oldNode.start_date,
-        end_date: oldNode.end_date,
-        color: oldNode.color,
-        importance: oldNode.importance,
-        location: oldNode.location,
-        email: oldNode.email,
-        phone: oldNode.phone,
-        organization: oldNode.organization,
-        role: oldNode.role,
-        website: oldNode.website
-      }
+      const oldValues = pickNodeFields(oldNode)
       pushCommand(new EditCommand({ nodeId: updatedNode.id, oldValues, newValues }))
     }
     // Use silent mode to avoid triggering full re-render

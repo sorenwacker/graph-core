@@ -28,6 +28,7 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
 import { marked } from 'marked'
+import { decodeHtmlEntities } from '../utils/html.js'
 
 const props = defineProps({
   notes: { type: String, default: '' },
@@ -50,20 +51,6 @@ const sizeClass = computed(() => {
     grandchild: 'size-grandchild'
   }[props.size] || 'size-normal'
 })
-
-// Decode HTML entities before rendering
-function decodeHtmlEntities(text) {
-  if (!text) return ''
-  return text
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&#x27;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&#34;/g, '"')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-}
 
 const renderedNotes = computed(() => {
   if (!props.notes) return ''
