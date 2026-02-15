@@ -4401,12 +4401,18 @@ onUnmounted(() => {
   font-size: 14px;
 }
 
-/* Toolbar separator and icon button */
+/* Toolbar separator */
 .toolbar-separator {
   width: 1px;
-  height: 20px;
-  background: var(--border-color);
-  margin: 0 4px;
+  height: 18px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 30%,
+    rgba(255, 255, 255, 0.1) 70%,
+    transparent 100%
+  );
+  margin: 0 6px;
 }
 
 /* Workspace Selector */
@@ -4499,32 +4505,48 @@ onUnmounted(() => {
   outline: none;
 }
 
+/* View mode icon buttons */
 .icon-btn {
-  padding: 6px 8px;
+  padding: 7px 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-tertiary);
   cursor: pointer;
-  transition: all 0.15s;
-  border-radius: 4px;
+  transition: all 0.15s ease;
+  border-radius: 6px;
+  position: relative;
 }
 
 .icon-btn:hover {
-  background: var(--bg-elevated);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--text-primary);
 }
 
+.icon-btn:active {
+  transform: scale(0.95);
+}
+
+.icon-btn.primary {
+  background: var(--accent-subtle);
+  color: var(--accent-color);
+}
+
+.icon-btn.primary svg {
+  filter: drop-shadow(0 0 4px var(--accent-color));
+}
+
 .icon-btn.active {
-  background: #1a3a5a;
-  border-color: #4a9eff;
-  color: #4a9eff;
+  background: var(--accent-subtle);
+  color: var(--accent-color);
 }
 
 .icon-btn svg {
   display: block;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* Settings dropdown */
