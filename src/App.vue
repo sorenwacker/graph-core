@@ -2859,6 +2859,8 @@ onUnmounted(() => {
                   <button class="child-add-btn" @click.stop="addChildToCard(child.id, $event)" title="Add child">+</button>
                   <button class="child-delete-btn" @click.stop="deleteNode(child.id)" title="Delete">×</button>
                 </div>
+                <!-- Notes for big child cards (not sensitive) -->
+                <div v-if="child.notes && !child.notes_sensitive" class="child-card-notes">{{ decodeHtml(child.notes) }}</div>
                 <!-- Grandchildren - compact single-line list -->
                 <div
                   v-if="child.children?.length"
@@ -2883,7 +2885,7 @@ onUnmounted(() => {
                       @change.stop="toggleComplete(grandchild)"
                     />
                     <span class="grandchild-title" :class="{ completed: grandchild.completed }">{{ grandchild.title }}</span>
-                    <span v-if="grandchild.notes" class="grandchild-notes">{{ grandchild.notes }}</span>
+                    <span v-if="grandchild.notes && !grandchild.notes_sensitive" class="grandchild-notes">{{ decodeHtml(grandchild.notes) }}</span>
                     <span v-if="grandchild.children?.length" class="grandchild-count">{{ grandchild.children.length }}</span>
                   </div>
                 </div>
