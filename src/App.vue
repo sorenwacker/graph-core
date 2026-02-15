@@ -2077,7 +2077,7 @@ onMounted(async () => {
   await loadWorkspaces()
 
   // Restore last container or start at root
-  const initialContainerId = savedContainerId ? parseInt(savedContainerId, 10) : null
+  const initialContainerId = savedContainerId.value ? parseInt(savedContainerId.value, 10) : null
   try {
     await loadChildren(initialContainerId)
   } catch {
