@@ -1426,7 +1426,7 @@ async function deleteNode(nodeId) {
     // Navigate to parent if we deleted the current container or a node in the breadcrumbs
     if (needsNavigation) {
       if (node.parent_id) {
-        await navigateTo({ id: node.parent_id })
+        await enterContainer({ id: node.parent_id })
       } else {
         // Deleted a root node - go to workspace root
         currentContainerId.value = null
