@@ -182,7 +182,7 @@ onMounted(renderContent)
 }
 
 .markdown-content :deep(a) {
-  color: var(--accent-color);
+  color: #ffffff !important;
   text-decoration: none;
 }
 

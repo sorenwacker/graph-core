@@ -577,11 +577,9 @@ const cardSizeClass = computed(() => {
 // Nested card size based on parent count and nesting level
 function getNestedCardSize(parentChildCount, level) {
   if (level === 1) {
-    // Child cards
+    // Child cards - big or small only
     if (parentChildCount <= 2) return 'child-lg'
-    if (parentChildCount <= 4) return 'child-md'
-    if (parentChildCount <= 9) return 'child-sm'
-    return 'child-xs'
+    return 'child-sm'
   } else {
     // Grandchild cards - always compact
     return 'grandchild-xs'
@@ -2861,17 +2859,6 @@ onUnmounted(() => {
                   <button class="child-add-btn" @click.stop="addChildToCard(child.id, $event)" title="Add child">+</button>
                   <button class="child-delete-btn" @click.stop="deleteNode(child.id)" title="Delete">×</button>
                 </div>
-                <!-- Interactive notes for child cards -->
-                <CardNotes
-                  :notes="child.notes"
-                  v-model="inlineNotesText"
-                  :is-editing="inlineNotesId === child.id"
-                  :sensitive="isSensitiveNode(child)"
-                  size="child"
-                  @start-edit="startInlineNotes(child, $event)"
-                  @save="saveInlineNotes"
-                  @cancel="cancelInlineNotes"
-                />
                 <!-- Grandchildren - compact single-line list -->
                 <div
                   v-if="child.children?.length"
@@ -3468,14 +3455,12 @@ onUnmounted(() => {
 }
 
 .node-card-notes-area.no-children {
-  flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
 .node-card-notes-area.no-children .inline-notes-display {
-  flex: 1;
   max-height: none;
 }
 
@@ -3493,12 +3478,7 @@ onUnmounted(() => {
 }
 
 /* Notes expand when no children, even in compact mode */
-.node-card-notes-area.compact.no-children {
-  flex: 1;
-}
-
 .node-card-notes-area.compact.no-children .inline-notes-display {
-  flex: 1;
   max-height: none;
 }
 
@@ -3519,9 +3499,9 @@ onUnmounted(() => {
 .node-card.card-lg .inline-notes-display { max-height: 180px; }
 
 /* Scale notes font size with card size */
-.node-card.card-xl .inline-notes-display { font-size: 15px; }
-.node-card.card-lg .inline-notes-display { font-size: 14px; }
-.node-card.card-md .inline-notes-display { font-size: 12px; }
+.node-card.card-xl .inline-notes-display { font-size: 12px; }
+.node-card.card-lg .inline-notes-display { font-size: 11px; }
+.node-card.card-md .inline-notes-display { font-size: 10px; }
 
 .inline-notes-display:hover {
   background: rgba(255, 255, 255, 0.05);
@@ -3610,7 +3590,13 @@ onUnmounted(() => {
 }
 
 .markdown-content a {
-  color: var(--accent-color);
+  color: #ffffff !important;
+}
+
+.node-card a,
+.child-card a,
+.node-cards a {
+  color: #ffffff !important;
 }
 
 .markdown-content strong {
@@ -3859,19 +3845,16 @@ onUnmounted(() => {
 }
 
 .child-card.child-sm {
-  padding: 6px 8px;
+  padding: 3px 6px;
+  min-height: auto;
 }
 
 .child-card.child-sm .child-card-title {
-  font-size: 11px;
-}
-
-.child-card.child-xs {
-  padding: 4px 6px;
-}
-
-.child-card.child-xs .child-card-title {
   font-size: 10px;
+}
+
+.child-card.child-sm .child-card-header {
+  gap: 4px;
 }
 
 .child-card-header {

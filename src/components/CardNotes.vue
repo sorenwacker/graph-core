@@ -142,8 +142,8 @@ watch(() => props.isEditing, (editing) => {
 }
 
 .card-notes-display.size-normal {
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 11px;
+  line-height: 1.5;
   padding: 0 16px 0 24px;
   overflow-y: auto;
   flex: 1;
@@ -151,14 +151,14 @@ watch(() => props.isEditing, (editing) => {
 }
 
 .card-notes-display.size-child {
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 10px;
+  line-height: 1.4;
   padding: 4px 8px;
 }
 
 .card-notes-display.size-grandchild {
-  font-size: 11px;
-  line-height: 1.4;
+  font-size: 9px;
+  line-height: 1.3;
 }
 
 .lock-icon-display {
@@ -167,6 +167,10 @@ watch(() => props.isEditing, (editing) => {
 
 .markdown-content {
   /* Allow content to flow naturally */
+}
+
+.markdown-content a {
+  color: #ffffff !important;
 }
 
 .markdown-content :deep(p) {

@@ -103,6 +103,14 @@ body {
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
 }
 
+a {
+  color: #ffffff;
+}
+
+a:hover {
+  color: #cccccc;
+}
+
 #app {
   height: 100vh;
   width: 100vw;
@@ -1132,6 +1140,8 @@ input[type="checkbox"] {
   font-size: 6px;
   opacity: 0.4;
   flex-shrink: 0;
+  width: 8px;
+  text-align: center;
 }
 
 /* Type-colored bullets */
@@ -1189,6 +1199,11 @@ input[type="checkbox"] {
 
 .grandchild-item.completed {
   opacity: 0.5;
+}
+
+/* Hide grandchildren in small child cards */
+.child-card.child-sm .grandchild-list {
+  display: none !important;
 }
 
 /* Compact child cards when there are many children */
@@ -2006,9 +2021,9 @@ tr.search-highlight td {
   padding-left: 18px;
 }
 .tippy-box[data-theme~='graph-tooltip'] .tt-notes a {
-  color: #00d4ff;
+  color: #ffffff;
   text-decoration: none;
-  border-bottom: 1px solid rgba(0, 212, 255, 0.4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
   transition: all 0.2s;
 }
 .tippy-box[data-theme~='graph-tooltip'] .tt-notes a:hover {
