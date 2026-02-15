@@ -30,14 +30,29 @@ mermaid.initialize({
   }
 })
 
+// Decode HTML entities before rendering
+function decodeHtmlEntities(text) {
+  if (!text) return ''
+  return text
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&#34;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+}
+
 async function renderContent() {
   if (!props.content) {
     renderedHtml.value = ''
     return
   }
 
-  // Parse markdown
-  let html = marked.parse(props.content)
+  // Decode HTML entities and parse markdown
+  const decodedContent = decodeHtmlEntities(props.content)
+  let html = marked.parse(decodedContent)
 
   // Convert person mention links to styled chips
   // Matches: <a href="person:123">@[Person Name]</a> or <a href="person:123">Person Name</a>
