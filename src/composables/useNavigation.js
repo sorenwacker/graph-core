@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import { MAX_HISTORY_SIZE } from '../utils/uiConstants.js'
 
 /**
  * Composable for managing container navigation state and operations.
@@ -9,13 +10,19 @@ import { ref, computed } from 'vue'
  * @param {Ref<string>} options.workspace - Current workspace ref
  * @param {Function} options.onBeforeNavigate - Called before navigation starts
  * @param {Function} options.onAfterNavigate - Called after navigation completes
+ * @param {Function} options.onBreadcrumbsBuilt - Called after breadcrumbs are built (for sidebar expansion)
+ * @param {Function} options.onError - Called on navigation error
+ * @param {Function} options.filterByWorkspace - Custom filter function for workspace filtering
  * @returns {Object} Navigation state and functions
  */
 export function useNavigation({
   api,
   workspace,
   onBeforeNavigate,
-  onAfterNavigate
+  onAfterNavigate,
+  onBreadcrumbsBuilt,
+  onError,
+  filterByWorkspace
 } = {}) {
   // Core navigation state
   const currentContainerId = ref(null)
@@ -42,10 +49,21 @@ export function useNavigation({
   }
 
   /**
-   * Load children for a container
+   * Filter nodes by workspace if filter function provided
    */
-  async function loadChildren(containerId = null) {
-    loading.value = true
+  function applyWorkspaceFilter(nodes) {
+    if (!filterByWorkspace) return (nodes || []).filter(Boolean)
+    return (nodes || []).filter(n => n && filterByWorkspace(n, workspace?.value))
+  }
+
+  /**
+   * Load children for a container
+   * @param {number|null} containerId - Container ID or null for root
+   * @param {Object} options - Load options
+   * @param {boolean} options.silent - If true, don't update loading state
+   */
+  async function loadChildren(containerId = null, { silent = false } = {}) {
+    if (!silent) loading.value = true
     error.value = null
 
     try {
@@ -53,16 +71,17 @@ export function useNavigation({
         // Root level - get all root nodes
         const ws = workspace?.value
         const roots = await api.getRoots(ws)
-        const filteredRoots = (roots || []).filter(Boolean)
+        const filteredRoots = applyWorkspaceFilter(roots)
 
         // Fetch descendants for each root
         const rootsWithChildren = await Promise.all(
           filteredRoots.map(async (root) => {
             if (!root || !root.id) return null
             const descendants = await api.getDescendants(root.id)
+            const filteredDescendants = applyWorkspaceFilter(descendants)
             return {
               ...root,
-              children: buildChildTree(descendants, root.id)
+              children: buildChildTree(filteredDescendants, root.id)
             }
           })
         )
@@ -89,14 +108,22 @@ export function useNavigation({
         const ancestors = await api.getAncestors(containerId)
         breadcrumbs.value = (ancestors || []).filter(a => a && a.id !== container.id)
         if (container) breadcrumbs.value.push(container)
+
+        // Notify callback for sidebar expansion etc.
+        if (onBreadcrumbsBuilt) {
+          onBreadcrumbsBuilt(breadcrumbs.value)
+        }
       }
 
       currentContainerId.value = containerId
     } catch (e) {
       console.error('Failed to load:', e)
       error.value = e.message
+      if (onError) {
+        await onError(e, containerId)
+      }
     } finally {
-      loading.value = false
+      if (!silent) loading.value = false
     }
   }
 
@@ -114,7 +141,7 @@ export function useNavigation({
     if (!skipHistory && currentContainerId.value !== nodeId) {
       navigationHistory.value.push(currentContainerId.value)
       // Limit history size
-      if (navigationHistory.value.length > 50) {
+      if (navigationHistory.value.length > MAX_HISTORY_SIZE) {
         navigationHistory.value.shift()
       }
     }

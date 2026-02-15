@@ -13,6 +13,9 @@ import { useContextMenu } from './composables/useContextMenu.js'
 import { useDetailResize } from './composables/useDetailResize.js'
 import { useUndoRedo } from './composables/useUndoRedo.js'
 import { useSettings } from './composables/useSettings.js'
+import { useWorkspace } from './composables/useWorkspace.js'
+import { useSidebar } from './composables/useSidebar.js'
+import { useNavigation } from './composables/useNavigation.js'
 import {
   MoveCommand,
   CreateCommand,
@@ -25,6 +28,7 @@ import {
   UnlinkCommand
 } from './commands/index.js'
 import { nodeTypes, getImportanceLabel, getTypeIcon, getTypeColors, typeConfig, personIconSvg } from './utils/constants.js'
+import { MAX_HISTORY_SIZE, SIDEBAR_WIDTH, SIDEBAR_HIDE_DELAY_MS, TRANSITION_DURATION_MS } from './utils/uiConstants.js'
 import DetailPanel from './components/DetailPanel.vue'
 import GraphView from './components/GraphView.vue'
 import TableView from './components/TableView.vue'
@@ -87,9 +91,20 @@ const breadcrumbs = ref([])  // path from root to current container
 const children = ref([])     // children of current container
 const navigationHistory = ref([])  // Stack of previous container IDs for back navigation
 
-// UI state - restore from localStorage
-const viewMode = ref(localStorage.getItem('graphcore-viewMode') || 'tree')
-const savedContainerId = localStorage.getItem('graphcore-containerId')
+// UI state - managed by useSettings composable
+const {
+  viewMode,
+  containerId: savedContainerId,
+  hideCompleted,
+  hideSensitive,
+  graphDetailThreshold,
+  graphMaxDepth,
+  graphRootMaxDepth,
+  openDetailFullscreen,
+  hoverPreviewEnabled,
+  sidebarPinned
+} = useSettings()
+
 const loading = ref(true)
 const error = ref(null)
 const newNodeTitle = ref('')
@@ -105,102 +120,62 @@ const transitionDirection = ref('forward')
 const containerWidth = ref(800)
 const containerHeight = ref(600)
 const sidebarTree = ref([])  // Full tree for sidebar navigation
-const sidebarExpandedIds = ref(new Set())
 const recentItems = ref([])  // Recent items for sidebar
 const trashedItems = ref([])  // Deleted items for trash view
 const orphanedNodes = ref([])  // Orphaned nodes for lost & found
 const showLostFound = ref(false)
-const sidebarTreeCollapsed = ref(false)
-const sidebarFavoritesCollapsed = ref(false)
-const sidebarRecentCollapsed = ref(false)
+
+// Sidebar UI state via composable
+const {
+  hovered: sidebarHovered,
+  expandedIds: sidebarExpandedIds,
+  treeCollapsed: sidebarTreeCollapsed,
+  favoritesCollapsed: sidebarFavoritesCollapsed,
+  recentCollapsed: sidebarRecentCollapsed,
+  visible: sidebarVisible,
+  onEnter: onSidebarEnter,
+  onLeave: onSidebarLeave,
+  toggleExpand: toggleSidebarExpand,
+  expandToPath: expandSidebarToPath
+} = useSidebar({ pinned: sidebarPinned })
 
 // Context menu state is managed by useContextMenu composable (initialized after functions it needs)
 
 // =========================================
 // WORKSPACES
 // =========================================
-// Workspaces provide complete data isolation. Each workspace has its own
-// nodes, graphs, and views.
-const currentWorkspace = ref(localStorage.getItem('graphcore-workspace') || 'work')
-const workspaces = ref([])  // Loaded from database
+// Workspace management via composable
+const {
+  currentWorkspace,
+  workspaces,
+  showNewWorkspaceInput,
+  newWorkspaceName,
+  loadWorkspaces,
+  openNewWorkspaceDialog: _openNewWorkspaceDialog,
+  createWorkspace: createNewWorkspace,
+  deleteCurrentWorkspace: _deleteCurrentWorkspace,
+  getWorkspaceIdForNode
+} = useWorkspace({ api })
 
-// Helper: Get workspace_id for creating new nodes
-function getWorkspaceIdForNode() {
-  return currentWorkspace.value
-}
-
-// Load available workspaces from database
-async function loadWorkspaces() {
-  try {
-    const ws = await api.getWorkspaces()
-    workspaces.value = (ws || []).filter(Boolean)
-  } catch (e) {
-    console.error('Failed to load workspaces:', e)
-    workspaces.value = []
-  }
-}
-
-const showNewWorkspaceInput = ref(false)
-const newWorkspaceName = ref('')
-
+// Wrap openNewWorkspaceDialog to focus input
 function openNewWorkspaceDialog() {
-  newWorkspaceName.value = ''
-  showNewWorkspaceInput.value = true
+  _openNewWorkspaceDialog()
   nextTick(() => newWorkspaceInputRef.value?.focus())
 }
 
-async function createNewWorkspace() {
-  const name = newWorkspaceName.value.trim()
-  if (!name) {
-    showNewWorkspaceInput.value = false
-    return
-  }
-
-  try {
-    const newWs = await api.createWorkspace({ name })
-    await loadWorkspaces()
-    if (newWs?.id) {
-      currentWorkspace.value = newWs.id
-    }
-    showNewWorkspaceInput.value = false
-    newWorkspaceName.value = ''
-  } catch (e) {
-    console.error('Failed to create workspace:', e)
-  }
-}
-
+// Wrap deleteCurrentWorkspace to add confirmation dialog
 async function deleteCurrentWorkspace() {
-  if (workspaces.value.length <= 1) return
-
   const ws = workspaces.value.find(w => w.id === currentWorkspace.value)
   if (!ws) return
-
-  // Check if workspace has nodes
-  const roots = await api.getRoots(currentWorkspace.value)
-  if (roots && roots.length > 0) {
-    alert(`Cannot delete workspace "${ws.name}". It still contains ${roots.length} root node(s). Move or delete them first.`)
-    return
-  }
 
   const confirmed = confirm(`Delete workspace "${ws.name}"?`)
   if (!confirmed) return
 
-  try {
-    await api.deleteWorkspace(currentWorkspace.value)
-    await loadWorkspaces()
-    if (workspaces.value.length > 0) {
-      currentWorkspace.value = workspaces.value[0].id
-    }
-  } catch (e) {
-    console.error('Failed to delete workspace:', e)
-  }
+  await _deleteCurrentWorkspace()
 }
 
 // Favorites computed from all loaded nodes
 const favoriteItems = ref([])
-const sidebarPinned = ref(localStorage.getItem('graphcore-sidebarPinned') === 'true')
-const sidebarHovered = ref(false)
-let sidebarHideTimeout = null
 
 function toggleSidebarPin() {
   sidebarPinned.value = !sidebarPinned.value
@@ -212,28 +187,6 @@ const {
   isResizing: isResizingDetail,
   onResizeStart: onDetailResizeStart
 } = useDetailResize()
-
-function onSidebarEnter() {
-  if (sidebarHideTimeout) {
-    clearTimeout(sidebarHideTimeout)
-    sidebarHideTimeout = null
-  }
-  sidebarHovered.value = true
-}
-
-function onSidebarLeave(event) {
-  // Don't hide if pinned
-  if (sidebarPinned.value) return
-
-  // Only prevent hide if mouse is still within sidebar bounds (280px width)
-  if (event && event.clientX <= 280) {
-    return
-  }
-
-  sidebarHideTimeout = setTimeout(() => {
-    sidebarHovered.value = false
-  }, 150)
-}
 
 function closeDetailIfNotPinned() {
   if (!detailPinned.value && showDetail.value) {
@@ -250,8 +203,6 @@ function closeDetail() {
 }
 
 // Inline editing state is managed by useInlineEdit composable (initialized after flatChildren)
-// Sensitive info visibility - restore from localStorage
-const hideSensitive = ref(localStorage.getItem('graphcore-hideSensitive') === 'true')
 
 // Setup tooltip composable - single source of truth for all tooltips
 const { showTooltip, hideTooltip, forceHide: forceHideTooltip } = useNodeTooltip({
@@ -271,16 +222,7 @@ const {
   onMessage: onDetachedMessage
 } = useDetachedWindow()
 
-// Hide completed items - restore from localStorage (default: true)
-const hideCompleted = ref(localStorage.getItem('graphcore-hideCompleted') !== 'false')
-
-// Graph settings - restore from localStorage
-const storedThreshold = parseInt(localStorage.getItem('graphcore-graphDetailThreshold'))
-const graphDetailThreshold = ref(isNaN(storedThreshold) ? 30 : storedThreshold)
-const graphMaxDepth = ref(parseInt(localStorage.getItem('graphcore-graphMaxDepth')) || 0) // 0 = all
-const graphRootMaxDepth = ref(parseInt(localStorage.getItem('graphcore-graphRootMaxDepth')) || 2) // Default 2 for root level
-const openDetailFullscreen = ref(localStorage.getItem('graphcore-openDetailFullscreen') === 'true')
-const hoverPreviewEnabled = ref(localStorage.getItem('graphcore-hoverPreview') !== 'false') // Default: enabled
+// Additional UI state
 const showSettings = ref(false)
 const sortAlphabetically = ref(false)
 
@@ -331,58 +273,12 @@ function decodeHtml(text) {
     .replace(/&gt;/g, '>')
 }
 
-// Persist view mode changes and load data when switching views
+// Load trash items when switching to trash view
+// Note: Persistence is handled by useSettings composable
 watch(viewMode, (newMode) => {
-  localStorage.setItem('graphcore-viewMode', newMode)
   if (newMode === 'trash') {
     loadTrashedItems()
   }
-})
-
-// Persist current container changes
-watch(currentContainerId, (newId) => {
-  if (newId === null) {
-    localStorage.removeItem('graphcore-containerId')
-  } else {
-    localStorage.setItem('graphcore-containerId', newId)
-  }
-})
-
-// Persist sensitive visibility setting
-watch(hideSensitive, (newVal) => {
-  localStorage.setItem('graphcore-hideSensitive', String(newVal))
-})
-
-// Persist hide completed setting
-watch(hideCompleted, (newVal) => {
-  localStorage.setItem('graphcore-hideCompleted', String(newVal))
-})
-
-// Persist graph detail threshold
-watch(graphDetailThreshold, (newVal) => {
-  if (typeof newVal === 'number' && !isNaN(newVal)) {
-    localStorage.setItem('graphcore-graphDetailThreshold', String(newVal))
-  }
-})
-
-// Persist open detail fullscreen setting
-watch(openDetailFullscreen, (newVal) => {
-  localStorage.setItem('graphcore-openDetailFullscreen', String(newVal))
-})
-
-// Persist graph max depth
-watch(graphMaxDepth, (newVal) => {
-  localStorage.setItem('graphcore-graphMaxDepth', String(newVal))
-})
-
-// Persist graph root max depth
-watch(graphRootMaxDepth, (newVal) => {
-  localStorage.setItem('graphcore-graphRootMaxDepth', String(newVal))
-})
-
-// Persist sidebar pinned state
-watch(sidebarPinned, (newVal) => {
-  localStorage.setItem('graphcore-sidebarPinned', String(newVal))
 })
 
 // Close any active tooltips when detail panel opens
@@ -391,9 +287,6 @@ watch(showDetail, (isOpen) => {
     forceHideTooltip()
   }
 })
-
-// Computed for sidebar visibility
-const sidebarVisible = computed(() => sidebarPinned.value || sidebarHovered.value)
 
 // Search state - detached spotlight-style
 const searchQuery = ref('')
@@ -520,8 +413,7 @@ watch(selectedNode, (node) => {
 })
 
 // Watch for workspace changes - reload data when switching workspaces
-watch(currentWorkspace, async (newWs) => {
-  localStorage.setItem('graphcore-workspace', newWs)
+watch(currentWorkspace, async () => {
   // Reset navigation when switching workspaces
   currentContainerId.value = null
   currentContainer.value = null
@@ -879,15 +771,6 @@ async function deleteOrphanedNode(node) {
   }
 }
 
-function toggleSidebarExpand(nodeId) {
-  if (sidebarExpandedIds.value.has(nodeId)) {
-    sidebarExpandedIds.value.delete(nodeId)
-  } else {
-    sidebarExpandedIds.value.add(nodeId)
-  }
-  sidebarExpandedIds.value = new Set(sidebarExpandedIds.value)
-}
-
 let isLoadingChildren = false
 let lastLoadTime = 0
 let lastLoadedContainerId = null
@@ -956,10 +839,7 @@ async function loadChildren(containerId = null, options = {}) {
       if (container) breadcrumbs.value.push(container)
 
       // Expand sidebar tree to show current path
-      breadcrumbs.value.forEach(crumb => {
-        sidebarExpandedIds.value.add(crumb.id)
-      })
-      sidebarExpandedIds.value = new Set(sidebarExpandedIds.value)
+      expandSidebarToPath(breadcrumbs.value)
     }
     currentContainerId.value = containerId
     // Keep stored expanded state from localStorage (don't reset)
@@ -1026,7 +906,7 @@ async function enterContainer(node, { skipHistory = false, direction = 'forward'
   if (!skipHistory && currentContainerId.value !== nodeId) {
     navigationHistory.value.push(currentContainerId.value)
     // Limit history size
-    if (navigationHistory.value.length > 50) {
+    if (navigationHistory.value.length > MAX_HISTORY_SIZE) {
       navigationHistory.value.shift()
     }
   }
@@ -1039,7 +919,7 @@ async function enterContainer(node, { skipHistory = false, direction = 'forward'
   setTimeout(async () => {
     await loadChildren(nodeId ?? null)
     transitioning.value = false
-  }, 150)
+  }, SIDEBAR_HIDE_DELAY_MS)
 }
 
 // Navigate back in history (used after delete)

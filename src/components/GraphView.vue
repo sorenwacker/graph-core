@@ -1,8 +1,9 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { api } from '../services/api'
 import { buildTooltipHTML } from '../utils/tooltip.js'
 import { useNodeTooltip } from '../composables/useNodeTooltip.js'
+import { useGraphSettings, ALL_NODE_TYPES } from '../composables/useGraphSettings.js'
 import { nodeTypes, getTypeIcon, typeConfig, getGraphColors } from '../utils/constants.js'
 import cytoscape from 'cytoscape'
 import coseBilkent from 'cytoscape-cose-bilkent'
@@ -134,30 +135,26 @@ if (typeof document !== 'undefined') {
 }
 
 
-// Initialize layout: use container's saved layout if available, otherwise global default
-const globalDefault = localStorage.getItem('graph-layout-mode') || 'tree'
-const layoutMode = ref(props.parent?.graph_layout || globalDefault)
-const relaxLocked = ref(localStorage.getItem('graph-relax-locked') === 'true')
-const fitLocked = ref(localStorage.getItem('graph-fit-locked') === 'true')
-const showExternalLinks = ref(localStorage.getItem('graph-show-external-links') !== 'false') // default true
-const showRootNode = ref(localStorage.getItem('graph-show-root-node') !== 'false') // default true
+// Graph settings via composable (handles localStorage persistence)
+const {
+  layoutMode: _layoutMode,
+  relaxLocked,
+  fitLocked,
+  showExternalLinks,
+  showRootNode,
+  visibleTypes,
+  radialSettings,
+  toggleTypeVisibility,
+  resetRadialSettings
+} = useGraphSettings()
 
-// Node type filter - which types to show in the graph
-const allNodeTypes = ['task', 'note', 'project', 'milestone', 'topic', 'component', 'group', 'event', 'person', 'organization']
-const savedTypeFilter = localStorage.getItem('graph-type-filter')
-const visibleTypes = ref(savedTypeFilter ? JSON.parse(savedTypeFilter) : [...allNodeTypes])
+// Use container's saved layout if available, otherwise use global default from composable
+const layoutMode = ref(props.parent?.graph_layout || _layoutMode.value)
+
+// Local UI state (not persisted)
 const showTypeFilter = ref(false)
 const showHotkeyHelp = ref(false)
 const showLayoutSettings = ref(false)
-
-// Radial layout settings (user-adjustable)
-const radialNodeRepulsion = ref(Number(localStorage.getItem('graph-radial-repulsion')) || 5000)
-const radialEdgeLength = ref(Number(localStorage.getItem('graph-radial-edge-length')) || 100)
-const radialElasticity = ref(Number(localStorage.getItem('graph-radial-elasticity')) || 0.5)
-const radialGravity = ref(Number(localStorage.getItem('graph-radial-gravity')) || 10000)
-const radialGravityRange = ref(Number(localStorage.getItem('graph-radial-gravity-range')) || 3.8)
-const radialNestingFactor = ref(Number(localStorage.getItem('graph-radial-nesting')) || 0.1)
-const radialNumIter = ref(Number(localStorage.getItem('graph-radial-iterations')) || 2500)
 
 let relaxClickTimeout = null
 let cy = null
@@ -221,11 +218,11 @@ function saveNodePositions() {
   localStorage.setItem(getPositionsKey(), JSON.stringify(positions))
 }
 
-// Persist layout mode
+// Sync layout mode to composable and save to container
 watch(layoutMode, (mode) => {
-  // Always save to global localStorage as fallback
-  localStorage.setItem('graph-layout-mode', mode)
-  // Also save to container if inside one (fire and forget - don't wait for response)
+  // Sync to composable (which handles localStorage)
+  _layoutMode.value = mode
+  // Also save to container if inside one (fire and forget)
   if (props.parent?.id) {
     api.updateNode(props.parent.id, { graph_layout: mode }).catch(() => {})
   }
@@ -242,20 +239,10 @@ watch(() => props.parent?.id, (newId) => {
   }
 })
 
-// Persist relax locked state
-watch(relaxLocked, (locked) => {
-  localStorage.setItem('graph-relax-locked', locked ? 'true' : 'false')
-})
+// Note: Persistence for relaxLocked and fitLocked handled by useGraphSettings composable
 
-// Persist fit locked state
-watch(fitLocked, (locked) => {
-  localStorage.setItem('graph-fit-locked', locked ? 'true' : 'false')
-})
-
-// Persist show external links setting
-watch(showExternalLinks, (show) => {
-  localStorage.setItem('graph-show-external-links', show ? 'true' : 'false')
-  // Reinitialize graph when toggled to properly add/remove external nodes
+// Reinitialize graph when external links visibility changes
+watch(showExternalLinks, () => {
   if (cy) {
     cy.destroy()
     cy = null
@@ -263,10 +250,8 @@ watch(showExternalLinks, (show) => {
   initGraph()
 })
 
-// Persist show root node setting
-watch(showRootNode, (show) => {
-  localStorage.setItem('graph-show-root-node', show ? 'true' : 'false')
-  // Reinitialize graph when toggled
+// Reinitialize graph when root node visibility changes
+watch(showRootNode, () => {
   if (cy) {
     cy.destroy()
     cy = null
@@ -274,10 +259,8 @@ watch(showRootNode, (show) => {
   initGraph()
 })
 
-// Persist type filter and update graph when changed
-watch(visibleTypes, (types) => {
-  localStorage.setItem('graph-type-filter', JSON.stringify(types))
-  // Reinitialize graph when filter changes
+// Reinitialize graph when type filter changes
+watch(visibleTypes, () => {
   if (cy) {
     cy.destroy()
     cy = null
@@ -285,22 +268,12 @@ watch(visibleTypes, (types) => {
   initGraph()
 }, { deep: true })
 
-// Persist radial layout settings and restart continuous relax if locked
-function onSettingChange(key, val) {
-  localStorage.setItem(key, val)
-  // If relax is locked, restart with new settings
+// Restart continuous relax when radial settings change (persistence handled by composable)
+watch(radialSettings, () => {
   if (relaxLocked.value) {
     restartContinuousRelax()
   }
-}
-
-watch(radialNodeRepulsion, (val) => onSettingChange('graph-radial-repulsion', val))
-watch(radialEdgeLength, (val) => onSettingChange('graph-radial-edge-length', val))
-watch(radialElasticity, (val) => onSettingChange('graph-radial-elasticity', val))
-watch(radialGravity, (val) => onSettingChange('graph-radial-gravity', val))
-watch(radialGravityRange, (val) => onSettingChange('graph-radial-gravity-range', val))
-watch(radialNestingFactor, (val) => onSettingChange('graph-radial-nesting', val))
-watch(radialNumIter, (val) => onSettingChange('graph-radial-iterations', val))
+}, { deep: true })
 
 function toggleTypeFilter(type) {
   const idx = visibleTypes.value.indexOf(type)
@@ -312,7 +285,7 @@ function toggleTypeFilter(type) {
 }
 
 function selectAllTypes() {
-  visibleTypes.value = [...allNodeTypes]
+  visibleTypes.value = [...ALL_NODE_TYPES]
 }
 
 function selectNoTypes() {
@@ -1063,15 +1036,15 @@ function getLayoutOptions() {
   if (mode === 'radial') {
     // Use reactive settings for radial layout
     // Scale gravity from slider (0-50000) to cose-bilkent range (0-5)
-    const scaledGravity = radialGravity.value / 10000
+    const scaledGravity = radialSettings.gravity / 10000
     return {
       ...LAYOUTS.radial,
-      nodeRepulsion: radialNodeRepulsion.value,
-      idealEdgeLength: radialEdgeLength.value,
-      edgeElasticity: radialElasticity.value,
+      nodeRepulsion: radialSettings.nodeRepulsion,
+      idealEdgeLength: radialSettings.edgeLength,
+      edgeElasticity: radialSettings.elasticity,
       gravity: scaledGravity,
       gravityRange: 10,
-      numIter: radialNumIter.value
+      numIter: radialSettings.iterations
     }
   }
   return LAYOUTS[mode] || LAYOUTS.tree
@@ -2036,15 +2009,15 @@ function applyRadialSettings() {
     animationDuration: 300,
     fit: true,
     randomize: false,
-    nodeRepulsion: radialNodeRepulsion.value,
-    idealEdgeLength: radialEdgeLength.value,
-    edgeElasticity: radialElasticity.value,
-    gravity: radialGravity.value / 10000,
+    nodeRepulsion: radialSettings.nodeRepulsion,
+    idealEdgeLength: radialSettings.edgeLength,
+    edgeElasticity: radialSettings.elasticity,
+    gravity: radialSettings.gravity / 10000,
     gravityRange: 3.8,
     numIter: 2500,
     tile: true,
-    tilingPaddingVertical: Math.max(5, 50 - radialGravity.value / 1000),
-    tilingPaddingHorizontal: Math.max(5, 50 - radialGravity.value / 1000)
+    tilingPaddingVertical: Math.max(5, 50 - radialSettings.gravity / 1000),
+    tilingPaddingHorizontal: Math.max(5, 50 - radialSettings.gravity / 1000)
   }
 
   const layout = cy.layout(layoutOptions)
@@ -2093,15 +2066,15 @@ function relaxLayout() {
     animationDuration: 300,
     fit: false,
     randomize: false,
-    nodeRepulsion: radialNodeRepulsion.value,
-    idealEdgeLength: radialEdgeLength.value,
-    edgeElasticity: radialElasticity.value,
-    gravity: radialGravity.value / 10000,
+    nodeRepulsion: radialSettings.nodeRepulsion,
+    idealEdgeLength: radialSettings.edgeLength,
+    edgeElasticity: radialSettings.elasticity,
+    gravity: radialSettings.gravity / 10000,
     gravityRange: 3.8,
     numIter: 2500,
     tile: true,
-    tilingPaddingVertical: Math.max(5, 50 - radialGravity.value / 1000),
-    tilingPaddingHorizontal: Math.max(5, 50 - radialGravity.value / 1000)
+    tilingPaddingVertical: Math.max(5, 50 - radialSettings.gravity / 1000),
+    tilingPaddingHorizontal: Math.max(5, 50 - radialSettings.gravity / 1000)
   }
 
   const layout = cy.layout(layoutOptions)
@@ -2159,9 +2132,9 @@ function startContinuousRelax() {
   stopContinuousRelax()
 
   // Each slider has independent effect
-  const spacing = Math.max(5, Math.round(radialNodeRepulsion.value / 50))
-  const edgeLen = Math.max(20, Math.round(radialEdgeLength.value))
-  const gravityEffect = Math.max(0.1, 1 - (radialGravity.value / 50000))
+  const spacing = Math.max(5, Math.round(radialSettings.nodeRepulsion / 50))
+  const edgeLen = Math.max(20, Math.round(radialSettings.edgeLength))
+  const gravityEffect = Math.max(0.1, 1 - (radialSettings.gravity / 50000))
 
   // Cola infinite layout with slider settings
   const layoutOptions = {
@@ -2570,7 +2543,7 @@ onUnmounted(() => {
         <button
           class="icon-btn"
           @click="showTypeFilter = !showTypeFilter"
-          :class="{ active: visibleTypes.length < allNodeTypes.length }"
+          :class="{ active: visibleTypes.length < ALL_NODE_TYPES.length }"
           title="Filter node types"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -2583,7 +2556,7 @@ onUnmounted(() => {
             <button @click="selectNoTypes">None</button>
           </div>
           <label
-            v-for="type in allNodeTypes"
+            v-for="type in ALL_NODE_TYPES"
             :key="type"
             class="type-filter-item"
           >
@@ -2609,24 +2582,24 @@ onUnmounted(() => {
         </button>
         <div v-if="showLayoutSettings" class="layout-settings-dropdown">
           <div class="layout-setting">
-            <label>Node Repulsion: {{ radialNodeRepulsion }}</label>
-            <input type="range" v-model.number="radialNodeRepulsion" min="100" max="10000" step="100" />
+            <label>Node Repulsion: {{ radialSettings.nodeRepulsion }}</label>
+            <input type="range" v-model.number="radialSettings.nodeRepulsion" min="100" max="10000" step="100" />
           </div>
           <div class="layout-setting">
-            <label>Edge Length: {{ radialEdgeLength }}</label>
-            <input type="range" v-model.number="radialEdgeLength" min="20" max="200" step="10" />
+            <label>Edge Length: {{ radialSettings.edgeLength }}</label>
+            <input type="range" v-model.number="radialSettings.edgeLength" min="20" max="200" step="10" />
           </div>
           <div class="layout-setting">
-            <label>Elasticity: {{ radialElasticity.toFixed(2) }}</label>
-            <input type="range" v-model.number="radialElasticity" min="0.1" max="1.5" step="0.05" />
+            <label>Elasticity: {{ radialSettings.elasticity.toFixed(2) }}</label>
+            <input type="range" v-model.number="radialSettings.elasticity" min="0.1" max="1.5" step="0.05" />
           </div>
           <div class="layout-setting">
-            <label>Gravity: {{ radialGravity }}</label>
-            <input type="range" v-model.number="radialGravity" min="0" max="50000" step="1000" />
+            <label>Gravity: {{ radialSettings.gravity }}</label>
+            <input type="range" v-model.number="radialSettings.gravity" min="0" max="50000" step="1000" />
           </div>
           <div class="layout-setting">
-            <label>Iterations: {{ radialNumIter }}</label>
-            <input type="range" v-model.number="radialNumIter" min="1000" max="500000" step="1000" />
+            <label>Iterations: {{ radialSettings.iterations }}</label>
+            <input type="range" v-model.number="radialSettings.iterations" min="1000" max="500000" step="1000" />
           </div>
           <button class="apply-btn" @click="applyRadialSettings">Apply</button>
         </div>

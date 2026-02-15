@@ -119,8 +119,8 @@ describe('Tooltip Utils', () => {
       expect(tooltipOptions.theme).toBe('graph-tooltip')
     })
 
-    it('should have reasonable max width', () => {
-      expect(tooltipOptions.maxWidth).toBe(400)
+    it('should have no max width constraint', () => {
+      expect(tooltipOptions.maxWidth).toBe('none')
     })
 
     it('should have interactive border for easier interaction', () => {

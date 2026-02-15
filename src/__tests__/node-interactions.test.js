@@ -122,13 +122,13 @@ describe('Node Interactions', () => {
   })
 
   describe('Shift + Click (Range select)', () => {
-    it('should call onMultiSelect with range:true for Shift+click', () => {
+    it('should call onMultiSelect with add:true for Shift+click', () => {
       const callbacks = { onMultiSelect: vi.fn() }
       const event = { ctrlKey: false, metaKey: false, shiftKey: true, altKey: false }
 
       handleNodeClick(event, mockNode, callbacks)
 
-      expect(callbacks.onMultiSelect).toHaveBeenCalledWith(mockNode, { range: true })
+      expect(callbacks.onMultiSelect).toHaveBeenCalledWith(mockNode, { add: true })
     })
 
     it('should NOT call onSelect for Shift+click', () => {

@@ -55,9 +55,9 @@ describe('useSelection composable', () => {
       expect(selection.hasSelection.value).toBe(true)
     })
 
-    it('should open detail panel when selecting', () => {
+    it('should open detail panel immediately when using immediate option', () => {
       const node = { id: 1, title: 'Test Node' }
-      selection.selectNode(node)
+      selection.selectNode(node, { immediate: true })
 
       expect(showDetail.value).toBe(true)
     })

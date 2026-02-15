@@ -77,6 +77,14 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
   --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.15);
+
+  /* Animation timing */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
 }
 
 html, body {
@@ -361,11 +369,23 @@ body {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  transition: background 0.15s;
+  transition:
+    background var(--duration-fast) var(--ease-in-out),
+    transform var(--duration-fast) var(--ease-out-expo);
 }
 
 .sidebar-item:hover {
   background: var(--bg-hover);
+}
+
+.sidebar-item:active {
+  transform: scale(0.98);
+  transition-duration: 50ms;
+}
+
+.sidebar-item:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: -2px;
 }
 
 .sidebar-item.active {
@@ -508,7 +528,11 @@ button {
   background: var(--bg-tertiary);
   color: var(--text-primary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    background var(--duration-fast) var(--ease-in-out),
+    border-color var(--duration-fast) var(--ease-in-out),
+    transform var(--duration-fast) var(--ease-out-expo),
+    box-shadow var(--duration-normal) var(--ease-in-out);
   letter-spacing: 0.01em;
 }
 
@@ -519,7 +543,13 @@ button:hover {
 }
 
 button:active {
-  transform: translateY(0);
+  transform: translateY(0) scale(0.98);
+  transition-duration: 50ms;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
 }
 
 button.primary {
@@ -530,7 +560,13 @@ button.primary {
 
 button.primary:hover {
   background: var(--accent-hover);
-  box-shadow: 0 4px 12px var(--accent-glow);
+  box-shadow: 0 4px 16px var(--accent-glow);
+  transform: translateY(-1px);
+}
+
+button.primary:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 1px 4px var(--accent-glow);
 }
 
 /* Inputs */
@@ -542,21 +578,31 @@ input, select, textarea {
   font-size: 14px;
   color: var(--text-primary);
   font-family: inherit;
-  transition: all 0.2s ease;
+  transition:
+    border-color var(--duration-fast) var(--ease-in-out),
+    box-shadow var(--duration-normal) var(--ease-out-expo),
+    background var(--duration-fast) var(--ease-in-out);
 }
 
 input:hover, select:hover, textarea:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.15);
+  background: var(--bg-elevated);
 }
 
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px var(--accent-subtle);
+  box-shadow: 0 0 0 3px var(--accent-subtle), 0 0 20px var(--accent-glow);
+  background: var(--bg-tertiary);
 }
 
 input::placeholder {
   color: var(--text-tertiary);
+  transition: color var(--duration-fast) var(--ease-in-out);
+}
+
+input:focus::placeholder {
+  color: var(--text-secondary);
 }
 
 /* Checkbox - native square with dark theme */
@@ -581,12 +627,20 @@ input[type="checkbox"] {
   flex-shrink: 0;
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
-  transition: all 0.15s;
+  transition:
+    border-color var(--duration-fast) var(--ease-in-out),
+    background var(--duration-fast) var(--ease-in-out),
+    transform var(--duration-fast) var(--ease-out-back);
 }
 
 .done-checkbox:hover {
   border-color: var(--accent-color);
   background: rgba(74, 158, 255, 0.1);
+}
+
+.done-checkbox:active {
+  transform: scale(0.9);
+  transition-duration: 50ms;
 }
 
 .done-checkbox input {
@@ -672,7 +726,10 @@ input[type="checkbox"] {
   border-radius: 16px;
   padding: 0;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    transform var(--duration-normal) var(--ease-out-expo),
+    box-shadow var(--duration-slow) var(--ease-out-expo),
+    border-color var(--duration-fast) var(--ease-in-out);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -682,6 +739,7 @@ input[type="checkbox"] {
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
   position: relative;
   height: 100%;
+  will-change: transform;
 }
 
 .node-card::before {
@@ -696,12 +754,18 @@ input[type="checkbox"] {
 }
 
 .node-card:hover {
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.12);
   box-shadow:
     0 4px 8px rgba(0, 0, 0, 0.25),
     0 16px 32px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.04),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  transform: translateY(-4px) scale(1.01);
+  transform: translateY(-3px) scale(1.005);
+}
+
+.node-card:active {
+  transform: translateY(-1px) scale(0.995);
+  transition-duration: 50ms;
 }
 
 .node-card.selected {
@@ -893,7 +957,11 @@ input[type="checkbox"] {
   flex-direction: column;
   align-items: stretch;
   gap: 4px;
-  transition: all 0.2s ease;
+  transition:
+    transform var(--duration-fast) var(--ease-out-expo),
+    background var(--duration-fast) var(--ease-in-out),
+    border-color var(--duration-fast) var(--ease-in-out),
+    box-shadow var(--duration-normal) var(--ease-out-expo);
   min-height: 40px;
   min-width: 0;
   overflow: hidden;
@@ -904,7 +972,12 @@ input[type="checkbox"] {
   background: var(--bg-tertiary);
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+}
+
+.child-card:active {
+  transform: translateY(0) scale(0.98);
+  transition-duration: 50ms;
 }
 
 .child-card.selected {
@@ -1051,7 +1124,10 @@ input[type="checkbox"] {
   padding: 4px 8px;
   font-size: 11px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    transform var(--duration-fast) var(--ease-out-expo),
+    background var(--duration-fast) var(--ease-in-out),
+    border-color var(--duration-fast) var(--ease-in-out);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -1308,12 +1384,23 @@ input[type="checkbox"] {
 }
 
 /* Slide-in animation for detail panel */
-.detail-panel-enter-active,
-.detail-panel-leave-active {
-  transition: transform 0.2s ease, opacity 0.2s ease;
+.detail-panel-enter-active {
+  transition:
+    transform var(--duration-slow) var(--ease-out-expo),
+    opacity var(--duration-normal) var(--ease-in-out);
 }
 
-.detail-panel-enter-from,
+.detail-panel-leave-active {
+  transition:
+    transform var(--duration-normal) var(--ease-in-out),
+    opacity var(--duration-fast) var(--ease-in-out);
+}
+
+.detail-panel-enter-from {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
 .detail-panel-leave-to {
   transform: translateX(100%);
   opacity: 0;
@@ -1427,10 +1514,11 @@ input[type="checkbox"] {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 5px;
   border: 2px solid transparent;
   background-clip: padding-box;
+  transition: background 0.2s;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -1439,8 +1527,25 @@ input[type="checkbox"] {
   background-clip: padding-box;
 }
 
+::-webkit-scrollbar-thumb:active {
+  background: rgba(255, 255, 255, 0.25);
+}
+
 ::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+/* Show scrollbar on container hover */
+.sidebar-content::-webkit-scrollbar-thumb,
+.content-body::-webkit-scrollbar-thumb,
+.detail-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.sidebar-content:hover::-webkit-scrollbar-thumb,
+.content-body:hover::-webkit-scrollbar-thumb,
+.detail-content:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* Selection */
@@ -1720,6 +1825,43 @@ input[type="checkbox"] {
 
   .node-card-title {
     font-size: 13px;
+  }
+}
+
+/* Card entrance animations */
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.node-card {
+  animation: card-enter var(--duration-slow) var(--ease-out-expo) backwards;
+}
+
+/* Staggered card entrance - apply via inline style or JS */
+.node-card:nth-child(1) { animation-delay: 0ms; }
+.node-card:nth-child(2) { animation-delay: 30ms; }
+.node-card:nth-child(3) { animation-delay: 60ms; }
+.node-card:nth-child(4) { animation-delay: 90ms; }
+.node-card:nth-child(5) { animation-delay: 120ms; }
+.node-card:nth-child(6) { animation-delay: 150ms; }
+.node-card:nth-child(7) { animation-delay: 180ms; }
+.node-card:nth-child(8) { animation-delay: 210ms; }
+.node-card:nth-child(n+9) { animation-delay: 240ms; }
+
+/* Disable animations for users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .node-card,
+  .child-card,
+  .grandchild-card {
+    animation: none;
+    transition: none;
   }
 }
 
