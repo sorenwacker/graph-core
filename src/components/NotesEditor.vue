@@ -2,7 +2,7 @@
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { EditorState, EditorSelection } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from '@codemirror/view'
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
 
@@ -123,7 +123,7 @@ function setupEditor() {
         highlightSelectionMatches(),
         history(),
         markdown(),
-        keymap.of([...multiCursorKeymap, ...defaultKeymap, ...historyKeymap, ...searchKeymap]),
+        keymap.of([...multiCursorKeymap, indentWithTab, ...defaultKeymap, ...historyKeymap, ...searchKeymap]),
         theme,
         EditorView.lineWrapping,
         EditorState.allowMultipleSelections.of(true),

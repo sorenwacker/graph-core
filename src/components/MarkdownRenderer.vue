@@ -50,9 +50,9 @@ async function renderContent() {
     return
   }
 
-  // Decode HTML entities and parse markdown
-  const decodedContent = decodeHtmlEntities(props.content)
-  let html = marked.parse(decodedContent)
+  // Parse markdown then decode HTML entities
+  let html = marked.parse(props.content)
+  html = decodeHtmlEntities(html)
 
   // Convert person mention links to styled chips
   // Matches: <a href="person:123">@[Person Name]</a> or <a href="person:123">Person Name</a>
