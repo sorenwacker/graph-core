@@ -6,11 +6,12 @@ describe('useSettings composable', () => {
 
   beforeEach(() => {
     mockStorage = {}
-    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(key => mockStorage[key] || null)
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key, value) => {
+    const storageProto = Object.getPrototypeOf(window.localStorage)
+    vi.spyOn(storageProto, 'getItem').mockImplementation(key => mockStorage[key] || null)
+    vi.spyOn(storageProto, 'setItem').mockImplementation((key, value) => {
       mockStorage[key] = value
     })
-    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(key => {
+    vi.spyOn(storageProto, 'removeItem').mockImplementation(key => {
       delete mockStorage[key]
     })
   })

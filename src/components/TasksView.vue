@@ -175,7 +175,7 @@ const sortedTasks = computed(() => {
       case 'title':
         cmp = (a.title || '').localeCompare(b.title || '')
         break
-      case 'project':
+      case 'project': {
         // Sort by joined path string
         const pathA = (a.parentPath || []).join(' / ')
         const pathB = (b.parentPath || []).join(' / ')
@@ -185,6 +185,7 @@ const sortedTasks = computed(() => {
         else if (!pathB) cmp = -1
         else cmp = pathA.localeCompare(pathB)
         break
+      }
       case 'completed':
         cmp = (a.completed ? 1 : 0) - (b.completed ? 1 : 0)
         break

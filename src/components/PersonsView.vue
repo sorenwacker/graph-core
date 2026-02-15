@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { api } from '../services/api.js'
+import { personColors } from '../utils/constants.js'
 import NotesEditor from './NotesEditor.vue'
 
 const props = defineProps({

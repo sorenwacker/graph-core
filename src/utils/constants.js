@@ -80,7 +80,7 @@ export const typeConfig = {
 export const personIconSvg = typeConfig.person.icon
 
 // Person color palette - warm, distinct colors for individual persons
-const personColors = [
+export const personColors = [
   { bg: '#4a1a3a', text: '#e07da0' },
   { bg: '#1a3a4a', text: '#7dc0e0' },
   { bg: '#3a4a1a', text: '#c0e07d' },
