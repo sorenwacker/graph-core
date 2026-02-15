@@ -906,8 +906,7 @@ input[type="checkbox"] {
 
 /* Hide grandchild rows when container is narrow (single column mode) */
 @container (max-width: 400px) {
-  .grandchild-row,
-  .grandchild-list {
+  .grandchild-row {
     display: none;
   }
 }
@@ -939,8 +938,8 @@ input[type="checkbox"] {
 }
 
 .node-card-children-grid.compact .child-card-notes-area,
-.node-card-children-grid.compact .grandchild-row,
-.node-card-children-grid.compact .grandchild-list {
+/* Keep grandchildren visible even in compact mode */
+.node-card-children-grid.compact .grandchild-row {
   display: none;
 }
 

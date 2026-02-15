@@ -2874,7 +2874,7 @@ onUnmounted(() => {
                 />
                 <!-- Grandchildren - compact single-line list -->
                 <div
-                  v-if="child.children?.length && (cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg')"
+                  v-if="child.children?.length"
                   class="grandchild-list"
                   @click.stop
                 >
