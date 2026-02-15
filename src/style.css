@@ -1109,60 +1109,47 @@ input[type="checkbox"] {
 }
 
 /* Row layout for grandchildren - better horizontal space for titles */
-/* Grandchild list - minimal single-line items */
+/* Grandchild list - ultra-compact single-line items */
 .grandchild-list {
-  margin-top: 6px;
-  padding: 2px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  margin-top: 4px;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0;
 }
 
 .grandchild-item {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 1px 4px;
-  border-radius: 2px;
-  font-size: 10px;
-  line-height: 1.3;
+  gap: 3px;
+  padding: 0 2px;
+  font-size: 9px;
+  line-height: 1.4;
   color: var(--text-tertiary);
   cursor: pointer;
-  transition: all 0.1s ease;
-  position: relative;
 }
 
 .grandchild-item::before {
-  content: '';
-  width: 2px;
-  height: 2px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.5;
+  content: '\2022';
+  font-size: 6px;
+  opacity: 0.4;
   flex-shrink: 0;
 }
 
 /* Type-colored bullets */
-.grandchild-item.project::before { background: var(--type-project-text); opacity: 0.8; }
-.grandchild-item.task::before { background: var(--type-task-text); opacity: 0.8; }
-.grandchild-item.note::before { background: var(--type-note-text); opacity: 0.8; }
-.grandchild-item.milestone::before { background: var(--type-milestone-text); opacity: 0.8; }
-.grandchild-item.person::before { background: var(--type-person-text); opacity: 0.8; }
-.grandchild-item.event::before { background: var(--type-event-text); opacity: 0.8; }
-.grandchild-item.topic::before { background: var(--type-topic-text); opacity: 0.8; }
-.grandchild-item.organization::before { background: var(--type-organization-text); opacity: 0.8; }
-.grandchild-item.group::before { background: var(--type-group-text); opacity: 0.8; }
-.grandchild-item.component::before { background: var(--type-component-text); opacity: 0.8; }
-
-/* Task checkbox replaces bullet */
-.grandchild-item.task::before {
-  display: none;
-}
+.grandchild-item.project::before { color: var(--type-project-text); }
+.grandchild-item.task::before { display: none; }
+.grandchild-item.note::before { color: var(--type-note-text); }
+.grandchild-item.milestone::before { color: var(--type-milestone-text); }
+.grandchild-item.person::before { color: var(--type-person-text); }
+.grandchild-item.event::before { color: var(--type-event-text); }
+.grandchild-item.topic::before { color: var(--type-topic-text); }
+.grandchild-item.organization::before { color: var(--type-organization-text); }
+.grandchild-item.group::before { color: var(--type-group-text); }
+.grandchild-item.component::before { color: var(--type-component-text); }
 
 .grandchild-check {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   margin: 0;
   accent-color: var(--type-task-text);
   cursor: pointer;
