@@ -2051,21 +2051,14 @@ function resetLayout() {
   // Clear saved positions from storage
   localStorage.removeItem(getPositionsKey())
 
-  // Use cose-bilkent with randomize: true for fresh layout
+  // Use current layout mode with randomize for fresh layout
+  const baseOpts = getLayoutOptions()
   const opts = {
-    name: 'cose-bilkent',
+    ...baseOpts,
     animate: 'end',
     animationDuration: 500,
     fit: true,
-    padding: 50,
-    randomize: true,
-    nodeRepulsion: 5000,
-    idealEdgeLength: 100,
-    edgeElasticity: 0.5,
-    gravity: 0.5,
-    gravityRange: 3.8,
-    numIter: 2500,
-    tile: false
+    randomize: true
   }
 
   cy.layout(opts).run()

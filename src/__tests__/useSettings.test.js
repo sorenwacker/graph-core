@@ -28,7 +28,7 @@ describe('useSettings composable', () => {
       expect(settings.hideSensitive.value).toBe(false)
       expect(settings.graphDetailThreshold.value).toBe(30)
       expect(settings.graphMaxDepth.value).toBe(0)
-      expect(settings.graphRootMaxDepth.value).toBe(2)
+      expect(settings.graphRootMaxDepth.value).toBe(1)
       expect(settings.openDetailFullscreen.value).toBe(false)
       expect(settings.hoverPreviewEnabled.value).toBe(true)
       expect(settings.sidebarPinned.value).toBe(false)

@@ -1807,6 +1807,8 @@ function hideCardTooltip() {
 
 // Add item modal functions
 function showAddNodeModal(parentId = null) {
+  // Close detail panel to focus on creating new node
+  showDetail.value = false
   addNodeModal.value = {
     visible: true,
     parentId
@@ -2030,6 +2032,13 @@ function handleKeydown(e) {
   if (e.key === 'Enter') {
     e.preventDefault()
     toggleDetailPanel()
+  }
+
+  // n - create new node (add to current container or selected node)
+  if (e.key === 'n') {
+    e.preventDefault()
+    const parentId = selectedNode.value?.id || currentContainerId.value
+    showAddNodeModal(parentId)
   }
 
   // Ctrl/Cmd+A - select all visible

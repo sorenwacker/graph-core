@@ -25,7 +25,7 @@ export const MAX_SEARCH_RESULTS = 100
 // Graph settings
 export const DEFAULT_GRAPH_DETAIL_THRESHOLD = 30
 export const DEFAULT_GRAPH_MAX_DEPTH = 0  // 0 = unlimited
-export const DEFAULT_GRAPH_ROOT_MAX_DEPTH = 2
+export const DEFAULT_GRAPH_ROOT_MAX_DEPTH = 1
 
 // Card grid
 export const CARD_MIN_WIDTH = 200

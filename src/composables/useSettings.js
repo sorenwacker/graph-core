@@ -41,7 +41,7 @@ export function useSettings() {
   // Graph settings
   const graphDetailThreshold = ref(getNumber('graphcore-graphDetailThreshold', 30))
   const graphMaxDepth = ref(getNumber('graphcore-graphMaxDepth', 0))
-  const graphRootMaxDepth = ref(getNumber('graphcore-graphRootMaxDepth', 2))
+  const graphRootMaxDepth = ref(getNumber('graphcore-graphRootMaxDepth', 1))
 
   // Detail panel settings
   const openDetailFullscreen = ref(getBoolean('graphcore-openDetailFullscreen', false))
