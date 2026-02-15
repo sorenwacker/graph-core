@@ -16,22 +16,17 @@ import { useUndoRedo } from './composables/useUndoRedo.js'
 import { useSettings } from './composables/useSettings.js'
 import { useWorkspace } from './composables/useWorkspace.js'
 import { useSidebar } from './composables/useSidebar.js'
+import { useNodeOperations } from './composables/useNodeOperations.js'
 // useNavigation available but not currently used
 // import { useNavigation } from './composables/useNavigation.js'
 import {
-  MoveCommand,
   CreateCommand,
-  DeleteCommand,
-  DeleteMultipleCommand,
-  EditCommand,
-  ReorderCommand,
-  CompleteCommand,
   LinkCommand,
-  UnlinkCommand
+  UnlinkCommand,
+  ReorderCommand
 } from './commands/index.js'
 import { nodeTypes, getImportanceLabel, getTypeIcon, typeConfig } from './utils/constants.js'
 import { decodeHtmlEntities as decodeHtml } from './utils/html.js'
-import { pickNodeFields } from './utils/nodeFields.js'
 import { MAX_HISTORY_SIZE, SIDEBAR_HIDE_DELAY_MS } from './utils/uiConstants.js'
 import DetailPanel from './components/DetailPanel.vue'
 import GraphView from './components/GraphView.vue'
@@ -316,6 +311,17 @@ const {
     await loadSidebarTree()
   }
 })
+
+// Node operations composable - handles CRUD with undo/redo support
+const nodeOps = useNodeOperations({
+  api,
+  pushCommand,
+  getWorkspaceIdForNode,
+  onError: (e) => { error.value = e.message },
+  broadcastUpdate: broadcastNodeUpdate,
+  broadcastDelete: broadcastNodeDelete
+})
+
 const selectedResultIndex = ref(0)
 
 // Cards drag state - using composable
@@ -1167,19 +1173,13 @@ async function refreshGraphAfterStructureChange(reloadData = false) {
 }
 
 async function moveNode({ nodeId, oldParentId, newParentId }) {
-  try {
-    // Track for undo (only if oldParentId provided - not from undo/redo)
-    if (oldParentId !== undefined) {
-      pushCommand(new MoveCommand({ nodeId, oldParentId, newParentId }))
-    }
-    await api.moveNode(nodeId, newParentId)
+  const success = await nodeOps.moveNode({ nodeId, oldParentId, newParentId })
+  if (success) {
     if (newParentId) expandedIds.value.add(newParentId)
     // Use same refresh as links (reloadData=true for parent-child changes)
     await refreshGraphAfterStructureChange(true)
     await loadSidebarTree()
     loadRecentItems()
-  } catch (e) {
-    error.value = e.message
   }
 }
 
@@ -1225,11 +1225,8 @@ async function unlinkNodesFromGraph({ sourceId, targetId }) {
 }
 
 async function moveMultipleNodes({ nodeIds, newParentId }) {
-  try {
-    // Move all selected nodes to new parent
-    for (const nodeId of nodeIds) {
-      await api.moveNode(nodeId, newParentId)
-    }
+  const success = await nodeOps.moveMultipleNodes({ nodeIds, newParentId })
+  if (success) {
     if (newParentId) expandedIds.value.add(newParentId)
     // Use same refresh as single moves
     await refreshGraphAfterStructureChange(true)
@@ -1237,8 +1234,6 @@ async function moveMultipleNodes({ nodeIds, newParentId }) {
     loadRecentItems()
     // Clear multi-selection after move
     selectedIds.value.clear()
-  } catch (e) {
-    error.value = e.message
   }
 }
 
@@ -1309,30 +1304,13 @@ async function createNodeAtPosition({ title, type, x, y }) {
 }
 
 async function updateNode(updatedNode, trackUndo = true) {
-  try {
-    // Get old values for undo
-    const oldNode = trackUndo ? await api.getNode(updatedNode.id) : null
-
-    // Auto-set end_date when marking complete (if no end_date)
-    if (updatedNode.completed && !oldNode?.completed && !updatedNode.end_date) {
-      updatedNode.end_date = new Date().toISOString().split('T')[0]
-    }
-
-    const newValues = pickNodeFields(updatedNode)
-    await api.updateNode(updatedNode.id, newValues)
-    // Broadcast update to detached windows
-    broadcastNodeUpdate(updatedNode)
-    if (trackUndo && oldNode) {
-      const oldValues = pickNodeFields(oldNode)
-      pushCommand(new EditCommand({ nodeId: updatedNode.id, oldValues, newValues }))
-    }
+  const success = await nodeOps.updateNode(updatedNode, { trackUndo })
+  if (success) {
     // Use silent mode to avoid triggering full re-render
     await loadChildren(currentContainerId.value, { silent: true })
     await loadSidebarTree()
     loadRecentItems()
     loadFavorites()
-  } catch (e) {
-    error.value = e.message
   }
 }
 
@@ -1343,36 +1321,17 @@ async function handleDetach(node) {
 }
 
 async function deleteNode(nodeId) {
-  try {
-    // Get node data for undo before deleting
-    const node = await api.getNode(nodeId)
-    if (!node) return
+  // Check navigation needs before deletion
+  const node = await api.getNode(nodeId)
+  if (!node) return
 
-    // Get all descendants for cascade delete
-    const descendants = await api.getDescendants(nodeId) || []
-    const allNodesToDelete = [node, ...descendants]
+  const descendants = await api.getDescendants(nodeId) || []
+  const allIds = new Set([node, ...descendants].map(n => String(n.id)))
+  const needsNavigation = allIds.has(String(currentContainerId.value)) ||
+    breadcrumbs.value.some(b => allIds.has(String(b.id)))
 
-    // Check if we need to navigate back after deletion (use == for type coercion)
-    const allIds = new Set(allNodesToDelete.map(n => String(n.id)))
-    const needsNavigation = allIds.has(String(currentContainerId.value)) ||
-      breadcrumbs.value.some(b => allIds.has(String(b.id)))
-
-    // Delete all nodes (descendants first, then the root)
-    // Reverse order so children are deleted before parents
-    for (const n of [...descendants].reverse()) {
-      await api.deleteNode(n.id, false)  // Soft delete
-      broadcastNodeDelete(n.id)
-    }
-    await api.deleteNode(nodeId, false)  // Soft delete the root node
-    broadcastNodeDelete(nodeId)
-
-    // Push undo with all deleted nodes
-    if (allNodesToDelete.length > 1) {
-      pushCommand(new DeleteMultipleCommand({ nodes: allNodesToDelete }))
-    } else {
-      pushCommand(new DeleteCommand({ nodeData: node }))
-    }
-
+  const result = await nodeOps.deleteNode(nodeId)
+  if (result.success) {
     showDetail.value = false
     selectedNode.value = null
 
@@ -1392,8 +1351,6 @@ async function deleteNode(nodeId) {
 
     await loadSidebarTree()
     loadRecentItems()
-  } catch (e) {
-    error.value = e.message
   }
 }
 
@@ -1405,30 +1362,13 @@ async function deleteMultipleNodes(nodeIds) {
     if (!confirm(`Delete ${nodeIds.length} nodes? (Cmd+Z to undo)`)) return
   }
 
-  const deletedNodes = []
+  // Check if we need to navigate back after deletion (convert to strings for comparison)
+  const nodeIdSet = new Set(nodeIds.map(String))
+  const needsNavigation = nodeIdSet.has(String(currentContainerId.value)) ||
+    breadcrumbs.value.some(b => nodeIdSet.has(String(b.id)))
 
-  try {
-    // Collect node data before deleting
-    for (const id of nodeIds) {
-      const node = await api.getNode(id)
-      if (node) deletedNodes.push(node)
-    }
-
-    // Check if we need to navigate back after deletion (convert to strings for comparison)
-    const nodeIdSet = new Set(nodeIds.map(String))
-    const needsNavigation = nodeIdSet.has(String(currentContainerId.value)) ||
-      breadcrumbs.value.some(b => nodeIdSet.has(String(b.id)))
-
-    // Delete all nodes
-    for (const id of nodeIds) {
-      await api.deleteNode(id, false)
-    }
-
-    // Push single undo action for all deletions
-    if (deletedNodes.length > 0) {
-      pushCommand(new DeleteMultipleCommand({ nodes: deletedNodes }))
-    }
-
+  const result = await nodeOps.deleteMultipleNodes(nodeIds)
+  if (result.success) {
     showDetail.value = false
     selectedNode.value = null
 
@@ -1441,9 +1381,6 @@ async function deleteMultipleNodes(nodeIds) {
 
     await loadSidebarTree()
     loadRecentItems()
-  } catch (e) {
-    console.error('deleteMultipleNodes error:', e)
-    error.value = e.message
   }
 }
 
@@ -1486,45 +1423,27 @@ async function wrapWithParent({ nodeId, parentTitle }) {
 }
 
 async function moveNodeToRoot(nodeId) {
-  try {
-    await api.moveNode(nodeId, null)
+  const success = await nodeOps.moveNodeToRoot(nodeId)
+  if (success) {
     await loadChildren(currentContainerId.value)
     await loadSidebarTree()
     loadRecentItems()
-  } catch (e) {
-    error.value = e.message
   }
 }
 
 async function toggleComplete(node) {
-  try {
-    const oldCompleted = node.completed
-    const newCompleted = !oldCompleted
-
-    // Build update with new completed state
-    const updates = { completed: newCompleted }
-
-    // Auto-set end_date when marking complete (if no end_date)
-    if (newCompleted && !node.end_date) {
-      updates.end_date = new Date().toISOString().split('T')[0]
-    }
-
-    await api.updateNode(node.id, updates)
-    pushCommand(new CompleteCommand({ nodeId: node.id, oldCompleted, newCompleted }))
+  const success = await nodeOps.toggleComplete(node)
+  if (success) {
     await loadChildren(currentContainerId.value)
     tasksViewRef.value?.loadTasks()
-  } catch (e) {
-    error.value = e.message
   }
 }
 
 async function toggleFavorite(node) {
-  try {
-    await api.updateNode(node.id, { favorite: !node.favorite })
+  const success = await nodeOps.toggleFavorite(node)
+  if (success) {
     await loadChildren(currentContainerId.value)
     await loadFavorites()
-  } catch (e) {
-    error.value = e.message
   }
 }
 
@@ -2124,30 +2043,15 @@ async function deleteSelectedNodes() {
   if (selectedIds.value.size === 0) return
 
   const idsToDelete = [...selectedIds.value]
-  const deletedNodes = []
-
-  // Collect node data before deleting
-  for (const id of idsToDelete) {
-    const node = await api.getNode(id)
-    if (node) deletedNodes.push(node)
+  const result = await nodeOps.deleteMultipleNodes(idsToDelete)
+  if (result.success) {
+    selectedIds.value = new Set()
+    selectedNode.value = null
+    showDetail.value = false
+    await loadChildren(currentContainerId.value)
+    await loadSidebarTree()
+    loadRecentItems()
   }
-
-  // Delete all nodes
-  for (const id of idsToDelete) {
-    await api.deleteNode(id, false)
-  }
-
-  // Push single undo action for all deletions
-  if (deletedNodes.length > 0) {
-    pushCommand(new DeleteMultipleCommand({ nodes: deletedNodes }))
-  }
-
-  selectedIds.value = new Set()
-  selectedNode.value = null
-  showDetail.value = false
-  await loadChildren(currentContainerId.value)
-  await loadSidebarTree()
-  loadRecentItems()
 }
 
 onMounted(async () => {
