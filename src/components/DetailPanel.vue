@@ -5,7 +5,7 @@ import MentionDropdown from './MentionDropdown.vue'
 import TagInput from './TagInput.vue'
 import NotesEditor from './NotesEditor.vue'
 import { api } from '../services/api'
-import { nodeTypes, getTypeIcon, getTypeColors, personIconSvg } from '../utils/constants.js'
+import { nodeTypes, getTypeIcon, personIconSvg } from '../utils/constants.js'
 import { useMentions } from '../composables/useMentions.js'
 
 const props = defineProps({
@@ -75,17 +75,17 @@ const {
   handleInput: handleMentionInput,
   handleKeydown: handleMentionKeydown,
   selectMention,
-  hideMentions,
-  refreshPersons
+  hideMentions: _hideMentions,
+  refreshPersons: _refreshPersons
 } = useMentions({
-  onMentionInserted: async (personId, nodeId) => {
+  onMentionInserted: async (_personId, _nodeId) => {
     // Refresh linked nodes after auto-linking
     await loadLinkedNodes()
   },
   workspaceId: props.currentWorkspace
 })
 
-function onNotesInput(e) {
+function _onNotesInput(e) {
   editedNode.value.notes = e.target.value
   handleMentionInput(e, props.node?.id)
 }
@@ -94,7 +94,7 @@ function onCodeMirrorNotesUpdate(newValue) {
   editedNode.value.notes = newValue
 }
 
-function onNotesKeydown(e) {
+function _onNotesKeydown(e) {
   const handled = handleMentionKeydown(
     e,
     editedNode.value.notes,
@@ -617,7 +617,7 @@ async function toggleChildComplete(child) {
   }
 }
 
-async function toggleChildExpand(child) {
+async function _toggleChildExpand(child) {
   if (expandedChildren.value.has(child.id)) {
     expandedChildren.value.delete(child.id)
     expandedChildren.value = new Set(expandedChildren.value) // trigger reactivity

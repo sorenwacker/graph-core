@@ -196,7 +196,7 @@ const dateRange = computed(() => {
 // Generate year markers
 const years = computed(() => {
   if (!dateRange.value.start) return []
-  const zoom = zoomLevel.value // explicit dependency
+  const _zoom = zoomLevel.value // explicit dependency
   const result = []
   const start = new Date(dateRange.value.start)
   const end = new Date(dateRange.value.end)
@@ -217,7 +217,7 @@ const years = computed(() => {
 // Generate month markers
 const months = computed(() => {
   if (!dateRange.value.start) return []
-  const zoom = zoomLevel.value // explicit dependency
+  const _zoom = zoomLevel.value // explicit dependency
 
   const result = []
   const start = new Date(dateRange.value.start)
@@ -328,7 +328,7 @@ function getNodeWidth(node) {
   return Math.max(days * zoomLevel.value, 20)
 }
 
-function formatDate(dateStr) {
+function _formatDate(dateStr) {
   if (!dateStr) return ''
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }

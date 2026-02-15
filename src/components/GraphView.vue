@@ -1,10 +1,10 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { api } from '../services/api'
 import { buildTooltipHTML } from '../utils/tooltip.js'
 import { useNodeTooltip } from '../composables/useNodeTooltip.js'
 import { useGraphSettings, ALL_NODE_TYPES } from '../composables/useGraphSettings.js'
-import { nodeTypes, getTypeIcon, typeConfig, getGraphColors } from '../utils/constants.js'
+import { nodeTypes, typeConfig, getGraphColors } from '../utils/constants.js'
 import cytoscape from 'cytoscape'
 import coseBilkent from 'cytoscape-cose-bilkent'
 import cola from 'cytoscape-cola'
@@ -144,8 +144,8 @@ const {
   showRootNode,
   visibleTypes,
   radialSettings,
-  toggleTypeVisibility,
-  resetRadialSettings
+  toggleTypeVisibility: _toggleTypeVisibility,
+  resetRadialSettings: _resetRadialSettings
 } = useGraphSettings()
 
 // Use container's saved layout if available, otherwise use global default from composable
@@ -156,7 +156,7 @@ const showTypeFilter = ref(false)
 const showHotkeyHelp = ref(false)
 const showLayoutSettings = ref(false)
 
-let relaxClickTimeout = null
+let _relaxClickTimeout = null
 let cy = null
 let isInitializing = false
 let lastKnownParentId = props.parent?.id
@@ -478,7 +478,7 @@ const { showTooltip, hideTooltip, forceHide: forceHideTooltip } = useNodeTooltip
   shouldShowTooltip: () => props.hoverPreviewEnabled && !props.showDetail && !props.fullscreenDetailOpen && !editModal.value.visible
 })
 
-function showEditModal(node) {
+function _showEditModal(node) {
   // Hide any active tooltip when showing edit modal
   forceHideTooltip()
   editModal.value = {
@@ -530,7 +530,7 @@ async function wrapWithParentFromModal() {
 
 
 // Get type-specific styles from constants.js
-function getTypeStyle(type) {
+function _getTypeStyle(type) {
   const config = typeConfig[type]
   if (!config) return {}
   return {
@@ -714,7 +714,7 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
   const elements = []
 
   // Add nodes
-  allNodes.forEach((node, index) => {
+  allNodes.forEach((node, _index) => {
     const savedPos = savedPositions[String(node.id)]
     // Get colors from centralized config (handles person unique colors automatically)
     const colors = getGraphColors(node.type, node.id)
@@ -725,7 +725,7 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
     const isTopLevelNode = !parentNode && topLevelIds.has(node.id)
     const shouldGlow = isCurrentContainer || isTopLevelNode
     const hasChildren = node.children?.length > 0
-    const childCount = node.children?.length || 0
+    const _childCount = node.children?.length || 0
     const isCompleted = node.completed
 
     // Build clean label - title only when many nodes, add meta for fewer nodes
@@ -1529,7 +1529,7 @@ async function initGraph() {
 
       // Find the HTML label closest to this node's position
       const htmlLabels = container.value.querySelectorAll('.node-html, .node-person')
-      let closestLabel = null
+      let _closestLabel = null
       let closestLabelDist = Infinity
       htmlLabels.forEach(label => {
         const rect = label.getBoundingClientRect()
@@ -1538,7 +1538,7 @@ async function initGraph() {
         const dist = Math.sqrt(Math.pow(labelCenterX - renderedPos.x, 2) + Math.pow(labelCenterY - renderedPos.y, 2))
         if (dist < closestLabelDist) {
           closestLabelDist = dist
-          closestLabel = label
+          _closestLabel = label
           highlightRect = rect
         }
       })

@@ -67,7 +67,7 @@ class Database {
           created: fs.statSync(path.join(dir, f)).mtime
         }))
         .sort((a, b) => b.created - a.created)
-    } catch (e) {
+    } catch {
       return []
     }
   }
@@ -117,7 +117,7 @@ class Database {
           `INSERT OR IGNORE INTO workspaces (id, name, color, icon, sort_order) VALUES (?, ?, ?, ?, ?)`,
           [ws.id, ws.name, ws.color, ws.icon, ws.sort_order]
         )
-      } catch (e) {
+      } catch {
         // Ignore duplicates
       }
     }
@@ -226,21 +226,21 @@ class Database {
     // Migration: add notes_sensitive column if missing
     try {
       this.db.run(`ALTER TABLE nodes ADD COLUMN notes_sensitive INTEGER DEFAULT 0`)
-    } catch (e) {
+    } catch {
       // Column already exists, ignore
     }
 
     // Migration: add tags column (JSON array of tag strings)
     try {
       this.db.run(`ALTER TABLE nodes ADD COLUMN tags TEXT DEFAULT '[]'`)
-    } catch (e) {
+    } catch {
       // Column already exists, ignore
     }
 
     // Migration: add graph_layout column for per-container graph layout preference
     try {
       this.db.run(`ALTER TABLE nodes ADD COLUMN graph_layout TEXT DEFAULT NULL`)
-    } catch (e) {
+    } catch {
       // Column already exists, ignore
     }
 
@@ -277,7 +277,7 @@ class Database {
       this.db.run(`ALTER TABLE nodes ADD COLUMN workspace_id TEXT DEFAULT NULL`)
       this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_workspace ON nodes(workspace_id)`)
       console.log('Added workspace_id column to nodes table')
-    } catch (e) {
+    } catch {
       // Column already exists, ensure index exists
       this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_workspace ON nodes(workspace_id)`)
     }
@@ -539,7 +539,7 @@ class Database {
             [person.id, orgId]
           )
           migrated++
-        } catch (e) {
+        } catch {
           // Link might already exist
         }
 

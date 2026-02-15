@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { api } from '../services/api.js'
 import { personColors } from '../utils/constants.js'
 import NotesEditor from './NotesEditor.vue'
@@ -41,7 +41,7 @@ function maskEmail(email) {
   return user.charAt(0) + '***@' + domain
 }
 
-function maskPhone(phone) {
+function _maskPhone(phone) {
   if (!phone || !hideSensitive.value) return phone
   return phone.slice(0, 4) + '****' + phone.slice(-2)
 }
@@ -219,7 +219,7 @@ async function loadLinkedOrganizations(personId) {
     }
 
     // Filter out ancestors - only keep leaf orgs (orgs that don't have children in the list)
-    const orgIds = new Set(allOrgs.map(o => o.id))
+    const _orgIds = new Set(allOrgs.map(o => o.id))
     const leafOrgs = allOrgs.filter(org => {
       // Check if any other org in the list has this org as an ancestor
       for (const other of allOrgs) {

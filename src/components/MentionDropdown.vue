@@ -1,13 +1,11 @@
 <script setup>
-import { computed } from 'vue'
-
-const props = defineProps({
+defineProps({
   persons: { type: Array, default: () => [] },
   selectedIndex: { type: Number, default: 0 },
   position: { type: Object, default: () => ({ top: 0, left: 0 }) }
 })
 
-const emit = defineEmits(['select'])
+const emit = defineEmits(['select', 'hover'])
 
 function getInitials(name) {
   if (!name) return '?'

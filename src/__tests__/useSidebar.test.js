@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { ref, nextTick } from 'vue'
+import { ref } from 'vue'
 import { useSidebar } from '../composables/useSidebar.js'
 
 describe('useSidebar composable', () => {

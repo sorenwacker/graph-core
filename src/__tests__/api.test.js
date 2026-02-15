@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 describe('API Module', () => {
   describe('filterNulls helper', () => {
     // Import the module to test filterNulls behavior through the API
-    let api, originalFetch
+    let _api, originalFetch
 
     beforeEach(() => {
       // Reset modules

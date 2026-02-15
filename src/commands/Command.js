@@ -15,7 +15,7 @@ export class Command {
    * @param {Object} api - API service
    * @returns {Promise<void>}
    */
-  async execute(api) {
+  async execute(_api) {
     throw new Error('execute() must be implemented')
   }
 
@@ -24,7 +24,7 @@ export class Command {
    * @param {Object} api - API service
    * @returns {Promise<void>}
    */
-  async undo(api) {
+  async undo(_api) {
     throw new Error('undo() must be implemented')
   }
 

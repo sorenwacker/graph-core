@@ -1,8 +1,8 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { useNodeTooltip } from '../composables/useNodeTooltip.js'
 import { useNodeInteractions } from '../composables/useNodeInteractions.js'
-import { getTypeIcon, getTypeIconHtml, getTypeColors, typeConfig, personIconSvg } from '../utils/constants.js'
+import { getTypeIcon, getTypeColors, personIconSvg } from '../utils/constants.js'
 
 // Column widths (resizable)
 const defaultColWidths = {
@@ -23,7 +23,7 @@ function loadColWidths() {
   if (saved) {
     try {
       return { ...defaultColWidths, ...JSON.parse(saved) }
-    } catch (e) {
+    } catch {
       return { ...defaultColWidths }
     }
   }
@@ -240,7 +240,7 @@ function getIndentPadding(node) {
 }
 
 // Get tree prefix for visual hierarchy - uses Unicode box-drawing chars
-function getTreePrefix(node, isLast = false) {
+function _getTreePrefix(node, isLast = false) {
   const depth = node.depth || 0
   if (depth === 0) return ''
 
@@ -400,7 +400,7 @@ function onMouseMove(e) {
   }
 }
 
-function onMouseUp(e) {
+function onMouseUp(_e) {
   document.removeEventListener('mousemove', onMouseMove)
   document.removeEventListener('mouseup', onMouseUp)
 

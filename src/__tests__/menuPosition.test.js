@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { calculateMenuPosition } from '../utils/menuPosition.js'
 
 describe('Menu Position Utility', () => {

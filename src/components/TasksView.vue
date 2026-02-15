@@ -121,7 +121,7 @@ async function loadTasks() {
               // Ignore
             }
           }
-        } catch (e) {
+        } catch {
           // Silently fail - task might be at root
           if (task.parent_id) {
             try {

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { api } from '../services/api.js'
 import { useDetachedWindow } from '../composables/useDetachedWindow.js'
 import DetailPanel from './DetailPanel.vue'

@@ -6,7 +6,8 @@ import { useNodeTooltip } from './composables/useNodeTooltip.js'
 import { useDetachedWindow } from './composables/useDetachedWindow.js'
 import { useSelection } from './composables/useSelection.js'
 import { useCardDrag } from './composables/useCardDrag.js'
-import { useSearch } from './composables/useSearch.js'
+// useSearch available but not currently used
+// import { useSearch } from './composables/useSearch.js'
 import { useInlineEdit } from './composables/useInlineEdit.js'
 import { useSnapshots } from './composables/useSnapshots.js'
 import { useContextMenu } from './composables/useContextMenu.js'
@@ -15,7 +16,8 @@ import { useUndoRedo } from './composables/useUndoRedo.js'
 import { useSettings } from './composables/useSettings.js'
 import { useWorkspace } from './composables/useWorkspace.js'
 import { useSidebar } from './composables/useSidebar.js'
-import { useNavigation } from './composables/useNavigation.js'
+// useNavigation available but not currently used
+// import { useNavigation } from './composables/useNavigation.js'
 import {
   MoveCommand,
   CreateCommand,
@@ -27,8 +29,8 @@ import {
   LinkCommand,
   UnlinkCommand
 } from './commands/index.js'
-import { nodeTypes, getImportanceLabel, getTypeIcon, getTypeColors, typeConfig, personIconSvg } from './utils/constants.js'
-import { MAX_HISTORY_SIZE, SIDEBAR_WIDTH, SIDEBAR_HIDE_DELAY_MS, TRANSITION_DURATION_MS } from './utils/uiConstants.js'
+import { nodeTypes, getImportanceLabel, getTypeIcon, typeConfig } from './utils/constants.js'
+import { MAX_HISTORY_SIZE, SIDEBAR_HIDE_DELAY_MS } from './utils/uiConstants.js'
 import DetailPanel from './components/DetailPanel.vue'
 import GraphView from './components/GraphView.vue'
 import TableView from './components/TableView.vue'
@@ -131,7 +133,7 @@ const {
   expandedIds: sidebarExpandedIds,
   treeCollapsed: sidebarTreeCollapsed,
   favoritesCollapsed: sidebarFavoritesCollapsed,
-  recentCollapsed: sidebarRecentCollapsed,
+  recentCollapsed: _sidebarRecentCollapsed,
   visible: sidebarVisible,
   onEnter: onSidebarEnter,
   onLeave: onSidebarLeave,
@@ -188,7 +190,7 @@ const {
   onResizeStart: onDetailResizeStart
 } = useDetailResize()
 
-function closeDetailIfNotPinned() {
+function _closeDetailIfNotPinned() {
   if (!detailPinned.value && showDetail.value) {
     showDetail.value = false
     selectedNode.value = null
@@ -314,8 +316,8 @@ const linkSourceNodeId = ref(null)
 const {
   undoStack,
   redoStack,
-  canUndo,
-  canRedo,
+  canUndo: _canUndo,
+  canRedo: _canRedo,
   pushCommand,
   undo,
   redo
@@ -331,9 +333,9 @@ const selectedResultIndex = ref(0)
 // Cards drag state - using composable
 // Note: callbacks reference functions defined below (works due to closure/hoisting)
 const {
-  draggedNode: cardDraggedNode,
-  dropTarget: cardDropTarget,
-  dropPosition: cardDropPosition,
+  draggedNode: _cardDraggedNode,
+  dropTarget: _cardDropTarget,
+  dropPosition: _cardDropPosition,
   onDragStart: onCardDragStart,
   onDragEnd: onCardDragEnd,
   onDragOver: onCardDragOver,
@@ -354,7 +356,7 @@ const {
 })
 
 // Computed
-const projects = computed(() => {
+const _projects = computed(() => {
   if (currentContainerId.value === null) {
     return children.value.filter(n => n && n.type === 'project')
   }
@@ -386,18 +388,18 @@ const flatChildren = computed(() => {
 const {
   selectedNode,
   selectedIds,
-  lastSelectedNode,
-  anchorNode,
-  hasSelection,
-  selectionCount,
+  lastSelectedNode: _lastSelectedNode,
+  anchorNode: _anchorNode,
+  hasSelection: _hasSelection,
+  selectionCount: _selectionCount,
   isSelected: isNodeSelected,
-  clearSelection,
+  clearSelection: _clearSelection,
   hoverSelectNode,
   selectNode,
   cancelDetailOpen,
   handleMultiSelect,
-  updateSelectedNode,
-  removeFromSelection
+  updateSelectedNode: _updateSelectedNode,
+  removeFromSelection: _removeFromSelection
 } = useSelection({
   showDetail,
   fullscreenDetail,
@@ -436,15 +438,15 @@ const {
   editingTitle,
   inlineNotesId,
   inlineNotesText,
-  inlineNotesRef,
+  inlineNotesRef: _inlineNotesRef,
   startEditing,
   saveEditing,
   cancelEditing,
-  handleEditKeydown,
+  handleEditKeydown: _handleEditKeydown,
   startInlineNotes,
   saveInlineNotes,
   cancelInlineNotes,
-  handleInlineNotesKeydown
+  handleInlineNotesKeydown: _handleInlineNotesKeydown
 } = useInlineEdit({
   findNode: (nodeId) => flatChildren.value.find(n => n.id === nodeId),
   onSaveTitle: async (nodeId, newTitle) => {
@@ -459,7 +461,7 @@ const {
   }
 })
 
-const contextTitle = computed(() => {
+const _contextTitle = computed(() => {
   if (currentContainer.value) {
     return currentContainer.value.title
   }
@@ -673,7 +675,7 @@ function clearRecent() {
   recentItems.value = []
 }
 
-function undoClearRecent() {
+function _undoClearRecent() {
   if (previousRecentClearedAt.value !== null) {
     const key = getRecentClearedKey()
     if (previousRecentClearedAt.value) {
@@ -692,7 +694,7 @@ async function loadFavorites() {
       const items = await api.getFavorites(currentWorkspace.value)
       favoriteItems.value = (items || []).filter(Boolean)
     }
-  } catch (e) {
+  } catch {
     // Silently fail - favorites API may not be available until restart
     favoriteItems.value = []
   }
@@ -1593,7 +1595,7 @@ function loadExpandedState() {
     try {
       const ids = JSON.parse(stored)
       expandedIds.value = new Set(ids)
-    } catch (e) {
+    } catch {
       expandedIds.value = new Set()
     }
   }
@@ -1917,7 +1919,7 @@ const {
 // startInlineNotes, saveInlineNotes, cancelInlineNotes, handleInlineNotesKeydown)
 // are now provided by useInlineEdit composable initialized above
 
-function renderMarkdown(text) {
+function _renderMarkdown(text) {
   if (!text) return ''
   return marked.parse(text)
 }
@@ -1959,7 +1961,7 @@ function toggleCompletedVisibility() {
   hideCompleted.value = !hideCompleted.value
 }
 
-function toggleSensitiveVisibility() {
+function _toggleSensitiveVisibility() {
   hideSensitive.value = !hideSensitive.value
   localStorage.setItem('graphcore-hideSensitive', hideSensitive.value.toString())
 }
@@ -1969,7 +1971,7 @@ function isSensitiveNode(node) {
   return !!node.notes_sensitive
 }
 
-function hasNotes(node) {
+function _hasNotes(node) {
   return node.notes && node.notes.trim().length > 0
 }
 
@@ -2205,7 +2207,7 @@ onMounted(async () => {
   const initialContainerId = savedContainerId ? parseInt(savedContainerId, 10) : null
   try {
     await loadChildren(initialContainerId)
-  } catch (e) {
+  } catch {
     // If saved container no longer exists, fall back to root
     console.warn('Saved container not found, loading root')
     await loadChildren(null)

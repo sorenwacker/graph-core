@@ -1,4 +1,4 @@
-import { ref, watch, nextTick } from 'vue'
+import { ref, nextTick } from 'vue'
 import { api } from '../services/api.js'
 
 /**
@@ -71,7 +71,7 @@ export function useMentions(options = {}) {
   }
 
   // Handle input in textarea
-  function handleInput(e, currentNodeId = null) {
+  function handleInput(e, _currentNodeId = null) {
     const textarea = e.target
     textareaEl.value = textarea
     const text = textarea.value

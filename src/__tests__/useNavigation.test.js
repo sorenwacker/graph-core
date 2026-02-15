@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ref, nextTick } from 'vue'
+import { ref } from 'vue'
 import { useNavigation } from '../composables/useNavigation.js'
 
 describe('useNavigation composable', () => {
