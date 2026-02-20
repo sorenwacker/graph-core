@@ -1,120 +1,79 @@
 import { ref, watch } from 'vue'
 
 /**
+ * Create a ref that automatically persists to localStorage
+ * @param {string} key - localStorage key
+ * @param {*} defaultValue - Default value if not in storage
+ * @param {Object} options - Options for parsing and serialization
+ * @param {string} options.type - 'string' | 'boolean' | 'number' | 'nullable'
+ * @returns {Ref} Vue ref with auto-persistence
+ */
+function persistedRef(key, defaultValue, { type = 'string' } = {}) {
+  // Parse stored value based on type
+  function parse(stored) {
+    if (stored === null) return defaultValue
+    switch (type) {
+      case 'boolean':
+        return stored === 'true'
+      case 'number': {
+        const parsed = parseInt(stored, 10)
+        return isNaN(parsed) ? defaultValue : parsed
+      }
+      case 'nullable':
+        return stored || null
+      default:
+        return stored
+    }
+  }
+
+  // Get initial value from localStorage
+  const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null
+  const value = ref(parse(stored))
+
+  // Watch for changes and persist
+  watch(value, (val) => {
+    if (typeof localStorage === 'undefined') return
+    if (val === null && type === 'nullable') {
+      localStorage.removeItem(key)
+    } else {
+      localStorage.setItem(key, String(val))
+    }
+  })
+
+  return value
+}
+
+/**
  * Composable for managing application settings with localStorage persistence.
  * Centralizes all settings to prevent scattered localStorage access throughout the app.
  *
  * @returns {Object} Settings refs with auto-persistence
  */
 export function useSettings() {
-  // Helper to get value from localStorage
-  function getString(key, defaultValue) {
-    if (typeof localStorage === 'undefined') return defaultValue
-    return localStorage.getItem(key) || defaultValue
-  }
-
-  function getBoolean(key, defaultValue) {
-    if (typeof localStorage === 'undefined') return defaultValue
-    const stored = localStorage.getItem(key)
-    if (stored === null) return defaultValue
-    return stored === 'true'
-  }
-
-  function getNumber(key, defaultValue) {
-    if (typeof localStorage === 'undefined') return defaultValue
-    const stored = localStorage.getItem(key)
-    if (stored === null) return defaultValue
-    const parsed = parseInt(stored, 10)
-    return isNaN(parsed) ? defaultValue : parsed
-  }
-
-  // View mode: tree, graph, timeline, table, persons, tasks, trash
-  const viewMode = ref(getString('graphcore-viewMode', 'tree'))
-
-  // Current container ID (null for root level)
-  const containerId = ref(getString('graphcore-containerId', null))
-
-  // Visibility settings
-  const hideCompleted = ref(getBoolean('graphcore-hideCompleted', true))
-  const hideSensitive = ref(getBoolean('graphcore-hideSensitive', false))
-
-  // Graph settings
-  const graphDetailThreshold = ref(getNumber('graphcore-graphDetailThreshold', 30))
-  const graphMaxDepth = ref(getNumber('graphcore-graphMaxDepth', 0))
-  const graphRootMaxDepth = ref(getNumber('graphcore-graphRootMaxDepth', 1))
-
-  // Detail panel settings
-  const openDetailFullscreen = ref(getBoolean('graphcore-openDetailFullscreen', false))
-  const hoverPreviewEnabled = ref(getBoolean('graphcore-hoverPreview', true))
-
-  // Sidebar settings
-  const sidebarPinned = ref(getBoolean('graphcore-sidebarPinned', false))
-
-  // Workspace
-  const workspace = ref(getString('graphcore-workspace', 'work'))
-
-  // Persist changes to localStorage
-  watch(viewMode, (val) => {
-    localStorage.setItem('graphcore-viewMode', val)
-  })
-
-  watch(containerId, (val) => {
-    if (val === null) {
-      localStorage.removeItem('graphcore-containerId')
-    } else {
-      localStorage.setItem('graphcore-containerId', val)
-    }
-  })
-
-  watch(hideCompleted, (val) => {
-    localStorage.setItem('graphcore-hideCompleted', String(val))
-  })
-
-  watch(hideSensitive, (val) => {
-    localStorage.setItem('graphcore-hideSensitive', String(val))
-  })
-
-  watch(graphDetailThreshold, (val) => {
-    if (typeof val === 'number' && !isNaN(val)) {
-      localStorage.setItem('graphcore-graphDetailThreshold', String(val))
-    }
-  })
-
-  watch(graphMaxDepth, (val) => {
-    localStorage.setItem('graphcore-graphMaxDepth', String(val))
-  })
-
-  watch(graphRootMaxDepth, (val) => {
-    localStorage.setItem('graphcore-graphRootMaxDepth', String(val))
-  })
-
-  watch(openDetailFullscreen, (val) => {
-    localStorage.setItem('graphcore-openDetailFullscreen', String(val))
-  })
-
-  watch(hoverPreviewEnabled, (val) => {
-    localStorage.setItem('graphcore-hoverPreview', String(val))
-  })
-
-  watch(sidebarPinned, (val) => {
-    localStorage.setItem('graphcore-sidebarPinned', String(val))
-  })
-
-  watch(workspace, (val) => {
-    localStorage.setItem('graphcore-workspace', val)
-  })
-
   return {
-    viewMode,
-    containerId,
-    hideCompleted,
-    hideSensitive,
-    graphDetailThreshold,
-    graphMaxDepth,
-    graphRootMaxDepth,
-    openDetailFullscreen,
-    hoverPreviewEnabled,
-    sidebarPinned,
-    workspace
+    // View mode: tree, graph, timeline, table, persons, tasks, trash
+    viewMode: persistedRef('graphcore-viewMode', 'tree'),
+
+    // Current container ID (null for root level)
+    containerId: persistedRef('graphcore-containerId', null, { type: 'nullable' }),
+
+    // Visibility settings
+    hideCompleted: persistedRef('graphcore-hideCompleted', true, { type: 'boolean' }),
+    hideSensitive: persistedRef('graphcore-hideSensitive', false, { type: 'boolean' }),
+
+    // Graph settings
+    graphDetailThreshold: persistedRef('graphcore-graphDetailThreshold', 0, { type: 'number' }),
+    graphMaxDepth: persistedRef('graphcore-graphMaxDepth', 0, { type: 'number' }),
+    graphRootMaxDepth: persistedRef('graphcore-graphRootMaxDepth', 1, { type: 'number' }),
+
+    // Detail panel settings
+    openDetailFullscreen: persistedRef('graphcore-openDetailFullscreen', false, { type: 'boolean' }),
+    hoverPreviewEnabled: persistedRef('graphcore-hoverPreview', true, { type: 'boolean' }),
+
+    // Sidebar settings
+    sidebarPinned: persistedRef('graphcore-sidebarPinned', false, { type: 'boolean' }),
+
+    // Workspace
+    workspace: persistedRef('graphcore-workspace', 'work')
   }
 }

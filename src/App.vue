@@ -131,6 +131,7 @@ const {
   treeCollapsed: sidebarTreeCollapsed,
   favoritesCollapsed: sidebarFavoritesCollapsed,
   recentCollapsed: _sidebarRecentCollapsed,
+  tagsCollapsed: sidebarTagsCollapsed,
   visible: sidebarVisible,
   onEnter: onSidebarEnter,
   onLeave: onSidebarLeave,
@@ -175,6 +176,9 @@ async function deleteCurrentWorkspace() {
 
 // Favorites computed from all loaded nodes
 const favoriteItems = ref([])
+
+// Tags for sidebar
+const allTags = ref([])
 
 function toggleSidebarPin() {
   sidebarPinned.value = !sidebarPinned.value
@@ -431,6 +435,7 @@ watch(currentWorkspace, async () => {
   await loadSidebarTree()
   await loadRecentItems()
   await loadFavorites()
+  await loadTags()
   // Restore expanded state for this workspace
   loadExpandedState()
 })
@@ -700,6 +705,29 @@ async function loadFavorites() {
   } catch {
     // Silently fail - favorites API may not be available until restart
     favoriteItems.value = []
+  }
+}
+
+async function loadTags() {
+  try {
+    const tags = await api.getAllTags(currentWorkspace.value)
+    allTags.value = tags || []
+  } catch {
+    allTags.value = []
+  }
+}
+
+async function selectTag(tag) {
+  // Search for nodes with this tag and show results
+  try {
+    const results = await api.getNodesByTag(tag, currentWorkspace.value)
+    const resultsWithBreadcrumbs = await fetchBreadcrumbsForResults(results)
+    searchResults.value = resultsWithBreadcrumbs
+    searchQuery.value = `#${tag}`
+    showSearch.value = true
+    selectedResultIndex.value = 0
+  } catch (e) {
+    console.error('Failed to search by tag:', e)
   }
 }
 
@@ -1070,7 +1098,7 @@ async function handleReorder({ nodeId, targetId, position }) {
       }))
     }
 
-    await loadChildren(currentContainerId.value)
+    await loadChildren(currentContainerId.value, { silent: true })
     await loadSidebarTree()
     loadRecentItems()
   } catch (e) {
@@ -1108,7 +1136,7 @@ async function createNode() {
 
     newNodeTitle.value = ''
     addChildParentId.value = null // Clear the child parent ID
-    await loadChildren(currentContainerId.value)
+    await loadChildren(currentContainerId.value, { silent: true })
   } catch (e) {
     error.value = e.message
   }
@@ -1140,7 +1168,7 @@ async function addChildNode({ parentId, title, type, x, y }) {
       localStorage.setItem(posKey, JSON.stringify(positions))
     }
     expandedIds.value.add(parentId)
-    await loadChildren(currentContainerId.value)
+    await loadChildren(currentContainerId.value, { silent: true })
   } catch (e) {
     error.value = e.message
   }
@@ -1297,7 +1325,8 @@ async function createNodeAtPosition({ title, type, x, y }) {
     positions[newNode.id] = { x, y }
     localStorage.setItem(posKey, JSON.stringify(positions))
 
-    await loadChildren(currentContainerId.value)
+    // Use silent mode to preserve GraphView mount state (and thus zoom/pan)
+    await loadChildren(currentContainerId.value, { silent: true })
     await loadSidebarTree()
     loadRecentItems()
     selectNode(newNode)
@@ -1314,6 +1343,7 @@ async function updateNode(updatedNode, trackUndo = true) {
     await loadSidebarTree()
     loadRecentItems()
     loadFavorites()
+    loadTags()
   }
 }
 
@@ -1346,10 +1376,10 @@ async function deleteNode(nodeId) {
         // Deleted a root node - go to workspace root
         currentContainerId.value = null
         breadcrumbs.value = []
-        await loadChildren(null)
+        await loadChildren(null, { silent: true })
       }
     } else {
-      await loadChildren(currentContainerId.value)
+      await loadChildren(currentContainerId.value, { silent: true })
     }
 
     await loadSidebarTree()
@@ -1379,7 +1409,7 @@ async function deleteMultipleNodes(nodeIds) {
     if (needsNavigation) {
       navigateBack()
     } else {
-      await loadChildren(currentContainerId.value)
+      await loadChildren(currentContainerId.value, { silent: true })
     }
 
     await loadSidebarTree()
@@ -1409,7 +1439,7 @@ async function wrapWithParent({ nodeId, parentTitle }) {
     // Move current node under new parent
     await api.moveNode(nodeId, newParent.id)
 
-    await loadChildren(currentContainerId.value)
+    await loadChildren(currentContainerId.value, { silent: true })
     await loadSidebarTree()
     loadRecentItems()
 
@@ -1428,7 +1458,7 @@ async function wrapWithParent({ nodeId, parentTitle }) {
 async function moveNodeToRoot(nodeId) {
   const success = await nodeOps.moveNodeToRoot(nodeId)
   if (success) {
-    await loadChildren(currentContainerId.value)
+    await loadChildren(currentContainerId.value, { silent: true })
     await loadSidebarTree()
     loadRecentItems()
   }
@@ -1437,7 +1467,7 @@ async function moveNodeToRoot(nodeId) {
 async function toggleComplete(node) {
   const success = await nodeOps.toggleComplete(node)
   if (success) {
-    await loadChildren(currentContainerId.value)
+    await loadChildren(currentContainerId.value, { silent: true })
     tasksViewRef.value?.loadTasks()
   }
 }
@@ -1445,7 +1475,7 @@ async function toggleComplete(node) {
 async function toggleFavorite(node) {
   const success = await nodeOps.toggleFavorite(node)
   if (success) {
-    await loadChildren(currentContainerId.value)
+    await loadChildren(currentContainerId.value, { silent: true })
     await loadFavorites()
   }
 }
@@ -1553,14 +1583,22 @@ async function fetchBreadcrumbsForResults(results) {
 }
 
 async function handleSearch() {
-  if (!searchQuery.value.trim()) {
+  const query = searchQuery.value.trim()
+  if (!query) {
     searchResults.value = []
     return
   }
 
   try {
-    // Search within current workspace
-    const results = await api.search(searchQuery.value, null, currentWorkspace.value)
+    let results
+    // Check for tag search: #tagname
+    if (query.startsWith('#') && query.length > 1) {
+      const tagName = query.slice(1)
+      results = await api.getNodesByTag(tagName, currentWorkspace.value)
+    } else {
+      // Regular search within current workspace
+      results = await api.search(query, null, currentWorkspace.value)
+    }
 
     // Fetch breadcrumbs for all results
     const resultsWithBreadcrumbs = await fetchBreadcrumbsForResults(results)
@@ -2060,7 +2098,7 @@ async function deleteSelectedNodes() {
     selectedIds.value = new Set()
     selectedNode.value = null
     showDetail.value = false
-    await loadChildren(currentContainerId.value)
+    await loadChildren(currentContainerId.value, { silent: true })
     await loadSidebarTree()
     loadRecentItems()
   }
@@ -2083,9 +2121,10 @@ onMounted(async () => {
   // Restore expanded state from localStorage
   loadExpandedState()
 
-  // Load recent items and favorites for sidebar
+  // Load recent items, favorites, and tags for sidebar
   loadRecentItems()
   loadFavorites()
+  loadTags()
 
   // Track container dimensions for responsive grid
   const updateDimensions = () => {
@@ -2109,7 +2148,7 @@ onMounted(async () => {
   onDetachedMessage(async (data) => {
     if (data.type === 'node-updated' && data.node) {
       // Refresh the view if the updated node is visible
-      await loadChildren(currentContainerId.value)
+      await loadChildren(currentContainerId.value, { silent: true })
       await loadSidebarTree()
       loadFavorites()
       // Update selectedNode if it's the one that was updated
@@ -2122,7 +2161,7 @@ onMounted(async () => {
         showDetail.value = false
         selectedNode.value = null
       }
-      await loadChildren(currentContainerId.value)
+      await loadChildren(currentContainerId.value, { silent: true })
       await loadSidebarTree()
     }
   })
@@ -2267,6 +2306,26 @@ onUnmounted(() => {
               <span class="favorite-star">&#9733;</span>
               <span class="type-icon" :class="item.type"><span v-html="getTypeIcon(item.type)"></span></span>
               <span class="label">{{ item.title }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tags -->
+        <div v-if="allTags.length > 0" class="sidebar-section collapsible-section">
+          <div class="sidebar-section-header" @click="sidebarTagsCollapsed = !sidebarTagsCollapsed">
+            <span class="collapse-btn">{{ sidebarTagsCollapsed ? '+' : '-' }}</span>
+            <span>Tags</span>
+            <span class="section-count">{{ allTags.length }}</span>
+          </div>
+          <div v-show="!sidebarTagsCollapsed" class="sidebar-tags">
+            <div
+              v-for="tag in allTags"
+              :key="'tag-' + tag"
+              class="sidebar-item tag-item"
+              @click="selectTag(tag)"
+            >
+              <span class="tag-hash">#</span>
+              <span class="label">{{ tag }}</span>
             </div>
           </div>
         </div>
@@ -2417,19 +2476,13 @@ onUnmounted(() => {
                 <span class="settings-hint">Show details when &le; {{ graphDetailThreshold }} nodes</span>
               </div>
               <div class="settings-item">
-                <label>Graph max depth</label>
-                <select v-model.number="graphMaxDepth">
-                  <option v-for="n in 20" :key="n" :value="n">{{ n }}</option>
-                  <option :value="0">All</option>
-                </select>
+                <label>Graph max depth <span class="slider-value">{{ graphMaxDepth === 0 ? 'All' : graphMaxDepth }}</span></label>
+                <input type="range" v-model.number="graphMaxDepth" min="0" max="20" step="1" class="settings-slider" />
                 <span class="settings-hint">{{ graphMaxDepth === 0 ? 'Show all levels' : `Show up to ${graphMaxDepth} levels` }}</span>
               </div>
               <div class="settings-item">
-                <label>Root graph depth</label>
-                <select v-model.number="graphRootMaxDepth">
-                  <option v-for="n in 10" :key="n" :value="n">{{ n }}</option>
-                  <option :value="0">All</option>
-                </select>
+                <label>Root graph depth <span class="slider-value">{{ graphRootMaxDepth === 0 ? 'All' : graphRootMaxDepth }}</span></label>
+                <input type="range" v-model.number="graphRootMaxDepth" min="0" max="10" step="1" class="settings-slider" />
                 <span class="settings-hint">{{ graphRootMaxDepth === 0 ? 'Show all levels at root' : `Show ${graphRootMaxDepth} levels at root` }}</span>
               </div>
               <div class="settings-item">
@@ -2792,6 +2845,7 @@ onUnmounted(() => {
           :show-detail="showDetail"
           :fullscreen-detail-open="fullscreenDetail"
           :hover-preview-enabled="hoverPreviewEnabled"
+          :sort-alphabetically="sortAlphabetically"
           @select="selectNode"
           @select-multiple="handleMultiSelect"
           @enter="enterContainer"
@@ -3091,7 +3145,7 @@ onUnmounted(() => {
   background: var(--bg-primary);
 }
 
-@media (min-width: 1200px) {
+@container (min-width: 900px) {
   .header-breadcrumbs {
     flex-direction: row;
     align-items: center;
@@ -4463,6 +4517,42 @@ onUnmounted(() => {
 .settings-hint {
   font-size: 11px;
   color: var(--text-tertiary);
+}
+
+.settings-slider {
+  width: 100%;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--border-color);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.settings-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--accent-color);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.settings-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: var(--accent-color);
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+}
+
+.slider-value {
+  color: var(--accent-color);
+  font-weight: 600;
+  margin-left: 4px;
 }
 
 .settings-divider {

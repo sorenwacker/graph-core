@@ -190,6 +190,15 @@ class Database {
   }
 
   _initSchema() {
+    this._createTables()
+    this._createIndexes()
+    this._runMigrations()
+  }
+
+  /**
+   * Create all database tables
+   */
+  _createTables() {
     this.db.run(`
       CREATE TABLE IF NOT EXISTS nodes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -223,45 +232,6 @@ class Database {
       )
     `)
 
-    // Migration: add notes_sensitive column if missing
-    try {
-      this.db.run(`ALTER TABLE nodes ADD COLUMN notes_sensitive INTEGER DEFAULT 0`)
-    } catch {
-      // Column already exists, ignore
-    }
-
-    // Migration: add tags column (JSON array of tag strings)
-    try {
-      this.db.run(`ALTER TABLE nodes ADD COLUMN tags TEXT DEFAULT '[]'`)
-    } catch {
-      // Column already exists, ignore
-    }
-
-    // Migration: add graph_layout column for per-container graph layout preference
-    try {
-      this.db.run(`ALTER TABLE nodes ADD COLUMN graph_layout TEXT DEFAULT NULL`)
-    } catch {
-      // Column already exists, ignore
-    }
-
-    // Migration: add show_root_node column for per-container root node visibility
-    try {
-      this.db.run(`ALTER TABLE nodes ADD COLUMN show_root_node INTEGER DEFAULT NULL`)
-    } catch {
-      // Column already exists, ignore
-    }
-
-    // =========================================
-    // WORKSPACES FEATURE
-    // =========================================
-    // Workspaces provide complete data isolation. Each workspace (work, home, hobby)
-    // has its own nodes, graphs, and views.
-    //
-    // Node.workspace_id:
-    //   - "work", "home", "hobby" = Independent workspaces
-    // =========================================
-
-    // Workspaces table
     this.db.run(`
       CREATE TABLE IF NOT EXISTS workspaces (
         id TEXT PRIMARY KEY,
@@ -273,46 +243,6 @@ class Database {
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `)
-    this.db.run(`CREATE INDEX IF NOT EXISTS idx_workspaces_sort ON workspaces(sort_order)`)
-
-    // Migration: add workspace_id to nodes
-    try {
-      // BACKUP FIRST before any migration
-      this.backup('-pre-workspace-migration')
-      console.log('Created backup before workspace migration')
-
-      this.db.run(`ALTER TABLE nodes ADD COLUMN workspace_id TEXT DEFAULT NULL`)
-      this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_workspace ON nodes(workspace_id)`)
-      console.log('Added workspace_id column to nodes table')
-    } catch {
-      // Column already exists, ensure index exists
-      this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_workspace ON nodes(workspace_id)`)
-    }
-
-    // Always ensure default workspaces exist
-    this._seedDefaultWorkspaces()
-
-    // Migration: assign existing nodes without workspace to 'work' (except persons, organizations, groups)
-    // People workspace keeps: person, organization, group
-    const unassigned = this._query(
-      "SELECT COUNT(*) as cnt FROM nodes WHERE workspace_id IS NULL AND type NOT IN ('person', 'organization', 'group') AND deleted_at IS NULL"
-    )
-    if (unassigned[0]?.cnt > 0) {
-      console.log(`Migrating ${unassigned[0].cnt} unassigned nodes to 'work' workspace`)
-      this.db.run("UPDATE nodes SET workspace_id = 'work' WHERE workspace_id IS NULL AND type NOT IN ('person', 'organization', 'group')")
-      this._save()
-    }
-
-    // Note: Organizations and groups can exist in any workspace.
-    // They are NOT automatically moved to People workspace.
-
-    // Migration: fix root node paths (should be empty, not their own ID)
-    this._fixRootNodePaths()
-
-    this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_parent_id ON nodes(parent_id)`)
-    this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_type ON nodes(type)`)
-    this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_path ON nodes(path)`)
-    this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_deleted ON nodes(deleted_at)`)
 
     this.db.run(`
       CREATE TABLE IF NOT EXISTS node_links (
@@ -324,12 +254,6 @@ class Database {
         UNIQUE(source_id, target_id)
       )
     `)
-
-    // Person migrations - disabled to allow normal parent-child relationships
-    // this._migratePersonsToRootNodes()      // Persons with parent_id -> root + link
-    // this._migratePersonChildrenToRoot()    // Children of persons -> root + link
-    this._migrateOrganizationTextToLinks() // Org text field -> org node + link
-    this._migratePersonsOrgsToWorkWorkspace() // Move persons/orgs from People workspace to work
 
     this.db.run(`
       CREATE TABLE IF NOT EXISTS categories (
@@ -351,7 +275,68 @@ class Database {
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `)
-    // Don't save here - only save when data actually changes
+  }
+
+  /**
+   * Create all database indexes
+   */
+  _createIndexes() {
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_parent_id ON nodes(parent_id)`)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_type ON nodes(type)`)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_path ON nodes(path)`)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_deleted ON nodes(deleted_at)`)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_workspace ON nodes(workspace_id)`)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_workspaces_sort ON workspaces(sort_order)`)
+  }
+
+  /**
+   * Run all schema migrations for backward compatibility
+   */
+  _runMigrations() {
+    // Column migrations - wrapped in try/catch since columns may already exist
+    const columnMigrations = [
+      { table: 'nodes', column: 'notes_sensitive', def: 'INTEGER DEFAULT 0' },
+      { table: 'nodes', column: 'tags', def: "TEXT DEFAULT '[]'" },
+      { table: 'nodes', column: 'graph_layout', def: 'TEXT DEFAULT NULL' },
+      { table: 'nodes', column: 'show_root_node', def: 'INTEGER DEFAULT NULL' },
+      { table: 'nodes', column: 'workspace_id', def: 'TEXT DEFAULT NULL', onAdd: () => {
+        this.backup('-pre-workspace-migration')
+        console.log('Created backup before workspace migration')
+        console.log('Added workspace_id column to nodes table')
+      }}
+    ]
+
+    for (const { table, column, def, onAdd } of columnMigrations) {
+      try {
+        this.db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`)
+        if (onAdd) onAdd()
+      } catch {
+        // Column already exists, ignore
+      }
+    }
+
+    // Seed default workspaces
+    this._seedDefaultWorkspaces()
+
+    // Data migrations
+    this._migrateUnassignedNodesToWork()
+    this._fixRootNodePaths()
+    this._migrateOrganizationTextToLinks()
+    this._migratePersonsOrgsToWorkWorkspace()
+  }
+
+  /**
+   * Migrate nodes without workspace to 'work' workspace
+   */
+  _migrateUnassignedNodesToWork() {
+    const unassigned = this._query(
+      "SELECT COUNT(*) as cnt FROM nodes WHERE workspace_id IS NULL AND type NOT IN ('person', 'organization', 'group') AND deleted_at IS NULL"
+    )
+    if (unassigned[0]?.cnt > 0) {
+      console.log(`Migrating ${unassigned[0].cnt} unassigned nodes to 'work' workspace`)
+      this.db.run("UPDATE nodes SET workspace_id = 'work' WHERE workspace_id IS NULL AND type NOT IN ('person', 'organization', 'group')")
+      this._save()
+    }
   }
 
   _query(sql, params = []) {
@@ -395,6 +380,26 @@ class Database {
       favorite: Boolean(row.favorite),
       tags
     }
+  }
+
+  /**
+   * Apply workspace filter to SQL query
+   * @param {string} sql - Current SQL string (will be mutated by appending)
+   * @param {Array} values - Values array to append filter value to
+   * @param {string|null|undefined} workspaceId - Workspace filter:
+   *   - undefined: no filter (return all)
+   *   - null or 'null': filter for NULL workspace_id
+   *   - string: filter for specific workspace
+   * @returns {string} Updated SQL string with workspace filter appended
+   */
+  _applyWorkspaceFilter(sql, values, workspaceId) {
+    if (workspaceId === null || workspaceId === 'null') {
+      return sql + ' AND workspace_id IS NULL'
+    } else if (workspaceId !== undefined) {
+      values.push(workspaceId)
+      return sql + ' AND workspace_id = ?'
+    }
+    return sql
   }
 
   _fixRootNodePaths() {
@@ -594,15 +599,7 @@ class Database {
     let sql = 'SELECT * FROM nodes WHERE deleted_at IS NULL'
     const values = []
 
-    // Workspace filtering
-    // Handle null (which might come as null, 'null', or undefined from IPC)
-    if (params.workspace_id === null || params.workspace_id === 'null') {
-      // People workspace: all nodes with NULL workspace_id
-      sql += " AND workspace_id IS NULL"
-    } else if (params.workspace_id !== undefined) {
-      sql += ' AND workspace_id = ?'
-      values.push(params.workspace_id)
-    }
+    sql = this._applyWorkspaceFilter(sql, values, params.workspace_id)
 
     if (params.type) {
       sql += ' AND type = ?'
@@ -632,7 +629,13 @@ class Database {
       'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive', 'category_id', 'status_id', 'tags', 'workspace_id', 'graph_layout', 'show_root_node']
 
     const presentFields = fields.filter(f => data[f] !== undefined)
-    const values = presentFields.map(f => data[f])
+    const values = presentFields.map(f => {
+      // Serialize tags array to JSON string
+      if (f === 'tags' && Array.isArray(data[f])) {
+        return JSON.stringify(data[f])
+      }
+      return data[f]
+    })
 
     // Calculate depth and path
     let depth = 0
@@ -666,7 +669,12 @@ class Database {
     for (const field of fields) {
       if (data[field] !== undefined) {
         updates.push(`${field} = ?`)
-        values.push(data[field])
+        // Serialize tags array to JSON string
+        if (field === 'tags' && Array.isArray(data[field])) {
+          values.push(JSON.stringify(data[field]))
+        } else {
+          values.push(data[field])
+        }
       }
     }
 
@@ -716,13 +724,7 @@ class Database {
     let sql = 'SELECT * FROM nodes WHERE parent_id IS NULL AND deleted_at IS NULL'
     const values = []
 
-    if (workspaceId === null || workspaceId === 'null') {
-      // People workspace: all nodes with NULL workspace_id (persons + their containers)
-      sql += " AND workspace_id IS NULL"
-    } else if (workspaceId !== undefined) {
-      sql += ' AND workspace_id = ?'
-      values.push(workspaceId)
-    }
+    sql = this._applyWorkspaceFilter(sql, values, workspaceId)
 
     sql += ' ORDER BY sort_order, created_at'
     const results = this._query(sql, values)
@@ -746,13 +748,7 @@ class Database {
     let sql = 'SELECT * FROM nodes WHERE deleted_at IS NULL'
     const values = []
 
-    if (workspaceId === null || workspaceId === 'null') {
-      // People workspace: nodes with NULL workspace_id
-      sql += ' AND workspace_id IS NULL'
-    } else if (workspaceId !== undefined) {
-      sql += ' AND workspace_id = ?'
-      values.push(workspaceId)
-    }
+    sql = this._applyWorkspaceFilter(sql, values, workspaceId)
 
     sql += ' ORDER BY updated_at DESC LIMIT ?'
     values.push(limit)
@@ -763,13 +759,7 @@ class Database {
     let sql = 'SELECT * FROM nodes WHERE favorite = 1 AND deleted_at IS NULL'
     const values = []
 
-    if (workspaceId === null || workspaceId === 'null') {
-      // People workspace: nodes with NULL workspace_id
-      sql += ' AND workspace_id IS NULL'
-    } else if (workspaceId !== undefined) {
-      sql += ' AND workspace_id = ?'
-      values.push(workspaceId)
-    }
+    sql = this._applyWorkspaceFilter(sql, values, workspaceId)
 
     sql += ' ORDER BY updated_at DESC'
     return this._query(sql, values).map(r => this._rowToNode(r))
@@ -790,13 +780,7 @@ class Database {
     let sql = "SELECT * FROM nodes WHERE type = 'task' AND deleted_at IS NULL"
     const values = []
 
-    // Workspace filtering
-    if (params.workspaceId === null || params.workspaceId === 'null') {
-      sql += ' AND workspace_id IS NULL'
-    } else if (params.workspaceId !== undefined) {
-      sql += ' AND workspace_id = ?'
-      values.push(params.workspaceId)
-    }
+    sql = this._applyWorkspaceFilter(sql, values, params.workspaceId)
 
     // Completion filtering
     if (params.completed !== undefined) {
@@ -842,23 +826,9 @@ class Database {
       values.push(type)
     }
 
-    // Filter by workspace if provided or if parent has a workspace
-    if (workspaceId !== undefined) {
-      if (workspaceId === null) {
-        sql += ' AND workspace_id IS NULL'
-      } else {
-        sql += ' AND workspace_id = ?'
-        values.push(workspaceId)
-      }
-    } else if (parent) {
-      // Use parent's workspace for consistency
-      if (parent.workspace_id === null) {
-        sql += ' AND workspace_id IS NULL'
-      } else if (parent.workspace_id) {
-        sql += ' AND workspace_id = ?'
-        values.push(parent.workspace_id)
-      }
-    }
+    // Use provided workspace, or fall back to parent's workspace
+    const effectiveWorkspace = workspaceId !== undefined ? workspaceId : parent?.workspace_id
+    sql = this._applyWorkspaceFilter(sql, values, effectiveWorkspace)
 
     sql += ' ORDER BY sort_order, created_at'
     return this._query(sql, values).map(r => this._rowToNode(r))
@@ -873,13 +843,7 @@ class Database {
     let sql = "SELECT * FROM nodes WHERE (path = ? OR path LIKE ?) AND deleted_at IS NULL"
     const values = [pathPrefix, `${pathPrefix}/%`]
 
-    // Filter by workspace to ensure descendants match parent's workspace
-    if (node.workspace_id === null) {
-      sql += ' AND workspace_id IS NULL'
-    } else if (node.workspace_id) {
-      sql += ' AND workspace_id = ?'
-      values.push(node.workspace_id)
-    }
+    sql = this._applyWorkspaceFilter(sql, values, node.workspace_id)
 
     if (maxDepth !== null) {
       sql += ' AND depth <= ?'
@@ -1033,17 +997,9 @@ class Database {
     let sql = "SELECT * FROM nodes WHERE deleted_at IS NULL AND (title LIKE ? OR notes LIKE ?)"
     const values = [`%${query}%`, `%${query}%`]
 
-    // Workspace filtering
-    // When searching for persons, always search people workspace (null) unless specified otherwise
+    // When searching for persons, default to people workspace (null) unless specified
     const effectiveWorkspaceId = (type === 'person' && workspaceId === undefined) ? null : workspaceId
-
-    if (effectiveWorkspaceId === null || effectiveWorkspaceId === 'null') {
-      // People workspace: all nodes with NULL workspace_id
-      sql += " AND workspace_id IS NULL"
-    } else if (effectiveWorkspaceId !== undefined) {
-      sql += ' AND workspace_id = ?'
-      values.push(effectiveWorkspaceId)
-    }
+    sql = this._applyWorkspaceFilter(sql, values, effectiveWorkspaceId)
 
     if (type) {
       sql += ' AND type = ?'
@@ -1171,8 +1127,20 @@ class Database {
   }
 
   // Tags
-  getAllTags() {
-    const nodes = this._query('SELECT tags FROM nodes WHERE deleted_at IS NULL AND tags IS NOT NULL AND tags != "[]"')
+  /**
+   * Get all unique tags from nodes
+   * @param {string|null|undefined} workspaceId - Workspace filter:
+   *   - undefined: return all tags (backward compatible)
+   *   - null: People workspace (nodes with NULL workspace_id)
+   *   - string: specific workspace
+   */
+  getAllTags(workspaceId = undefined) {
+    let sql = 'SELECT tags FROM nodes WHERE deleted_at IS NULL AND tags IS NOT NULL AND tags != "[]"'
+    const values = []
+
+    sql = this._applyWorkspaceFilter(sql, values, workspaceId)
+
+    const nodes = this._query(sql, values)
     const tagSet = new Set()
     for (const node of nodes) {
       try {
@@ -1185,12 +1153,22 @@ class Database {
     return Array.from(tagSet).sort()
   }
 
-  getNodesByTag(tag) {
-    // Search for nodes containing the tag in the JSON array
-    return this._query(
-      'SELECT * FROM nodes WHERE deleted_at IS NULL AND tags LIKE ?',
-      [`%"${tag}"%`]
-    ).map(r => this._rowToNode(r))
+  /**
+   * Get nodes by tag
+   * @param {string} tag - Tag to search for
+   * @param {string|null|undefined} workspaceId - Workspace filter:
+   *   - undefined: return all (backward compatible)
+   *   - null: People workspace (nodes with NULL workspace_id)
+   *   - string: specific workspace
+   */
+  getNodesByTag(tag, workspaceId = undefined) {
+    let sql = 'SELECT * FROM nodes WHERE deleted_at IS NULL AND tags LIKE ?'
+    const values = [`%"${tag}"%`]
+
+    sql = this._applyWorkspaceFilter(sql, values, workspaceId)
+
+    sql += ' ORDER BY updated_at DESC'
+    return this._query(sql, values).map(r => this._rowToNode(r))
   }
 
   // Repair workspace_id for all descendants to match their root ancestor

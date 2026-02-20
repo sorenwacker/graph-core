@@ -369,6 +369,27 @@ a:hover {
   text-shadow: 0 0 4px rgba(255, 215, 0, 0.6);
 }
 
+/* Tags section */
+.tag-item {
+  font-size: 0.7rem;
+  padding: 3px var(--spacing-lg);
+}
+
+.tag-item .label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+.tag-item .tag-hash {
+  color: var(--accent-color);
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
 .sidebar-item {
   padding: var(--spacing-sm) var(--spacing-lg);
   cursor: pointer;
@@ -511,6 +532,7 @@ a:hover {
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
+  container-type: inline-size;
 }
 
 .content-body {

@@ -184,12 +184,15 @@ onMounted(renderContent)
 }
 
 .markdown-content :deep(a) {
-  color: #ffffff !important;
-  text-decoration: none;
+  color: #5dade2;
+  text-decoration: underline;
+  text-decoration-color: rgba(93, 173, 226, 0.4);
+  text-underline-offset: 2px;
 }
 
 .markdown-content :deep(a:hover) {
-  text-decoration: underline;
+  color: #7ec8f0;
+  text-decoration-color: rgba(93, 173, 226, 0.8);
 }
 
 .markdown-content :deep(hr) {

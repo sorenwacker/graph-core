@@ -79,7 +79,8 @@ const props = defineProps({
   workspaces: { type: Array, default: () => [] },
   showDetail: { type: Boolean, default: false },
   fullscreenDetailOpen: { type: Boolean, default: false },
-  hoverPreviewEnabled: { type: Boolean, default: true }
+  hoverPreviewEnabled: { type: Boolean, default: true },
+  sortAlphabetically: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['select', 'select-multiple', 'enter', 'move', 'add-child', 'insert-between', 'update', 'create', 'delete', 'delete-multiple', 'wrap-with-parent', 'open-fullscreen', 'link', 'unlink', 'context-menu', 'toggle-complete', 'toggle-favorite', 'open-link-search', 'go-parent', 'go-first-child', 'go-prev-sibling', 'go-next-sibling'])
@@ -611,6 +612,17 @@ function filterCompletedNodes(nodeList) {
     }))
 }
 
+// Sort nodes recursively by title
+function sortNodesRecursively(nodeList) {
+  if (!nodeList) return []
+  return [...nodeList]
+    .sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+    .map(n => ({
+      ...n,
+      children: n.children ? sortNodesRecursively(n.children) : []
+    }))
+}
+
 // Filter nodes recursively by type
 function filterByType(nodeList, types) {
   if (!nodeList || !types || types.length === 0) return []
@@ -709,7 +721,11 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
     ? filterCompletedNodes(depthFiltered)
     : depthFiltered
   // Filter by visible node types
-  const filteredList = filterByType(completedFiltered, visibleTypes.value)
+  const typeFiltered = filterByType(completedFiltered, visibleTypes.value)
+  // Sort alphabetically if enabled
+  const filteredList = props.sortAlphabetically
+    ? sortNodesRecursively(typeFiltered)
+    : typeFiltered
   const flat = flattenNodes(filteredList, [], false, maxDepth)
 
   // Include parent unless hidden by settings, completed when hiding completed, or type is filtered out

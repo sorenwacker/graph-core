@@ -6,13 +6,14 @@ describe('useSettings composable', () => {
 
   beforeEach(() => {
     mockStorage = {}
-    const storageProto = Object.getPrototypeOf(window.localStorage)
-    vi.spyOn(storageProto, 'getItem').mockImplementation(key => mockStorage[key] || null)
-    vi.spyOn(storageProto, 'setItem').mockImplementation((key, value) => {
-      mockStorage[key] = value
-    })
-    vi.spyOn(storageProto, 'removeItem').mockImplementation(key => {
-      delete mockStorage[key]
+    // Mock localStorage directly on window
+    Object.defineProperty(window, 'localStorage', {
+      value: {
+        getItem: vi.fn(key => mockStorage[key] ?? null),
+        setItem: vi.fn((key, value) => { mockStorage[key] = value }),
+        removeItem: vi.fn(key => { delete mockStorage[key] })
+      },
+      writable: true
     })
   })
 
@@ -26,7 +27,7 @@ describe('useSettings composable', () => {
       expect(settings.viewMode.value).toBe('tree')
       expect(settings.hideCompleted.value).toBe(true)
       expect(settings.hideSensitive.value).toBe(false)
-      expect(settings.graphDetailThreshold.value).toBe(30)
+      expect(settings.graphDetailThreshold.value).toBe(0)
       expect(settings.graphMaxDepth.value).toBe(0)
       expect(settings.graphRootMaxDepth.value).toBe(1)
       expect(settings.openDetailFullscreen.value).toBe(false)
@@ -66,7 +67,7 @@ describe('useSettings composable', () => {
     it('should handle invalid number values gracefully', () => {
       mockStorage['graphcore-graphDetailThreshold'] = 'invalid'
       const settings = useSettings()
-      expect(settings.graphDetailThreshold.value).toBe(30) // Default
+      expect(settings.graphDetailThreshold.value).toBe(0) // Default
     })
   })
 
