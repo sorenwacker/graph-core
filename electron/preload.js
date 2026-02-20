@@ -31,7 +31,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getTree: (rootId) => ipcRenderer.invoke('db:getTree', rootId),
 
   // Search
-  search: (query, type, workspaceId) => ipcRenderer.invoke('db:search', query, type, workspaceId),
+  search: (query, type, workspaceId, options) => ipcRenderer.invoke('db:search', query, type, workspaceId, options),
 
   // Reorder
   reorderNode: (nodeId, targetId, position) => ipcRenderer.invoke('db:reorderNode', nodeId, targetId, position),
@@ -49,8 +49,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   reparentToRoot: (id) => ipcRenderer.invoke('db:reparentToRoot', id),
 
   // Tags
-  getAllTags: () => ipcRenderer.invoke('db:getAllTags'),
-  getNodesByTag: (tag) => ipcRenderer.invoke('db:getNodesByTag', tag),
+  getAllTags: (workspaceId) => ipcRenderer.invoke('db:getAllTags', workspaceId),
+  getNodesByTag: (tag, workspaceId, options) => ipcRenderer.invoke('db:getNodesByTag', tag, workspaceId, options),
 
   // Workspaces
   getWorkspaces: () => ipcRenderer.invoke('db:getWorkspaces'),

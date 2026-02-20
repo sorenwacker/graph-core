@@ -992,8 +992,10 @@ class Database {
    *   - undefined: search all (backward compatible)
    *   - null: People workspace (persons only)
    *   - string: specific workspace
+   * @param {Object} options - Additional options
+   * @param {boolean} options.hideCompleted - Exclude completed nodes from results
    */
-  search(query, type = null, workspaceId = undefined) {
+  search(query, type = null, workspaceId = undefined, options = {}) {
     let sql = "SELECT * FROM nodes WHERE deleted_at IS NULL AND (title LIKE ? OR notes LIKE ?)"
     const values = [`%${query}%`, `%${query}%`]
 
@@ -1004,6 +1006,10 @@ class Database {
     if (type) {
       sql += ' AND type = ?'
       values.push(type)
+    }
+
+    if (options.hideCompleted) {
+      sql += ' AND completed = 0'
     }
 
     sql += ' ORDER BY updated_at DESC LIMIT 50'
@@ -1160,12 +1166,18 @@ class Database {
    *   - undefined: return all (backward compatible)
    *   - null: People workspace (nodes with NULL workspace_id)
    *   - string: specific workspace
+   * @param {Object} options - Additional options
+   * @param {boolean} options.hideCompleted - Exclude completed nodes from results
    */
-  getNodesByTag(tag, workspaceId = undefined) {
+  getNodesByTag(tag, workspaceId = undefined, options = {}) {
     let sql = 'SELECT * FROM nodes WHERE deleted_at IS NULL AND tags LIKE ?'
     const values = [`%"${tag}"%`]
 
     sql = this._applyWorkspaceFilter(sql, values, workspaceId)
+
+    if (options.hideCompleted) {
+      sql += ' AND completed = 0'
+    }
 
     sql += ' ORDER BY updated_at DESC'
     return this._query(sql, values).map(r => this._rowToNode(r))

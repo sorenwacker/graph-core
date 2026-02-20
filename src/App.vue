@@ -1591,13 +1591,14 @@ async function handleSearch() {
 
   try {
     let results
+    const searchOptions = { hideCompleted: hideCompleted.value }
     // Check for tag search: #tagname
     if (query.startsWith('#') && query.length > 1) {
       const tagName = query.slice(1)
-      results = await api.getNodesByTag(tagName, currentWorkspace.value)
+      results = await api.getNodesByTag(tagName, currentWorkspace.value, searchOptions)
     } else {
       // Regular search within current workspace
-      results = await api.search(query, null, currentWorkspace.value)
+      results = await api.search(query, null, currentWorkspace.value, searchOptions)
     }
 
     // Fetch breadcrumbs for all results

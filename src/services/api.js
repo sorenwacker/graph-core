@@ -162,10 +162,11 @@ const webApi = {
   },
 
   // Search
-  async search(query, type = null, workspaceId = undefined) {
+  async search(query, type = null, workspaceId = undefined, options = {}) {
     const params = new URLSearchParams({ q: query })
     if (type) params.append('type', type)
     if (workspaceId !== undefined) params.append('workspace_id', workspaceId)
+    if (options.hideCompleted) params.append('hide_completed', 'true')
     return request(`/search?${params}`)
   },
 
@@ -210,12 +211,28 @@ const webApi = {
   },
 
   // Tags
-  async getAllTags() {
-    return request('/tags')
+  async getAllTags(workspaceId = undefined) {
+    let url = '/tags'
+    if (workspaceId !== undefined) {
+      url += `?workspace_id=${workspaceId === null ? 'null' : workspaceId}`
+    }
+    return request(url)
   },
 
-  async getNodesByTag(tag) {
-    return request(`/tags/${encodeURIComponent(tag)}/nodes`)
+  async getNodesByTag(tag, workspaceId = undefined, options = {}) {
+    let url = `/tags/${encodeURIComponent(tag)}/nodes`
+    const params = new URLSearchParams()
+    if (workspaceId !== undefined) {
+      params.append('workspace_id', workspaceId === null ? 'null' : workspaceId)
+    }
+    if (options.hideCompleted) {
+      params.append('hide_completed', 'true')
+    }
+    const queryString = params.toString()
+    if (queryString) {
+      url += `?${queryString}`
+    }
+    return request(url)
   },
 
   // Workspaces
@@ -286,7 +303,7 @@ const electronApi = {
   getTree: (rootId) => window.electronAPI.getTree(rootId),
 
   // Search
-  search: async (query, type, workspaceId) => filterNulls(await window.electronAPI.search(query, type, workspaceId)),
+  search: async (query, type, workspaceId, options) => filterNulls(await window.electronAPI.search(query, type, workspaceId, options)),
 
   // Reorder
   reorderNode: (nodeId, targetId, position) => window.electronAPI.reorderNode(nodeId, targetId, position),
@@ -304,8 +321,8 @@ const electronApi = {
   reparentToRoot: (id) => window.electronAPI.reparentToRoot(id),
 
   // Tags
-  getAllTags: async () => filterNulls(await window.electronAPI.getAllTags()),
-  getNodesByTag: async (tag) => filterNulls(await window.electronAPI.getNodesByTag(tag)),
+  getAllTags: async (workspaceId) => filterNulls(await window.electronAPI.getAllTags(workspaceId)),
+  getNodesByTag: async (tag, workspaceId, options) => filterNulls(await window.electronAPI.getNodesByTag(tag, workspaceId, options)),
 
   // Workspaces
   getWorkspaces: async () => filterNulls(await window.electronAPI.getWorkspaces()),

@@ -192,7 +192,7 @@ ipcMain.handle('db:getLinkedNodes', (event, id) => db.getLinkedNodes(id))
 ipcMain.handle('db:getTree', (event, rootId) => db.getTree(rootId))
 
 // Search
-ipcMain.handle('db:search', (event, query, type, workspaceId) => db.search(query, type, workspaceId))
+ipcMain.handle('db:search', (event, query, type, workspaceId, options) => db.search(query, type, workspaceId, options))
 
 // Reorder
 ipcMain.handle('db:reorderNode', (event, nodeId, targetId, position) => db.reorderNode(nodeId, targetId, position))
@@ -210,8 +210,8 @@ ipcMain.handle('db:getOrphanedNodes', () => db.getOrphanedNodes())
 ipcMain.handle('db:reparentToRoot', (event, id) => db.reparentToRoot(id))
 
 // Tags
-ipcMain.handle('db:getAllTags', () => db.getAllTags())
-ipcMain.handle('db:getNodesByTag', (event, tag) => db.getNodesByTag(tag))
+ipcMain.handle('db:getAllTags', (event, workspaceId) => db.getAllTags(workspaceId))
+ipcMain.handle('db:getNodesByTag', (event, tag, workspaceId, options) => db.getNodesByTag(tag, workspaceId, options))
 
 // =========================================
 // WORKSPACES
