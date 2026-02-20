@@ -31,6 +31,10 @@ describe('useSidebar composable', () => {
       expect(sidebar.recentCollapsed.value).toBe(false)
     })
 
+    it('should have tags collapsed false by default', () => {
+      expect(sidebar.tagsCollapsed.value).toBe(false)
+    })
+
     it('should have empty expanded ids', () => {
       expect(sidebar.expandedIds.value.size).toBe(0)
     })
@@ -155,6 +159,11 @@ describe('useSidebar composable', () => {
     it('should toggle recent collapsed', () => {
       sidebar.toggleRecentCollapse()
       expect(sidebar.recentCollapsed.value).toBe(true)
+    })
+
+    it('should toggle tags collapsed', () => {
+      sidebar.toggleTagsCollapse()
+      expect(sidebar.tagsCollapsed.value).toBe(true)
     })
   })
 })

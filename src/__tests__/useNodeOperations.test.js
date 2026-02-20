@@ -207,5 +207,18 @@ describe('useNodeOperations composable', () => {
       expect(result.notes).toBe('Some notes')
       expect(result.extraField).toBeUndefined()
     })
+
+    it('should extract tags field from node', () => {
+      const node = {
+        id: 1,
+        title: 'Person',
+        type: 'person',
+        tags: ['developer', 'mentor']
+      }
+
+      const result = ops.pickNodeFields(node)
+
+      expect(result.tags).toEqual(['developer', 'mentor'])
+    })
   })
 })

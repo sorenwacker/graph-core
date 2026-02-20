@@ -1,4 +1,4 @@
-.PHONY: dev install clean stop build reset-db
+.PHONY: dev install clean stop build dist reset-db
 
 # Start Electron app in dev mode
 dev:
@@ -11,6 +11,10 @@ install:
 # Build for production
 build:
 	npm run electron:build
+
+# Create DMG installer
+dist:
+	npm run dist
 
 # Stop dev servers
 stop:

@@ -18,6 +18,7 @@ export function useSidebar({ pinned } = {}) {
   const treeCollapsed = ref(false)
   const favoritesCollapsed = ref(false)
   const recentCollapsed = ref(false)
+  const tagsCollapsed = ref(false)
 
   // Tree expansion state
   const expandedIds = ref(new Set())
@@ -102,6 +103,13 @@ export function useSidebar({ pinned } = {}) {
     recentCollapsed.value = !recentCollapsed.value
   }
 
+  /**
+   * Toggle tags section collapse
+   */
+  function toggleTagsCollapse() {
+    tagsCollapsed.value = !tagsCollapsed.value
+  }
+
   return {
     // State
     hovered,
@@ -109,6 +117,7 @@ export function useSidebar({ pinned } = {}) {
     treeCollapsed,
     favoritesCollapsed,
     recentCollapsed,
+    tagsCollapsed,
 
     // Computed
     visible,
@@ -120,6 +129,7 @@ export function useSidebar({ pinned } = {}) {
     expandToPath,
     toggleTreeCollapse,
     toggleFavoritesCollapse,
-    toggleRecentCollapse
+    toggleRecentCollapse,
+    toggleTagsCollapse
   }
 }
