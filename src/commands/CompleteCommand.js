@@ -27,4 +27,8 @@ export class CompleteCommand extends Command {
       newCompleted: this.newCompleted
     }
   }
+
+  getDescription() {
+    return this.newCompleted ? 'Complete' : 'Uncomplete'
+  }
 }

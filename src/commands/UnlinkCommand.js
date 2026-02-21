@@ -25,4 +25,8 @@ export class UnlinkCommand extends Command {
       targetId: this.targetId
     }
   }
+
+  getDescription() {
+    return 'Unlink'
+  }
 }

@@ -27,4 +27,8 @@ export class MoveCommand extends Command {
       newParentId: this.newParentId
     }
   }
+
+  getDescription() {
+    return 'Move'
+  }
 }

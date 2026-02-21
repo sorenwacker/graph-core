@@ -38,6 +38,8 @@ import NodeContextMenu from './components/NodeContextMenu.vue'
 import CardTitleEdit from './components/CardTitleEdit.vue'
 import CardNotes from './components/CardNotes.vue'
 import AddNodeModal from './components/AddNodeModal.vue'
+import ToastContainer from './components/ToastContainer.vue'
+import { showToast } from './composables/useToast.js'
 
 // Click-outside directive
 const vClickOutside = {
@@ -1995,7 +1997,9 @@ function handleKeydown(e) {
     const target = e.target
     if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA' && !target.isContentEditable) {
       e.preventDefault()
-      undo()
+      undo().then(result => {
+        if (result) showToast(`Undo: ${result.description}`)
+      })
       return
     }
   }
@@ -2005,7 +2009,9 @@ function handleKeydown(e) {
     const target = e.target
     if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA' && !target.isContentEditable) {
       e.preventDefault()
-      redo()
+      redo().then(result => {
+        if (result) showToast(`Redo: ${result.description}`)
+      })
       return
     }
   }
@@ -3086,6 +3092,9 @@ onUnmounted(() => {
         </div>
       </div>
     </Teleport>
+
+    <!-- Toast notifications -->
+    <ToastContainer />
   </div>
 </template>
 

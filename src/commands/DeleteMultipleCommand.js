@@ -30,4 +30,9 @@ export class DeleteMultipleCommand extends Command {
       nodes: this.nodes
     }
   }
+
+  getDescription() {
+    const count = this.nodes?.length || 0
+    return `Delete ${count} items`
+  }
 }

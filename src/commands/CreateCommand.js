@@ -38,4 +38,9 @@ export class CreateCommand extends Command {
       linkedToId: this.linkedToId
     }
   }
+
+  getDescription() {
+    const title = this.nodeData?.title || 'item'
+    return `Create "${title}"`
+  }
 }

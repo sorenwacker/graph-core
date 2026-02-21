@@ -35,4 +35,12 @@ export class Command {
   toJSON() {
     return { type: this.type }
   }
+
+  /**
+   * Get human-readable description of the command
+   * @returns {string}
+   */
+  getDescription() {
+    return this.type
+  }
 }

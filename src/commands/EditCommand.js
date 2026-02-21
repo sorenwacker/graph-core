@@ -27,4 +27,12 @@ export class EditCommand extends Command {
       newValues: this.newValues
     }
   }
+
+  getDescription() {
+    const fields = Object.keys(this.newValues || {})
+    if (fields.length === 1) {
+      return `Edit ${fields[0]}`
+    }
+    return 'Edit'
+  }
 }

@@ -326,6 +326,64 @@ describe('undo/redo workflows', () => {
     })
   })
 
+  describe('tag operations', () => {
+    it('should undo tag addition', async () => {
+      const command = new EditCommand({
+        nodeId: 1,
+        oldValues: { tags: ['bug'] },
+        newValues: { tags: ['bug', 'feature'] }
+      })
+      undoRedo.pushCommand(command)
+
+      await undoRedo.undo()
+
+      expect(mockApi.updateNode).toHaveBeenCalledWith(1, { tags: ['bug'] })
+    })
+
+    it('should redo tag addition', async () => {
+      const command = new EditCommand({
+        nodeId: 1,
+        oldValues: { tags: [] },
+        newValues: { tags: ['urgent'] }
+      })
+      undoRedo.pushCommand(command)
+
+      await undoRedo.undo()
+      mockApi.updateNode.mockClear()
+      await undoRedo.redo()
+
+      expect(mockApi.updateNode).toHaveBeenCalledWith(1, { tags: ['urgent'] })
+    })
+
+    it('should undo tag removal', async () => {
+      const command = new EditCommand({
+        nodeId: 1,
+        oldValues: { tags: ['bug', 'feature', 'urgent'] },
+        newValues: { tags: ['bug'] }
+      })
+      undoRedo.pushCommand(command)
+
+      await undoRedo.undo()
+
+      expect(mockApi.updateNode).toHaveBeenCalledWith(1, {
+        tags: ['bug', 'feature', 'urgent']
+      })
+    })
+
+    it('should handle empty tags array', async () => {
+      const command = new EditCommand({
+        nodeId: 1,
+        oldValues: { tags: ['last-tag'] },
+        newValues: { tags: [] }
+      })
+      undoRedo.pushCommand(command)
+
+      await undoRedo.undo()
+
+      expect(mockApi.updateNode).toHaveBeenCalledWith(1, { tags: ['last-tag'] })
+    })
+  })
+
   describe('error handling in workflows', () => {
     it('should preserve stack state when undo fails mid-workflow', async () => {
       undoRedo.pushCommand(new EditCommand({

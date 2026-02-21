@@ -42,7 +42,7 @@ function restoreStack(key) {
  *
  * @param {Object} options
  * @param {Object} options.api - API service for making backend calls
- * @param {Function} options.onSuccess - Callback after successful undo/redo
+ * @param {Function} options.onSuccess - Callback after successful undo/redo (receives { command, action })
  * @param {Function} options.onError - Callback on error (receives error and command)
  * @param {number} options.maxStackSize - Maximum stack size (default: 50)
  * @param {boolean} options.persist - Whether to persist stacks to sessionStorage (default: true)
@@ -83,9 +83,10 @@ export function useUndoRedo({
 
   /**
    * Undo the most recent command
+   * @returns {Object|null} { command, description } or null if nothing to undo
    */
   async function undo() {
-    if (undoStack.value.length === 0 || isProcessing.value) return
+    if (undoStack.value.length === 0 || isProcessing.value) return null
 
     isProcessing.value = true
     const command = undoStack.value.pop()
@@ -93,11 +94,13 @@ export function useUndoRedo({
     try {
       await command.undo(api)
       redoStack.value.push(command)
-      if (onSuccess) await onSuccess()
+      if (onSuccess) await onSuccess({ command, action: 'undo' })
+      return { command, description: command.getDescription?.() || command.type }
     } catch (error) {
       console.error('Undo failed:', error, command)
       undoStack.value.push(command) // Restore to stack on failure
       if (onError) onError(error, command)
+      return null
     } finally {
       isProcessing.value = false
     }
@@ -105,9 +108,10 @@ export function useUndoRedo({
 
   /**
    * Redo the most recently undone command
+   * @returns {Object|null} { command, description } or null if nothing to redo
    */
   async function redo() {
-    if (redoStack.value.length === 0 || isProcessing.value) return
+    if (redoStack.value.length === 0 || isProcessing.value) return null
 
     isProcessing.value = true
     const command = redoStack.value.pop()
@@ -115,11 +119,13 @@ export function useUndoRedo({
     try {
       await command.execute(api)
       undoStack.value.push(command)
-      if (onSuccess) await onSuccess()
+      if (onSuccess) await onSuccess({ command, action: 'redo' })
+      return { command, description: command.getDescription?.() || command.type }
     } catch (error) {
       console.error('Redo failed:', error, command)
       redoStack.value.push(command) // Restore to stack on failure
       if (onError) onError(error, command)
+      return null
     } finally {
       isProcessing.value = false
     }

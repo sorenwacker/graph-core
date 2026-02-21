@@ -27,4 +27,9 @@ export class DeleteCommand extends Command {
       nodeData: this.nodeData
     }
   }
+
+  getDescription() {
+    const title = this.nodeData?.title || 'item'
+    return `Delete "${title}"`
+  }
 }

@@ -31,4 +31,8 @@ export class ReorderCommand extends Command {
       newPosition: this.newPosition
     }
   }
+
+  getDescription() {
+    return 'Reorder'
+  }
 }

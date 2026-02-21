@@ -25,4 +25,8 @@ export class LinkCommand extends Command {
       targetId: this.targetId
     }
   }
+
+  getDescription() {
+    return 'Link'
+  }
 }
