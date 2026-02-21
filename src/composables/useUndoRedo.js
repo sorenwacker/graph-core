@@ -1,4 +1,41 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { serializeStack, deserializeStack } from '../commands/commandFactory.js'
+
+const UNDO_STORAGE_KEY = 'graphcore-undoStack'
+const REDO_STORAGE_KEY = 'graphcore-redoStack'
+
+/**
+ * Save a command stack to sessionStorage.
+ * @param {string} key - Storage key
+ * @param {Command[]} stack - Array of commands
+ */
+function saveStack(key, stack) {
+  if (typeof sessionStorage === 'undefined') return
+  try {
+    const serialized = JSON.stringify(serializeStack(stack))
+    sessionStorage.setItem(key, serialized)
+  } catch (e) {
+    console.warn('Failed to save undo stack:', e)
+  }
+}
+
+/**
+ * Restore a command stack from sessionStorage.
+ * @param {string} key - Storage key
+ * @returns {Command[]} - Array of deserialized commands
+ */
+function restoreStack(key) {
+  if (typeof sessionStorage === 'undefined') return []
+  try {
+    const stored = sessionStorage.getItem(key)
+    if (!stored) return []
+    const parsed = JSON.parse(stored)
+    return deserializeStack(parsed)
+  } catch (e) {
+    console.warn('Failed to restore undo stack:', e)
+    return []
+  }
+}
 
 /**
  * Composable for managing undo/redo operations using the Command pattern.
@@ -8,17 +45,29 @@ import { ref, computed } from 'vue'
  * @param {Function} options.onSuccess - Callback after successful undo/redo
  * @param {Function} options.onError - Callback on error (receives error and command)
  * @param {number} options.maxStackSize - Maximum stack size (default: 50)
+ * @param {boolean} options.persist - Whether to persist stacks to sessionStorage (default: true)
  * @returns {Object} Undo/redo state and functions
  */
 export function useUndoRedo({
   api,
   onSuccess,
   onError,
-  maxStackSize = 50
+  maxStackSize = 50,
+  persist = true
 } = {}) {
-  const undoStack = ref([])
-  const redoStack = ref([])
+  // Restore from sessionStorage if persistence enabled
+  const restoredUndo = persist ? restoreStack(UNDO_STORAGE_KEY) : []
+  const restoredRedo = persist ? restoreStack(REDO_STORAGE_KEY) : []
+
+  const undoStack = ref(restoredUndo)
+  const redoStack = ref(restoredRedo)
   const isProcessing = ref(false)
+
+  // Persist stacks to sessionStorage when they change
+  if (persist) {
+    watch(undoStack, (stack) => saveStack(UNDO_STORAGE_KEY, stack), { deep: true })
+    watch(redoStack, (stack) => saveStack(REDO_STORAGE_KEY, stack), { deep: true })
+  }
 
   /**
    * Push a command onto the undo stack

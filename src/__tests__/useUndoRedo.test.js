@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useUndoRedo } from '../composables/useUndoRedo.js'
+import { EditCommand } from '../commands/index.js'
 
 describe('useUndoRedo composable', () => {
   let mockApi, undoRedo
@@ -15,7 +16,8 @@ describe('useUndoRedo composable', () => {
       unlinkNodes: vi.fn().mockResolvedValue(),
       reorderNode: vi.fn().mockResolvedValue()
     }
-    undoRedo = useUndoRedo({ api: mockApi })
+    // Disable persistence in most tests
+    undoRedo = useUndoRedo({ api: mockApi, persist: false })
   })
 
   describe('initial state', () => {
@@ -217,6 +219,115 @@ describe('useUndoRedo composable', () => {
       expect(slowUndo).toHaveBeenCalledTimes(1)
       // Fast command should NOT have been undone yet (blocked by isProcessing)
       expect(fastUndo).toHaveBeenCalledTimes(0)
+    })
+  })
+
+  describe('persistence', () => {
+    let mockStorage = {}
+
+    beforeEach(() => {
+      mockStorage = {}
+      Object.defineProperty(window, 'sessionStorage', {
+        value: {
+          getItem: vi.fn(key => mockStorage[key] ?? null),
+          setItem: vi.fn((key, value) => { mockStorage[key] = value }),
+          removeItem: vi.fn(key => { delete mockStorage[key] })
+        },
+        writable: true
+      })
+    })
+
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('should save undo stack to sessionStorage when command is pushed', async () => {
+      const ur = useUndoRedo({ api: mockApi, persist: true })
+      const cmd = new EditCommand({
+        nodeId: 1,
+        oldValues: { title: 'Old' },
+        newValues: { title: 'New' }
+      })
+
+      ur.pushCommand(cmd)
+
+      // Vue watchers are async, wait for next tick
+      await vi.waitFor(() => {
+        expect(mockStorage['graphcore-undoStack']).toBeDefined()
+      })
+
+      const stored = JSON.parse(mockStorage['graphcore-undoStack'])
+      expect(stored).toHaveLength(1)
+      expect(stored[0].type).toBe('edit')
+    })
+
+    it('should restore undo stack from sessionStorage on init', () => {
+      const storedCommands = [{
+        type: 'edit',
+        nodeId: 1,
+        oldValues: { title: 'Old' },
+        newValues: { title: 'New' }
+      }]
+      mockStorage['graphcore-undoStack'] = JSON.stringify(storedCommands)
+
+      const ur = useUndoRedo({ api: mockApi, persist: true })
+
+      expect(ur.undoStack.value).toHaveLength(1)
+      expect(ur.undoStack.value[0].nodeId).toBe(1)
+      expect(ur.canUndo.value).toBe(true)
+    })
+
+    it('should restore redo stack from sessionStorage on init', () => {
+      const storedCommands = [{
+        type: 'move',
+        nodeId: 2,
+        oldParentId: 5,
+        newParentId: 10
+      }]
+      mockStorage['graphcore-redoStack'] = JSON.stringify(storedCommands)
+
+      const ur = useUndoRedo({ api: mockApi, persist: true })
+
+      expect(ur.redoStack.value).toHaveLength(1)
+      expect(ur.canRedo.value).toBe(true)
+    })
+
+    it('should not persist when persist option is false', async () => {
+      const ur = useUndoRedo({ api: mockApi, persist: false })
+      ur.pushCommand(new EditCommand({
+        nodeId: 1,
+        oldValues: {},
+        newValues: {}
+      }))
+
+      // Wait a tick
+      await new Promise(r => setTimeout(r, 10))
+
+      expect(mockStorage['graphcore-undoStack']).toBeUndefined()
+    })
+
+    it('should handle corrupt storage gracefully', () => {
+      mockStorage['graphcore-undoStack'] = 'not valid json {'
+
+      // Should not throw
+      const ur = useUndoRedo({ api: mockApi, persist: true })
+
+      expect(ur.undoStack.value).toEqual([])
+    })
+
+    it('should clear storage when stacks are cleared', async () => {
+      mockStorage['graphcore-undoStack'] = JSON.stringify([{ type: 'edit', nodeId: 1, oldValues: {}, newValues: {} }])
+      mockStorage['graphcore-redoStack'] = JSON.stringify([{ type: 'move', nodeId: 2, oldParentId: 5, newParentId: 10 }])
+
+      const ur = useUndoRedo({ api: mockApi, persist: true })
+      ur.clear()
+
+      await vi.waitFor(() => {
+        const storedUndo = JSON.parse(mockStorage['graphcore-undoStack'] || '[]')
+        const storedRedo = JSON.parse(mockStorage['graphcore-redoStack'] || '[]')
+        expect(storedUndo).toHaveLength(0)
+        expect(storedRedo).toHaveLength(0)
+      })
     })
   })
 })
