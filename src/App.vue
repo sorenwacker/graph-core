@@ -308,8 +308,8 @@ const {
   canUndo: _canUndo,
   canRedo: _canRedo,
   pushCommand,
-  undo,
-  redo
+  undo: undoAction,
+  redo: redoAction
 } = useUndoRedo({
   api,
   onSuccess: async () => {
@@ -317,6 +317,17 @@ const {
     await loadSidebarTree()
   }
 })
+
+// Wrapper functions that show toast notifications
+async function undo() {
+  const result = await undoAction()
+  if (result) showToast(`Undo: ${result.description}`)
+}
+
+async function redo() {
+  const result = await redoAction()
+  if (result) showToast(`Redo: ${result.description}`)
+}
 
 // Node operations composable - handles CRUD with undo/redo support
 const nodeOps = useNodeOperations({
@@ -1997,9 +2008,7 @@ function handleKeydown(e) {
     const target = e.target
     if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA' && !target.isContentEditable) {
       e.preventDefault()
-      undo().then(result => {
-        if (result) showToast(`Undo: ${result.description}`)
-      })
+      undo()
       return
     }
   }
@@ -2009,9 +2018,7 @@ function handleKeydown(e) {
     const target = e.target
     if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA' && !target.isContentEditable) {
       e.preventDefault()
-      redo().then(result => {
-        if (result) showToast(`Redo: ${result.description}`)
-      })
+      redo()
       return
     }
   }

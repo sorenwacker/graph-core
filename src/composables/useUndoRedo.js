@@ -10,10 +10,10 @@ const REDO_STORAGE_KEY = 'graphcore-redoStack'
  * @param {Command[]} stack - Array of commands
  */
 function saveStack(key, stack) {
-  if (typeof sessionStorage === 'undefined') return
+  if (typeof window === 'undefined' || !window.sessionStorage) return
   try {
     const serialized = JSON.stringify(serializeStack(stack))
-    sessionStorage.setItem(key, serialized)
+    window.sessionStorage.setItem(key, serialized)
   } catch (e) {
     console.warn('Failed to save undo stack:', e)
   }
@@ -25,9 +25,9 @@ function saveStack(key, stack) {
  * @returns {Command[]} - Array of deserialized commands
  */
 function restoreStack(key) {
-  if (typeof sessionStorage === 'undefined') return []
+  if (typeof window === 'undefined' || !window.sessionStorage) return []
   try {
-    const stored = sessionStorage.getItem(key)
+    const stored = window.sessionStorage.getItem(key)
     if (!stored) return []
     const parsed = JSON.parse(stored)
     return deserializeStack(parsed)
