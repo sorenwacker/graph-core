@@ -6,8 +6,7 @@ import { useNodeTooltip } from './composables/useNodeTooltip.js'
 import { useDetachedWindow } from './composables/useDetachedWindow.js'
 import { useSelection } from './composables/useSelection.js'
 import { useCardDrag } from './composables/useCardDrag.js'
-// useSearch available but not currently used
-// import { useSearch } from './composables/useSearch.js'
+import { useSearch } from './composables/useSearch.js'
 import { useInlineEdit } from './composables/useInlineEdit.js'
 import { useSnapshots } from './composables/useSnapshots.js'
 import { useContextMenu } from './composables/useContextMenu.js'
@@ -17,6 +16,9 @@ import { useSettings } from './composables/useSettings.js'
 import { useWorkspace } from './composables/useWorkspace.js'
 import { useSidebar } from './composables/useSidebar.js'
 import { useNodeOperations } from './composables/useNodeOperations.js'
+import { useDataLoading } from './composables/useDataLoading.js'
+import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts.js'
+import { useTreeExpand } from './composables/useTreeExpand.js'
 // useNavigation available but not currently used
 // import { useNavigation } from './composables/useNavigation.js'
 import {
@@ -25,20 +27,26 @@ import {
   UnlinkCommand,
   ReorderCommand
 } from './commands/index.js'
-import { nodeTypes, getImportanceLabel, getTypeIcon, typeConfig } from './utils/constants.js'
-import { decodeHtmlEntities as decodeHtml } from './utils/html.js'
 import { MAX_HISTORY_SIZE, SIDEBAR_HIDE_DELAY_MS } from './utils/uiConstants.js'
+import { getDueDateStatus, getDateCountdown } from './utils/dateUtils.js'
 import DetailPanel from './components/DetailPanel.vue'
 import GraphView from './components/GraphView.vue'
 import TableView from './components/TableView.vue'
 import TimelineView from './components/TimelineView.vue'
+import CalendarView from './components/CalendarView.vue'
 import PersonsView from './components/PersonsView.vue'
 import TasksView from './components/TasksView.vue'
 import NodeContextMenu from './components/NodeContextMenu.vue'
-import CardTitleEdit from './components/CardTitleEdit.vue'
-import CardNotes from './components/CardNotes.vue'
 import AddNodeModal from './components/AddNodeModal.vue'
 import ToastContainer from './components/ToastContainer.vue'
+import CardsView from './components/CardsView.vue'
+import AppSidebar from './components/AppSidebar.vue'
+import WorkspaceSelector from './components/WorkspaceSelector.vue'
+import AddNodeBar from './components/AddNodeBar.vue'
+import Breadcrumbs from './components/Breadcrumbs.vue'
+import MainToolbar from './components/MainToolbar.vue'
+import TrashView from './components/TrashView.vue'
+import SpotlightSearch from './components/SpotlightSearch.vue'
 import { showToast } from './composables/useToast.js'
 
 // Click-outside directive
@@ -115,16 +123,10 @@ const newNodeType = ref('task')
 const showDetail = ref(false)
 const fullscreenDetail = ref(false)
 const detailPinned = ref(false)
-const expandedIds = ref(new Set())
 const transitioning = ref(false)
 const transitionDirection = ref('forward')
 const containerWidth = ref(800)
 const containerHeight = ref(600)
-const sidebarTree = ref([])  // Full tree for sidebar navigation
-const recentItems = ref([])  // Recent items for sidebar
-const trashedItems = ref([])  // Deleted items for trash view
-const orphanedNodes = ref([])  // Orphaned nodes for lost & found
-const showLostFound = ref(false)
 
 // Sidebar UI state via composable
 const {
@@ -176,11 +178,43 @@ async function deleteCurrentWorkspace() {
   await _deleteCurrentWorkspace()
 }
 
-// Favorites computed from all loaded nodes
-const favoriteItems = ref([])
+// Data loading via composable (sidebar tree, recent, favorites, tags, trash, orphans)
+const {
+  sidebarTree,
+  recentItems,
+  favoriteItems,
+  allTags,
+  trashedItems,
+  orphanedNodes,
+  showLostFound,
+  buildChildTree,
+  loadSidebarTree,
+  loadRecentItems,
+  loadFavorites,
+  loadTags,
+  loadTrashedItems,
+  loadOrphanedNodes,
+  clearRecent,
+  undoClearRecent,
+  restoreFromTrash,
+  permanentlyDelete,
+  emptyAllTrash,
+  moveToRoot,
+  deleteOrphanedNode
+} = useDataLoading(currentWorkspace)
 
-// Tags for sidebar
-const allTags = ref([])
+async function selectTag(tag) {
+  try {
+    const results = await api.getNodesByTag(tag, currentWorkspace.value)
+    const resultsWithBreadcrumbs = await fetchBreadcrumbsForResults(results)
+    searchResults.value = resultsWithBreadcrumbs
+    searchQuery.value = `#${tag}`
+    showSearch.value = true
+    selectedResultIndex.value = 0
+  } catch (e) {
+    console.error('Failed to search by tag:', e)
+  }
+}
 
 function toggleSidebarPin() {
   sidebarPinned.value = !sidebarPinned.value
@@ -192,14 +226,6 @@ const {
   isResizing: isResizingDetail,
   onResizeStart: onDetailResizeStart
 } = useDetailResize()
-
-function _closeDetailIfNotPinned() {
-  if (!detailPinned.value && showDetail.value) {
-    showDetail.value = false
-    selectedNode.value = null
-    selectedIds.value = new Set()
-  }
-}
 
 function closeDetail() {
   showDetail.value = false
@@ -279,17 +305,11 @@ watch(showDetail, (isOpen) => {
   }
 })
 
-// Search state - detached spotlight-style
-const searchQuery = ref('')
-const searchResults = ref([])
-const showSearch = ref(false)
-const searchTimeout = ref(null)
-const searchInputRef = ref(null)
+// Component refs
 const graphViewRef = ref(null)
 const tasksViewRef = ref(null)
 const detailPanelRef = ref(null)
 const newWorkspaceInputRef = ref(null)
-const addNodeInput = ref(null)
 const addChildParentId = ref(null) // Parent ID when adding via card + button
 
 // Add node modal state
@@ -297,9 +317,6 @@ const addNodeModal = ref({
   visible: false,
   parentId: null
 })
-
-const searchMode = ref('normal') // 'normal' or 'link'
-const linkSourceNodeId = ref(null)
 
 // Undo/redo using Command pattern
 const {
@@ -339,8 +356,6 @@ const nodeOps = useNodeOperations({
   broadcastDelete: broadcastNodeDelete
 })
 
-const selectedResultIndex = ref(0)
-
 // Cards drag state - using composable
 // Note: callbacks reference functions defined below (works due to closure/hoisting)
 const {
@@ -366,14 +381,6 @@ const {
   }
 })
 
-// Computed
-const _projects = computed(() => {
-  if (currentContainerId.value === null) {
-    return children.value.filter(n => n && n.type === 'project')
-  }
-  return []
-})
-
 // Use root depth setting when at root level, otherwise use regular max depth
 const effectiveGraphMaxDepth = computed(() => {
   return currentContainerId.value === null ? graphRootMaxDepth.value : graphMaxDepth.value
@@ -393,6 +400,20 @@ const flatChildren = computed(() => {
   }
   flatten(children.value)
   return result
+})
+
+// Tree expand/collapse state via composable
+const {
+  expandedIds,
+  toggleExpand,
+  expandAll,
+  collapseAll,
+  expandAncestors,
+  loadExpandedState,
+  saveExpandedState
+} = useTreeExpand({
+  workspace: currentWorkspace,
+  flatChildren
 })
 
 // Initialize selection composable with dependencies
@@ -425,6 +446,98 @@ function selectNode(node, options = {}) {
     return
   }
   _selectNode(node, options)
+}
+
+// Search composable - handles spotlight search state and navigation
+const {
+  searchQuery,
+  searchResults,
+  showSearch,
+  selectedResultIndex,
+  searchMode,
+  linkSourceNodeId,
+  openSearch,
+  openLinkSearch,
+  closeSearch,
+  handleSearch: _handleSearch,
+  onSearchInput: _onSearchInput,
+  handleSearchKeydown,
+  goToSearchResult: _goToSearchResult
+} = useSearch({
+  selectedNode,
+  onSearch: async (query, mode, workspaceId) => {
+    const searchOptions = { hideCompleted: hideCompleted.value }
+    if (query.startsWith('#') && query.length > 1) {
+      const tagName = query.slice(1)
+      return await api.getNodesByTag(tagName, workspaceId, searchOptions)
+    } else {
+      return await api.search(query, null, workspaceId, searchOptions)
+    }
+  },
+  onSelect: async (node, mode, sourceId) => {
+    // Handle link mode - create link instead of navigating
+    if (mode === 'link' && sourceId) {
+      try {
+        await api.linkNodes(sourceId, node.id)
+        pushCommand(new LinkCommand({ sourceId, targetId: node.id }))
+        await refreshGraphAfterStructureChange()
+        if (selectedNode.value?.id === sourceId) {
+          const updatedNode = await api.getNode(sourceId)
+          selectedNode.value = updatedNode
+          detailPanelRef.value?.loadLinkedNodes()
+        }
+      } catch (e) {
+        console.error('Failed to create link:', e)
+      }
+      return
+    }
+
+    // Check if node is visible in current graph view
+    const isVisibleInCurrentView = viewMode.value === 'graph' &&
+      graphViewRef.value?.isNodeVisible?.(node.id)
+
+    if (isVisibleInCurrentView) {
+      selectNode(node)
+      await nextTick()
+      window.dispatchEvent(new CustomEvent('graph-center-node', { detail: { nodeId: node.id } }))
+      return
+    }
+
+    // Navigate to the container that holds this node
+    const targetContainerId = node.parent_id || null
+    if (currentContainerId.value !== targetContainerId) {
+      await loadChildren(targetContainerId)
+    }
+
+    // Expand tree to show the node if in tree view
+    if (viewMode.value === 'tree') {
+      expandAncestors(node.id)
+    }
+
+    selectNode(node)
+    await nextTick()
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    if (viewMode.value === 'graph') {
+      window.dispatchEvent(new CustomEvent('graph-center-node', { detail: { nodeId: node.id } }))
+    } else {
+      scrollToNode(node.id)
+    }
+  },
+  onFetchBreadcrumbs: fetchBreadcrumbsForResults
+})
+
+// Wrap search functions to pass current workspace
+function handleSearch() {
+  _handleSearch(currentWorkspace.value)
+}
+
+function onSearchInput() {
+  _onSearchInput(currentWorkspace.value)
+}
+
+function goToSearchResult(node) {
+  _goToSearchResult(node)
 }
 
 // Close detail panel when node is deselected (if not pinned)
@@ -480,13 +593,6 @@ const {
       await loadChildren(currentContainerId.value)
     }
   }
-})
-
-const _contextTitle = computed(() => {
-  if (currentContainer.value) {
-    return currentContainer.value.title
-  }
-  return 'Root'
 })
 
 // Build inherited color map for cards (parent color flows to children)
@@ -597,224 +703,6 @@ const cardSizeClass = computed(() => {
   return 'card-xs'
 })
 
-// Nested card size based on parent count and nesting level
-function getNestedCardSize(parentChildCount, level) {
-  if (level === 1) {
-    // Child cards - big or small only
-    if (parentChildCount <= 2) return 'child-lg'
-    return 'child-sm'
-  } else {
-    // Grandchild cards - always compact
-    return 'grandchild-xs'
-  }
-}
-
-// Helper to calculate nested grid style based on count and available space
-function nestedGridStyle(count, level = 1) {
-  if (!count || count === 0) return {}
-
-  const gap = level === 1 ? '4px' : '2px'
-
-  // Use auto-fit with minmax - min() ensures cards can shrink to 100% if container is narrow
-  return {
-    display: 'grid',
-    gridTemplateColumns: `repeat(auto-fit, minmax(min(300px, 100%), 1fr))`,
-    gap: gap
-  }
-}
-
-// Methods
-async function loadSidebarTree() {
-  try {
-    const ws = currentWorkspace.value
-    // Filter by current workspace
-    const roots = await api.getRoots(ws)
-    // Filter out any null/undefined entries AND verify workspace match
-    // For 'people' workspace (null), match nodes with null workspace_id
-    // For other workspaces, match nodes with that workspace_id
-    const filteredRoots = (roots || []).filter(root => {
-      if (!root) return false
-      if (ws === null || ws === 'null') {
-        return root.workspace_id === null
-      }
-      return root.workspace_id === ws
-    })
-    const rootsWithChildren = await Promise.all(
-      filteredRoots.map(async (root) => {
-        if (!root || !root.id) return null
-        const descendants = await api.getDescendants(root.id)
-        // Also filter descendants by workspace for safety
-        const filteredDescendants = (descendants || []).filter(d => {
-          if (!d) return false
-          if (ws === null || ws === 'null') {
-            return d.workspace_id === null
-          }
-          return d.workspace_id === ws
-        })
-        return {
-          ...root,
-          children: buildChildTree(filteredDescendants, root.id)
-        }
-      })
-    )
-    sidebarTree.value = rootsWithChildren.filter(Boolean)
-  } catch (e) {
-    console.error('Failed to load sidebar tree:', e)
-  }
-}
-
-// Get workspace-specific localStorage key for recent cleared timestamp
-function getRecentClearedKey() {
-  const ws = currentWorkspace.value
-  return `graphcore-recentClearedAt-${ws}`
-}
-
-async function loadRecentItems() {
-  try {
-    const items = await api.getRecent(10, currentWorkspace.value)
-    const clearedAt = localStorage.getItem(getRecentClearedKey())
-    const validItems = (items || []).filter(Boolean)
-    if (clearedAt) {
-      // Only show items updated after the clear timestamp
-      recentItems.value = validItems.filter(item => item && item.updated_at > clearedAt)
-    } else {
-      recentItems.value = validItems
-    }
-  } catch (e) {
-    console.error('Failed to load recent items:', e)
-  }
-}
-
-const previousRecentClearedAt = ref(null)
-
-function clearRecent() {
-  const key = getRecentClearedKey()
-  // Store previous state for undo
-  previousRecentClearedAt.value = localStorage.getItem(key)
-  // Store timestamp - only show items updated after this time
-  localStorage.setItem(key, new Date().toISOString())
-  recentItems.value = []
-}
-
-function _undoClearRecent() {
-  if (previousRecentClearedAt.value !== null) {
-    const key = getRecentClearedKey()
-    if (previousRecentClearedAt.value) {
-      localStorage.setItem(key, previousRecentClearedAt.value)
-    } else {
-      localStorage.removeItem(key)
-    }
-    previousRecentClearedAt.value = null
-    loadRecentItems()
-  }
-}
-
-async function loadFavorites() {
-  try {
-    if (api.getFavorites) {
-      const items = await api.getFavorites(currentWorkspace.value)
-      favoriteItems.value = (items || []).filter(Boolean)
-    }
-  } catch {
-    // Silently fail - favorites API may not be available until restart
-    favoriteItems.value = []
-  }
-}
-
-async function loadTags() {
-  try {
-    const tags = await api.getAllTags(currentWorkspace.value)
-    allTags.value = tags || []
-  } catch {
-    allTags.value = []
-  }
-}
-
-async function selectTag(tag) {
-  // Search for nodes with this tag and show results
-  try {
-    const results = await api.getNodesByTag(tag, currentWorkspace.value)
-    const resultsWithBreadcrumbs = await fetchBreadcrumbsForResults(results)
-    searchResults.value = resultsWithBreadcrumbs
-    searchQuery.value = `#${tag}`
-    showSearch.value = true
-    selectedResultIndex.value = 0
-  } catch (e) {
-    console.error('Failed to search by tag:', e)
-  }
-}
-
-async function loadTrashedItems() {
-  try {
-    const items = await api.getTrash(100)
-    trashedItems.value = (items || []).filter(Boolean)
-  } catch (e) {
-    console.error('Failed to load trashed items:', e)
-  }
-}
-
-async function restoreFromTrash(node) {
-  try {
-    await api.restoreNode(node.id)
-    await loadTrashedItems()
-    await loadSidebarTree()
-  } catch (e) {
-    console.error('Failed to restore node:', e)
-  }
-}
-
-async function permanentlyDelete(node) {
-  if (!confirm(`Permanently delete "${node.title}"? This cannot be undone.`)) return
-  try {
-    await api.deleteNode(node.id, true)
-    await loadTrashedItems()
-  } catch (e) {
-    console.error('Failed to delete node:', e)
-  }
-}
-
-async function emptyAllTrash() {
-  const count = trashedItems.value.length
-  if (!confirm(`Permanently delete all ${count} items in trash? This cannot be undone.`)) return
-  try {
-    await api.emptyTrash()
-    trashedItems.value = []
-  } catch (e) {
-    console.error('Failed to empty trash:', e)
-  }
-}
-
-// Lost & Found - orphaned nodes
-async function loadOrphanedNodes() {
-  try {
-    const nodes = await api.getOrphanedNodes()
-    orphanedNodes.value = (nodes || []).filter(Boolean)
-  } catch (e) {
-    console.error('Failed to load orphaned nodes:', e)
-    orphanedNodes.value = []
-  }
-}
-
-async function moveToRoot(node) {
-  try {
-    await api.reparentToRoot(node.id)
-    await loadOrphanedNodes()
-    await loadSidebarTree()
-  } catch (e) {
-    console.error('Failed to move node to root:', e)
-  }
-}
-
-async function deleteOrphanedNode(node) {
-  if (!confirm(`Permanently delete "${node.title}"?`)) return
-  try {
-    await api.deleteNode(node.id, true)  // hard delete
-    await loadOrphanedNodes()
-  } catch (e) {
-    console.error('Failed to delete orphaned node:', e)
-  }
-}
-
 let isLoadingChildren = false
 let lastLoadTime = 0
 let lastLoadedContainerId = null
@@ -915,20 +803,6 @@ function buildTree(directChildren, allDescendants, parentCompleted = false) {
       ...child,
       inheritedCompleted: parentCompleted,  // true if any ancestor is completed
       children: buildChildTree(allDescendants, child.id, inheritedCompleted)
-    }
-  }).filter(Boolean)
-}
-
-function buildChildTree(flatNodes, parentId, parentCompleted = false) {
-  if (!flatNodes) return []
-  const children = flatNodes.filter(n => n && n.parent_id === parentId)
-  return children.map(child => {
-    if (!child || !child.id) return null
-    const inheritedCompleted = parentCompleted || child.completed
-    return {
-      ...child,
-      inheritedCompleted: parentCompleted,  // true if any ancestor is completed
-      children: buildChildTree(flatNodes, child.id, inheritedCompleted)
     }
   }).filter(Boolean)
 }
@@ -1119,36 +993,53 @@ async function handleReorder({ nodeId, targetId, position }) {
   }
 }
 
+// Helper to save node position for graph view
+function saveNodePosition(nodeId, x, y) {
+  if (x === undefined || y === undefined) return
+  const viewId = currentContainerId.value || 'root'
+  const ws = currentWorkspace.value || 'work'
+  const posKey = `graph-positions-${ws}-${viewId}`
+  const positions = JSON.parse(localStorage.getItem(posKey) || '{}')
+  positions[nodeId] = { x, y }
+  localStorage.setItem(posKey, JSON.stringify(positions))
+}
+
+// Core node creation - used by all create functions
+async function createNodeCore({ title, type, parentId, x, y }) {
+  const nodeType = type || 'task'
+  const nodeData = {
+    title,
+    type: nodeType,
+    parent_id: parentId,
+    workspace_id: getWorkspaceIdForNode(nodeType)
+  }
+  const newNode = await api.createNode(nodeData)
+  if (!newNode || !newNode.id) {
+    throw new Error('Failed to create node')
+  }
+  pushCommand(new CreateCommand({ nodeId: newNode.id, nodeData, parentId }))
+  saveNodePosition(newNode.id, x, y)
+  return newNode
+}
+
 async function createNode() {
   if (!newNodeTitle.value.trim()) return
 
   try {
-    const nodeType = newNodeType.value
-    // Use addChildParentId if set (from card + button), otherwise use currentContainerId
     const targetParentId = addChildParentId.value || currentContainerId.value
-
-    // Persons and organizations are treated like ordinary nodes - use parent-child
-    const nodeData = {
+    await createNodeCore({
       title: newNodeTitle.value,
-      type: nodeType,
-      parent_id: targetParentId,
-      workspace_id: getWorkspaceIdForNode(nodeType)
-    }
-    // Persons default to neutral color (can inherit from parent)
-    const created = await api.createNode(nodeData)
-    if (!created || !created.id) {
-      throw new Error('Failed to create node')
-    }
-    pushCommand(new CreateCommand({ nodeId: created.id, nodeData, parentId: targetParentId }))
+      type: newNodeType.value,
+      parentId: targetParentId
+    })
 
-    // If adding child via card button, expand parent and reload
     if (addChildParentId.value) {
       expandedIds.value.add(addChildParentId.value)
       await loadSidebarTree()
     }
 
     newNodeTitle.value = ''
-    addChildParentId.value = null // Clear the child parent ID
+    addChildParentId.value = null
     await loadChildren(currentContainerId.value, { silent: true })
   } catch (e) {
     error.value = e.message
@@ -1157,29 +1048,7 @@ async function createNode() {
 
 async function addChildNode({ parentId, title, type, x, y }) {
   try {
-    const nodeType = type || 'task'
-
-    // Persons and organizations are treated like ordinary nodes - use parent-child
-    const nodeData = {
-      title,
-      type: nodeType,
-      parent_id: parentId,
-      workspace_id: getWorkspaceIdForNode(nodeType)
-    }
-    const newNode = await api.createNode(nodeData)
-    if (!newNode || !newNode.id) {
-      throw new Error('Failed to create child node - no result returned')
-    }
-    pushCommand(new CreateCommand({ nodeId: newNode.id, nodeData, parentId }))
-    // Save position if provided (from graph double-click)
-    if (x !== undefined && y !== undefined) {
-      const viewId = currentContainerId.value || 'root'
-      const ws = currentWorkspace.value || 'work'
-      const posKey = `graph-positions-${ws}-${viewId}`
-      const positions = JSON.parse(localStorage.getItem(posKey) || '{}')
-      positions[newNode.id] = { x, y }
-      localStorage.setItem(posKey, JSON.stringify(positions))
-    }
+    await createNodeCore({ title, type, parentId, x, y })
     expandedIds.value.add(parentId)
     await loadChildren(currentContainerId.value, { silent: true })
   } catch (e) {
@@ -1319,26 +1188,13 @@ async function insertBetween({ parentId, childId, title, type, isLink }) {
 
 async function createNodeAtPosition({ title, type, x, y }) {
   try {
-    const nodeType = type || 'task'
-
-    // Persons and organizations are treated like ordinary nodes - use parent-child
-    // Double-click far from nodes creates child of current container
-    const nodeData = {
+    const newNode = await createNodeCore({
       title,
-      type: nodeType,
-      parent_id: currentContainerId.value,
-      workspace_id: getWorkspaceIdForNode(nodeType)
-    }
-    const newNode = await api.createNode(nodeData)
-    // Save position for the new node in current view
-    const viewId = currentContainerId.value || 'root'
-    const ws = currentWorkspace.value || 'work'
-    const posKey = `graph-positions-${ws}-${viewId}`
-    const positions = JSON.parse(localStorage.getItem(posKey) || '{}')
-    positions[newNode.id] = { x, y }
-    localStorage.setItem(posKey, JSON.stringify(positions))
-
-    // Use silent mode to preserve GraphView mount state (and thus zoom/pan)
+      type,
+      parentId: currentContainerId.value,
+      x,
+      y
+    })
     await loadChildren(currentContainerId.value, { silent: true })
     await loadSidebarTree()
     loadRecentItems()
@@ -1493,89 +1349,6 @@ async function toggleFavorite(node) {
   }
 }
 
-// Get localStorage key for expanded state (per workspace)
-function getExpandedKey() {
-  return `graphcore-expanded-${currentWorkspace.value}`
-}
-
-// Save expanded IDs to localStorage
-function saveExpandedState() {
-  const ids = Array.from(expandedIds.value)
-  localStorage.setItem(getExpandedKey(), JSON.stringify(ids))
-}
-
-// Load expanded IDs from localStorage
-function loadExpandedState() {
-  const stored = localStorage.getItem(getExpandedKey())
-  if (stored) {
-    try {
-      const ids = JSON.parse(stored)
-      expandedIds.value = new Set(ids)
-    } catch {
-      expandedIds.value = new Set()
-    }
-  }
-}
-
-function toggleExpand(nodeId) {
-  if (expandedIds.value.has(nodeId)) {
-    expandedIds.value.delete(nodeId)
-  } else {
-    expandedIds.value.add(nodeId)
-  }
-  expandedIds.value = new Set(expandedIds.value)
-  saveExpandedState()
-}
-
-function expandAll() {
-  expandedIds.value = new Set(flatChildren.value.map(n => n.id))
-  saveExpandedState()
-}
-
-function collapseAll() {
-  expandedIds.value = new Set()
-  saveExpandedState()
-}
-
-// Search functions - spotlight style
-function openSearch() {
-  showSearch.value = true
-  searchQuery.value = ''
-  searchResults.value = []
-  selectedResultIndex.value = 0
-  searchMode.value = 'normal'
-  linkSourceNodeId.value = null
-  nextTick(() => {
-    if (searchInputRef.value) {
-      searchInputRef.value.focus()
-    }
-  })
-}
-
-function openLinkSearch() {
-  if (!selectedNode.value) return
-  showSearch.value = true
-  searchQuery.value = ''
-  searchResults.value = []
-  selectedResultIndex.value = 0
-  searchMode.value = 'link'
-  linkSourceNodeId.value = selectedNode.value.id
-  nextTick(() => {
-    if (searchInputRef.value) {
-      searchInputRef.value.focus()
-    }
-  })
-}
-
-function closeSearch() {
-  showSearch.value = false
-  searchQuery.value = ''
-  searchResults.value = []
-  selectedResultIndex.value = 0
-  searchMode.value = 'normal'
-  linkSourceNodeId.value = null
-}
-
 async function fetchBreadcrumbsForResults(results) {
   // Fetch ancestors for each result in parallel to build breadcrumbs
   const resultsWithBreadcrumbs = await Promise.all(
@@ -1595,141 +1368,6 @@ async function fetchBreadcrumbsForResults(results) {
   return resultsWithBreadcrumbs
 }
 
-async function handleSearch() {
-  const query = searchQuery.value.trim()
-  if (!query) {
-    searchResults.value = []
-    return
-  }
-
-  try {
-    let results
-    const searchOptions = { hideCompleted: hideCompleted.value }
-    // Check for tag search: #tagname
-    if (query.startsWith('#') && query.length > 1) {
-      const tagName = query.slice(1)
-      results = await api.getNodesByTag(tagName, currentWorkspace.value, searchOptions)
-    } else {
-      // Regular search within current workspace
-      results = await api.search(query, null, currentWorkspace.value, searchOptions)
-    }
-
-    // Fetch breadcrumbs for all results
-    const resultsWithBreadcrumbs = await fetchBreadcrumbsForResults(results)
-    searchResults.value = resultsWithBreadcrumbs
-    selectedResultIndex.value = 0
-  } catch (e) {
-    console.error('Search failed:', e)
-  }
-}
-
-function onSearchInput() {
-  clearTimeout(searchTimeout.value)
-  searchTimeout.value = setTimeout(handleSearch, 200)
-}
-
-function handleSearchKeydown(e) {
-  if (e.key === 'Escape') {
-    closeSearch()
-  } else if (e.key === 'ArrowDown') {
-    e.preventDefault()
-    if (searchResults.value.length > 0) {
-      selectedResultIndex.value = (selectedResultIndex.value + 1) % searchResults.value.length
-    }
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault()
-    if (searchResults.value.length > 0) {
-      selectedResultIndex.value = selectedResultIndex.value === 0
-        ? searchResults.value.length - 1
-        : selectedResultIndex.value - 1
-    }
-  } else if (e.key === 'Enter' && searchResults.value.length > 0) {
-    e.preventDefault()
-    const selectedNode = searchResults.value[selectedResultIndex.value]
-    if (selectedNode) {
-      goToSearchResult(selectedNode)
-    }
-  }
-}
-
-async function goToSearchResult(node) {
-  // Handle link mode - create link instead of navigating
-  if (searchMode.value === 'link' && linkSourceNodeId.value) {
-    const sourceId = linkSourceNodeId.value
-    closeSearch()
-    try {
-      await api.linkNodes(sourceId, node.id)
-      pushCommand(new LinkCommand({ sourceId, targetId: node.id }))
-      // Refresh graph to show new link (without relayout)
-      await refreshGraphAfterStructureChange()
-      // Refresh the selected node to update links
-      if (selectedNode.value?.id === sourceId) {
-        const updatedNode = await api.getNode(sourceId)
-        selectedNode.value = updatedNode
-        detailPanelRef.value?.loadLinkedNodes()
-      }
-    } catch (e) {
-      console.error('Failed to create link:', e)
-    }
-    return
-  }
-
-  closeSearch()
-
-  // Check if node is visible in current graph view (as child, descendant, or linked node)
-  const isVisibleInCurrentView = viewMode.value === 'graph' &&
-    graphViewRef.value?.isNodeVisible?.(node.id)
-
-  if (isVisibleInCurrentView) {
-    // Node is already visible - just select and center on it
-    selectNode(node)
-    await nextTick()
-    window.dispatchEvent(new CustomEvent('graph-center-node', { detail: { nodeId: node.id } }))
-    return
-  }
-
-  // Navigate to the container that holds this node
-  // For root-level nodes (no parent), go to root
-  // For nested nodes, go to their parent container
-  const targetContainerId = node.parent_id || null
-
-  // Only navigate if we're not already at the right container
-  if (currentContainerId.value !== targetContainerId) {
-    await loadChildren(targetContainerId)
-  }
-
-  // Expand tree to show the node if in tree view
-  if (viewMode.value === 'tree') {
-    expandAncestors(node.id)
-  }
-
-  // Select the node
-  selectNode(node)
-
-  // Wait for DOM update then perform view-specific actions
-  await nextTick()
-  await new Promise(resolve => setTimeout(resolve, 100))
-
-  if (viewMode.value === 'graph') {
-    window.dispatchEvent(new CustomEvent('graph-center-node', { detail: { nodeId: node.id } }))
-  } else {
-    scrollToNode(node.id)
-  }
-}
-
-// Expand all ancestors of a node in tree view
-function expandAncestors(nodeId) {
-  const node = flatChildren.value.find(n => n.id === nodeId)
-  if (!node || !node.path) return
-
-  // Parse path to get ancestor IDs
-  const pathParts = node.path.split('/').filter(p => p)
-  pathParts.forEach(id => {
-    expandedIds.value.add(parseInt(id))
-  })
-  expandedIds.value = new Set(expandedIds.value)
-}
-
 // Scroll to a node element in the current view
 function scrollToNode(nodeId) {
   // Try to find the element by data attribute or ID
@@ -1742,20 +1380,6 @@ function scrollToNode(nodeId) {
     el.classList.add('search-highlight')
     setTimeout(() => el.classList.remove('search-highlight'), 2000)
   }
-}
-
-// Get action label based on current view
-function getSearchActionLabel(node) {
-  if (viewMode.value === 'graph') {
-    return node.children?.length ? 'Open in graph' : 'Show in graph'
-  } else if (viewMode.value === 'cards') {
-    return 'Show card'
-  } else if (viewMode.value === 'timeline') {
-    return 'Show in timeline'
-  } else if (viewMode.value === 'persons' && node.type === 'person') {
-    return 'Open person'
-  }
-  return 'Go to item'
 }
 
 // Card drag functions (onCardDragStart, onCardDragEnd, onCardDragOver, onCardDragLeave, onCardDrop, getCardDropClass)
@@ -1844,11 +1468,6 @@ const {
 // startInlineNotes, saveInlineNotes, cancelInlineNotes, handleInlineNotesKeydown)
 // are now provided by useInlineEdit composable initialized above
 
-function _renderMarkdown(text) {
-  if (!text) return ''
-  return marked.parse(text)
-}
-
 // Wrapper functions for tooltip - use composable
 function showCardTooltip(event, node) {
   // Don't show tooltip if editing
@@ -1888,235 +1507,59 @@ function toggleCompletedVisibility() {
   hideCompleted.value = !hideCompleted.value
 }
 
-function _toggleSensitiveVisibility() {
-  hideSensitive.value = !hideSensitive.value
-  localStorage.setItem('graphcore-hideSensitive', hideSensitive.value.toString())
-}
-
 // Check if a node has sensitive content
 function isSensitiveNode(node) {
   return !!node.notes_sensitive
 }
 
-function _hasNotes(node) {
-  return node.notes && node.notes.trim().length > 0
-}
-
-// Calculate due date status
-function getDueDateStatus(dueDate) {
-  if (!dueDate) return null
-
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const due = new Date(dueDate)
-  due.setHours(0, 0, 0, 0)
-
-  const diffTime = due - today
-  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
-
-  if (diffDays < 0) {
-    const absDays = Math.abs(diffDays)
-    return { type: 'overdue', days: absDays, text: `${absDays}d late` }
-  } else if (diffDays === 0) {
-    return { type: 'today', days: 0, text: 'Today' }
-  } else if (diffDays === 1) {
-    return { type: 'soon', days: 1, text: 'Tomorrow' }
-  } else if (diffDays <= 3) {
-    return { type: 'soon', days: diffDays, text: `${diffDays}d to go` }
-  } else if (diffDays <= 7) {
-    return { type: 'upcoming', days: diffDays, text: `${diffDays}d` }
-  } else {
-    return { type: 'future', days: diffDays, text: `${diffDays}d` }
-  }
-}
-
-// Calculate countdown to start or end date
-function getDateCountdown(node) {
-  if (!node || node.completed) return null
-
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  // Check start date first - if in future, show "N days to start"
-  if (node.start_date) {
-    const start = new Date(node.start_date)
-    start.setHours(0, 0, 0, 0)
-    const diffDays = Math.round((start - today) / (1000 * 60 * 60 * 24))
-
-    if (diffDays > 0) {
-      return { type: 'to-start', days: diffDays, text: `${diffDays}d to start` }
-    }
-  }
-
-  // Check due_date or end_date for "N days to end"
-  const endDate = node.due_date || node.end_date
-  if (endDate) {
-    const end = new Date(endDate)
-    end.setHours(0, 0, 0, 0)
-    const diffDays = Math.round((end - today) / (1000 * 60 * 60 * 24))
-
-    if (diffDays > 0) {
-      return { type: 'to-end', days: diffDays, text: `${diffDays}d left` }
-    } else if (diffDays === 0) {
-      return { type: 'ends-today', days: 0, text: 'Ends today' }
-    }
-  }
-
-  return null
-}
-
-// Convert importance number to readable label
-
-// Removed isCardDropTarget - now using getCardDropClass
-
 let resizeObserver = null
 
-/**
- * Keyboard Shortcuts:
- *
- * Global (work anywhere):
- * - Cmd/Ctrl + K: Open spotlight search
- * - Cmd/Ctrl + Z: Undo
- * - Cmd/Ctrl + Shift + Z: Redo
- *
- * When not in input fields:
- * - Cmd/Ctrl + Delete/Backspace: Delete selected items
- * - Cmd/Ctrl + A: Select all visible items
- * - Cmd/Ctrl + ArrowUp: Navigate to parent container
- * - Cmd/Ctrl + ArrowDown: Navigate to first child
- * - Cmd/Ctrl + ArrowLeft: Navigate to previous sibling
- * - Cmd/Ctrl + ArrowRight: Navigate to next sibling
- * - Escape: Exit fullscreen or clear selection
- *
- * Click modifiers (all views):
- * - Cmd/Ctrl + Click: Add child to clicked item
- * - Option + Cmd/Ctrl + Click: Delete clicked item
- *
- * Note: Plain Delete/Backspace without Cmd/Ctrl does NOT delete items
- * to prevent accidental deletions.
- */
-function handleKeydown(e) {
-  // Cmd/Ctrl+K - open spotlight search (works anywhere)
-  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-    e.preventDefault()
-    openSearch()
-    return
-  }
-
-  // Cmd/Ctrl+Z - Undo (works globally except in inputs)
-  if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
-    const target = e.target
-    if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA' && !target.isContentEditable) {
-      e.preventDefault()
-      undo()
-      return
-    }
-  }
-
-  // Cmd/Ctrl+Shift+Z or Cmd/Ctrl+Y - Redo (works globally except in inputs)
-  if ((e.metaKey || e.ctrlKey) && ((e.key === 'z' && e.shiftKey) || e.key === 'y')) {
-    const target = e.target
-    if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA' && !target.isContentEditable) {
-      e.preventDefault()
-      redo()
-      return
-    }
-  }
-
-  // Cmd/Ctrl+Enter - add child to selected node (cards/table view)
-  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-    if (viewMode.value === 'cards' || viewMode.value === 'table') {
-      e.preventDefault()
-      const parentId = selectedNode.value?.id || currentContainerId.value
-      showAddNodeModal(parentId)
-      return
-    }
-  }
-
-  // Don't trigger other shortcuts if typing in an editable element
-  const target = e.target
-  if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') return
-  if (target.isContentEditable) return
-
-  // Cmd/Ctrl + Delete/Backspace - delete selected items
-  const isDeleteKey = e.key === 'Delete' || e.key === 'Backspace'
-  if ((e.metaKey || e.ctrlKey) && isDeleteKey) {
-    e.preventDefault()
-    e.stopPropagation()
-    if (selectedIds.value.size > 0) {
-      deleteSelectedNodes()
-    } else if (selectedNode.value) {
-      deleteNode(selectedNode.value.id)
-    }
-  }
-
-  // Cmd/Ctrl + Arrow keys - navigation (works in all views)
-  if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowUp') {
-    e.preventDefault()
-    goToParent()
-    return
-  }
-  if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowDown') {
-    e.preventDefault()
-    goToFirstChild()
-    return
-  }
-  if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowLeft') {
-    e.preventDefault()
-    goToPrevSibling()
-    return
-  }
-  if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowRight') {
-    e.preventDefault()
-    goToNextSibling()
-    return
-  }
-
-  // Escape - exit fullscreen or clear selection (respects pin)
-  if (e.key === 'Escape') {
-    if (fullscreenDetail.value) {
-      fullscreenDetail.value = false
-    } else if (!detailPinned.value) {
+// Keyboard shortcuts via composable
+const { handleKeydown } = useKeyboardShortcuts({
+  actions: {
+    openSearch,
+    undo,
+    redo,
+    showAddNodeModal,
+    deleteSelectedNodes: async () => {
+      if (selectedIds.value.size === 0) return
+      const idsToDelete = [...selectedIds.value]
+      const result = await nodeOps.deleteMultipleNodes(idsToDelete)
+      if (result.success) {
+        selectedIds.value = new Set()
+        selectedNode.value = null
+        showDetail.value = false
+        await loadChildren(currentContainerId.value, { silent: true })
+        await loadSidebarTree()
+        loadRecentItems()
+      }
+    },
+    deleteNode,
+    goToParent,
+    goToFirstChild,
+    goToPrevSibling,
+    goToNextSibling,
+    toggleDetailPanel,
+    clearSelection: () => {
       selectedIds.value = new Set()
       selectedNode.value = null
       showDetail.value = false
+    },
+    selectAll: () => {
+      selectedIds.value = new Set(flatChildren.value.map(n => n.id))
     }
+  },
+  state: {
+    viewMode,
+    selectedNode,
+    selectedIds,
+    currentContainerId,
+    fullscreenDetail,
+    detailPinned,
+    showDetail,
+    flatChildren
   }
-
-  // Enter - toggle detail panel
-  if (e.key === 'Enter') {
-    e.preventDefault()
-    toggleDetailPanel()
-  }
-
-  // n - create new node (add to current container or selected node)
-  if (e.key === 'n') {
-    e.preventDefault()
-    const parentId = selectedNode.value?.id || currentContainerId.value
-    showAddNodeModal(parentId)
-  }
-
-  // Ctrl/Cmd+A - select all visible
-  if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-    e.preventDefault()
-    selectedIds.value = new Set(flatChildren.value.map(n => n.id))
-  }
-}
-
-async function deleteSelectedNodes() {
-  if (selectedIds.value.size === 0) return
-
-  const idsToDelete = [...selectedIds.value]
-  const result = await nodeOps.deleteMultipleNodes(idsToDelete)
-  if (result.success) {
-    selectedIds.value = new Set()
-    selectedNode.value = null
-    showDetail.value = false
-    await loadChildren(currentContainerId.value, { silent: true })
-    await loadSidebarTree()
-    loadRecentItems()
-  }
-}
+})
 
 onMounted(async () => {
   // Load available workspaces first
@@ -2209,158 +1652,25 @@ onUnmounted(() => {
     ></div>
 
     <!-- Sidebar -->
-    <aside
-      class="sidebar"
-      :class="{ collapsed: !sidebarVisible && sidebarPinned, pinned: sidebarPinned, show: sidebarHovered }"
+    <AppSidebar
+      :visible="sidebarVisible"
+      :pinned="sidebarPinned"
+      :hovered="sidebarHovered"
+      :current-container-id="currentContainerId"
+      :selected-node-id="selectedNode?.id"
+      :sidebar-tree="sidebarTree"
+      :favorite-items="favoriteItems"
+      :all-tags="allTags"
+      :expanded-ids="sidebarExpandedIds"
+      @toggle-pin="toggleSidebarPin"
+      @enter="enterContainer"
+      @context-menu="(e, node) => showContextMenu(e, node)"
+      @toggle-expand="toggleSidebarExpand"
+      @select-tag="selectTag"
+      @navigate-root="navigateToBreadcrumb(-1)"
       @mouseenter="onSidebarEnter"
       @mouseleave="onSidebarLeave"
-    >
-      <div class="sidebar-header" @mouseenter="onSidebarEnter">
-        <div class="sidebar-header-row" @mouseenter="onSidebarEnter">
-          <h2 @mouseenter="onSidebarEnter">Graph Core</h2>
-          <button
-            class="sidebar-pin-btn"
-            :class="{ active: sidebarPinned }"
-            @click.stop="toggleSidebarPin"
-            @mouseenter="onSidebarEnter"
-            :title="sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar'"
-          >
-            <span v-html="sidebarPinned ? '&#128205;' : '&#128204;'"></span>
-          </button>
-        </div>
-      </div>
-      <div class="sidebar-content">
-        <!-- Root -->
-        <div class="sidebar-section">
-          <div
-            class="sidebar-item"
-            :class="{ active: currentContainerId === null }"
-            @click="navigateToBreadcrumb(-1)"
-          >
-            <span class="icon">~</span>
-            <span class="label">Root</span>
-          </div>
-        </div>
-
-        <!-- Global Tree -->
-        <div class="sidebar-section collapsible-section">
-          <div class="sidebar-section-header" @click="sidebarTreeCollapsed = !sidebarTreeCollapsed">
-            <span class="collapse-btn">{{ sidebarTreeCollapsed ? '+' : '-' }}</span>
-            <span>Tree</span>
-          </div>
-          <div v-show="!sidebarTreeCollapsed" class="sidebar-tree">
-            <template v-for="node in sidebarTree" :key="node.id">
-              <div
-                class="sidebar-tree-item"
-                :class="{ active: currentContainerId === node.id }"
-                @contextmenu.prevent="showContextMenu($event, node)"
-              >
-                <button
-                  v-if="node.children?.length"
-                  class="tree-expand-btn"
-                  @click.stop="toggleSidebarExpand(node.id)"
-                >{{ sidebarExpandedIds.has(node.id) ? '−' : '+' }}</button>
-                <span v-else class="tree-spacer"></span>
-                <span class="type-icon" :class="node.type"><span v-html="getTypeIcon(node.type)"></span></span>
-                <span class="label" @click="enterContainer(node)">{{ node.title }}</span>
-              </div>
-              <!-- Level 1 children -->
-              <template v-if="sidebarExpandedIds.has(node.id) && node.children?.length">
-                <template v-for="child in node.children" :key="child.id">
-                  <div
-                    class="sidebar-tree-item level-1"
-                    :class="{ active: currentContainerId === child.id }"
-                    @contextmenu.prevent="showContextMenu($event, child)"
-                  >
-                    <button
-                      v-if="child.children?.length"
-                      class="tree-expand-btn"
-                      @click.stop="toggleSidebarExpand(child.id)"
-                    >{{ sidebarExpandedIds.has(child.id) ? '−' : '+' }}</button>
-                    <span v-else class="tree-spacer"></span>
-                    <span class="type-icon" :class="child.type"><span v-html="getTypeIcon(child.type)"></span></span>
-                    <span class="label" @click="enterContainer(child)">{{ child.title }}</span>
-                  </div>
-                  <!-- Level 2 children -->
-                  <template v-if="sidebarExpandedIds.has(child.id) && child.children?.length">
-                    <div
-                      v-for="grandchild in child.children"
-                      :key="grandchild.id"
-                      class="sidebar-tree-item level-2"
-                      :class="{ active: currentContainerId === grandchild.id }"
-                      @click="enterContainer(grandchild)"
-                      @contextmenu.prevent="showContextMenu($event, grandchild)"
-                    >
-                      <span class="tree-spacer"></span>
-                      <span class="type-icon" :class="grandchild.type"><span v-html="getTypeIcon(grandchild.type)"></span></span>
-                      <span class="label">{{ grandchild.title }}</span>
-                    </div>
-                  </template>
-                </template>
-              </template>
-            </template>
-          </div>
-        </div>
-
-        <!-- Favorites -->
-        <div v-if="favoriteItems.length > 0" class="sidebar-section collapsible-section">
-          <div class="sidebar-section-header" @click="sidebarFavoritesCollapsed = !sidebarFavoritesCollapsed">
-            <span class="collapse-btn">{{ sidebarFavoritesCollapsed ? '+' : '-' }}</span>
-            <span>Favorites</span>
-            <span class="section-count">{{ favoriteItems.length }}</span>
-          </div>
-          <div v-show="!sidebarFavoritesCollapsed">
-            <div
-              v-for="item in favoriteItems"
-              :key="'fav-' + item.id"
-              class="sidebar-item favorite-item"
-              :class="{ active: selectedNode?.id === item.id }"
-              @click="enterContainer(item)"
-            >
-              <span class="favorite-star">&#9733;</span>
-              <span class="type-icon" :class="item.type"><span v-html="getTypeIcon(item.type)"></span></span>
-              <span class="label">{{ item.title }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tags -->
-        <div v-if="allTags.length > 0" class="sidebar-section collapsible-section">
-          <div class="sidebar-section-header" @click="sidebarTagsCollapsed = !sidebarTagsCollapsed">
-            <span class="collapse-btn">{{ sidebarTagsCollapsed ? '+' : '-' }}</span>
-            <span>Tags</span>
-            <span class="section-count">{{ allTags.length }}</span>
-          </div>
-          <div v-show="!sidebarTagsCollapsed" class="sidebar-tags">
-            <div
-              v-for="tag in allTags"
-              :key="'tag-' + tag"
-              class="sidebar-item tag-item"
-              @click="selectTag(tag)"
-            >
-              <span class="tag-hash">#</span>
-              <span class="label">{{ tag }}</span>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Legend (fixed at bottom, outside scrollable content) -->
-      <div class="sidebar-legend">
-        <div class="legend-title">Node Types</div>
-        <div class="legend-items">
-          <div v-for="t in nodeTypes" :key="t" class="legend-item">
-            <span
-              class="legend-badge"
-              :style="{ background: typeConfig[t]?.bg, color: typeConfig[t]?.text }"
-              v-html="getTypeIcon(t)"
-            ></span>
-            {{ typeConfig[t]?.label || t }}
-          </div>
-        </div>
-      </div>
-    </aside>
+    />
 
     <!-- Main Content -->
     <main class="main-content">
@@ -2368,244 +1678,61 @@ onUnmounted(() => {
       <div class="content-header">
         <div class="header-row">
           <!-- Workspace Selector -->
-          <div class="workspace-selector">
-            <select v-model="currentWorkspace" class="workspace-dropdown" title="Switch workspace">
-              <option v-for="ws in workspaces" :key="ws.id" :value="ws.id">
-                {{ ws.name }}
-              </option>
-            </select>
-            <button v-if="!showNewWorkspaceInput" class="workspace-add-btn" @click="openNewWorkspaceDialog" title="Create new workspace">+</button>
-            <button
-              v-if="!showNewWorkspaceInput && workspaces.length > 1"
-              class="workspace-delete-btn"
-              @click="deleteCurrentWorkspace"
-              title="Delete current workspace"
-            >-</button>
-            <div v-if="showNewWorkspaceInput" class="workspace-input-wrapper">
-              <input
-                v-model="newWorkspaceName"
-                class="workspace-input"
-                placeholder="Workspace name"
-                @keyup.enter="createNewWorkspace"
-                @keyup.escape="showNewWorkspaceInput = false"
-                ref="newWorkspaceInputRef"
-              />
-              <button class="workspace-add-btn" @click="createNewWorkspace">OK</button>
-              <button class="workspace-add-btn" @click="showNewWorkspaceInput = false">X</button>
-            </div>
-          </div>
+          <WorkspaceSelector
+            :workspaces="workspaces"
+            :model-value="currentWorkspace"
+            @update:model-value="currentWorkspace = $event"
+            @create="createNewWorkspace($event)"
+            @delete="deleteCurrentWorkspace"
+          />
 
-          <div class="toolbar">
-          <button class="icon-btn" :class="{ primary: viewMode === 'graph' }" @click="viewMode = 'graph'" title="Graph">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="12" cy="18" r="3"/>
-              <line x1="8.5" y1="7.5" x2="10.5" y2="16"/><line x1="15.5" y1="7.5" x2="13.5" y2="16"/>
-            </svg>
-          </button>
-          <button class="icon-btn" :class="{ primary: viewMode === 'cards' }" @click="viewMode = 'cards'" title="Cards">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-              <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-            </svg>
-          </button>
-          <button class="icon-btn" :class="{ primary: viewMode === 'tree' }" @click="viewMode = 'tree'" title="Table">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-            </svg>
-          </button>
-          <button class="icon-btn" :class="{ primary: viewMode === 'tasks' }" @click="viewMode = 'tasks'" title="Tasks">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="5" width="4" height="4" rx="1"/><line x1="10" y1="7" x2="21" y2="7"/>
-              <rect x="3" y="15" width="4" height="4" rx="1"/><line x1="10" y1="17" x2="21" y2="17"/>
-            </svg>
-          </button>
-          <button class="icon-btn" :class="{ primary: viewMode === 'timeline' }" @click="viewMode = 'timeline'" title="Timeline">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
-              <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-            </svg>
-          </button>
-          <button class="icon-btn" :class="{ primary: viewMode === 'persons' }" @click="viewMode = 'persons'" title="People">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>
-              <circle cx="17" cy="7" r="3"/><path d="M21 21v-2a3 3 0 0 0-2-2.8"/>
-            </svg>
-          </button>
-          <button class="icon-btn" :class="{ primary: viewMode === 'trash' }" @click="viewMode = 'trash'" title="Trash">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
-              <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-            </svg>
-          </button>
-          <span class="toolbar-separator"></span>
-          <button
-            :class="{ active: sortAlphabetically }"
-            @click="sortAlphabetically = !sortAlphabetically"
-            title="Sort current level A-Z"
-          >
-            A-Z
-          </button>
-          <span class="toolbar-separator"></span>
-          <button
-            class="icon-btn"
-            :class="{ active: hideCompleted }"
-            @click="toggleCompletedVisibility"
-            title="Toggle completed items visibility"
-          >
-            <svg v-if="!hideCompleted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-              <circle cx="12" cy="12" r="3"></circle>
-            </svg>
-            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-              <line x1="1" y1="1" x2="23" y2="23"></line>
-            </svg>
-          </button>
-          <span class="toolbar-separator"></span>
-          <button
-            class="icon-btn"
-            :disabled="undoStack.length === 0"
-            @click="undo"
-            title="Undo (Cmd+Z)"
-          >
-            &#x21A9;
-          </button>
-          <button
-            class="icon-btn"
-            :disabled="redoStack.length === 0"
-            @click="redo"
-            title="Redo (Cmd+Shift+Z)"
-          >
-            &#x21AA;
-          </button>
-          <div class="settings-dropdown" v-click-outside="(e) => { if (!e.target.closest('.settings-panel')) showSettings = false }">
-            <button class="settings-btn" @click="showSettings = !showSettings" title="Settings">
-              <span>...</span>
-            </button>
-            <Teleport to="body">
-              <div v-if="showSettings" class="settings-panel" @click.stop>
-              <div class="settings-item">
-                <label>Graph detail threshold</label>
-                <input type="number" v-model.number="graphDetailThreshold" min="5" max="100" @change="window.localStorage.setItem('graphcore-graphDetailThreshold', String(graphDetailThreshold))" />
-                <span class="settings-hint">Show details when &le; {{ graphDetailThreshold }} nodes</span>
-              </div>
-              <div class="settings-item">
-                <label>Graph max depth <span class="slider-value">{{ graphMaxDepth === 0 ? 'All' : graphMaxDepth }}</span></label>
-                <input type="range" v-model.number="graphMaxDepth" min="0" max="20" step="1" class="settings-slider" />
-                <span class="settings-hint">{{ graphMaxDepth === 0 ? 'Show all levels' : `Show up to ${graphMaxDepth} levels` }}</span>
-              </div>
-              <div class="settings-item">
-                <label>Root graph depth <span class="slider-value">{{ graphRootMaxDepth === 0 ? 'All' : graphRootMaxDepth }}</span></label>
-                <input type="range" v-model.number="graphRootMaxDepth" min="0" max="10" step="1" class="settings-slider" />
-                <span class="settings-hint">{{ graphRootMaxDepth === 0 ? 'Show all levels at root' : `Show ${graphRootMaxDepth} levels at root` }}</span>
-              </div>
-              <div class="settings-item">
-                <label>
-                  <input type="checkbox" v-model="openDetailFullscreen" />
-                  Open details fullscreen
-                </label>
-                <span class="settings-hint">Open detail panel in fullscreen mode by default</span>
-              </div>
-              <div class="settings-item">
-                <label>
-                  <input type="checkbox" v-model="hoverPreviewEnabled" @change="window.localStorage.setItem('graphcore-hoverPreview', hoverPreviewEnabled)" />
-                  Hover preview
-                </label>
-                <span class="settings-hint">Show preview tooltip when hovering over nodes</span>
-              </div>
-              <div class="settings-divider"></div>
-              <div class="settings-item">
-                <label>Database Snapshots</label>
-                <div class="snapshot-actions">
-                  <button class="snapshot-btn" @click="createSnapshot">Create Snapshot</button>
-                  <button class="snapshot-btn" @click="showSnapshotList = !showSnapshotList; loadSnapshots()">
-                    {{ showSnapshotList ? 'Hide' : 'Show' }} Snapshots
-                  </button>
-                </div>
-                <span v-if="snapshotMessage" class="settings-hint snapshot-message">{{ snapshotMessage }}</span>
-              </div>
-              <div v-if="showSnapshotList && availableSnapshots.length > 0" class="snapshot-list">
-                <div
-                  v-for="snapshot in availableSnapshots.slice(0, 10)"
-                  :key="snapshot.path"
-                  class="snapshot-item"
-                >
-                  <span class="snapshot-date">{{ formatSnapshotDate(snapshot.created) }}</span>
-                  <button class="snapshot-restore-btn" @click="restoreSnapshot(snapshot.path)">Restore</button>
-                </div>
-              </div>
-              <div v-else-if="showSnapshotList" class="settings-hint">No snapshots available</div>
-              <div class="settings-item" style="margin-top: 8px;">
-                <button class="snapshot-btn" @click="reloadDatabase" style="background: #e67e22;">
-                  Reload Database
-                </button>
-                <span class="settings-hint">Reload from disk (picks up external changes)</span>
-              </div>
-              <div class="settings-divider"></div>
-              <div class="settings-item">
-                <label>Lost & Found</label>
-                <div class="snapshot-actions">
-                  <button class="snapshot-btn" @click="loadOrphanedNodes(); showLostFound = !showLostFound">
-                    {{ showLostFound ? 'Hide' : 'Show' }} ({{ orphanedNodes.length }})
-                  </button>
-                </div>
-              </div>
-              <div v-if="showLostFound && orphanedNodes.length > 0" class="snapshot-list">
-                <div
-                  v-for="node in orphanedNodes"
-                  :key="node.id"
-                  class="snapshot-item"
-                >
-                  <span class="snapshot-date">{{ node.title }} <span class="orphan-type">({{ node.type }})</span></span>
-                  <div class="lost-actions">
-                    <button class="snapshot-restore-btn" @click="moveToRoot(node)" title="Move to root">Root</button>
-                    <button class="snapshot-restore-btn danger" @click="deleteOrphanedNode(node)" title="Delete permanently">Del</button>
-                  </div>
-                </div>
-              </div>
-              <div v-else-if="showLostFound" class="settings-hint">No orphaned nodes</div>
-            </div>
-            </Teleport>
-          </div>
-        </div>
+          <MainToolbar
+            v-model:view-mode="viewMode"
+            v-model:sort-alphabetically="sortAlphabetically"
+            v-model:show-settings="showSettings"
+            v-model:graph-detail-threshold="graphDetailThreshold"
+            v-model:graph-max-depth="graphMaxDepth"
+            v-model:graph-root-max-depth="graphRootMaxDepth"
+            v-model:open-detail-fullscreen="openDetailFullscreen"
+            v-model:hover-preview-enabled="hoverPreviewEnabled"
+            :hide-completed="hideCompleted"
+            :can-undo="undoStack.length > 0"
+            :can-redo="redoStack.length > 0"
+            :snapshot-message="snapshotMessage"
+            :show-snapshot-list="showSnapshotList"
+            :available-snapshots="availableSnapshots"
+            :show-lost-found="showLostFound"
+            :orphaned-nodes="orphanedNodes"
+            @toggle-completed="toggleCompletedVisibility"
+            @undo="undo"
+            @redo="redo"
+            @create-snapshot="createSnapshot"
+            @toggle-snapshots="showSnapshotList = !showSnapshotList; loadSnapshots()"
+            @restore-snapshot="restoreSnapshot"
+            @reload-database="reloadDatabase"
+            @toggle-lost-found="loadOrphanedNodes(); showLostFound = !showLostFound"
+            @move-to-root="moveToRoot"
+            @delete-orphan="deleteOrphanedNode"
+          />
       </div>
       </div>
 
       <!-- Add Node Input -->
-      <div class="add-node-bar">
-        <select v-model="newNodeType" class="type-select">
-          <option v-for="t in nodeTypes" :key="t" :value="t">{{ t.charAt(0).toUpperCase() + t.slice(1) }}</option>
-        </select>
-        <input
-          ref="addNodeInput"
-          v-model="newNodeTitle"
-          placeholder="Add new..."
-          @keyup.enter="createNode"
-        />
-        <button class="primary" @click="createNode">Add</button>
-      </div>
+      <AddNodeBar
+        v-model:node-type="newNodeType"
+        v-model:node-title="newNodeTitle"
+        @create="createNode"
+      />
 
       <!-- Content wrapper (breadcrumbs + body + detail panel) -->
       <div class="content-wrapper">
         <!-- Main content area (breadcrumbs + body) -->
         <div class="content-main">
           <!-- Breadcrumbs / Path -->
-          <nav class="header-breadcrumbs">
-            <div class="breadcrumb-path">
-              <span class="crumb" @click="navigateToBreadcrumb(-1)">~</span>
-              <template v-for="(crumb, index) in breadcrumbs" :key="crumb.id">
-                <span class="crumb-sep">/</span>
-                <span
-                  class="crumb"
-                  :class="{ current: index === breadcrumbs.length - 1 }"
-                  @click="index < breadcrumbs.length - 1 ? navigateToBreadcrumb(index) : null"
-                >
-                  {{ crumb.title }}
-                </span>
-              </template>
-            </div>
-            <div id="view-controls-target"></div>
-          </nav>
+          <Breadcrumbs
+            :breadcrumbs="breadcrumbs"
+            @navigate="navigateToBreadcrumb"
+          />
         <!-- Content with transition -->
         <div
           class="content-body"
@@ -2653,196 +1780,47 @@ onUnmounted(() => {
         />
 
         <!-- Cards View -->
-        <div v-else-if="viewMode === 'cards'" class="node-cards" :style="cardsGridStyle" @click.self="selectNode(null)">
-          <div
-            v-for="node in filteredChildren"
-            :key="node.id"
-            class="node-card"
-            :class="[cardSizeClass, `type-${node.type}`, { selected: isCardSelected(node.id) }, getCardDropClass(node)]"
-            :style="getNodeColor(node) ? { background: `linear-gradient(135deg, ${getNodeColor(node)}33 0%, var(--bg-primary) 80%)` } : {}"
-            :draggable="editingCardId !== node.id && inlineNotesId !== node.id"
-            @click="handleCardClick($event, node)"
-            @dblclick="enterContainer(node)"
-            @dragstart="onCardDragStart($event, node)"
-            @dragend="onCardDragEnd"
-            @dragover="onCardDragOver($event, node)"
-            @dragleave="onCardDragLeave"
-            @drop="onCardDrop($event, node)"
-            @mouseenter="showCardTooltip($event, node)"
-            @mouseleave="hideCardTooltip"
-            @contextmenu.prevent="showContextMenu($event, node)"
-          >
-            <!-- Header - always visible but adapts -->
-            <div class="node-card-header">
-              <span v-if="node.favorite" class="card-favorite-star" title="Favorite">&#9733;</span>
-              <span v-if="cardSizeClass !== 'card-xs'" class="drag-handle card-drag" title="Drag to reorder">::</span>
-              <span class="node-card-type" :class="node.type" :title="'Type: ' + node.type">
-                {{ cardSizeClass === 'card-xs' ? node.type[0].toUpperCase() : node.type.toUpperCase() }}
-              </span>
-              <span v-if="node.importance" class="card-importance" :class="'imp-' + node.importance" :title="getImportanceLabel(node.importance)">
-                {{ cardSizeClass === 'card-xs' ? node.importance : getImportanceLabel(node.importance) }}
-              </span>
-              <span v-if="node.children?.length && cardSizeClass !== 'card-xs'" class="node-card-children" :title="node.children.length + ' children'">
-                {{ node.children.length }}
-              </span>
-              <!-- Date countdown (days to start or days left) -->
-              <span
-                v-if="getDateCountdown(node)"
-                class="date-countdown"
-                :class="getDateCountdown(node).type"
-                :title="node.start_date ? 'Start: ' + node.start_date : 'Due: ' + (node.due_date || node.end_date)"
-              >{{ getDateCountdown(node).text }}</span>
-              <!-- Due date warning (overdue/today) -->
-              <span
-                v-if="getDueDateStatus(node.due_date) && !node.completed && getDueDateStatus(node.due_date).type === 'overdue'"
-                class="due-warning"
-                :class="getDueDateStatus(node.due_date).type"
-                :title="'Due: ' + node.due_date"
-              >{{ getDueDateStatus(node.due_date).text }}</span>
-              <button class="card-add-btn" @click.stop="addChildToCard(node.id, $event)" title="Add child item">+</button>
-              <button class="card-delete-btn" @click.stop="deleteNode(node.id)" title="Delete">×</button>
-            </div>
-            <!-- Title row with checkbox -->
-            <div class="node-card-title-row">
-              <input
-                v-if="node.type === 'task'"
-                type="checkbox"
-                class="card-checkbox"
-                :checked="node.completed"
-                @click.stop
-                @change.stop="toggleComplete(node)"
-                title="Mark as complete"
-              />
-              <CardTitleEdit
-                :title="node.title"
-                v-model="editingTitle"
-                :is-editing="editingCardId === node.id"
-                :completed="node.completed"
-                size="normal"
-                @start-edit="startEditing(node, $event)"
-                @save="saveEditing"
-                @cancel="cancelEditing"
-              />
-            </div>
+        <CardsView
+          v-else-if="viewMode === 'cards'"
+          :nodes="filteredChildren"
+          :selected-id="selectedNode?.id"
+          :selected-ids="selectedIds"
+          :hide-completed="hideCompleted"
+          :current-container-id="currentContainerId"
+          :color-map="inheritedColorMap"
+          :card-size-class="cardSizeClass"
+          :grid-style="cardsGridStyle"
+          :editing-card-id="editingCardId"
+          :editing-title="editingTitle"
+          :inline-notes-id="inlineNotesId"
+          :inline-notes-text="inlineNotesText"
+          :drag-over-node-id="dragOverNodeId"
+          :drag-position="dragPosition"
+          @select="selectNode"
+          @select-multiple="handleMultiSelect"
+          @enter="enterContainer"
+          @toggle-complete="toggleComplete"
+          @delete="deleteNode"
+          @add-child="addChildToCard"
+          @context-menu="(e, node) => showContextMenu(e, node)"
+          @show-tooltip="showCardTooltip"
+          @hide-tooltip="hideCardTooltip"
+          @drag-start="onCardDragStart"
+          @drag-end="onCardDragEnd"
+          @drag-over="onCardDragOver"
+          @drag-leave="onCardDragLeave"
+          @drop="onCardDrop"
+          @start-edit="startEditing"
+          @save-edit="saveEditing"
+          @cancel-edit="cancelEditing"
+          @start-notes="startInlineNotes"
+          @save-notes="saveInlineNotes"
+          @cancel-notes="cancelInlineNotes"
+          @update:editing-title="editingTitle = $event"
+          @update:inline-notes-text="inlineNotesText = $event"
+        />
 
-            <!-- Interactive notes area -->
-            <CardNotes
-              :notes="node.notes"
-              v-model="inlineNotesText"
-              :is-editing="inlineNotesId === node.id"
-              :sensitive="isSensitiveNode(node)"
-              size="normal"
-              @start-edit="startInlineNotes(node, $event)"
-              @save="saveInlineNotes"
-              @cancel="cancelInlineNotes"
-            />
-
-            <!-- Metadata - xl/lg only -->
-            <div v-if="(cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg') && (node.due_date || node.start_date)" class="node-card-meta">
-              <span v-if="node.due_date" class="meta-item due">
-                <span class="meta-icon">D</span>{{ node.due_date }}
-              </span>
-              <span v-if="node.start_date && cardSizeClass === 'card-xl'" class="meta-item start">
-                <span class="meta-icon">S</span>{{ node.start_date }}
-              </span>
-            </div>
-
-            <!-- Nested children cards - always show if children exist -->
-            <div
-              v-if="node.children?.length"
-              class="node-card-children-grid"
-              :class="{ compact: cardSizeClass === 'card-sm' || cardSizeClass === 'card-xs' }"
-              :style="nestedGridStyle(node.children.length, 1)"
-              @click.stop
-            >
-              <div
-                v-for="child in node.children"
-                :key="child.id"
-                class="child-card"
-                :class="[child.type, getNestedCardSize(node.children.length, 1), { selected: isCardSelected(child.id) }, getCardDropClass(child)]"
-                :style="getNodeColor(child) ? { background: `linear-gradient(135deg, ${getNodeColor(child)}33 0%, var(--bg-secondary) 80%)` } : {}"
-                :draggable="editingCardId !== child.id && inlineNotesId !== child.id"
-                @click.stop="handleChildCardClick($event, child)"
-                @dblclick.stop="enterContainer(child)"
-                @dragstart.stop="onCardDragStart($event, child)"
-                @dragend="onCardDragEnd"
-                @dragover.stop="onCardDragOver($event, child)"
-                @dragleave="onCardDragLeave"
-                @drop.stop="onCardDrop($event, child)"
-                @mouseenter="showCardTooltip($event, child)"
-                @mouseleave="hideCardTooltip"
-                @contextmenu.prevent="showContextMenu($event, child)"
-              >
-                <div class="child-card-header">
-                  <input
-                    v-if="child.type === 'task'"
-                    type="checkbox"
-                    class="child-card-checkbox"
-                    :checked="child.completed"
-                    @click.stop
-                    @change.stop="toggleComplete(child)"
-                  />
-                  <CardTitleEdit
-                    :title="child.title"
-                    v-model="editingTitle"
-                    :is-editing="editingCardId === child.id"
-                    :completed="child.completed"
-                    size="child"
-                    @start-edit="startEditing(child, $event)"
-                    @save="saveEditing"
-                    @cancel="cancelEditing"
-                  />
-                  <button class="child-add-btn" @click.stop="addChildToCard(child.id, $event)" title="Add child">+</button>
-                  <button class="child-delete-btn" @click.stop="deleteNode(child.id)" title="Delete">×</button>
-                </div>
-                <!-- Notes for big child cards (not sensitive) -->
-                <div v-if="child.notes && !child.notes_sensitive" class="child-card-notes">{{ decodeHtml(child.notes) }}</div>
-                <!-- Grandchildren - compact single-line list -->
-                <div
-                  v-if="child.children?.length"
-                  class="grandchild-list"
-                  @click.stop
-                >
-                  <div
-                    v-for="grandchild in child.children"
-                    :key="grandchild.id"
-                    class="grandchild-item"
-                    :class="[grandchild.type, { selected: isCardSelected(grandchild.id), completed: grandchild.completed }]"
-                    @click.stop="selectNode(grandchild)"
-                    @dblclick.stop="enterContainer(grandchild)"
-                    @contextmenu.prevent="showContextMenu($event, grandchild)"
-                  >
-                    <input
-                      v-if="grandchild.type === 'task'"
-                      type="checkbox"
-                      class="grandchild-check"
-                      :checked="grandchild.completed"
-                      @click.stop
-                      @change.stop="toggleComplete(grandchild)"
-                    />
-                    <span class="grandchild-title" :class="{ completed: grandchild.completed }">{{ grandchild.title }}</span>
-                    <span v-if="grandchild.notes && !grandchild.notes_sensitive" class="grandchild-notes">{{ decodeHtml(grandchild.notes) }}</span>
-                    <span v-if="grandchild.children?.length" class="grandchild-count">{{ grandchild.children.length }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Footer metadata for smaller cards -->
-            <div v-if="(cardSizeClass === 'card-md' || cardSizeClass === 'card-sm' || cardSizeClass === 'card-xs') && (node.importance || node.children?.length || getDateCountdown(node))" class="node-card-footer">
-              <span v-if="node.importance" class="card-importance" :class="'imp-' + node.importance">{{ node.importance }}</span>
-              <span v-if="node.children?.length" class="node-card-children">{{ node.children.length }}</span>
-              <span v-if="getDateCountdown(node)" class="date-countdown" :class="getDateCountdown(node).type">{{ getDateCountdown(node).text }}</span>
-            </div>
-
-          </div>
-          <div v-if="filteredChildren.length === 0" class="empty-state">
-            <h3>Empty</h3>
-            <p>Add a {{ currentContainerId ? 'child node' : 'project' }} to get started</p>
-          </div>
-        </div>
-
-        <!-- Graph View - shows current context subgraph -->
+        <!-- Graph View -->
         <GraphView
           v-else-if="viewMode === 'graph'"
           ref="graphViewRef"
@@ -2893,6 +1871,22 @@ onUnmounted(() => {
           @show-tooltip="showCardTooltip"
           @hide-tooltip="hideCardTooltip"
           @context-menu="handleViewContextMenu"
+          @update="updateNode"
+        />
+
+        <!-- Calendar View -->
+        <CalendarView
+          v-else-if="viewMode === 'calendar'"
+          :nodes="sortedChildren"
+          :selected-id="selectedNode?.id"
+          :hide-completed="hideCompleted"
+          :color-map="inheritedColorMap"
+          @select="selectNode"
+          @enter="enterContainer"
+          @show-tooltip="showCardTooltip"
+          @hide-tooltip="hideCardTooltip"
+          @context-menu="handleViewContextMenu"
+          @update="updateNode"
         />
 
         <!-- Persons View -->
@@ -2919,36 +1913,13 @@ onUnmounted(() => {
         />
 
         <!-- Trash View -->
-        <div v-else-if="viewMode === 'trash'" class="trash-view">
-          <div class="trash-header">
-            <h2>Trash ({{ trashedItems.length }} items)</h2>
-            <button v-if="trashedItems.length > 0" class="danger" @click="emptyAllTrash">Empty Trash</button>
-          </div>
-          <div v-if="trashedItems.length === 0" class="trash-empty">
-            Trash is empty
-          </div>
-          <table v-else class="trash-table">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Type</th>
-                <th>Deleted</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="item in trashedItems" :key="item.id">
-                <td>{{ item.title }}</td>
-                <td>{{ item.type }}</td>
-                <td>{{ item.deleted_at?.split('T')[0] }}</td>
-                <td class="trash-actions">
-                  <button class="small" @click="restoreFromTrash(item)">Restore</button>
-                  <button class="small danger" @click="permanentlyDelete(item)">Delete</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <TrashView
+          v-else-if="viewMode === 'trash'"
+          :items="trashedItems"
+          @empty-all="emptyAllTrash"
+          @restore="restoreFromTrash"
+          @delete="permanentlyDelete"
+        />
 
         </div>
         </div>
@@ -3013,92 +1984,20 @@ onUnmounted(() => {
     />
 
     <!-- Spotlight Search Modal -->
-    <Teleport to="body">
-      <div v-if="showSearch" class="spotlight-overlay" @click.self="closeSearch">
-        <div class="spotlight-modal">
-          <div class="spotlight-header">
-            <input
-              ref="searchInputRef"
-              v-model="searchQuery"
-              type="text"
-              :placeholder="searchMode === 'link' ? 'Search to link...' : 'Search nodes...'"
-              class="spotlight-input"
-              @input="onSearchInput"
-              @keydown="handleSearchKeydown"
-            />
-            <span class="spotlight-hint">
-              <span class="key">esc</span> close
-              <span class="key">up</span><span class="key">down</span> navigate
-              <span class="key">enter</span> select
-            </span>
-          </div>
-
-          <div class="spotlight-results" v-if="searchResults.length > 0">
-            <div class="spotlight-results-header">
-              <span v-if="searchMode === 'link'" class="link-mode-badge">Link mode</span>
-              {{ searchResults.length }} result{{ searchResults.length !== 1 ? 's' : '' }}
-              <span class="current-view-badge">{{ viewMode }}</span>
-            </div>
-            <div
-              v-for="(result, index) in searchResults"
-              :key="result.id"
-              class="spotlight-result"
-              :class="{ selected: index === selectedResultIndex, completed: result.completed }"
-              @click="goToSearchResult(result)"
-              @mouseenter="selectedResultIndex = index"
-            >
-              <div class="result-type-badge" :class="result.type">
-                <span v-html="getTypeIcon(result.type)"></span>
-              </div>
-              <div class="result-body">
-                <div class="result-title">{{ result.title }}</div>
-                <div class="result-breadcrumb" v-if="result.breadcrumb">{{ result.breadcrumb }}</div>
-                <div class="result-meta" v-if="result.due_date || result.importance">
-                  <span v-if="result.due_date" class="result-due">Due: {{ result.due_date.split('T')[0] }}</span>
-                  <span v-if="result.importance" class="result-priority">{{ getImportanceLabel(result.importance) }}</span>
-                </div>
-                <div v-if="result.notes" class="result-notes">{{ decodeHtml(result.notes).substring(0, 80) }}{{ result.notes.length > 80 ? '...' : '' }}</div>
-              </div>
-              <div class="result-action">
-                {{ getSearchActionLabel(result) }}
-                <span class="action-arrow">-></span>
-              </div>
-            </div>
-          </div>
-
-          <div class="spotlight-empty" v-else-if="searchQuery && searchQuery.length > 0">
-            <div class="empty-text">No results for "{{ searchQuery }}"</div>
-            <div class="empty-hint">Try different keywords</div>
-          </div>
-
-          <div class="spotlight-recents" v-else-if="recentItems.length > 0">
-            <div class="spotlight-results-header">
-              Recent
-              <span class="clear-recents" @click="clearRecent">clear</span>
-            </div>
-            <div
-              v-for="(item, index) in recentItems.slice(0, 10)"
-              :key="'recent-' + item.id"
-              class="spotlight-result"
-              :class="{ selected: index === selectedResultIndex }"
-              @click="goToSearchResult(item)"
-              @mouseenter="selectedResultIndex = index"
-            >
-              <div class="result-type-badge" :class="item.type">
-                <span v-html="getTypeIcon(item.type)"></span>
-              </div>
-              <div class="result-body">
-                <div class="result-title">{{ item.title }}</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="spotlight-hint-footer" v-else>
-            <div class="hint-text">Type to search all nodes</div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <SpotlightSearch
+      :visible="showSearch"
+      :search-mode="searchMode"
+      v-model:search-query="searchQuery"
+      v-model:selected-result-index="selectedResultIndex"
+      :search-results="searchResults"
+      :recent-items="recentItems"
+      :view-mode="viewMode"
+      @close="closeSearch"
+      @search-input="onSearchInput"
+      @keydown="handleSearchKeydown"
+      @select-result="goToSearchResult"
+      @clear-recent="clearRecent"
+    />
 
     <!-- Toast notifications -->
     <ToastContainer />
@@ -3153,84 +2052,6 @@ onUnmounted(() => {
   justify-content: space-between;
 }
 
-.header-breadcrumbs {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 1.1rem;
-  padding: var(--spacing-sm) var(--spacing-lg);
-  background: var(--bg-primary);
-}
-
-@container (min-width: 900px) {
-  .header-breadcrumbs {
-    flex-direction: row;
-    align-items: center;
-  }
-}
-
-.breadcrumb-path {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-#view-controls-target:empty {
-  display: none;
-}
-
-#view-controls-target {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-left: auto;
-}
-
-.crumb {
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: all 0.15s;
-}
-
-.crumb:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.crumb.current {
-  color: var(--text-primary);
-  font-weight: 600;
-  cursor: default;
-}
-
-.crumb.current:hover {
-  background: transparent;
-}
-
-.crumb-sep {
-  color: var(--text-tertiary);
-}
-
-.add-node-bar {
-  height: 60px;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding: 0 var(--spacing-lg);
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-secondary);
-}
-
-.add-node-bar input {
-  flex: 1;
-}
-
-.type-select {
-  width: 100px;
-}
 
 .error {
   color: #e07d7d;
@@ -3255,1815 +2076,4 @@ onUnmounted(() => {
   transform: translateX(-20px);
 }
 
-/* Card children indicator */
-.node-card-children {
-  font-size: 0.65rem;
-  color: var(--text-tertiary);
-  background: var(--bg-primary);
-  padding: 2px 6px;
-  border-radius: 10px;
-  font-weight: 500;
-}
-
-.node-card-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.card-favorite-star {
-  color: #ffd700;
-  font-size: 14px;
-  text-shadow: 0 0 6px rgba(255, 215, 0, 0.8);
-}
-
-.card-edit-btn,
-.card-add-btn,
-.card-delete-btn {
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  font-size: 11px;
-  border-radius: 50%;
-  opacity: 0.4;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s;
-  flex-shrink: 0;
-}
-
-.card-add-btn {
-  font-size: 14px;
-  font-weight: bold;
-}
-
-.card-delete-btn {
-  font-size: 16px;
-  font-weight: bold;
-  position: absolute;
-  top: 8px;
-  right: 8px;
-}
-
-.card-edit-btn:hover,
-.card-add-btn:hover {
-  opacity: 1;
-  background: var(--accent-color);
-  border-color: var(--accent-color);
-  color: white;
-}
-
-.card-delete-btn:hover {
-  opacity: 1;
-  background: #e74c3c;
-  border-color: #e74c3c;
-  color: white;
-}
-
-/* Inline editing styles */
-.node-card-title-input {
-  font-size: 18px;
-  font-weight: 600;
-  line-height: 1.35;
-  letter-spacing: -0.02em;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--accent-color);
-  border-radius: 8px;
-  outline: none;
-  width: calc(100% - 32px);
-  padding: 8px 12px;
-  margin: 12px 16px 8px 16px;
-  user-select: text;
-  -webkit-user-select: text;
-  -webkit-user-drag: none;
-}
-
-.child-card-title-input {
-  font-size: 13px;
-  font-weight: 500;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--accent-color);
-  border-radius: 4px;
-  outline: none;
-  flex: 1;
-  padding: 4px 8px;
-  user-select: text;
-  -webkit-user-select: text;
-  -webkit-user-drag: none;
-}
-
-.grandchild-title-input {
-  font-size: 11px;
-  font-weight: 500;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--accent-color);
-  border-radius: 3px;
-  outline: none;
-  flex: 1;
-  padding: 2px 6px;
-  user-select: text;
-  -webkit-user-select: text;
-  -webkit-user-drag: none;
-}
-
-.node-card-notes-input {
-  font-size: 14px;
-  color: var(--text-secondary);
-  line-height: 1.6;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  outline: none;
-  width: calc(100% - 32px);
-  min-height: 60px;
-  padding: 8px 12px;
-  margin: 0 16px 8px 16px;
-  resize: vertical;
-  font-family: inherit;
-}
-
-.node-card-notes-input:focus {
-  border-color: var(--accent-color);
-}
-
-/* Inline notes area */
-.node-card-notes-area {
-  margin: 8px 16px 16px 16px;
-  width: calc(100% - 32px);
-}
-
-.node-card-notes-area.no-children {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.node-card-notes-area.no-children .inline-notes-display {
-  max-height: none;
-}
-
-/* Compact notes for sm/xs cards */
-.node-card-notes-area.compact {
-  margin: 4px 8px 8px 8px;
-  width: calc(100% - 16px);
-}
-
-.node-card-notes-area.compact .inline-notes-display {
-  font-size: 10px;
-  line-height: 1.3;
-  max-height: 40px;
-  padding: 2px 4px;
-}
-
-/* Notes expand when no children, even in compact mode */
-.node-card-notes-area.compact.no-children .inline-notes-display {
-  max-height: none;
-}
-
-.inline-notes-display {
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--text-secondary);
-  cursor: text;
-  padding: 4px 8px 4px 16px;
-  border-radius: 4px;
-  transition: background 0.15s;
-  max-height: 150px;
-  overflow-y: auto;
-}
-
-/* Larger max-height for bigger cards */
-.node-card.card-xl .inline-notes-display { max-height: 250px; }
-.node-card.card-lg .inline-notes-display { max-height: 180px; }
-
-/* Scale notes font size with card size */
-.node-card.card-xl .inline-notes-display { font-size: 12px; }
-.node-card.card-lg .inline-notes-display { font-size: 11px; }
-.node-card.card-md .inline-notes-display { font-size: 10px; }
-
-.inline-notes-display:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.inline-notes-display.empty {
-  color: var(--text-tertiary);
-  font-style: italic;
-}
-
-.inline-notes-display.sensitive {
-  color: var(--text-tertiary);
-  font-style: normal;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.lock-icon-display {
-  font-size: 18px;
-  opacity: 0.5;
-}
-
-.inline-notes-textarea {
-  width: 100%;
-  min-height: 1.6em;
-  max-height: 120px;
-  font-size: 13px;
-  font-family: inherit;
-  line-height: 1.5;
-  background: rgba(0, 0, 0, 0.3);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  padding: 4px 8px;
-  resize: vertical;
-  field-sizing: content;
-}
-
-.inline-notes-textarea:focus {
-  outline: none;
-  border-color: var(--accent-color);
-}
-
-/* Markdown content in notes */
-.markdown-content {
-  font-size: inherit;
-  line-height: 1.5;
-}
-
-.markdown-content p {
-  margin: 0 0 0.5em 0;
-}
-
-.markdown-content p:last-child {
-  margin-bottom: 0;
-}
-
-.markdown-content ul, .markdown-content ol {
-  margin: 0.25em 0;
-  padding-left: 1.5em;
-}
-
-.markdown-content li {
-  margin: 0.1em 0;
-}
-
-.markdown-content code {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 0.1em 0.3em;
-  border-radius: 3px;
-  font-size: 0.9em;
-}
-
-.markdown-content pre {
-  background: rgba(0, 0, 0, 0.3);
-  padding: 0.5em;
-  border-radius: 4px;
-  overflow-x: auto;
-  margin: 0.5em 0;
-}
-
-.markdown-content pre code {
-  background: none;
-  padding: 0;
-}
-
-.markdown-content a {
-  color: #ffffff !important;
-}
-
-.node-card a,
-.child-card a,
-.node-cards a {
-  color: #ffffff !important;
-}
-
-.markdown-content strong {
-  color: var(--text-primary);
-}
-
-.markdown-content h1, .markdown-content h2, .markdown-content h3,
-.markdown-content h4, .markdown-content h5, .markdown-content h6 {
-  margin: 0.5em 0 0.25em 0;
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.markdown-content h1 { font-size: 1.3em; }
-.markdown-content h2 { font-size: 1.2em; }
-.markdown-content h3 { font-size: 1.1em; }
-
-.markdown-content blockquote {
-  margin: 0.5em 0;
-  padding-left: 1em;
-  border-left: 3px solid var(--border-color);
-  color: var(--text-tertiary);
-}
-
-.markdown-content hr {
-  border: none;
-  border-top: 1px solid var(--border-color);
-  margin: 0.5em 0;
-}
-
-.markdown-content img {
-  max-width: 100%;
-  border-radius: 4px;
-}
-
-.card-edit-actions {
-  display: flex;
-  gap: 8px;
-  padding: 0 16px 16px 16px;
-}
-
-.card-save-btn,
-.card-cancel-btn {
-  padding: 6px 12px;
-  font-size: 12px;
-  border-radius: 6px;
-}
-
-.card-save-btn {
-  background: var(--accent-color);
-  border-color: var(--accent-color);
-}
-
-.card-save-btn:hover {
-  background: var(--accent-hover);
-}
-
-.card-cancel-btn {
-  background: var(--bg-tertiary);
-}
-
-/* Sensitive notes styling */
-.notes-sensitive {
-  filter: blur(6px);
-  user-select: none;
-  cursor: pointer;
-  transition: filter 0.2s;
-}
-
-.notes-sensitive:hover {
-  filter: blur(3px);
-}
-
-/* Adaptive card sizes */
-.node-card.card-xl {
-  padding: 0;
-}
-
-.node-card.card-xl .node-card-title {
-  font-size: 22px;
-}
-
-.node-card.card-xl .node-card-notes {
-  font-size: 15px;
-  padding: 0 20px 16px 20px;
-  max-height: none;
-}
-
-.node-card.card-lg .node-card-title {
-  font-size: 18px;
-}
-
-.node-card.card-md .node-card-title {
-  font-size: 16px;
-}
-
-.node-card.card-md .node-card-notes {
-  font-size: 13px;
-  padding: 0 14px 12px 14px;
-}
-
-.node-card.card-sm {
-  padding: 0;
-}
-
-.node-card.card-sm .node-card-header {
-  padding: 8px 10px 0 10px;
-}
-
-.node-card.card-sm .node-card-title {
-  font-size: 14px;
-}
-
-.node-card.card-xs {
-  padding: 0;
-}
-
-.node-card.card-xs .node-card-header {
-  padding: 6px 8px 0 8px;
-  gap: 4px;
-}
-
-.node-card.card-xs .node-card-type {
-  font-size: 8px;
-  padding: 2px 6px;
-}
-
-.node-card.card-xs .node-card-title {
-  font-size: 12px;
-  line-height: 1.2;
-}
-
-/* Truncated text */
-.title-truncate {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.notes-truncate {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  max-height: 3em;
-}
-
-/* Card metadata */
-.node-card-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 0 16px 12px 16px;
-  font-size: 11px;
-}
-
-.meta-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-secondary);
-}
-
-.meta-icon {
-  font-weight: 600;
-  font-size: 9px;
-  opacity: 0.7;
-}
-
-.meta-item.due {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
-}
-
-.meta-item.start {
-  background: rgba(34, 197, 94, 0.15);
-  color: #4ade80;
-}
-
-.meta-item.importance {
-  background: rgba(168, 85, 247, 0.15);
-  color: #c084fc;
-}
-
-.meta-item.imp-1 { background: rgba(239, 68, 68, 0.2); color: #f87171; }
-.meta-item.imp-2 { background: rgba(249, 115, 22, 0.2); color: #fb923c; }
-.meta-item.imp-3 { background: rgba(234, 179, 8, 0.2); color: #fbbf24; }
-
-/* Inline date editing */
-.card-dates-inline {
-  display: flex;
-  gap: 12px;
-  padding: 0 16px 12px 16px;
-}
-
-.card-date-field {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.card-date-field label {
-  font-size: 10px;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
-  font-weight: 600;
-}
-
-.card-date-field input[type="date"] {
-  padding: 6px 8px;
-  font-size: 12px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-}
-
-/* Compact children indicator */
-.node-card-children-compact {
-  position: absolute;
-  bottom: 6px;
-  right: 6px;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 8px;
-  background: var(--accent-subtle);
-  color: var(--accent-color);
-}
-
-/* Child card sizes */
-.child-card.child-lg {
-  padding: 10px 12px;
-}
-
-.child-card.child-lg .child-card-title {
-  font-size: 13px;
-  white-space: normal;
-}
-
-.child-card.child-md {
-  padding: 8px 10px;
-}
-
-.child-card.child-sm {
-  padding: 3px 6px;
-  min-height: 24px;
-}
-
-.child-card.child-sm .child-card-title {
-  font-size: 10px;
-}
-
-.child-card.child-sm .child-card-header {
-  gap: 4px;
-}
-
-.child-card-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-}
-
-.child-card-header :deep(.card-title),
-.child-card-header :deep(.card-title-input) {
-  flex: 1;
-  min-width: 0;
-}
-
-.child-card-checkbox {
-  width: 12px;
-  height: 12px;
-  cursor: pointer;
-  flex-shrink: 0;
-  accent-color: var(--accent-color);
-}
-
-.child-add-btn {
-  margin-left: auto;
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  font-size: 12px;
-  font-weight: bold;
-  background: transparent;
-  border: none;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s, color 0.15s;
-  flex-shrink: 0;
-}
-
-.child-card:hover .child-add-btn {
-  opacity: 0.5;
-}
-
-.child-add-btn:hover {
-  opacity: 1 !important;
-  color: var(--accent-color);
-}
-
-.child-delete-btn {
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  font-size: 12px;
-  font-weight: bold;
-  background: transparent;
-  border: none;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s, color 0.15s;
-  flex-shrink: 0;
-}
-
-.child-card:hover .child-delete-btn {
-  opacity: 0.5;
-}
-
-.child-delete-btn:hover {
-  opacity: 1 !important;
-  color: #e74c3c;
-}
-
-.child-card-notes {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  margin-top: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Card title row with checkbox */
-.node-card-title-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.node-card.card-xl .node-card-title-row {
-  padding: 16px 20px 10px 20px;
-}
-
-.node-card.card-lg .node-card-title-row {
-  padding: 14px 16px 8px 16px;
-}
-
-.node-card.card-md .node-card-title-row {
-  padding: 10px 14px 6px 14px;
-}
-
-.node-card.card-sm .node-card-title-row {
-  padding: 6px 10px;
-}
-
-.node-card.card-xs .node-card-title-row {
-  padding: 4px 8px;
-}
-
-/* Card checkbox */
-.card-checkbox {
-  width: 14px;
-  height: 14px;
-  cursor: pointer;
-  flex-shrink: 0;
-  accent-color: var(--accent-color);
-}
-
-.node-card.card-sm .card-checkbox,
-.node-card.card-xs .card-checkbox {
-  width: 12px;
-  height: 12px;
-}
-
-/* Importance badge inline in header */
-.card-importance {
-  font-size: 9px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  flex-shrink: 0;
-}
-
-.card-importance.imp-1 {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
-}
-
-.card-importance.imp-2 {
-  background: rgba(249, 115, 22, 0.2);
-  color: #fb923c;
-}
-
-.card-importance.imp-3 {
-  background: rgba(234, 179, 8, 0.2);
-  color: #fbbf24;
-}
-
-.card-importance.imp-4 {
-  background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
-}
-
-.card-importance.imp-5 {
-  background: rgba(100, 116, 139, 0.15);
-  color: #94a3b8;
-}
-
-.node-card.card-sm .card-importance,
-.node-card.card-xs .card-importance {
-  font-size: 8px;
-  padding: 1px 4px;
-}
-
-/* Hide header metadata on smaller cards - shown in footer instead */
-.node-card.card-md .node-card-header .card-importance,
-.node-card.card-md .node-card-header .node-card-children,
-.node-card.card-md .node-card-header .date-countdown,
-.node-card.card-sm .node-card-header .card-importance,
-.node-card.card-sm .node-card-header .node-card-children,
-.node-card.card-sm .node-card-header .date-countdown,
-.node-card.card-xs .node-card-header .card-importance,
-.node-card.card-xs .node-card-header .node-card-children,
-.node-card.card-xs .node-card-header .date-countdown {
-  display: none;
-}
-
-/* Footer for small cards */
-.node-card-footer {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  margin-top: auto;
-  border-top: 1px solid var(--border-subtle);
-  font-size: 10px;
-}
-
-/* Completed card styling */
-.node-card:has(.card-checkbox:checked) {
-  opacity: 0.6;
-}
-
-.node-card:has(.card-checkbox:checked) .node-card-title,
-.node-card-title.completed {
-  text-decoration: line-through;
-  color: var(--text-tertiary);
-}
-
-/* Due date warning */
-.due-warning {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 10px;
-  white-space: nowrap;
-}
-
-.due-warning.overdue {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
-  animation: pulse-warning 2s ease-in-out infinite;
-}
-
-.due-warning.today {
-  background: rgba(249, 115, 22, 0.2);
-  color: #fb923c;
-}
-
-.due-warning.soon {
-  background: rgba(234, 179, 8, 0.2);
-  color: #fbbf24;
-}
-
-.due-warning.upcoming {
-  background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
-}
-
-.due-warning.future {
-  background: rgba(100, 116, 139, 0.15);
-  color: #94a3b8;
-}
-
-@keyframes pulse-warning {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
-/* Date countdown badges */
-.date-countdown {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 10px;
-  white-space: nowrap;
-}
-
-.date-countdown.to-start {
-  background: rgba(139, 92, 246, 0.2);
-  color: #a78bfa;
-}
-
-.date-countdown.to-end {
-  background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
-}
-
-.date-countdown.ends-today {
-  background: rgba(249, 115, 22, 0.2);
-  color: #fb923c;
-}
-
-/* Card drag and drop */
-.node-card.dragging {
-  opacity: 0.5;
-  transform: scale(0.98);
-}
-
-.node-card.drop-inside {
-  outline: 2px solid #4a9eff;
-  background: rgba(74, 158, 255, 0.15);
-  box-shadow: 0 0 0 4px rgba(74, 158, 255, 0.2);
-}
-
-.node-card.drop-before {
-  box-shadow: -4px 0 0 0 #4a9eff, 0 2px 4px rgba(0,0,0,0.2);
-}
-
-.node-card.drop-after {
-  box-shadow: 4px 0 0 0 #4a9eff, 0 2px 4px rgba(0,0,0,0.2);
-}
-
-.card-drag {
-  cursor: grab;
-  color: var(--text-tertiary);
-  font-weight: bold;
-  opacity: 0.3;
-  user-select: none;
-  margin-right: 4px;
-  font-size: 0.9rem;
-  transition: opacity 0.15s;
-}
-
-.node-card:hover .card-drag {
-  opacity: 0.7;
-}
-
-.card-drag:hover {
-  opacity: 1;
-  color: var(--text-primary);
-}
-
-.node-card.dragging .card-drag {
-  cursor: grabbing;
-}
-
-/* Sidebar Legend */
-.sidebar-legend {
-  padding: var(--spacing-lg);
-  border-top: 1px solid #333;
-  background: #151515;
-  flex-shrink: 0;
-}
-
-.legend-title {
-  font-size: 10px;
-  text-transform: uppercase;
-  color: #888;
-  margin-bottom: 10px;
-  font-weight: 600;
-  letter-spacing: 1px;
-}
-
-.legend-items {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: #ccc;
-}
-
-.legend-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: var(--radius-sm);
-  font-size: 9px;
-  font-weight: 600;
-}
-
-/* SVG icons in legend */
-.legend-badge :deep(svg) { width: 12px; height: 12px; }
-
-/* Search */
-.search-container {
-  position: relative;
-  flex: 1;
-  max-width: 320px;
-  margin: 0 var(--spacing-xl);
-}
-
-.search-input {
-  width: 100%;
-  padding-right: 36px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-}
-
-.search-clear {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: none;
-  background: var(--bg-tertiary);
-  color: var(--text-tertiary);
-  cursor: pointer;
-  font-size: 12px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-}
-
-.search-clear:hover {
-  color: var(--text-primary);
-  background: var(--bg-elevated);
-}
-
-.search-results {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  right: 0;
-  background: #0a0a0a;
-  border: 2px solid #333;
-  border-radius: 12px;
-  max-height: 500px;
-  overflow-y: auto;
-  z-index: 100;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
-}
-
-.search-results-header {
-  padding: 10px 16px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #888;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-bottom: 1px solid #222;
-  background: #111;
-}
-
-.search-result-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px 16px;
-  cursor: pointer;
-  transition: background 0.15s;
-  border-bottom: 1px solid #1a1a1a;
-}
-
-.search-result-item:last-child {
-  border-bottom: none;
-}
-
-.search-result-item:hover {
-  background: #1a1a1a;
-}
-
-.search-result-item.completed {
-  opacity: 0.6;
-}
-
-.result-left {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.result-type {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.result-type.project { background: var(--type-project-bg); color: var(--type-project-text); }
-.result-type.task { background: var(--type-task-bg); color: var(--type-task-text); }
-.result-type.note { background: var(--type-note-bg); color: var(--type-note-text); }
-.result-type.milestone { background: var(--type-milestone-bg); color: var(--type-milestone-text); }
-.result-type.group { background: var(--type-group-bg); color: var(--type-group-text); }
-.result-type.event { background: var(--type-event-bg); color: var(--type-event-text); }
-.result-type.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
-.result-type.person { background: var(--type-person-bg); color: var(--type-person-text); }
-.result-type.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
-.result-type.component { background: var(--type-component-bg); color: var(--type-component-text); }
-
-.result-check {
-  color: #4ade80;
-  font-size: 12px;
-}
-
-.result-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.result-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #fff;
-  margin-bottom: 4px;
-}
-
-.search-result-item.completed .result-title {
-  text-decoration: line-through;
-  color: #888;
-}
-
-.result-meta {
-  display: flex;
-  gap: 12px;
-  font-size: 12px;
-  color: #888;
-  margin-bottom: 6px;
-}
-
-.result-path {
-  color: #666;
-}
-
-.result-due {
-  color: #f59e0b;
-}
-
-.result-importance {
-  color: #f472b6;
-}
-
-.result-notes {
-  font-size: 13px;
-  color: #aaa;
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.search-no-results {
-  padding: 24px;
-  text-align: center;
-  color: #666;
-  font-size: 14px;
-}
-
-/* Toolbar separator */
-.toolbar-separator {
-  width: 1px;
-  height: 18px;
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.1) 30%,
-    rgba(255, 255, 255, 0.1) 70%,
-    transparent 100%
-  );
-  margin: 0 6px;
-}
-
-/* Workspace Selector */
-.workspace-selector {
-  display: flex;
-  align-items: center;
-}
-
-.workspace-dropdown {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  min-width: 100px;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.workspace-dropdown:hover {
-  border-color: var(--accent-color);
-}
-
-.workspace-dropdown:focus {
-  outline: none;
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
-}
-
-.workspace-dropdown option {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  padding: 8px;
-}
-
-.workspace-add-btn {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  margin-left: 6px;
-  transition: all 0.15s;
-}
-
-.workspace-add-btn:hover {
-  background: var(--accent-color);
-  border-color: var(--accent-color);
-  color: white;
-}
-
-.workspace-delete-btn {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  margin-left: 2px;
-  transition: all 0.15s;
-}
-
-.workspace-delete-btn:hover {
-  background: #c53030;
-  border-color: #c53030;
-  color: white;
-}
-
-.workspace-input-wrapper {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-}
-
-.workspace-input {
-  background: var(--bg-secondary);
-  border: 1px solid var(--accent-color);
-  color: var(--text-primary);
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 13px;
-  width: 150px;
-  outline: none;
-}
-
-/* View mode icon buttons */
-.icon-btn {
-  padding: 7px 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  border-radius: 6px;
-  position: relative;
-}
-
-.icon-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text-primary);
-}
-
-.icon-btn:active {
-  transform: scale(0.95);
-}
-
-.icon-btn.primary {
-  background: var(--accent-subtle);
-  color: var(--accent-color);
-}
-
-.icon-btn.primary svg {
-  filter: drop-shadow(0 0 4px var(--accent-color));
-}
-
-.icon-btn.active {
-  background: var(--accent-subtle);
-  color: var(--accent-color);
-}
-
-.icon-btn svg {
-  display: block;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-/* Settings dropdown */
-.settings-dropdown {
-  position: relative;
-}
-
-.settings-btn {
-  padding: 6px 10px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  color: var(--text-tertiary);
-  font-size: 14px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.settings-btn:hover {
-  color: var(--text-primary);
-  background: var(--bg-elevated);
-}
-
-.settings-panel {
-  position: fixed;
-  top: 50px;
-  right: 10px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 12px;
-  min-width: 250px;
-  max-height: calc(100vh - 70px);
-  overflow-y: auto;
-  z-index: 10000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.settings-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.settings-item label {
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.settings-item input[type="number"] {
-  padding: 6px 8px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  color: var(--text-primary);
-  width: 80px;
-}
-
-.settings-hint {
-  font-size: 11px;
-  color: var(--text-tertiary);
-}
-
-.settings-slider {
-  width: 100%;
-  height: 4px;
-  -webkit-appearance: none;
-  appearance: none;
-  background: var(--border-color);
-  border-radius: 2px;
-  outline: none;
-  cursor: pointer;
-}
-
-.settings-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  background: var(--accent-color);
-  border-radius: 50%;
-  cursor: pointer;
-}
-
-.settings-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  background: var(--accent-color);
-  border-radius: 50%;
-  border: none;
-  cursor: pointer;
-}
-
-.slider-value {
-  color: var(--accent-color);
-  font-weight: 600;
-  margin-left: 4px;
-}
-
-.settings-divider {
-  border-top: 1px solid var(--border-color);
-  margin: 8px 0;
-}
-
-.snapshot-actions {
-  display: flex;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-.snapshot-btn {
-  padding: 4px 8px;
-  font-size: 11px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--text-primary);
-}
-
-.snapshot-btn:hover {
-  background: var(--bg-hover);
-}
-
-.snapshot-message {
-  color: var(--accent-color);
-  margin-top: 4px;
-}
-
-.snapshot-list {
-  max-height: 200px;
-  overflow-y: auto;
-  margin-top: 8px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--bg-tertiary);
-}
-
-.snapshot-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--border-color);
-  font-size: 11px;
-}
-
-.snapshot-item:last-child {
-  border-bottom: none;
-}
-
-.snapshot-date {
-  color: var(--text-secondary);
-}
-
-.snapshot-restore-btn {
-  padding: 2px 6px;
-  font-size: 10px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 3px;
-  cursor: pointer;
-  color: var(--text-primary);
-}
-
-.snapshot-restore-btn:hover {
-  background: var(--accent-color);
-  color: white;
-}
-
-.snapshot-restore-btn.danger:hover {
-  background: #e74c3c;
-}
-
-.lost-actions {
-  display: flex;
-  gap: 4px;
-}
-
-.orphan-type {
-  color: var(--text-tertiary);
-  font-size: 10px;
-}
-
-/* Search trigger button */
-.search-trigger {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.15s;
-  margin: 0 var(--spacing-lg);
-}
-
-.search-trigger:hover {
-  background: var(--bg-tertiary);
-  border-color: var(--text-tertiary);
-}
-
-.search-icon {
-  font-size: 14px;
-  color: var(--text-tertiary);
-}
-
-.search-label {
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.search-shortcut {
-  font-size: 10px;
-  color: var(--text-tertiary);
-  background: var(--bg-tertiary);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-family: monospace;
-}
-</style>
-
-<style>
-/* Spotlight Search Modal - global styles for Teleport */
-.spotlight-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.75);
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding-top: 15vh;
-  z-index: 9999;
-  backdrop-filter: blur(4px);
-}
-
-.spotlight-modal {
-  width: 90%;
-  max-width: 640px;
-  background: #0a0a0a;
-  border: 2px solid #333;
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
-  overflow: hidden;
-  animation: spotlight-appear 0.15s ease-out;
-}
-
-@keyframes spotlight-appear {
-  from {
-    opacity: 0;
-    transform: translateY(-20px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.spotlight-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid #222;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.spotlight-input {
-  width: 100%;
-  padding: 14px 18px;
-  font-size: 20px;
-  background: #111;
-  border: 2px solid #333;
-  border-radius: 12px;
-  color: #fff;
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.spotlight-input:focus {
-  border-color: #4a9eff;
-}
-
-.spotlight-input::placeholder {
-  color: #666;
-}
-
-.spotlight-hint {
-  display: flex;
-  gap: 12px;
-  font-size: 11px;
-  color: #666;
-  justify-content: flex-end;
-}
-
-.spotlight-hint .key {
-  background: #222;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-family: monospace;
-  color: #888;
-  margin-right: 4px;
-}
-
-.spotlight-results {
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.spotlight-results-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 20px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #888;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  background: #111;
-  border-bottom: 1px solid #222;
-}
-
-.clear-recents {
-  font-size: 10px;
-  color: #666;
-  cursor: pointer;
-  text-transform: lowercase;
-}
-
-.clear-recents:hover {
-  color: #e74c3c;
-}
-
-.current-view-badge {
-  font-size: 10px;
-  padding: 3px 8px;
-  background: rgba(74, 158, 255, 0.15);
-  color: #4a9eff;
-  border-radius: 10px;
-  text-transform: capitalize;
-}
-
-.link-mode-badge {
-  font-size: 10px;
-  padding: 3px 8px;
-  background: rgba(46, 204, 113, 0.2);
-  color: #2ecc71;
-  border-radius: 10px;
-  margin-right: 8px;
-}
-
-.spotlight-result {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 20px;
-  cursor: pointer;
-  transition: background 0.1s;
-  border-bottom: 1px solid #1a1a1a;
-}
-
-.spotlight-result:last-child {
-  border-bottom: none;
-}
-
-.spotlight-result:hover,
-.spotlight-result.selected {
-  background: #1a1a1a;
-}
-
-.spotlight-result.selected {
-  background: linear-gradient(90deg, rgba(74, 158, 255, 0.1) 0%, #1a1a1a 100%);
-  border-left: 3px solid #4a9eff;
-  padding-left: 17px;
-}
-
-.spotlight-result.completed {
-  opacity: 0.6;
-}
-
-.spotlight-result.completed .result-title {
-  text-decoration: line-through;
-  color: #888;
-}
-
-.result-type-badge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.result-type-badge.project { background: var(--type-project-bg); color: var(--type-project-text); }
-.result-type-badge.task { background: var(--type-task-bg); color: var(--type-task-text); }
-.result-type-badge.note { background: var(--type-note-bg); color: var(--type-note-text); }
-.result-type-badge.milestone { background: var(--type-milestone-bg); color: var(--type-milestone-text); }
-.result-type-badge.group { background: var(--type-group-bg); color: var(--type-group-text); }
-.result-type-badge.event { background: var(--type-event-bg); color: var(--type-event-text); }
-.result-type-badge.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
-.result-type-badge.person { background: var(--type-person-bg); color: var(--type-person-text); }
-.result-type-badge.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
-.result-type-badge.component { background: var(--type-component-bg); color: var(--type-component-text); }
-
-.result-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.spotlight-result .result-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #fff;
-  margin-bottom: 2px;
-}
-
-.spotlight-result .result-breadcrumb {
-  font-size: 12px;
-  color: #666;
-  margin-bottom: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.spotlight-result .result-meta {
-  display: flex;
-  gap: 12px;
-  font-size: 12px;
-  color: #888;
-  margin-bottom: 4px;
-}
-
-.spotlight-result .result-path {
-  color: #666;
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.spotlight-result .result-due {
-  color: #f59e0b;
-}
-
-.spotlight-result .result-priority {
-  color: #c084fc;
-  font-weight: 600;
-}
-
-.spotlight-result .result-notes {
-  font-size: 13px;
-  color: #777;
-  line-height: 1.3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.result-action {
-  font-size: 12px;
-  color: #666;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.spotlight-result.selected .result-action {
-  color: #4a9eff;
-}
-
-.action-arrow {
-  font-family: monospace;
-  font-size: 14px;
-}
-
-.spotlight-empty {
-  padding: 40px 20px;
-  text-align: center;
-}
-
-.spotlight-empty .empty-text {
-  font-size: 16px;
-  color: #888;
-  margin-bottom: 8px;
-}
-
-.spotlight-empty .empty-hint {
-  font-size: 13px;
-  color: #555;
-}
-
-.spotlight-hint-footer {
-  padding: 30px 20px;
-  text-align: center;
-}
-
-.spotlight-hint-footer .hint-text {
-  font-size: 15px;
-  color: #666;
-  margin-bottom: 12px;
-}
-
-.spotlight-hint-footer .hint-examples {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-}
-
-.spotlight-hint-footer .hint-examples span {
-  font-size: 11px;
-  padding: 4px 10px;
-  background: #1a1a1a;
-  color: #888;
-  border-radius: 12px;
-}
-
-/* Trash View */
-.trash-view {
-  padding: 16px;
-  height: 100%;
-  overflow: auto;
-}
-
-.trash-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.trash-header h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 500;
-}
-
-.trash-empty {
-  color: #666;
-  text-align: center;
-  padding: 48px;
-}
-
-.trash-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.trash-table th,
-.trash-table td {
-  padding: 8px 12px;
-  text-align: left;
-  border-bottom: 1px solid #333;
-}
-
-.trash-table th {
-  color: #888;
-  font-weight: 500;
-}
-
-.trash-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.orphan-parent {
-  font-family: monospace;
-  font-size: 11px;
-  color: var(--text-tertiary);
-}
-
-button.small {
-  padding: 4px 8px;
-  font-size: 12px;
-}
-
-button.danger {
-  background: #7f1d1d;
-  color: #fca5a5;
-}
-
-button.danger:hover {
-  background: #991b1b;
-}
 </style>
