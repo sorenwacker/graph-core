@@ -19,6 +19,7 @@ import { useNodeOperations } from './composables/useNodeOperations.js'
 import { useDataLoading } from './composables/useDataLoading.js'
 import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts.js'
 import { useTreeExpand } from './composables/useTreeExpand.js'
+import { useCardsLayout } from './composables/useCardsLayout.js'
 // useNavigation available but not currently used
 // import { useNavigation } from './composables/useNavigation.js'
 import {
@@ -48,21 +49,6 @@ import MainToolbar from './components/MainToolbar.vue'
 import TrashView from './components/TrashView.vue'
 import SpotlightSearch from './components/SpotlightSearch.vue'
 import { showToast } from './composables/useToast.js'
-
-// Click-outside directive
-const vClickOutside = {
-  mounted(el, binding) {
-    el._clickOutside = (e) => {
-      if (!el.contains(e.target)) {
-        binding.value(e)
-      }
-    }
-    document.addEventListener('click', el._clickOutside)
-  },
-  unmounted(el) {
-    document.removeEventListener('click', el._clickOutside)
-  }
-}
 
 // Configure marked for inline rendering with links handled by click handler
 marked.use({
@@ -132,10 +118,6 @@ const containerHeight = ref(600)
 const {
   hovered: sidebarHovered,
   expandedIds: sidebarExpandedIds,
-  treeCollapsed: sidebarTreeCollapsed,
-  favoritesCollapsed: sidebarFavoritesCollapsed,
-  recentCollapsed: _sidebarRecentCollapsed,
-  tagsCollapsed: sidebarTagsCollapsed,
   visible: sidebarVisible,
   onEnter: onSidebarEnter,
   onLeave: onSidebarLeave,
@@ -257,6 +239,24 @@ const {
 const showSettings = ref(false)
 const sortAlphabetically = ref(false)
 
+// Cards layout - filtering, grid computation, and color inheritance
+const {
+  filteredChildren,
+  sortedChildren,
+  cardSizeClass,
+  cardsGridStyle,
+  inheritedColorMap,
+  getNodeColor
+} = useCardsLayout({
+  children,
+  hideCompleted,
+  sortAlphabetically,
+  containerWidth,
+  containerHeight,
+  breadcrumbs,
+  currentContainer
+})
+
 // Snapshot/backup management - using composable
 // Note: callbacks reference functions defined below (works due to closure)
 const {
@@ -322,8 +322,6 @@ const addNodeModal = ref({
 const {
   undoStack,
   redoStack,
-  canUndo: _canUndo,
-  canRedo: _canRedo,
   pushCommand,
   undo: undoAction,
   redo: redoAction
@@ -357,11 +355,7 @@ const nodeOps = useNodeOperations({
 })
 
 // Cards drag state - using composable
-// Note: callbacks reference functions defined below (works due to closure/hoisting)
 const {
-  draggedNode: _cardDraggedNode,
-  dropTarget: _cardDropTarget,
-  dropPosition: _cardDropPosition,
   onDragStart: onCardDragStart,
   onDragEnd: onCardDragEnd,
   onDragOver: onCardDragOver,
@@ -420,18 +414,11 @@ const {
 const {
   selectedNode,
   selectedIds,
-  lastSelectedNode: _lastSelectedNode,
-  anchorNode: _anchorNode,
-  hasSelection: _hasSelection,
-  selectionCount: _selectionCount,
   isSelected: isNodeSelected,
-  clearSelection: _clearSelection,
   hoverSelectNode,
   selectNode: _selectNode,
   cancelDetailOpen,
-  handleMultiSelect,
-  updateSelectedNode: _updateSelectedNode,
-  removeFromSelection: _removeFromSelection
+  handleMultiSelect
 } = useSelection({
   showDetail,
   fullscreenDetail,
@@ -572,15 +559,12 @@ const {
   editingTitle,
   inlineNotesId,
   inlineNotesText,
-  inlineNotesRef: _inlineNotesRef,
   startEditing,
   saveEditing,
   cancelEditing,
-  handleEditKeydown: _handleEditKeydown,
   startInlineNotes,
   saveInlineNotes,
-  cancelInlineNotes,
-  handleInlineNotesKeydown: _handleInlineNotesKeydown
+  cancelInlineNotes
 } = useInlineEdit({
   findNode: (nodeId) => flatChildren.value.find(n => n.id === nodeId),
   onSaveTitle: async (nodeId, newTitle) => {
@@ -593,114 +577,6 @@ const {
       await loadChildren(currentContainerId.value)
     }
   }
-})
-
-// Build inherited color map for cards (parent color flows to children)
-const inheritedColorMap = computed(() => {
-  const colorMap = {}
-  function buildMap(nodeList, inheritedColor = null) {
-    if (!nodeList) return
-    for (const node of nodeList) {
-      if (!node || !node.id) continue
-      const hasOwnColor = node.color && node.color !== '#0f4c75'
-      const effectiveColor = hasOwnColor ? node.color : inheritedColor
-      colorMap[node.id] = effectiveColor
-      if (node.children?.length) {
-        buildMap(node.children, effectiveColor)
-      }
-    }
-  }
-  // Find inherited color from ancestors (breadcrumbs)
-  let ancestorColor = null
-  for (const ancestor of breadcrumbs.value) {
-    if (ancestor && ancestor.color && ancestor.color !== '#0f4c75') {
-      ancestorColor = ancestor.color
-    }
-  }
-  // Start with container's own color, or inherited from ancestors
-  const containerColor = currentContainer.value?.color && currentContainer.value.color !== '#0f4c75'
-    ? currentContainer.value.color
-    : ancestorColor
-  buildMap(children.value, containerColor)
-  return colorMap
-})
-
-function getNodeColor(node) {
-  return inheritedColorMap.value[node.id] || null
-}
-
-const cardsGridStyle = computed(() => {
-  const count = filteredChildren.value.length
-  if (count === 0) return {}
-
-  const w = containerWidth.value
-  const h = containerHeight.value
-  const gap = 10
-
-  // Find optimal columns by minimizing difference from square cards
-  // For each possible column count, calculate resulting card aspect ratio
-  let bestCols = 1
-  let bestScore = Infinity
-
-  for (let cols = 1; cols <= Math.min(count, 8); cols++) {
-    const rows = Math.ceil(count / cols)
-    const cardWidth = (w - gap * (cols - 1)) / cols
-    const cardHeight = (h - gap * (rows - 1)) / rows
-    // Score: how far from square (1:1 ratio). Lower is better.
-    const ratio = cardWidth / cardHeight
-    const score = Math.abs(Math.log(ratio)) // log(1) = 0 for perfect square
-    if (score < bestScore) {
-      bestScore = score
-      bestCols = cols
-    }
-  }
-
-  const rows = Math.ceil(count / bestCols)
-
-  return {
-    display: 'grid',
-    gridTemplateColumns: `repeat(${bestCols}, 1fr)`,
-    gridTemplateRows: `repeat(${rows}, 1fr)`,
-    gap: `${gap}px`,
-    height: '100%'
-  }
-})
-
-// Filter children for cards view when hideCompleted is true
-function filterChildrenRecursive(nodeList) {
-  if (!nodeList) return []
-  if (!hideCompleted.value) return nodeList.filter(Boolean)
-  return nodeList
-    .filter(node => node && !node.completed && !node.inheritedCompleted)
-    .map(node => ({
-      ...node,
-      children: node.children ? filterChildrenRecursive(node.children) : []
-    }))
-}
-
-const filteredChildren = computed(() => {
-  let result = filterChildrenRecursive(children.value)
-  if (sortAlphabetically.value) {
-    result = [...result].sort((a, b) => (a.title || '').localeCompare(b.title || ''))
-  }
-  return result
-})
-
-// Sorted children for graph/timeline views
-const sortedChildren = computed(() => {
-  if (!sortAlphabetically.value) return children.value
-  return [...children.value].sort((a, b) => (a.title || '').localeCompare(b.title || ''))
-})
-
-// Card size class based on grid dimensions
-// xl: 1-2 cards, lg: 3-4, md: 5-9, sm: 10-16, xs: 17+
-const cardSizeClass = computed(() => {
-  const count = filteredChildren.value.length
-  if (count <= 2) return 'card-xl'
-  if (count <= 4) return 'card-lg'
-  if (count <= 9) return 'card-md'
-  if (count <= 16) return 'card-sm'
-  return 'card-xs'
 })
 
 let isLoadingChildren = false
@@ -1380,51 +1256,6 @@ function scrollToNode(nodeId) {
     el.classList.add('search-highlight')
     setTimeout(() => el.classList.remove('search-highlight'), 2000)
   }
-}
-
-// Card drag functions (onCardDragStart, onCardDragEnd, onCardDragOver, onCardDragLeave, onCardDrop, getCardDropClass)
-// are now provided by useCardDrag composable initialized above
-
-function handleCardClick(e, node) {
-  const hasCmd = e.ctrlKey || e.metaKey
-  const hasAlt = e.altKey
-
-  if (hasCmd && hasAlt) {
-    // Option+Cmd+click: delete the node
-    deleteNode(node.id)
-  } else if (hasCmd) {
-    // Cmd+click: add child node
-    addChildToCard(node.id, e)
-  } else if (e.shiftKey) {
-    // Range selection
-    handleMultiSelect({ node, range: true })
-  } else {
-    // Normal click - select and open detail panel
-    selectNode(node)
-  }
-}
-
-function handleChildCardClick(e, node) {
-  const hasCmd = e.ctrlKey || e.metaKey
-  const hasAlt = e.altKey
-
-  if (hasCmd && hasAlt) {
-    // Option+Cmd+click: delete the node
-    deleteNode(node.id)
-  } else if (hasCmd) {
-    // Cmd+click: add child node
-    addChildToCard(node.id, e)
-  } else if (e.shiftKey) {
-    // Range selection
-    handleMultiSelect({ node, range: true })
-  } else {
-    // Normal click - select and open detail panel
-    selectNode(node)
-  }
-}
-
-function isCardSelected(nodeId) {
-  return isNodeSelected(nodeId)
 }
 
 // Context menu - using composable

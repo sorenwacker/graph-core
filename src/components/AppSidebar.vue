@@ -53,19 +53,19 @@ const tagsCollapsed = ref(false)
       </div>
     </div>
 
-    <div class="sidebar-content">
-      <!-- Root -->
-      <div class="sidebar-section">
-        <div
-          class="sidebar-item"
-          :class="{ active: currentContainerId === null }"
-          @click="emit('navigate-root')"
-        >
-          <span class="icon">~</span>
-          <span class="label">Root</span>
-        </div>
+    <!-- Root (sticky, does not scroll) -->
+    <div class="sidebar-section sidebar-root-section">
+      <div
+        class="sidebar-item"
+        :class="{ active: currentContainerId === null }"
+        @click="emit('navigate-root')"
+      >
+        <span class="icon">~</span>
+        <span class="label">Root</span>
       </div>
+    </div>
 
+    <div class="sidebar-content">
       <!-- Global Tree -->
       <div class="sidebar-section collapsible-section">
         <div class="sidebar-section-header" @click="treeCollapsed = !treeCollapsed">

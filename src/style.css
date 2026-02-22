@@ -265,7 +265,8 @@ a:hover {
   padding: var(--spacing-sm) var(--spacing-lg);
 }
 
-.sidebar-section:first-child {
+.sidebar-root-section {
+  flex-shrink: 0;
   height: 52px;
   box-sizing: border-box;
   padding: 0 var(--spacing-lg);
