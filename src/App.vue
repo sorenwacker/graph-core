@@ -1,7 +1,8 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { marked } from 'marked'
 import { api } from './services/api.js'
+import { handleExternalLinkClick } from './utils/markdown.js'
+import { scrollToNode } from './utils/dom.js'
 import { useNodeTooltip } from './composables/useNodeTooltip.js'
 import { useDetachedWindow } from './composables/useDetachedWindow.js'
 import { useSelection } from './composables/useSelection.js'
@@ -46,35 +47,6 @@ import MainToolbar from './components/MainToolbar.vue'
 import TrashView from './components/TrashView.vue'
 import SpotlightSearch from './components/SpotlightSearch.vue'
 import { showToast } from './composables/useToast.js'
-
-// Configure marked for inline rendering with links handled by click handler
-marked.use({
-  breaks: true,
-  gfm: true,
-  renderer: {
-    link({ href, title, text }) {
-      const titleAttr = title ? ` title="${title}"` : ''
-      return `<a href="${href}"${titleAttr} class="external-link" rel="noopener">${text}</a>`
-    }
-  }
-})
-
-// Global click handler for external links - opens in system browser
-function handleGlobalClick(e) {
-  const link = e.target.closest('a[href]')
-  if (link) {
-    const href = link.getAttribute('href')
-    if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
-      e.preventDefault()
-      e.stopPropagation()
-      if (window.electronAPI?.openExternal) {
-        window.electronAPI.openExternal(href)
-      } else {
-        window.open(href, '_blank')
-      }
-    }
-  }
-}
 
 // Navigation state - drill-down model
 const currentContainerId = ref(null)  // null = root level
@@ -1156,20 +1128,6 @@ async function fetchBreadcrumbsForResults(results) {
   return resultsWithBreadcrumbs
 }
 
-// Scroll to a node element in the current view
-function scrollToNode(nodeId) {
-  // Try to find the element by data attribute or ID
-  const el = document.querySelector(`[data-node-id="${nodeId}"]`) ||
-             document.querySelector(`#node-${nodeId}`) ||
-             document.querySelector(`.node-card[data-id="${nodeId}"]`)
-  if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    // Add temporary highlight
-    el.classList.add('search-highlight')
-    setTimeout(() => el.classList.remove('search-highlight'), 2000)
-  }
-}
-
 // Context menu - using composable
 const {
   contextMenu,
@@ -1309,7 +1267,7 @@ onMounted(async () => {
   window.addEventListener('resize', updateDimensions)
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('open-link-search', handleOpenLinkSearchEvent)
-  document.addEventListener('click', handleGlobalClick, true)
+  document.addEventListener('click', handleExternalLinkClick, true)
   resizeObserver = new ResizeObserver(updateDimensions)
   const contentBody = document.querySelector('.content-body')
   if (contentBody) resizeObserver.observe(contentBody)
@@ -1338,7 +1296,7 @@ function handleOpenLinkSearchEvent(e) {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('open-link-search', handleOpenLinkSearchEvent)
-  document.removeEventListener('click', handleGlobalClick, true)
+  document.removeEventListener('click', handleExternalLinkClick, true)
   resizeObserver?.disconnect()
 })
 </script>
