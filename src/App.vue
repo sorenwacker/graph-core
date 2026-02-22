@@ -29,7 +29,6 @@ import {
   ReorderCommand
 } from './commands/index.js'
 import { MAX_HISTORY_SIZE, SIDEBAR_HIDE_DELAY_MS } from './utils/uiConstants.js'
-import { getDueDateStatus, getDateCountdown } from './utils/dateUtils.js'
 import DetailPanel from './components/DetailPanel.vue'
 import GraphView from './components/GraphView.vue'
 import TableView from './components/TableView.vue'
@@ -134,20 +133,11 @@ const {
 const {
   currentWorkspace,
   workspaces,
-  showNewWorkspaceInput,
-  newWorkspaceName,
   loadWorkspaces,
-  openNewWorkspaceDialog: _openNewWorkspaceDialog,
   createWorkspace: createNewWorkspace,
   deleteCurrentWorkspace: _deleteCurrentWorkspace,
   getWorkspaceIdForNode
 } = useWorkspace({ api })
-
-// Wrap openNewWorkspaceDialog to focus input
-function openNewWorkspaceDialog() {
-  _openNewWorkspaceDialog()
-  nextTick(() => newWorkspaceInputRef.value?.focus())
-}
 
 // Wrap deleteCurrentWorkspace to add confirmation dialog
 async function deleteCurrentWorkspace() {
@@ -177,7 +167,6 @@ const {
   loadTrashedItems,
   loadOrphanedNodes,
   clearRecent,
-  undoClearRecent,
   restoreFromTrash,
   permanentlyDelete,
   emptyAllTrash,
@@ -245,8 +234,7 @@ const {
   sortedChildren,
   cardSizeClass,
   cardsGridStyle,
-  inheritedColorMap,
-  getNodeColor
+  inheritedColorMap
 } = useCardsLayout({
   children,
   hideCompleted,
@@ -266,8 +254,7 @@ const {
   loadSnapshots,
   createSnapshot,
   restoreSnapshot,
-  reloadDatabase,
-  formatSnapshotDate
+  reloadDatabase
 } = useSnapshots({
   onListBackups: () => api.listBackups(),
   onCreateBackup: (suffix) => api.backup(suffix),
@@ -309,7 +296,6 @@ watch(showDetail, (isOpen) => {
 const graphViewRef = ref(null)
 const tasksViewRef = ref(null)
 const detailPanelRef = ref(null)
-const newWorkspaceInputRef = ref(null)
 const addChildParentId = ref(null) // Parent ID when adding via card + button
 
 // Add node modal state
@@ -360,8 +346,7 @@ const {
   onDragEnd: onCardDragEnd,
   onDragOver: onCardDragOver,
   onDragLeave: onCardDragLeave,
-  onDrop: onCardDrop,
-  getDropClass: getCardDropClass
+  onDrop: onCardDrop
 } = useCardDrag({
   onMove: async (sourceNode, targetNode) => {
     await moveNode({ nodeId: sourceNode.id, newParentId: targetNode.id })
@@ -403,8 +388,7 @@ const {
   expandAll,
   collapseAll,
   expandAncestors,
-  loadExpandedState,
-  saveExpandedState
+  loadExpandedState
 } = useTreeExpand({
   workspace: currentWorkspace,
   flatChildren
@@ -414,7 +398,6 @@ const {
 const {
   selectedNode,
   selectedIds,
-  isSelected: isNodeSelected,
   hoverSelectNode,
   selectNode: _selectNode,
   cancelDetailOpen,
@@ -442,11 +425,9 @@ const {
   showSearch,
   selectedResultIndex,
   searchMode,
-  linkSourceNodeId,
   openSearch,
   openLinkSearch,
   closeSearch,
-  handleSearch: _handleSearch,
   onSearchInput: _onSearchInput,
   handleSearchKeydown,
   goToSearchResult: _goToSearchResult
@@ -515,10 +496,6 @@ const {
 })
 
 // Wrap search functions to pass current workspace
-function handleSearch() {
-  _handleSearch(currentWorkspace.value)
-}
-
 function onSearchInput() {
   _onSearchInput(currentWorkspace.value)
 }
