@@ -20,8 +20,6 @@ import { useDataLoading } from './composables/useDataLoading.js'
 import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts.js'
 import { useTreeExpand } from './composables/useTreeExpand.js'
 import { useCardsLayout } from './composables/useCardsLayout.js'
-// useNavigation available but not currently used
-// import { useNavigation } from './composables/useNavigation.js'
 import {
   CreateCommand,
   LinkCommand,
@@ -126,10 +124,7 @@ const {
 
 // Context menu state is managed by useContextMenu composable (initialized after functions it needs)
 
-// =========================================
-// WORKSPACES
-// =========================================
-// Workspace management via composable
+// Workspace management
 const {
   currentWorkspace,
   workspaces,
@@ -198,11 +193,7 @@ const {
   onResizeStart: onDetailResizeStart
 } = useDetailResize()
 
-function closeDetail() {
-  showDetail.value = false
-  fullscreenDetail.value = false
-  detailPinned.value = false
-}
+const closeDetail = () => { showDetail.value = false; fullscreenDetail.value = false; detailPinned.value = false }
 
 // Inline editing state is managed by useInlineEdit composable (initialized after flatChildren)
 
@@ -342,6 +333,8 @@ const nodeOps = useNodeOperations({
 
 // Cards drag state - using composable
 const {
+  dropTarget,
+  dropPosition,
   onDragStart: onCardDragStart,
   onDragEnd: onCardDragEnd,
   onDragOver: onCardDragOver,
@@ -495,13 +488,9 @@ const {
   onFetchBreadcrumbs: fetchBreadcrumbsForResults
 })
 
-// Wrap search functions to pass current workspace
+// Wrap search input to pass current workspace
 function onSearchInput() {
   _onSearchInput(currentWorkspace.value)
-}
-
-function goToSearchResult(node) {
-  _goToSearchResult(node)
 }
 
 // Close detail panel when node is deselected (if not pinned)
@@ -511,22 +500,19 @@ watch(selectedNode, (node) => {
   }
 })
 
-// Watch for workspace changes - reload data when switching workspaces
+// Reset and reload when switching workspaces
 watch(currentWorkspace, async () => {
-  // Reset navigation when switching workspaces
   currentContainerId.value = null
   currentContainer.value = null
   breadcrumbs.value = []
   selectedNode.value = null
   selectedIds.value = new Set()
   showDetail.value = false
-  // Reload data for new workspace
   await loadChildren(null)
   await loadSidebarTree()
-  await loadRecentItems()
-  await loadFavorites()
-  await loadTags()
-  // Restore expanded state for this workspace
+  loadRecentItems()
+  loadFavorites()
+  loadTags()
   loadExpandedState()
 })
 
@@ -732,37 +718,21 @@ function goToFirstChild() {
   }
 }
 
-async function goToPrevSibling() {
-  // Navigate to previous sibling of current container
-  if (!currentContainer.value) return // At root, no siblings
-
+async function goToSibling(direction) {
+  if (!currentContainer.value) return
   const parentId = currentContainer.value.parent_id
   const siblings = parentId
     ? await api.getChildren(parentId)
     : await api.getRoots(currentWorkspace.value)
-
   const currentIndex = siblings.findIndex(s => s.id === currentContainer.value.id)
-  if (currentIndex > 0) {
-    enterContainer(siblings[currentIndex - 1])
+  const targetIndex = currentIndex + direction
+  if (targetIndex >= 0 && targetIndex < siblings.length) {
+    enterContainer(siblings[targetIndex])
   }
 }
 
-async function goToNextSibling() {
-  // Navigate to next sibling of current container
-  if (!currentContainer.value) return // At root, no siblings
-
-  const parentId = currentContainer.value.parent_id
-  const siblings = parentId
-    ? await api.getChildren(parentId)
-    : await api.getRoots(currentWorkspace.value)
-
-  const currentIndex = siblings.findIndex(s => s.id === currentContainer.value.id)
-  if (currentIndex >= 0 && currentIndex < siblings.length - 1) {
-    enterContainer(siblings[currentIndex + 1])
-  }
-}
-
-// Selection functions (hoverSelectNode, selectNode, handleMultiSelect) are now in useSelection composable
+const goToPrevSibling = () => goToSibling(-1)
+const goToNextSibling = () => goToSibling(1)
 
 // Toggle detail panel visibility (for Enter key)
 function toggleDetailPanel() {
@@ -937,6 +907,16 @@ async function refreshGraphAfterStructureChange(reloadData = false) {
   }
 }
 
+// Refresh detail panel if it's showing one of the linked nodes
+async function refreshDetailPanelLinks(sourceId, targetId) {
+  if (selectedNode.value?.id === sourceId || selectedNode.value?.id === targetId) {
+    selectedNode.value = await api.getNode(selectedNode.value.id)
+    detailPanelRef.value?.loadLinkedNodes()
+    detailPanelRef.value?.loadLinkedOrganizations()
+    detailPanelRef.value?.loadLinkedMembers()
+  }
+}
+
 async function moveNode({ nodeId, oldParentId, newParentId }) {
   const success = await nodeOps.moveNode({ nodeId, oldParentId, newParentId })
   if (success) {
@@ -951,14 +931,7 @@ async function linkNodesFromGraph({ sourceId, targetId }) {
     await api.linkNodes(sourceId, targetId)
     pushCommand(new LinkCommand({ sourceId, targetId }))
     await refreshGraphAfterStructureChange()
-    // Refresh detail panel if showing one of these nodes
-    if (selectedNode.value?.id === sourceId || selectedNode.value?.id === targetId) {
-      selectedNode.value = await api.getNode(selectedNode.value.id)
-      // Also refresh linked items in detail panel
-      detailPanelRef.value?.loadLinkedNodes()
-      detailPanelRef.value?.loadLinkedOrganizations()
-      detailPanelRef.value?.loadLinkedMembers()
-    }
+    await refreshDetailPanelLinks(sourceId, targetId)
   } catch (e) {
     console.error('Failed to link nodes:', e)
     error.value = e.message
@@ -970,16 +943,8 @@ async function unlinkNodesFromGraph({ sourceId, targetId }) {
   try {
     await api.unlinkNodes(sourceId, targetId)
     pushCommand(new UnlinkCommand({ sourceId, targetId }))
-    // Use same refresh as links
     await refreshGraphAfterStructureChange()
-    // Refresh detail panel if showing one of these nodes
-    if (selectedNode.value?.id === sourceId || selectedNode.value?.id === targetId) {
-      selectedNode.value = await api.getNode(selectedNode.value.id)
-      // Also refresh linked items in detail panel
-      detailPanelRef.value?.loadLinkedNodes()
-      detailPanelRef.value?.loadLinkedOrganizations()
-      detailPanelRef.value?.loadLinkedMembers()
-    }
+    await refreshDetailPanelLinks(sourceId, targetId)
   } catch (e) {
     console.error('Failed to unlink nodes:', e)
     error.value = e.message
@@ -1062,8 +1027,19 @@ async function handleDetach(node) {
   await openDetachedWindow(node.id, node.title)
 }
 
+// Common cleanup after delete operations
+function clearSelectionAfterDelete() {
+  showDetail.value = false
+  selectedNode.value = null
+}
+
+async function refreshAfterDelete() {
+  await loadChildren(currentContainerId.value, { silent: true })
+  await loadSidebarTree()
+  loadRecentItems()
+}
+
 async function deleteNode(nodeId) {
-  // Check navigation needs before deletion
   const node = await api.getNode(nodeId)
   if (!node) return
 
@@ -1074,55 +1050,34 @@ async function deleteNode(nodeId) {
 
   const result = await nodeOps.deleteNode(nodeId)
   if (result.success) {
-    showDetail.value = false
-    selectedNode.value = null
-
-    // Navigate to parent if we deleted the current container or a node in the breadcrumbs
+    clearSelectionAfterDelete()
     if (needsNavigation) {
       if (node.parent_id) {
         await enterContainer({ id: node.parent_id })
       } else {
-        // Deleted a root node - go to workspace root
         currentContainerId.value = null
         breadcrumbs.value = []
-        await loadChildren(null, { silent: true })
       }
-    } else {
-      await loadChildren(currentContainerId.value, { silent: true })
     }
-
-    await loadSidebarTree()
-    loadRecentItems()
+    await refreshAfterDelete()
   }
 }
 
 async function deleteMultipleNodes(nodeIds) {
   if (!nodeIds || nodeIds.length === 0) return
+  if (nodeIds.length > 1 && !confirm(`Delete ${nodeIds.length} nodes? (Cmd+Z to undo)`)) return
 
-  // Confirm deletion of multiple nodes
-  if (nodeIds.length > 1) {
-    if (!confirm(`Delete ${nodeIds.length} nodes? (Cmd+Z to undo)`)) return
-  }
-
-  // Check if we need to navigate back after deletion (convert to strings for comparison)
   const nodeIdSet = new Set(nodeIds.map(String))
   const needsNavigation = nodeIdSet.has(String(currentContainerId.value)) ||
     breadcrumbs.value.some(b => nodeIdSet.has(String(b.id)))
 
   const result = await nodeOps.deleteMultipleNodes(nodeIds)
   if (result.success) {
-    showDetail.value = false
-    selectedNode.value = null
-
-    // Navigate back if we deleted the current container or a node in the breadcrumbs
+    clearSelectionAfterDelete()
     if (needsNavigation) {
       navigateBack()
-    } else {
-      await loadChildren(currentContainerId.value, { silent: true })
     }
-
-    await loadSidebarTree()
-    loadRecentItems()
+    await refreshAfterDelete()
   }
 }
 
@@ -1252,47 +1207,22 @@ const {
   }
 })
 
-// Inline editing functions (startEditing, saveEditing, cancelEditing, handleEditKeydown,
-// startInlineNotes, saveInlineNotes, cancelInlineNotes, handleInlineNotesKeydown)
-// are now provided by useInlineEdit composable initialized above
-
-// Wrapper functions for tooltip - use composable
+// Wrapper for tooltip that checks editing state
 function showCardTooltip(event, node) {
-  // Don't show tooltip if editing
   if (editingCardId.value || inlineNotesId.value) return
   showTooltip(event, node)
 }
 
-function hideCardTooltip() {
-  hideTooltip()
-}
-
 // Add item modal functions
 function showAddNodeModal(parentId = null) {
-  // Close detail panel to focus on creating new node
   showDetail.value = false
-  addNodeModal.value = {
-    visible: true,
-    parentId
-  }
-}
-
-function hideAddNodeModal() {
-  addNodeModal.value.visible = false
-}
-
-async function handleAddNodeCreate({ title, type, parentId }) {
-  await addChildNode({ parentId, title, type })
+  addNodeModal.value = { visible: true, parentId }
 }
 
 function addChildToCard(parentId, e) {
   e?.stopPropagation()
-  hideCardTooltip()
+  hideTooltip()
   showAddNodeModal(parentId)
-}
-
-function toggleCompletedVisibility() {
-  hideCompleted.value = !hideCompleted.value
 }
 
 let resizeObserver = null
@@ -1387,22 +1317,12 @@ onMounted(async () => {
   // Listen for updates from detached windows
   onDetachedMessage(async (data) => {
     if (data.type === 'node-updated' && data.node) {
-      // Refresh the view if the updated node is visible
-      await loadChildren(currentContainerId.value, { silent: true })
-      await loadSidebarTree()
+      await refreshAfterChange({ recent: false })
       loadFavorites()
-      // Update selectedNode if it's the one that was updated
-      if (selectedNode.value?.id === data.node.id) {
-        selectedNode.value = { ...data.node }
-      }
+      if (selectedNode.value?.id === data.node.id) selectedNode.value = { ...data.node }
     } else if (data.type === 'node-deleted' && data.nodeId) {
-      // Handle node deleted from detached window
-      if (selectedNode.value?.id === data.nodeId) {
-        showDetail.value = false
-        selectedNode.value = null
-      }
-      await loadChildren(currentContainerId.value, { silent: true })
-      await loadSidebarTree()
+      if (selectedNode.value?.id === data.nodeId) clearSelectionAfterDelete()
+      await refreshAfterChange({ recent: false })
     }
   })
 })
@@ -1416,11 +1336,10 @@ function handleOpenLinkSearchEvent(e) {
 }
 
 onUnmounted(() => {
-  window.removeEventListener('resize', () => {})
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('open-link-search', handleOpenLinkSearchEvent)
   document.removeEventListener('click', handleGlobalClick, true)
-  if (resizeObserver) resizeObserver.disconnect()
+  resizeObserver?.disconnect()
 })
 </script>
 
@@ -1486,7 +1405,7 @@ onUnmounted(() => {
             :available-snapshots="availableSnapshots"
             :show-lost-found="showLostFound"
             :orphaned-nodes="orphanedNodes"
-            @toggle-completed="toggleCompletedVisibility"
+            @toggle-completed="hideCompleted = !hideCompleted"
             @undo="undo"
             @redo="redo"
             @create-snapshot="createSnapshot"
@@ -1577,8 +1496,8 @@ onUnmounted(() => {
           :editing-title="editingTitle"
           :inline-notes-id="inlineNotesId"
           :inline-notes-text="inlineNotesText"
-          :drag-over-node-id="dragOverNodeId"
-          :drag-position="dragPosition"
+          :drag-over-node-id="dropTarget?.id"
+          :drag-position="dropPosition"
           @select="selectNode"
           @select-multiple="handleMultiSelect"
           @enter="enterContainer"
@@ -1587,7 +1506,7 @@ onUnmounted(() => {
           @add-child="addChildToCard"
           @context-menu="(e, node) => showContextMenu(e, node)"
           @show-tooltip="showCardTooltip"
-          @hide-tooltip="hideCardTooltip"
+          @hide-tooltip="hideTooltip"
           @drag-start="onCardDragStart"
           @drag-end="onCardDragEnd"
           @drag-over="onCardDragOver"
@@ -1652,7 +1571,7 @@ onUnmounted(() => {
           @select="selectNode"
           @enter="enterContainer"
           @show-tooltip="showCardTooltip"
-          @hide-tooltip="hideCardTooltip"
+          @hide-tooltip="hideTooltip"
           @context-menu="handleViewContextMenu"
           @update="updateNode"
         />
@@ -1667,7 +1586,7 @@ onUnmounted(() => {
           @select="selectNode"
           @enter="enterContainer"
           @show-tooltip="showCardTooltip"
-          @hide-tooltip="hideCardTooltip"
+          @hide-tooltip="hideTooltip"
           @context-menu="handleViewContextMenu"
           @update="updateNode"
         />
@@ -1741,8 +1660,8 @@ onUnmounted(() => {
     <AddNodeModal
       :visible="addNodeModal.visible"
       :parent-id="addNodeModal.parentId"
-      @close="hideAddNodeModal"
-      @create="handleAddNodeCreate"
+      @close="addNodeModal.visible = false"
+      @create="addChildNode"
     />
 
     <!-- Node Context Menu -->
@@ -1778,7 +1697,7 @@ onUnmounted(() => {
       @close="closeSearch"
       @search-input="onSearchInput"
       @keydown="handleSearchKeydown"
-      @select-result="goToSearchResult"
+      @select-result="_goToSearchResult"
       @clear-recent="clearRecent"
     />
 
