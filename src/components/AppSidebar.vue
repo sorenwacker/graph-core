@@ -189,5 +189,43 @@ const tagsCollapsed = ref(false)
 </template>
 
 <style scoped>
-/* Sidebar styles will be moved from App.vue */
+.sidebar-legend {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+  margin-top: auto;
+}
+
+.legend-title {
+  display: none;
+}
+
+.legend-items {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 12px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.legend-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.legend-badge :deep(svg) {
+  width: 13px;
+  height: 13px;
+}
 </style>

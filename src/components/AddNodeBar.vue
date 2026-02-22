@@ -35,8 +35,11 @@ function formatType(t) {
 <style scoped>
 .add-node-bar {
   display: flex;
+  align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  height: 52px;
+  box-sizing: border-box;
+  padding: 0 12px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
 }
