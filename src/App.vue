@@ -478,9 +478,7 @@ watch(currentWorkspace, async () => {
   showDetail.value = false
   await loadChildren(null)
   await loadSidebarTree()
-  loadRecentItems()
-  loadFavorites()
-  loadTags()
+  await Promise.all([loadRecentItems(), loadFavorites(), loadTags()])
   loadExpandedState()
 })
 
@@ -983,9 +981,7 @@ async function updateNode(updatedNode, trackUndo = true) {
     // Use silent mode to avoid triggering full re-render
     await loadChildren(currentContainerId.value, { silent: true })
     await loadSidebarTree()
-    loadRecentItems()
-    loadFavorites()
-    loadTags()
+    await Promise.all([loadRecentItems(), loadFavorites(), loadTags()])
   }
 }
 
@@ -1246,9 +1242,7 @@ onMounted(async () => {
   loadExpandedState()
 
   // Load recent items, favorites, and tags for sidebar
-  loadRecentItems()
-  loadFavorites()
-  loadTags()
+  await Promise.all([loadRecentItems(), loadFavorites(), loadTags()])
 
   // Track container dimensions for responsive grid
   const updateDimensions = () => {
@@ -1440,7 +1434,7 @@ onUnmounted(() => {
           v-else-if="viewMode === 'cards'"
           :nodes="filteredChildren"
           :selected-id="selectedNode?.id"
-          :selected-ids="selectedIds"
+          :selected-ids="[...selectedIds]"
           :hide-completed="hideCompleted"
           :current-container-id="currentContainerId"
           :color-map="inheritedColorMap"

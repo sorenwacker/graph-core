@@ -30,12 +30,12 @@ function setView(id) {
 <style scoped>
 .view-switcher {
   display: flex;
-  gap: 2px;
+  gap: 6px;
+  align-items: center;
 }
 
 .view-btn {
-  width: 36px;
-  height: 36px;
+  padding: 6px 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -58,7 +58,7 @@ function setView(id) {
 }
 
 .view-btn :deep(svg) {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
 }
 </style>

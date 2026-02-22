@@ -31,7 +31,7 @@ const emit = defineEmits(['navigate'])
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 12px;
+  padding: 8px 12px 8px 24px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
   min-height: 36px;
@@ -40,8 +40,8 @@ const emit = defineEmits(['navigate'])
 .breadcrumb-path {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 0.85rem;
+  gap: 6px;
+  font-size: 1rem;
   overflow: hidden;
 }
 
@@ -50,10 +50,13 @@ const emit = defineEmits(['navigate'])
   cursor: pointer;
   transition: color 0.15s;
   white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 4px;
 }
 
 .crumb:hover {
   color: var(--accent-color);
+  background: var(--bg-hover);
 }
 
 .crumb.current {
