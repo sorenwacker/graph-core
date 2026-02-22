@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, onMounted, watch, nextTick } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { getTypeIcon, getTypeColors, personIconSvg } from '../utils/constants.js'
 
 const props = defineProps({
@@ -9,7 +9,10 @@ const props = defineProps({
   colorMap: { type: Object, default: () => ({}) }
 })
 
-const emit = defineEmits(['select', 'enter', 'show-tooltip', 'hide-tooltip', 'context-menu', 'add-child', 'delete'])
+const emit = defineEmits(['select', 'enter', 'show-tooltip', 'hide-tooltip', 'context-menu', 'add-child', 'delete', 'update'])
+
+// Drag state for timeline bars
+const dragState = ref(null) // { node, type: 'move' | 'resize-start' | 'resize-end', startX, originalStart, originalEnd }
 
 // Context menu handler
 function handleContextMenu(e, node) {
@@ -403,11 +406,139 @@ function scrollToToday() {
 
 onMounted(() => {
   scrollToToday()
+  document.addEventListener('mousemove', handleDragMove)
+  document.addEventListener('mouseup', handleDragEnd)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('mousemove', handleDragMove)
+  document.removeEventListener('mouseup', handleDragEnd)
 })
 
 watch(() => props.nodes, () => {
   nextTick(scrollToToday)
 })
+
+// Convert pixel position to date string
+function positionToDate(pixelX) {
+  if (!dateRange.value.start) return null
+  const days = Math.round(pixelX / zoomLevel.value)
+  const start = new Date(dateRange.value.start)
+  start.setDate(start.getDate() + days)
+  return start.toISOString().split('T')[0]
+}
+
+// Start dragging a bar
+function handleDragStart(e, node, type) {
+  e.preventDefault()
+  e.stopPropagation()
+
+  // Hide tooltip during drag
+  emit('hide-tooltip')
+
+  const container = scrollableRef.value
+  const rect = container.getBoundingClientRect()
+  const startX = e.clientX - rect.left + container.scrollLeft
+
+  dragState.value = {
+    node,
+    type, // 'move', 'resize-start', 'resize-end'
+    startX,
+    originalStart: node.displayDate,
+    originalEnd: node.endDisplayDate,
+    startPos: getDatePosition(node.displayDate),
+    endPos: getDatePosition(node.endDisplayDate)
+  }
+
+  // Select the node being dragged
+  emit('select', node)
+}
+
+// Handle drag movement
+function handleDragMove(e) {
+  if (!dragState.value) return
+
+  const container = scrollableRef.value
+  if (!container) return
+
+  const rect = container.getBoundingClientRect()
+  const currentX = e.clientX - rect.left + container.scrollLeft
+  const deltaX = currentX - dragState.value.startX
+
+  const { node, type, startPos, endPos } = dragState.value
+
+  if (type === 'move') {
+    // Move both start and end
+    const newStartDate = positionToDate(startPos + deltaX)
+    const newEndDate = positionToDate(endPos + deltaX)
+    if (newStartDate && newEndDate) {
+      dragState.value.newStart = newStartDate
+      dragState.value.newEnd = newEndDate
+    }
+  } else if (type === 'resize-start') {
+    // Only move start, keep end fixed
+    const newStartDate = positionToDate(startPos + deltaX)
+    const endDate = dragState.value.originalEnd
+    if (newStartDate && newStartDate <= endDate) {
+      dragState.value.newStart = newStartDate
+      dragState.value.newEnd = endDate
+    }
+  } else if (type === 'resize-end') {
+    // Only move end, keep start fixed
+    const startDate = dragState.value.originalStart
+    const newEndDate = positionToDate(endPos + deltaX)
+    if (newEndDate && newEndDate >= startDate) {
+      dragState.value.newStart = startDate
+      dragState.value.newEnd = newEndDate
+    }
+  }
+}
+
+// End drag and save changes
+function handleDragEnd() {
+  if (!dragState.value) return
+
+  const { node, newStart, newEnd, originalStart, originalEnd } = dragState.value
+
+  // Only emit update if dates actually changed
+  if (newStart && newEnd && (newStart !== originalStart || newEnd !== originalEnd)) {
+    // Determine which date fields to update based on original node data
+    const updates = { id: node.id }
+
+    if (node.start_date || !node.due_date) {
+      // Node has start_date or uses start_date/end_date pattern
+      updates.start_date = newStart
+      updates.end_date = newEnd
+    } else {
+      // Node only has due_date
+      updates.due_date = newEnd
+    }
+
+    emit('update', updates)
+  }
+
+  dragState.value = null
+}
+
+// Get bar style with drag preview
+function getDragBarStyle(node) {
+  const baseStyle = getBarStyle(node)
+
+  // If this node is being dragged, use preview position
+  if (dragState.value && dragState.value.node.id === node.id) {
+    const { newStart, newEnd } = dragState.value
+    if (newStart && newEnd) {
+      const left = getDatePosition(newStart) + 'px'
+      const startDate = new Date(newStart)
+      const endDate = new Date(newEnd)
+      const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1
+      const width = Math.max(days * zoomLevel.value, 20) + 'px'
+      return { ...baseStyle, left, width }
+    }
+  }
+
+  return baseStyle
+}
 </script>
 
 <template>
@@ -542,15 +673,36 @@ watch(() => props.nodes, () => {
                 <div class="row-track">
                   <div
                     class="timeline-bar"
-                    :class="{ selected: selectedId === node.id, completed: node.completed, inherited: node.inheritedDate }"
-                    :style="getBarStyle(node)"
+                    :class="{
+                      selected: selectedId === node.id,
+                      completed: node.completed,
+                      inherited: node.inheritedDate,
+                      dragging: dragState?.node.id === node.id
+                    }"
+                    :style="getDragBarStyle(node)"
                     @click="handleNodeClick($event, node)"
                     @dblclick="emit('enter', node)"
-                    @mouseenter="emit('show-tooltip', $event, node)"
+                    @mouseenter="!dragState && emit('show-tooltip', $event, node)"
                     @mouseleave="emit('hide-tooltip')"
                     @contextmenu.prevent="handleContextMenu($event, node)"
                   >
-                    <span class="bar-label">{{ node.title }}</span>
+                    <!-- Left resize handle -->
+                    <div
+                      class="resize-handle resize-handle-left"
+                      @mousedown="handleDragStart($event, node, 'resize-start')"
+                    ></div>
+                    <!-- Draggable bar content -->
+                    <div
+                      class="bar-content"
+                      @mousedown="handleDragStart($event, node, 'move')"
+                    >
+                      <span class="bar-label">{{ node.title }}</span>
+                    </div>
+                    <!-- Right resize handle -->
+                    <div
+                      class="resize-handle resize-handle-right"
+                      @mousedown="handleDragStart($event, node, 'resize-end')"
+                    ></div>
                   </div>
                 </div>
               </div>
@@ -896,12 +1048,54 @@ watch(() => props.nodes, () => {
   border-style: dashed;
 }
 
+.timeline-bar.dragging {
+  opacity: 0.8;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.bar-content {
+  flex: 1;
+  min-width: 0;
+  cursor: grab;
+  padding: 0 4px;
+}
+
+.bar-content:active,
+.timeline-bar.dragging .bar-content {
+  cursor: grabbing;
+}
+
+.resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: ew-resize;
+  z-index: 1;
+}
+
+.resize-handle-left {
+  left: 0;
+  border-radius: 4px 0 0 4px;
+}
+
+.resize-handle-right {
+  right: 0;
+  border-radius: 0 4px 4px 0;
+}
+
+.resize-handle:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 .bar-label {
   color: white;
   font-size: 0.7rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  pointer-events: none;
 }
 
 .type-badge {

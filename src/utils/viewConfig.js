@@ -67,7 +67,3 @@ export const viewModes = [
     </svg>`
   }
 ]
-
-export function getViewMode(id) {
-  return viewModes.find(v => v.id === id)
-}

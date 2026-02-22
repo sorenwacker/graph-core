@@ -52,9 +52,10 @@ export function useWorkspace({
 
   /**
    * Create a new workspace
+   * @param {string} [nameParam] - Optional workspace name. If not provided, uses newWorkspaceName.value
    */
-  async function createWorkspace() {
-    const name = newWorkspaceName.value.trim()
+  async function createWorkspace(nameParam) {
+    const name = (nameParam || newWorkspaceName.value).trim()
     if (!name) {
       showNewWorkspaceInput.value = false
       return

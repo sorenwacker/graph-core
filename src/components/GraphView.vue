@@ -170,6 +170,7 @@ let cy = null
 let isInitializing = false
 let lastKnownParentId = props.parent?.id
 let updateDebounceTimer = null
+let autoRelaxTimer = null
 
 // Debounce utility for graph updates
 function debounce(fn, delay) {
@@ -1872,6 +1873,8 @@ async function updateGraph() {
   let hasEdgeChanges = false
   const newElementIds = new Set()
   const newEdges = new Set()
+  const newNodeIds = []  // Track IDs of truly new nodes for auto-relax
+  const externalNodesNeedingRelax = []  // Track external nodes without saved positions
 
   // Collect existing edges for comparison
   const existingEdges = new Set()
@@ -1894,15 +1897,23 @@ async function updateGraph() {
       // It's a node
       newElementIds.add(el.data.id)
       // Check if this is a truly new node (not in existing set)
-      // External linked nodes don't count as "new" for layout purposes
-      const isNewNode = !existingNodeIds.has(el.data.id) && !el.data.isLinkedExternal
-      if (isNewNode) {
+      const isNewNode = !existingNodeIds.has(el.data.id)
+      const isExternal = el.data.isLinkedExternal
+
+      if (isNewNode && !isExternal) {
+        // Regular new node (not external)
         hasNewNodes = true
-        // Check if this new node has a position (from click) or needs layout
+        newNodeIds.push(el.data.id)
         if (!el.position) {
           hasNewNodesWithoutPosition = true
         }
       }
+
+      // Track external nodes that need positioning (no saved position)
+      if (isExternal && !el.position) {
+        externalNodesNeedingRelax.push(el.data.id)
+      }
+
       if (!el.position) {
         const nodeData = el.data.nodeData
         const parentId = nodeData?.parent_id
@@ -1972,26 +1983,22 @@ async function updateGraph() {
   // Restore viewport immediately after batch
   cy.viewport({ zoom: savedZoom, pan: savedPan })
 
+  // Combine new nodes and external nodes needing relax
+  const allNodesNeedingRelax = [...newNodeIds, ...externalNodesNeedingRelax]
+
   // Only run layout for truly new nodes without positions
   if (!hasPositions) {
     // No saved positions - run full layout (initial load)
     cy.layout(getLayoutOptions()).run()
     setTimeout(saveNodePositions, 600)
-  } else if (hasNewNodesWithoutPosition) {
-    // New nodes need positioning - lock existing nodes
-    cy.nodes().forEach(node => {
-      if (savedPositions[node.id()]) {
-        node.lock()
-      }
-    })
-    cy.layout({ ...getLayoutOptions(), fit: false }).run()
-    cy.nodes().unlock()
+  } else if (allNodesNeedingRelax.length > 0) {
+    // New nodes or external nodes need positioning - auto-relax them
+    // This equilibrates the graph locally without disturbing the rest
     setTimeout(() => {
-      cy.viewport({ zoom: savedZoom, pan: savedPan })
-      saveNodePositions()
-    }, 600)
+      autoRelaxNewNodes(allNodesNeedingRelax)
+    }, 100)
   } else {
-    // Edge changes only OR new nodes with positions - no layout needed
+    // Edge changes only OR data updates - no layout needed
     requestAnimationFrame(() => {
       cy.viewport({ zoom: savedZoom, pan: savedPan })
       saveNodePositions()
@@ -2000,8 +2007,6 @@ async function updateGraph() {
 }
 
 function setLayout(mode) {
-  if (layoutMode.value === mode) return
-
   // Stop relax and fit when switching layouts
   if (relaxLocked.value) {
     relaxLocked.value = false
@@ -2147,6 +2152,58 @@ function localRelax(nodeId) {
     cy.pan(pan)
     saveNodePositions()
   }, 300)
+}
+
+// Auto-relax for newly added nodes - runs brief continuous relax
+function autoRelaxNewNodes(newNodeIds) {
+  if (!cy || newNodeIds.length === 0) return
+
+  // Clear any pending auto-relax
+  if (autoRelaxTimer) {
+    clearTimeout(autoRelaxTimer)
+    autoRelaxTimer = null
+  }
+
+  // Skip if continuous relax is already running
+  if (relaxLocked.value) return
+
+  // Get the new nodes and their neighborhoods
+  const newNodes = newNodeIds.map(id => cy.getElementById(String(id))).filter(n => n.length > 0)
+  if (newNodes.length === 0) return
+
+  // Get the combined neighborhood of all new nodes
+  let neighborhood = cy.collection()
+  newNodes.forEach(node => {
+    neighborhood = neighborhood.union(node.neighborhood().add(node))
+  })
+
+  // Lock nodes outside the neighborhood
+  cy.nodes().not(neighborhood).lock()
+
+  // Save viewport
+  const savedZoom = cy.zoom()
+  const savedPan = { ...cy.pan() }
+
+  // Run cola layout on neighborhood for auto-equilibration
+  const layout = neighborhood.layout({
+    name: 'cola',
+    animate: true,
+    fit: false,
+    randomize: false,
+    nodeSpacing: 40,
+    edgeLength: radialSettings.edgeLength || 80,
+    maxSimulationTime: 1000,
+    ungrabifyWhileSimulating: false
+  })
+
+  layout.on('layoutstop', () => {
+    cy.nodes().unlock()
+    cy.zoom(savedZoom)
+    cy.pan(savedPan)
+    saveNodePositions()
+  })
+
+  layout.run()
 }
 
 // Continuous simulation layout

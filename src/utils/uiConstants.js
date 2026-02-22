@@ -1,36 +1,15 @@
 /**
  * UI Constants - Centralized magic numbers for the application.
- * Helps maintain consistency and makes changes easier.
  */
 
 // Layout dimensions
 export const SIDEBAR_WIDTH = 280
-export const DETAIL_PANEL_WIDTH = 400
-export const DETAIL_PANEL_MIN_WIDTH = 300
-export const DETAIL_PANEL_MAX_WIDTH = 800
 
 // Timing (milliseconds)
-export const HOVER_DELAY_MS = 150
-export const DEBOUNCE_DELAY_MS = 50
-export const DETAIL_OPEN_DELAY_MS = 300
-export const TRANSITION_DURATION_MS = 200
 export const SIDEBAR_HIDE_DELAY_MS = 150
 
 // Limits
 export const MAX_HISTORY_SIZE = 50
-export const MAX_UNDO_STACK_SIZE = 50
-export const MAX_RECENT_ITEMS = 10
-export const MAX_SEARCH_RESULTS = 100
-
-// Graph settings
-export const DEFAULT_GRAPH_DETAIL_THRESHOLD = 30
-export const DEFAULT_GRAPH_MAX_DEPTH = 0  // 0 = unlimited
-export const DEFAULT_GRAPH_ROOT_MAX_DEPTH = 1
-
-// Card grid
-export const CARD_MIN_WIDTH = 200
-export const CARD_MAX_WIDTH = 400
-export const CARD_GAP = 16
 
 // Radial layout defaults
 export const RADIAL_DEFAULTS = {

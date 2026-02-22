@@ -23,14 +23,6 @@ export function handleNodeHover(node, callbacks) {
 }
 
 /**
- * Handle mouse leaving a node
- * @param {Object} callbacks - { onLeave }
- */
-export function handleNodeLeave(callbacks) {
-  callbacks.onLeave?.()
-}
-
-/**
  * Handle click on a node
  * @param {Event} e - Mouse event
  * @param {Object} node - The clicked node
