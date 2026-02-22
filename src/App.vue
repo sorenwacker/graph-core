@@ -861,9 +861,7 @@ async function handleReorder({ nodeId, targetId, position }) {
       }))
     }
 
-    await loadChildren(currentContainerId.value, { silent: true })
-    await loadSidebarTree()
-    loadRecentItems()
+    await refreshAfterChange()
   } catch (e) {
     error.value = e.message
   }
@@ -945,18 +943,19 @@ function onChildUpdated() {
   loadSidebarTree()
 }
 
+// Consolidated refresh after data changes
+async function refreshAfterChange({ silent = true, sidebar = true, recent = true } = {}) {
+  await loadChildren(currentContainerId.value, { silent })
+  if (sidebar) await loadSidebarTree()
+  if (recent) loadRecentItems()
+}
+
 // Single place for graph refresh after structure changes (links or parent-child)
-// Set reloadData=true for parent-child changes that affect tree structure
 async function refreshGraphAfterStructureChange(reloadData = false) {
   if (reloadData) {
-    // Load new tree structure without showing loading state (prevents graph remount)
     await loadChildren(currentContainerId.value, { silent: true })
-    // Wait for Vue reactivity and graph update to settle
     await nextTick()
-    // Don't auto-relax - preserve node positions, user can manually relax if needed
   } else if (graphViewRef.value?.updateGraph) {
-    // Just refresh the graph (links don't change tree structure)
-    // No relax needed - preserves current view
     await graphViewRef.value.updateGraph()
   }
 }
@@ -965,10 +964,7 @@ async function moveNode({ nodeId, oldParentId, newParentId }) {
   const success = await nodeOps.moveNode({ nodeId, oldParentId, newParentId })
   if (success) {
     if (newParentId) expandedIds.value.add(newParentId)
-    // Use same refresh as links (reloadData=true for parent-child changes)
-    await refreshGraphAfterStructureChange(true)
-    await loadSidebarTree()
-    loadRecentItems()
+    await refreshAfterChange()
   }
 }
 
@@ -1017,11 +1013,7 @@ async function moveMultipleNodes({ nodeIds, newParentId }) {
   const success = await nodeOps.moveMultipleNodes({ nodeIds, newParentId })
   if (success) {
     if (newParentId) expandedIds.value.add(newParentId)
-    // Use same refresh as single moves
-    await refreshGraphAfterStructureChange(true)
-    await loadSidebarTree()
-    loadRecentItems()
-    // Clear multi-selection after move
+    await refreshAfterChange()
     selectedIds.value.clear()
   }
 }
@@ -1053,10 +1045,7 @@ async function insertBetween({ parentId, childId, title, type, isLink }) {
       expandedIds.value.add(parentId)
       expandedIds.value.add(newNode.id)
     }
-    // Use same refresh for both link and parent-child structure changes
-    await refreshGraphAfterStructureChange(true)
-    await loadSidebarTree()
-    loadRecentItems()
+    await refreshAfterChange()
   } catch (e) {
     error.value = e.message
   }
@@ -1071,9 +1060,7 @@ async function createNodeAtPosition({ title, type, x, y }) {
       x,
       y
     })
-    await loadChildren(currentContainerId.value, { silent: true })
-    await loadSidebarTree()
-    loadRecentItems()
+    await refreshAfterChange()
     selectNode(newNode)
   } catch (e) {
     error.value = e.message
@@ -1183,10 +1170,7 @@ async function wrapWithParent({ nodeId, parentTitle }) {
 
     // Move current node under new parent
     await api.moveNode(nodeId, newParent.id)
-
-    await loadChildren(currentContainerId.value, { silent: true })
-    await loadSidebarTree()
-    loadRecentItems()
+    await refreshAfterChange()
 
     // Refresh selected node if it was the wrapped node
     if (selectedNode.value?.id === nodeId) {
@@ -1202,11 +1186,7 @@ async function wrapWithParent({ nodeId, parentTitle }) {
 
 async function moveNodeToRoot(nodeId) {
   const success = await nodeOps.moveNodeToRoot(nodeId)
-  if (success) {
-    await loadChildren(currentContainerId.value, { silent: true })
-    await loadSidebarTree()
-    loadRecentItems()
-  }
+  if (success) await refreshAfterChange()
 }
 
 async function toggleComplete(node) {
