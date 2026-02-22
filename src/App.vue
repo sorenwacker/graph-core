@@ -924,7 +924,7 @@ async function addChildNode({ parentId, title, type, x, y }) {
   try {
     await createNodeCore({ title, type, parentId, x, y })
     expandedIds.value.add(parentId)
-    await loadChildren(currentContainerId.value, { silent: true })
+    await refreshAfterChange({ sidebar: false, recent: false })
   } catch (e) {
     error.value = e.message
   }
@@ -1316,11 +1316,6 @@ function addChildToCard(parentId, e) {
 
 function toggleCompletedVisibility() {
   hideCompleted.value = !hideCompleted.value
-}
-
-// Check if a node has sensitive content
-function isSensitiveNode(node) {
-  return !!node.notes_sensitive
 }
 
 let resizeObserver = null
