@@ -154,10 +154,6 @@ async function selectTag(tag) {
   }
 }
 
-function toggleSidebarPin() {
-  sidebarPinned.value = !sidebarPinned.value
-}
-
 // Detail panel resize - managed by useDetailResize composable
 const {
   detailWidth,
@@ -1322,7 +1318,7 @@ onUnmounted(() => {
       :favorite-items="favoriteItems"
       :all-tags="allTags"
       :expanded-ids="sidebarExpandedIds"
-      @toggle-pin="toggleSidebarPin"
+      @toggle-pin="sidebarPinned = !sidebarPinned"
       @enter="enterContainer"
       @context-menu="(e, node) => showContextMenu(e, node)"
       @toggle-expand="toggleSidebarExpand"
