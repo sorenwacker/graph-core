@@ -61,7 +61,17 @@ function getCardDropClass(node) {
 }
 
 function handleCardClick(e, node) {
-  if (e.metaKey || e.ctrlKey) {
+  const hasCmd = e.metaKey || e.ctrlKey
+  const hasAlt = e.altKey
+
+  if (hasCmd && hasAlt) {
+    // Cmd/Ctrl+Alt+click: delete node
+    emit('delete', node.id)
+  } else if (hasCmd) {
+    // Cmd/Ctrl+click: add child node
+    emit('add-child', node.id, e)
+  } else if (e.shiftKey) {
+    // Shift+click: multi-select
     emit('select-multiple', node)
   } else {
     emit('select', node)
@@ -71,6 +81,11 @@ function handleCardClick(e, node) {
 function handleChildCardClick(e, child) {
   e.stopPropagation()
   handleCardClick(e, child)
+}
+
+function handleGrandchildClick(e, grandchild) {
+  e.stopPropagation()
+  handleCardClick(e, grandchild)
 }
 
 function getImportanceLabel(importance) {
@@ -295,7 +310,7 @@ const filteredNodes = computed(() => {
               :key="grandchild.id"
               class="grandchild-item"
               :class="[grandchild.type, { selected: isCardSelected(grandchild.id), completed: grandchild.completed }]"
-              @click.stop="emit('select', grandchild)"
+              @click.stop="handleGrandchildClick($event, grandchild)"
               @dblclick.stop="emit('enter', grandchild)"
               @contextmenu.prevent="emit('context-menu', $event, grandchild)"
             >
