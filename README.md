@@ -92,8 +92,3 @@ Fix: Pin to older versions in package.json:
 - `electron-builder`: 25.1.8
 - `@electron/rebuild`: 3.6.2
 
-### Window drag region fix (2026-01-19)
-
-In Electron with `titleBarStyle: 'hiddenInset'`, elements with `-webkit-app-region: drag` create native drag zones that don't respect CSS z-index. Fixed-position overlays (like the sidebar) cannot intercept clicks in these areas.
-
-Solution: Use a `::before` pseudo-element with `z-index: -1` for drag regions, keeping interactive elements above.
