@@ -4,6 +4,7 @@ import MarkdownRenderer from './MarkdownRenderer.vue'
 import MentionDropdown from './MentionDropdown.vue'
 import TagInput from './TagInput.vue'
 import NotesEditor from './NotesEditor.vue'
+import NotesAIToolbar from './NotesAIToolbar.vue'
 import { api } from '../services/api'
 import { nodeTypes, getTypeIcon, personIconSvg } from '../utils/constants.js'
 import { useMentions } from '../composables/useMentions.js'
@@ -21,7 +22,8 @@ const props = defineProps({
 const emit = defineEmits([
   'update', 'delete', 'close', 'wrap-with-parent', 'move-to-root',
   'select-child', 'resize-start', 'resize', 'toggle-fullscreen',
-  'open-link-search', 'toggle-pin', 'add-child', 'child-updated', 'detach'
+  'open-link-search', 'toggle-pin', 'add-child', 'child-updated', 'detach',
+  'ai-improve-notes'
 ])
 
 // Check if running in Electron (for detach button visibility)
@@ -112,6 +114,10 @@ function onMentionSelect(index) {
     (newVal) => { editedNode.value.notes = newVal },
     props.node?.id
   )
+}
+
+function onAIImproveNotes(payload) {
+  emit('ai-improve-notes', payload)
 }
 
 // Handle Escape key to close
@@ -918,10 +924,17 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
             <div class="form-field full-width notes-field">
               <div class="notes-header">
                 <label>Notes</label>
-                <div class="tab-buttons">
-                  <button :class="{ active: activeTab === 'edit' }" @click="activeTab = 'edit'">Edit</button>
-                  <button :class="{ active: activeTab === 'preview' }" @click="activeTab = 'preview'">Preview</button>
-                  <button :class="{ active: activeTab === 'split' }" @click="activeTab = 'split'">Split</button>
+                <div class="notes-header-actions">
+                  <NotesAIToolbar
+                    :notes="editedNode.notes"
+                    :node-id="editedNode.id"
+                    @apply-improvement="onAIImproveNotes"
+                  />
+                  <div class="tab-buttons">
+                    <button :class="{ active: activeTab === 'edit' }" @click="activeTab = 'edit'">Edit</button>
+                    <button :class="{ active: activeTab === 'preview' }" @click="activeTab = 'preview'">Preview</button>
+                    <button :class="{ active: activeTab === 'split' }" @click="activeTab = 'split'">Split</button>
+                  </div>
                 </div>
               </div>
               <NotesEditor
@@ -1077,10 +1090,17 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
           <div class="form-field full-width notes-field">
             <div class="notes-header">
               <label>Notes</label>
-              <div class="tab-buttons">
-                <button :class="{ active: activeTab === 'edit' }" @click="activeTab = 'edit'">Edit</button>
-                <button :class="{ active: activeTab === 'preview' }" @click="activeTab = 'preview'">Preview</button>
-                <button :class="{ active: activeTab === 'split' }" @click="activeTab = 'split'">Split</button>
+              <div class="notes-header-actions">
+                <NotesAIToolbar
+                  :notes="editedNode.notes"
+                  :node-id="editedNode.id"
+                  @apply-improvement="onAIImproveNotes"
+                />
+                <div class="tab-buttons">
+                  <button :class="{ active: activeTab === 'edit' }" @click="activeTab = 'edit'">Edit</button>
+                  <button :class="{ active: activeTab === 'preview' }" @click="activeTab = 'preview'">Preview</button>
+                  <button :class="{ active: activeTab === 'split' }" @click="activeTab = 'split'">Split</button>
+                </div>
               </div>
             </div>
             <NotesEditor
@@ -1176,6 +1196,11 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
           </div>
           <div v-show="!notesCollapsed" class="section-content">
             <div class="tabs-row">
+              <NotesAIToolbar
+                :notes="editedNode.notes"
+                :node-id="editedNode.id"
+                @apply-improvement="onAIImproveNotes"
+              />
               <div class="tabs">
                 <button :class="{ active: activeTab === 'edit' }" @click="activeTab = 'edit'">Edit</button>
                 <button :class="{ active: activeTab === 'preview' }" @click="activeTab = 'preview'">Preview</button>
@@ -1774,6 +1799,12 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
 .tabs {
   display: flex;
   gap: 4px;
+}
+
+.notes-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .sensitive-btn {

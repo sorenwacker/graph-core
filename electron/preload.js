@@ -71,5 +71,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Detached Windows
   openDetachedWindow: (nodeId, nodeTitle) => ipcRenderer.invoke('window:openDetached', nodeId, nodeTitle),
-  closeDetachedWindow: (nodeId) => ipcRenderer.invoke('window:closeDetached', nodeId)
+  closeDetachedWindow: (nodeId) => ipcRenderer.invoke('window:closeDetached', nodeId),
+
+  // Ollama LLM
+  ollamaGenerate: (options) => ipcRenderer.invoke('ollama:generate', options),
+  ollamaTestConnection: (endpoint) => ipcRenderer.invoke('ollama:testConnection', endpoint),
+  ollamaListModels: (endpoint) => ipcRenderer.invoke('ollama:listModels', endpoint)
 })

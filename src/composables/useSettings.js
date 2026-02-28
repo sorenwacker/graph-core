@@ -5,7 +5,7 @@ import { ref, watch } from 'vue'
  * @param {string} key - localStorage key
  * @param {*} defaultValue - Default value if not in storage
  * @param {Object} options - Options for parsing and serialization
- * @param {string} options.type - 'string' | 'boolean' | 'number' | 'nullable'
+ * @param {string} options.type - 'string' | 'boolean' | 'number' | 'nullable' | 'json'
  * @returns {Ref} Vue ref with auto-persistence
  */
 function persistedRef(key, defaultValue, { type = 'string' } = {}) {
@@ -21,6 +21,12 @@ function persistedRef(key, defaultValue, { type = 'string' } = {}) {
       }
       case 'nullable':
         return stored || null
+      case 'json':
+        try {
+          return JSON.parse(stored)
+        } catch {
+          return defaultValue
+        }
       default:
         return stored
     }
@@ -35,10 +41,12 @@ function persistedRef(key, defaultValue, { type = 'string' } = {}) {
     if (typeof localStorage === 'undefined') return
     if (val === null && type === 'nullable') {
       localStorage.removeItem(key)
+    } else if (type === 'json') {
+      localStorage.setItem(key, JSON.stringify(val))
     } else {
       localStorage.setItem(key, String(val))
     }
-  })
+  }, { deep: true })
 
   return value
 }
@@ -74,6 +82,13 @@ export function useSettings() {
     sidebarPinned: persistedRef('graphcore-sidebarPinned', false, { type: 'boolean' }),
 
     // Workspace
-    workspace: persistedRef('graphcore-workspace', 'work')
+    workspace: persistedRef('graphcore-workspace', 'work'),
+
+    // Ollama LLM settings
+    ollamaEnabled: persistedRef('graphcore-ollamaEnabled', true, { type: 'boolean' }),
+    ollamaEndpoint: persistedRef('graphcore-ollamaEndpoint', 'http://localhost:11434'),
+    ollamaModel: persistedRef('graphcore-ollamaModel', 'llama3.2'),
+    ollamaContextSize: persistedRef('graphcore-ollamaContextSize', 32768, { type: 'number' }),
+    ollamaCustomPrompts: persistedRef('graphcore-ollamaCustomPrompts', [], { type: 'json' })
   }
 }
