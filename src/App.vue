@@ -25,7 +25,8 @@ import {
   CreateCommand,
   LinkCommand,
   UnlinkCommand,
-  ReorderCommand
+  ReorderCommand,
+  OllamaImproveNotesCommand
 } from './commands/index.js'
 import { MAX_HISTORY_SIZE, SIDEBAR_HIDE_DELAY_MS } from './utils/uiConstants.js'
 import DetailPanel from './components/DetailPanel.vue'
@@ -66,7 +67,11 @@ const {
   graphRootMaxDepth,
   openDetailFullscreen,
   hoverPreviewEnabled,
-  sidebarPinned
+  sidebarPinned,
+  ollamaEnabled,
+  ollamaEndpoint,
+  ollamaModel,
+  ollamaContextSize
 } = useSettings()
 
 const loading = ref(true)
@@ -991,6 +996,22 @@ async function handleDetach(node) {
   await openDetachedWindow(node.id, node.title)
 }
 
+// Handle AI improve notes event from DetailPanel
+async function handleAIImproveNotes(payload) {
+  const { nodeId, oldNotes, newNotes, prompt } = payload
+  const command = new OllamaImproveNotesCommand({
+    nodeId,
+    oldNotes,
+    newNotes,
+    prompt
+  })
+  await pushCommand(command)
+  // Update selected node to show new notes immediately
+  if (selectedNode.value && selectedNode.value.id === nodeId) {
+    selectedNode.value = { ...selectedNode.value, notes: newNotes }
+  }
+}
+
 // Common cleanup after delete operations
 function clearSelectionAfterDelete() {
   showDetail.value = false
@@ -1345,6 +1366,10 @@ onUnmounted(() => {
             v-model:graph-root-max-depth="graphRootMaxDepth"
             v-model:open-detail-fullscreen="openDetailFullscreen"
             v-model:hover-preview-enabled="hoverPreviewEnabled"
+            v-model:ollama-enabled="ollamaEnabled"
+            v-model:ollama-endpoint="ollamaEndpoint"
+            v-model:ollama-model="ollamaModel"
+            v-model:ollama-context-size="ollamaContextSize"
             :hide-completed="hideCompleted"
             :can-undo="undoStack.length > 0"
             :can-redo="redoStack.length > 0"
@@ -1599,6 +1624,7 @@ onUnmounted(() => {
           @add-child="addChildFromDetail"
           @child-updated="onChildUpdated"
           @detach="handleDetach"
+          @ai-improve-notes="handleAIImproveNotes"
         />
         </Transition>
       </div>

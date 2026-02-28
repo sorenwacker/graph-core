@@ -9,7 +9,7 @@ A hierarchical node management application built with Vue 3, Vite, and Electron.
 
 ## Features
 
-- **Multiple Views**: Switch between tree/table view, card view, and graph visualization
+- **Multiple Views**: Tree, Cards, Graph, Table, Timeline, Calendar, Tasks, and Persons views
 - **Node Types**: Tasks, notes, topics, events, contacts, and more with distinct colors
 - **Hierarchical Organization**: Nest nodes within nodes for structured data
 - **Detachable Windows**: Open nodes in separate windows for focused editing
@@ -17,6 +17,31 @@ A hierarchical node management application built with Vue 3, Vite, and Electron.
 - **Search**: Spotlight-style search (Cmd+K) for quick navigation
 - **Favorites & Recents**: Quick access to frequently used nodes
 - **Keyboard Shortcuts**: Efficient navigation and editing
+- **AI Notes**: Local LLM integration via Ollama for improving, summarizing, and transforming notes
+
+## AI Notes (Ollama)
+
+The app integrates with [Ollama](https://ollama.ai) for local AI-powered note improvements.
+
+### Setup
+
+1. Install Ollama: https://ollama.ai/download
+2. Pull a model: `ollama pull llama3.2`
+3. Start Ollama: `ollama serve`
+4. Enable AI in Settings and test the connection
+
+### Features
+
+- **Preset Actions**: Improve, Summarize, Expand, Fix Grammar, Simplify, Bullet Points, Action Items, Continue
+- **Custom Prompts**: Create your own prompts in Settings
+- **Preview & Diff**: Review changes before applying
+- **Undo Support**: All AI changes can be undone
+
+### Settings
+
+- **Endpoint**: Ollama server URL (default: `http://localhost:11434`)
+- **Model**: Any Ollama model (default: `llama3.2`)
+- **Context Size**: Token limit for processing (4K-128K, default: 32K)
 
 ## Development
 

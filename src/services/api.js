@@ -269,6 +269,63 @@ const webApi = {
   async listBackups() { return [] },
   async restoreBackup() { return { error: 'Restore only available in desktop app' } },
   async reload() { return { error: 'Reload only available in desktop app' } },
+
+  // Ollama LLM - uses direct fetch in web mode
+  async ollamaGenerate({ prompt, content, model, endpoint, contextSize }) {
+    const fullPrompt = `${prompt}\n\n---\n\n${content}`
+    const response = await fetch(`${endpoint}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        prompt: fullPrompt,
+        stream: false,
+        options: {
+          num_ctx: contextSize || 32768
+        }
+      })
+    })
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        const data = await response.json().catch(() => ({}))
+        if (data.error?.includes('not found')) {
+          throw new Error(`Model not available. Run: ollama pull ${model}`)
+        }
+      }
+      throw new Error(`Ollama API error: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    return data.response
+  },
+
+  async ollamaTestConnection(endpoint) {
+    try {
+      const response = await fetch(`${endpoint}/api/tags`)
+      if (!response.ok) {
+        return {
+          success: false,
+          error: `Ollama API error: ${response.status} ${response.statusText}`
+        }
+      }
+      return { success: true }
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Ollama is not running. Start with: ollama serve'
+      }
+    }
+  },
+
+  async ollamaListModels(endpoint) {
+    const response = await fetch(`${endpoint}/api/tags`)
+    if (!response.ok) {
+      throw new Error(`Ollama API error: ${response.status} ${response.statusText}`)
+    }
+    const data = await response.json()
+    return (data.models || []).map(m => m.name)
+  },
 }
 
 // Electron API implementation (uses IPC)
@@ -336,6 +393,11 @@ const electronApi = {
   listBackups: () => window.electronAPI.listBackups(),
   restoreBackup: (backupPath) => window.electronAPI.restoreBackup(backupPath),
   reload: () => window.electronAPI.reload(),
+
+  // Ollama LLM
+  ollamaGenerate: (options) => window.electronAPI.ollamaGenerate(options),
+  ollamaTestConnection: (endpoint) => window.electronAPI.ollamaTestConnection(endpoint),
+  ollamaListModels: (endpoint) => window.electronAPI.ollamaListModels(endpoint),
 }
 
 // Export the appropriate API based on environment

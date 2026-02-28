@@ -7,6 +7,7 @@ import { CompleteCommand } from './CompleteCommand.js'
 import { LinkCommand } from './LinkCommand.js'
 import { UnlinkCommand } from './UnlinkCommand.js'
 import { ReorderCommand } from './ReorderCommand.js'
+import { OllamaImproveNotesCommand } from './OllamaImproveNotesCommand.js'
 
 /**
  * Registry of command types to their constructors.
@@ -20,7 +21,8 @@ const commandRegistry = {
   complete: CompleteCommand,
   link: LinkCommand,
   unlink: UnlinkCommand,
-  reorder: ReorderCommand
+  reorder: ReorderCommand,
+  'ollama-improve-notes': OllamaImproveNotesCommand
 }
 
 /**

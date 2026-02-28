@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, session, shell, net } = require('electron')
 const path = require('path')
 const Database = require('./database')
 
@@ -257,4 +257,108 @@ ipcMain.handle('window:closeDetached', (event, nodeId) => {
     return { success: true }
   }
   return { success: false }
+})
+
+// =========================================
+// OLLAMA LLM INTEGRATION
+// =========================================
+
+/**
+ * Make HTTP request to Ollama API
+ */
+async function ollamaRequest(endpoint, path, options = {}) {
+  const url = `${endpoint}${path}`
+
+  return new Promise((resolve, reject) => {
+    const request = net.request({
+      method: options.method || 'GET',
+      url
+    })
+
+    if (options.body) {
+      request.setHeader('Content-Type', 'application/json')
+    }
+
+    let responseData = ''
+
+    request.on('response', (response) => {
+      response.on('data', (chunk) => {
+        responseData += chunk.toString()
+      })
+
+      response.on('end', () => {
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          try {
+            resolve(JSON.parse(responseData))
+          } catch {
+            resolve(responseData)
+          }
+        } else {
+          const error = new Error(`Ollama API error: ${response.statusCode}`)
+          error.statusCode = response.statusCode
+          try {
+            error.data = JSON.parse(responseData)
+          } catch {
+            error.data = responseData
+          }
+          reject(error)
+        }
+      })
+    })
+
+    request.on('error', (error) => {
+      if (error.code === 'ECONNREFUSED') {
+        reject(new Error('Ollama is not running. Start with: ollama serve'))
+      } else {
+        reject(error)
+      }
+    })
+
+    if (options.body) {
+      request.write(JSON.stringify(options.body))
+    }
+
+    request.end()
+  })
+}
+
+ipcMain.handle('ollama:generate', async (event, { prompt, content, model, endpoint, contextSize }) => {
+  const fullPrompt = `${prompt}\n\n---\n\n${content}`
+
+  try {
+    const response = await ollamaRequest(endpoint, '/api/generate', {
+      method: 'POST',
+      body: {
+        model,
+        prompt: fullPrompt,
+        stream: false,
+        options: {
+          num_ctx: contextSize || 32768
+        }
+      }
+    })
+    return response.response
+  } catch (error) {
+    if (error.statusCode === 404 && error.data?.error?.includes('not found')) {
+      throw new Error(`Model not available. Run: ollama pull ${model}`)
+    }
+    throw error
+  }
+})
+
+ipcMain.handle('ollama:testConnection', async (event, endpoint) => {
+  try {
+    await ollamaRequest(endpoint, '/api/tags')
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+})
+
+ipcMain.handle('ollama:listModels', async (event, endpoint) => {
+  const response = await ollamaRequest(endpoint, '/api/tags')
+  return (response.models || []).map(m => m.name)
 })
