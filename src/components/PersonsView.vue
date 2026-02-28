@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { api } from '../services/api.js'
 import { personColors } from '../utils/constants.js'
 import NotesEditor from './NotesEditor.vue'
+import TagInput from './TagInput.vue'
 
 const props = defineProps({
   selectedId: Number,
@@ -282,6 +283,7 @@ async function savePerson() {
       website: editingPerson.value.website || '',
       notes: editingPerson.value.notes || '',
       color: editingPerson.value.color || '#0f4c75',
+      tags: editingPerson.value.tags || [],
       workspace_id: props.workspaceId
     }
 
@@ -625,6 +627,14 @@ function getOrganizationsForPerson(personId) {
                   @update:model-value="editingPerson.notes = $event"
                 />
               </div>
+            </div>
+
+            <div class="form-field full-width">
+              <label>Tags</label>
+              <TagInput
+                :tags="editingPerson.tags || []"
+                @update="editingPerson.tags = $event"
+              />
             </div>
           </div>
 
