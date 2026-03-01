@@ -229,9 +229,29 @@ function createMenu() {
       role: 'help',
       submenu: [
         {
+          label: 'GitHub Repository',
+          click: async () => {
+            await shell.openExternal('https://github.com/sorenwacker/graph-core')
+          }
+        },
+        {
           label: 'Documentation',
           click: async () => {
             await shell.openExternal('https://github.com/sorenwacker/graph-core#readme')
+          }
+        },
+        {
+          label: 'Keyboard Shortcuts',
+          accelerator: 'CmdOrCtrl+/',
+          click: () => {
+            mainWindow?.webContents.send('show-shortcuts')
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Release Notes',
+          click: async () => {
+            await shell.openExternal('https://github.com/sorenwacker/graph-core/releases')
           }
         },
         {
@@ -245,6 +265,12 @@ function createMenu() {
           label: 'Ollama Setup',
           click: async () => {
             await shell.openExternal('https://ollama.ai/download')
+          }
+        },
+        {
+          label: 'Ollama Models',
+          click: async () => {
+            await shell.openExternal('https://ollama.ai/library')
           }
         }
       ]
