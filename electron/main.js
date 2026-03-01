@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session, shell, net } = require('electron')
+const { app, BrowserWindow, ipcMain, session, shell, net, Menu } = require('electron')
 const path = require('path')
 const Database = require('./database')
 
@@ -142,12 +142,114 @@ function createDetachedWindow(nodeId, nodeTitle) {
   return { success: true, focused: false }
 }
 
+function createMenu() {
+  const isMac = process.platform === 'darwin'
+  const template = [
+    // App menu (macOS only)
+    ...(isMac ? [{
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        {
+          label: 'Settings...',
+          accelerator: 'CmdOrCtrl+,',
+          click: () => {
+            mainWindow?.webContents.send('open-settings')
+          }
+        },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    }] : []),
+    // Edit menu
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' }
+      ]
+    },
+    // View menu
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' }
+      ]
+    },
+    // Window menu
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        ...(isMac ? [
+          { type: 'separator' },
+          { role: 'front' },
+          { type: 'separator' },
+          { role: 'window' }
+        ] : [
+          { role: 'close' }
+        ])
+      ]
+    },
+    // Help menu
+    {
+      role: 'help',
+      submenu: [
+        {
+          label: 'Documentation',
+          click: async () => {
+            await shell.openExternal('https://github.com/sorenwacker/graph-core#readme')
+          }
+        },
+        {
+          label: 'Report Issue',
+          click: async () => {
+            await shell.openExternal('https://github.com/sorenwacker/graph-core/issues')
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Ollama Setup',
+          click: async () => {
+            await shell.openExternal('https://ollama.ai/download')
+          }
+        }
+      ]
+    }
+  ]
+
+  const menu = Menu.buildFromTemplate(template)
+  Menu.setApplicationMenu(menu)
+}
+
 app.whenReady().then(async () => {
   // Initialize database
   const dbPath = path.join(app.getPath('userData'), 'graph.db')
   db = new Database(dbPath)
   await db.ready // Wait for async initialization
 
+  createMenu()
   createWindow()
 
   app.on('activate', () => {
