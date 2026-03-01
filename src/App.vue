@@ -1294,6 +1294,13 @@ onMounted(async () => {
       await refreshAfterChange({ recent: false })
     }
   })
+
+  // Listen for menu events from Electron
+  if (window.electronAPI) {
+    window.electronAPI.onMenuUndo(() => undo())
+    window.electronAPI.onMenuRedo(() => redo())
+    window.electronAPI.onOpenSettings(() => { showSettings.value = true })
+  }
 })
 
 // Handle custom open-link-search event from GraphView context menu
