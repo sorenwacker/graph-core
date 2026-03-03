@@ -46,11 +46,7 @@ async function handleCustomPromptSubmit(prompt) {
 }
 
 async function generateImprovement(prompt, label) {
-  if (!props.notes?.trim()) {
-    return
-  }
-
-  originalContent.value = props.notes
+  originalContent.value = props.notes || ''
   usedPrompt.value = label
 
   const result = await improveNotes(props.notes, prompt)
@@ -85,8 +81,8 @@ function handleRejectImprovement() {
         class="ai-btn"
         :class="{ active: showDropdown, loading: isGenerating }"
         @click="toggleDropdown"
-        :disabled="isGenerating || !notes?.trim()"
-        :title="!notes?.trim() ? 'Add some notes first' : 'AI actions'"
+        :disabled="isGenerating"
+        title="AI actions"
       >
         <svg v-if="!isGenerating" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 2L2 7l10 5 10-5-10-5z"/>

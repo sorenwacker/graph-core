@@ -299,6 +299,7 @@ class Database {
       { table: 'nodes', column: 'tags', def: "TEXT DEFAULT '[]'" },
       { table: 'nodes', column: 'graph_layout', def: 'TEXT DEFAULT NULL' },
       { table: 'nodes', column: 'show_root_node', def: 'INTEGER DEFAULT NULL' },
+      { table: 'nodes', column: 'show_external_links', def: 'INTEGER DEFAULT NULL' },
       { table: 'nodes', column: 'workspace_id', def: 'TEXT DEFAULT NULL', onAdd: () => {
         this.backup('-pre-workspace-migration')
         console.log('Created backup before workspace migration')
@@ -626,7 +627,7 @@ class Database {
   createNode(data) {
     const fields = ['type', 'title', 'parent_id', 'notes', 'completed', 'color', 'sort_order',
       'importance', 'start_date', 'end_date', 'due_date', 'location', 'email', 'phone',
-      'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive', 'category_id', 'status_id', 'tags', 'workspace_id', 'graph_layout', 'show_root_node']
+      'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive', 'category_id', 'status_id', 'tags', 'workspace_id', 'graph_layout', 'show_root_node', 'show_external_links']
 
     const presentFields = fields.filter(f => data[f] !== undefined)
     const values = presentFields.map(f => {
@@ -661,7 +662,7 @@ class Database {
   updateNode(id, data) {
     const fields = ['type', 'title', 'parent_id', 'notes', 'completed', 'color', 'sort_order',
       'importance', 'start_date', 'end_date', 'due_date', 'location', 'email', 'phone',
-      'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive', 'category_id', 'status_id', 'tags', 'workspace_id', 'graph_layout', 'show_root_node']
+      'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive', 'category_id', 'status_id', 'tags', 'workspace_id', 'graph_layout', 'show_root_node', 'show_external_links']
 
     const updates = []
     const values = []
@@ -911,6 +912,11 @@ class Database {
     try {
       this._run(
         'INSERT INTO node_links (source_id, target_id) VALUES (?, ?)',
+        [sourceId, targetId]
+      )
+      // Touch both nodes so they appear in recent nodes
+      this._run(
+        'UPDATE nodes SET updated_at = CURRENT_TIMESTAMP WHERE id IN (?, ?)',
         [sourceId, targetId]
       )
       return { success: true }
