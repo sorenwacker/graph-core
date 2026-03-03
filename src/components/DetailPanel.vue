@@ -68,6 +68,9 @@ const titleInput = ref(null)
 // Panel resizing
 const isResizing = ref(false)
 
+// Notes autosave timeout
+let notesAutosaveTimeout = null
+
 // Mentions system
 const {
   showMentions,
@@ -94,6 +97,11 @@ function _onNotesInput(e) {
 
 function onCodeMirrorNotesUpdate(newValue) {
   editedNode.value.notes = newValue
+  // Debounced autosave after 500ms of inactivity
+  if (notesAutosaveTimeout) clearTimeout(notesAutosaveTimeout)
+  notesAutosaveTimeout = setTimeout(() => {
+    saveChanges()
+  }, 500)
 }
 
 function _onNotesKeydown(e) {
@@ -139,6 +147,11 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
+  // Clear autosave timeout
+  if (notesAutosaveTimeout) {
+    clearTimeout(notesAutosaveTimeout)
+    notesAutosaveTimeout = null
+  }
 })
 
 // Organization linking state (must be before watch that uses them)
@@ -559,6 +572,11 @@ function getInitials(name) {
 }
 
 function saveChanges() {
+  // Clear any pending autosave
+  if (notesAutosaveTimeout) {
+    clearTimeout(notesAutosaveTimeout)
+    notesAutosaveTimeout = null
+  }
   emit('update', editedNode.value)
 }
 

@@ -142,7 +142,7 @@ const {
   layoutMode: _layoutMode,
   relaxLocked,
   fitLocked,
-  showExternalLinks,
+  showExternalLinks: _showExternalLinks,
   showRootNode: _showRootNode,
   visibleTypes,
   radialSettings,
@@ -158,6 +158,13 @@ const showRootNode = ref(
   props.parent?.show_root_node !== null && props.parent?.show_root_node !== undefined
     ? Boolean(props.parent.show_root_node)
     : _showRootNode.value
+)
+
+// Use container's saved show_external_links if available (1/0/null), otherwise use global default
+const showExternalLinks = ref(
+  props.parent?.show_external_links !== null && props.parent?.show_external_links !== undefined
+    ? Boolean(props.parent.show_external_links)
+    : _showExternalLinks.value
 )
 
 // Local UI state (not persisted)
@@ -248,6 +255,16 @@ watch(showRootNode, (visible) => {
   }
 })
 
+// Sync showExternalLinks to composable and save to container
+watch(showExternalLinks, (visible) => {
+  // Sync to composable (which handles localStorage)
+  _showExternalLinks.value = visible
+  // Also save to container if inside one (fire and forget)
+  if (props.parent?.id) {
+    api.updateNode(props.parent.id, { show_external_links: visible ? 1 : 0 }).catch(() => {})
+  }
+})
+
 // Load container's settings when navigating to a different container
 watch(() => props.parent?.id, (newId, oldId) => {
   // Skip if this is the initial mount and we already initialized correctly
@@ -255,7 +272,10 @@ watch(() => props.parent?.id, (newId, oldId) => {
   const expectedShowRoot = props.parent?.show_root_node !== null && props.parent?.show_root_node !== undefined
     ? Boolean(props.parent.show_root_node)
     : _showRootNode.value
-  if (oldId === undefined && layoutMode.value === expectedLayout && showRootNode.value === expectedShowRoot) {
+  const expectedShowLinks = props.parent?.show_external_links !== null && props.parent?.show_external_links !== undefined
+    ? Boolean(props.parent.show_external_links)
+    : _showExternalLinks.value
+  if (oldId === undefined && layoutMode.value === expectedLayout && showRootNode.value === expectedShowRoot && showExternalLinks.value === expectedShowLinks) {
     lastKnownParentId = newId
     return
   }
@@ -270,6 +290,12 @@ watch(() => props.parent?.id, (newId, oldId) => {
       showRootNode.value = Boolean(props.parent.show_root_node)
     } else {
       showRootNode.value = _showRootNode.value
+    }
+    // Load the new container's show_external_links preference
+    if (props.parent?.show_external_links !== null && props.parent?.show_external_links !== undefined) {
+      showExternalLinks.value = Boolean(props.parent.show_external_links)
+    } else {
+      showExternalLinks.value = _showExternalLinks.value
     }
   }
 }, { immediate: true })
@@ -730,8 +756,10 @@ function buildElements(nodeList, parentNode, savedPositions = {}, detailThreshol
   const flat = flattenNodes(filteredList, [], false, maxDepth)
 
   // Include parent unless hidden by settings, completed when hiding completed, or type is filtered out
+  // Always include parent when there are no children (otherwise graph would be empty)
   const parentTypeVisible = !parentNode || visibleTypes.value.includes(parentNode.type)
-  const includeParent = parentNode && parentNode.id && showRootNode.value && parentTypeVisible && !(props.hideCompleted && parentNode.completed)
+  const hasNoChildren = flat.length === 0
+  const includeParent = parentNode && parentNode.id && (hasNoChildren || showRootNode.value) && parentTypeVisible && !(props.hideCompleted && parentNode.completed)
   const allNodes = (includeParent ? [{ ...parentNode, children: filteredList }, ...flat] : flat).filter(n => n && n.id)
   const totalNodes = allNodes.length
   const showDetails = totalNodes <= detailThreshold
