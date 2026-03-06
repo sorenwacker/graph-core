@@ -5,9 +5,11 @@ import MentionDropdown from './MentionDropdown.vue'
 import TagInput from './TagInput.vue'
 import NotesEditor from './NotesEditor.vue'
 import NotesAIToolbar from './NotesAIToolbar.vue'
+import NodeSpreadsheet from './NodeSpreadsheet.vue'
 import { api } from '../services/api'
 import { nodeTypes, getTypeIcon, personIconSvg } from '../utils/constants.js'
 import { useMentions } from '../composables/useMentions.js'
+import { useNodeTable } from '../composables/useNodeTable.js'
 
 const props = defineProps({
   node: Object,
@@ -49,8 +51,22 @@ const showSensitivePreview = ref(false)
 
 // Collapsible sections
 const notesCollapsed = ref(false)
+const tableCollapsed = ref(false)
 const childrenCollapsed = ref(false)
 const metadataCollapsed = ref(false)
+
+// Node table (spreadsheet) state
+const {
+  table: nodeTable,
+  cells: tableCells,
+  loading: tableLoading,
+  hasTable,
+  loadTable,
+  createTable,
+  updateTable,
+  deleteTable,
+  saveCell
+} = useNodeTable()
 
 // Expanded children and their grandchildren
 const expandedChildren = ref(new Set())
@@ -191,7 +207,7 @@ watch(() => props.node, async (newNode) => {
     showMemberDropdown.value = false
     linkedMembers.value = []
 
-    await Promise.all([loadChildren(), loadLinkedNodes()])
+    await Promise.all([loadChildren(), loadLinkedNodes(), loadTable(newNode.id)])
 
     // Load organizations for person nodes
     if (newNode.type === 'person') {
@@ -770,8 +786,30 @@ function onDragEnd() {
   dropPosition.value = null
 }
 
+// Table handlers
+async function handleCreateTable() {
+  if (!props.node?.id) return
+  await createTable(props.node.id, { name: 'Table' })
+  tableCollapsed.value = false
+}
+
+async function handleDeleteTable() {
+  if (!props.node?.id) return
+  await deleteTable(props.node.id)
+}
+
+async function handleCellChange({ row, col, value, isFormula }) {
+  if (!props.node?.id) return
+  await saveCell(props.node.id, row, col, value, isFormula)
+}
+
+async function handleTableStructureChange({ type, value }) {
+  if (!props.node?.id) return
+  await updateTable(props.node.id, { [type]: value })
+}
+
 // Expose methods for parent component
-defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLinkedNodes })
+defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLinkedNodes, saveChanges })
 </script>
 
 <template>
@@ -1278,6 +1316,25 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
               :selected-index="selectedMentionIndex"
               :position="mentionPosition"
               @select="onMentionSelect"
+            />
+          </div>
+        </div>
+
+        <!-- Table Section -->
+        <div class="table-section" :class="{ collapsed: tableCollapsed }">
+          <div class="section-header" @click="tableCollapsed = !tableCollapsed">
+            <span class="section-title">Table</span>
+            <span class="collapse-indicator">{{ tableCollapsed ? '+' : '-' }}</span>
+          </div>
+          <div v-show="!tableCollapsed" class="section-content">
+            <NodeSpreadsheet
+              :node-id="props.node?.id"
+              :table-data="nodeTable"
+              :cell-data="tableCells"
+              @create="handleCreateTable"
+              @delete="handleDeleteTable"
+              @cell-change="handleCellChange"
+              @structure-change="handleTableStructureChange"
             />
           </div>
         </div>
@@ -1797,6 +1854,25 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
 .notes-section.collapsed {
   flex: 0 0 auto;
   min-height: 0;
+}
+
+/* Table section */
+.table-section {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  padding: 8px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.table-section.collapsed {
+  flex: 0 0 auto;
+}
+
+.table-section .section-content {
+  padding-top: 4px;
 }
 
 .notes-section .section-content {

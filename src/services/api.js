@@ -270,6 +270,48 @@ const webApi = {
   async restoreBackup() { return { error: 'Restore only available in desktop app' } },
   async reload() { return { error: 'Reload only available in desktop app' } },
 
+  // Node Tables (Spreadsheet)
+  async getNodeTable(nodeId) {
+    return request(`/nodes/${nodeId}/table`)
+  },
+
+  async createNodeTable(nodeId, data = {}) {
+    return request(`/nodes/${nodeId}/table`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  async updateNodeTable(nodeId, data) {
+    return request(`/nodes/${nodeId}/table`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  },
+
+  async deleteNodeTable(nodeId) {
+    return request(`/nodes/${nodeId}/table`, {
+      method: 'DELETE',
+    })
+  },
+
+  async getTableCells(nodeId) {
+    return request(`/nodes/${nodeId}/table/cells`)
+  },
+
+  async setCells(nodeId, cells) {
+    return request(`/nodes/${nodeId}/table/cells`, {
+      method: 'POST',
+      body: JSON.stringify({ cells }),
+    })
+  },
+
+  async clearCells(nodeId) {
+    return request(`/nodes/${nodeId}/table/cells`, {
+      method: 'DELETE',
+    })
+  },
+
   // Ollama LLM - uses direct fetch in web mode
   async ollamaGenerate({ prompt, content, model, endpoint, contextSize }) {
     const fullPrompt = `${prompt}\n\n---\n\n${content}`
@@ -393,6 +435,15 @@ const electronApi = {
   listBackups: () => window.electronAPI.listBackups(),
   restoreBackup: (backupPath) => window.electronAPI.restoreBackup(backupPath),
   reload: () => window.electronAPI.reload(),
+
+  // Node Tables (Spreadsheet)
+  getNodeTable: (nodeId) => window.electronAPI.getNodeTable(nodeId),
+  createNodeTable: (nodeId, data) => window.electronAPI.createNodeTable(nodeId, data),
+  updateNodeTable: (nodeId, data) => window.electronAPI.updateNodeTable(nodeId, data),
+  deleteNodeTable: (nodeId) => window.electronAPI.deleteNodeTable(nodeId),
+  getTableCells: (nodeId) => window.electronAPI.getTableCells(nodeId),
+  setCells: (nodeId, cells) => window.electronAPI.setCells(nodeId, cells),
+  clearCells: (nodeId) => window.electronAPI.clearCells(nodeId),
 
   // Ollama LLM
   ollamaGenerate: (options) => window.electronAPI.ollamaGenerate(options),

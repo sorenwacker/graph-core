@@ -303,6 +303,13 @@ app.on('window-all-closed', () => {
   }
 })
 
+// Notify renderer to save before quitting
+app.on('before-quit', (event) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('app-before-quit')
+  }
+})
+
 // IPC Handlers - Node CRUD
 ipcMain.handle('db:getNodes', (event, params) => db.getNodes(params))
 ipcMain.handle('db:getNode', (event, id) => db.getNode(id))
@@ -370,6 +377,17 @@ ipcMain.handle('db:listBackups', () => db.listBackups())
 ipcMain.handle('db:restoreBackup', (event, backupPath) => db.restoreBackup(backupPath))
 ipcMain.handle('db:reload', () => db.reload())
 ipcMain.handle('db:repairWorkspaces', () => db.repairWorkspaces())
+
+// =========================================
+// NODE TABLES
+// =========================================
+ipcMain.handle('db:getNodeTable', (event, nodeId) => db.getNodeTable(nodeId))
+ipcMain.handle('db:createNodeTable', (event, nodeId, data) => db.createNodeTable(nodeId, data))
+ipcMain.handle('db:updateNodeTable', (event, nodeId, data) => db.updateNodeTable(nodeId, data))
+ipcMain.handle('db:deleteNodeTable', (event, nodeId) => db.deleteNodeTable(nodeId))
+ipcMain.handle('db:getTableCells', (event, nodeId) => db.getTableCells(nodeId))
+ipcMain.handle('db:setCells', (event, nodeId, cells) => db.setCells(nodeId, cells))
+ipcMain.handle('db:clearCells', (event, nodeId) => db.clearCells(nodeId))
 
 // =========================================
 // SHELL
