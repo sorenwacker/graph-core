@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onUnmounted, onMounted, shallowRef } from 'vue'
+import { ref, computed, onUnmounted, onMounted, shallowRef, watch, nextTick } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
 import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community'
 
@@ -16,15 +16,15 @@ const darkTheme = themeQuartz.withParams({
   rowHoverColor: '#1e2e3e',
   selectedRowBackgroundColor: '#2a3a4a',
   borderColor: '#3a3a4a',
-  cellHorizontalBorder: { style: 'solid', width: 1, color: '#3a3a4a' },
-  cellVerticalBorder: { style: 'solid', width: 1, color: '#3a3a4a' },
+  rowBorder: { style: 'solid', width: 1, color: '#3a3a4a' },
+  columnBorder: { style: 'solid', width: 1, color: '#3a3a4a' },
   headerColumnBorder: { style: 'solid', width: 1, color: '#3a3a4a' },
   headerRowBorder: { style: 'solid', width: 1, color: '#3a3a4a' },
   accentColor: '#4a8af4',
-  fontSize: 12,
-  headerFontSize: 12,
-  rowHeight: 28,
-  headerHeight: 32
+  fontSize: 11,
+  headerFontSize: 11,
+  rowHeight: 24,
+  headerHeight: 28
 })
 
 const props = defineProps({
@@ -43,7 +43,33 @@ let saveTimeout = null
 const isSelecting = ref(false)
 const selectionStart = ref(null)
 const selectionEnd = ref(null)
-const showColorPicker = ref(false)
+const dragStartPos = ref(null)
+const isDragging = ref(false)
+
+// Context menu state
+const showContextMenu = ref(false)
+const contextMenuPos = ref({ x: 0, y: 0 })
+
+// Column rename state
+const editingColumn = ref(null)
+const editingColumnName = ref('')
+const columnInputPos = ref({ x: 0, y: 0 })
+const columnInput = ref(null)
+
+// Column context menu state
+const showColumnMenu = ref(false)
+const columnMenuPos = ref({ x: 0, y: 0 })
+const columnMenuIndex = ref(null)
+
+// Auto-focus column input when editing starts
+watch(editingColumn, (newVal) => {
+  if (newVal !== null) {
+    nextTick(() => {
+      columnInput.value?.focus()
+      columnInput.value?.select()
+    })
+  }
+})
 
 // Colorblind-friendly palette (based on Wong's palette)
 const colorOptions = [
@@ -75,6 +101,40 @@ function getCellStyle(row, col) {
   } catch {
     return null
   }
+}
+
+// Check if any selected cell has a style property
+function selectionHasStyle(styleProp) {
+  const bounds = selectionBounds.value
+  if (!bounds) return false
+
+  for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
+    for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
+      const style = getCellStyle(r, c)
+      if (style?.[styleProp]) return true
+    }
+  }
+  return false
+}
+
+// Get common color of selected cells (or null if mixed)
+function getSelectionColor() {
+  const bounds = selectionBounds.value
+  if (!bounds) return null
+
+  let commonColor = undefined
+  for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
+    for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
+      const style = getCellStyle(r, c)
+      const color = style?.color || null
+      if (commonColor === undefined) {
+        commonColor = color
+      } else if (commonColor !== color) {
+        return null // Mixed colors
+      }
+    }
+  }
+  return commonColor
 }
 
 // AG Grid cellStyle callback
@@ -198,6 +258,9 @@ function handleMouseDown(event) {
   if (event.button !== 0) return
   if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return
 
+  // Close context menu on left click
+  showContextMenu.value = false
+
   const cell = getCellFromPoint(event.clientX, event.clientY)
   if (!cell) {
     // Clicked outside data cells, clear selection
@@ -205,18 +268,89 @@ function handleMouseDown(event) {
     return
   }
 
-  // Prevent AG Grid from handling this click
-  event.preventDefault()
-  event.stopPropagation()
-
+  // Record start position for potential drag detection
+  dragStartPos.value = { x: event.clientX, y: event.clientY }
+  isDragging.value = false
   isSelecting.value = true
   selectionStart.value = { ...cell }
   selectionEnd.value = { ...cell }
-  refreshCells()
+  // Don't call refreshCells() here - let AG Grid handle the click for editing
+}
+
+function handleContextMenu(event) {
+  // Check if right-clicking on a header
+  const headerCell = event.target.closest('.ag-header-cell')
+  if (headerCell) {
+    const colId = headerCell.getAttribute('col-id')
+    if (colId && colId !== '_rowIndex') {
+      const colIndex = columns.value.findIndex(c => c.name === colId)
+      if (colIndex !== -1) {
+        columnMenuIndex.value = colIndex
+        columnMenuPos.value = { x: event.clientX, y: event.clientY }
+        showColumnMenu.value = true
+        showContextMenu.value = false
+        return
+      }
+    }
+  }
+
+  // Check if in header row area (fallback)
+  const headerRow = event.target.closest('.ag-header-row')
+  if (headerRow) {
+    // Find column from x position
+    const headerCells = gridWrapper.value?.querySelectorAll('.ag-header-cell')
+    if (headerCells) {
+      for (const cell of headerCells) {
+        const rect = cell.getBoundingClientRect()
+        const colId = cell.getAttribute('col-id')
+        if (colId && colId !== '_rowIndex' &&
+            event.clientX >= rect.left && event.clientX <= rect.right) {
+          const colIndex = columns.value.findIndex(c => c.name === colId)
+          if (colIndex !== -1) {
+            columnMenuIndex.value = colIndex
+            columnMenuPos.value = { x: event.clientX, y: event.clientY }
+            showColumnMenu.value = true
+            showContextMenu.value = false
+            return
+          }
+        }
+      }
+    }
+  }
+
+  const cell = getCellFromPoint(event.clientX, event.clientY)
+  if (!cell) return
+
+  // If no selection or right-clicking outside current selection, select this cell
+  if (!selectionBounds.value || !isCellSelected(cell.row, cell.col)) {
+    selectionStart.value = { ...cell }
+    selectionEnd.value = { ...cell }
+    refreshCells()
+  }
+
+  contextMenuPos.value = { x: event.clientX, y: event.clientY }
+  showContextMenu.value = true
+  showColumnMenu.value = false
+}
+
+function closeContextMenu() {
+  showContextMenu.value = false
 }
 
 function handleMouseMove(event) {
   if (!isSelecting.value) return
+
+  // Check if we've moved enough to consider it a drag (5px threshold)
+  if (!isDragging.value && dragStartPos.value) {
+    const dx = Math.abs(event.clientX - dragStartPos.value.x)
+    const dy = Math.abs(event.clientY - dragStartPos.value.y)
+    if (dx > 5 || dy > 5) {
+      isDragging.value = true
+      refreshCells() // Show initial selection now that we're dragging
+    }
+  }
+
+  if (!isDragging.value) return
 
   const cell = getCellFromPoint(event.clientX, event.clientY)
   if (!cell) return
@@ -227,13 +361,29 @@ function handleMouseMove(event) {
   }
 }
 
-function handleMouseUp() {
+function handleMouseUp(event) {
+  // Don't clear selection if context menu is open
+  if (showContextMenu.value) {
+    isSelecting.value = false
+    isDragging.value = false
+    dragStartPos.value = null
+    return
+  }
+
+  // If we didn't drag, clear the selection so AG Grid can handle the click
+  if (!isDragging.value) {
+    selectionStart.value = null
+    selectionEnd.value = null
+  }
   isSelecting.value = false
+  isDragging.value = false
+  dragStartPos.value = null
 }
 
 function refreshCells() {
   if (gridApi.value) {
-    gridApi.value.refreshCells({ force: true })
+    // Force re-evaluation of cellClassRules
+    gridApi.value.redrawRows()
   }
 }
 
@@ -248,10 +398,12 @@ function toggleBold() {
   const bounds = selectionBounds.value
   if (!bounds) return
 
+  const hasBold = selectionHasStyle('bold')
+
   for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
     for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
       const currentStyle = getCellStyle(r, c) || {}
-      const newStyle = { ...currentStyle, bold: !currentStyle.bold }
+      const newStyle = { ...currentStyle, bold: !hasBold }
 
       emit('style-change', {
         row: r,
@@ -261,7 +413,7 @@ function toggleBold() {
     }
   }
 
-  // Refresh after a short delay to allow state to update
+  showContextMenu.value = false
   setTimeout(() => refreshCells(), 100)
 }
 
@@ -270,10 +422,12 @@ function toggleItalic() {
   const bounds = selectionBounds.value
   if (!bounds) return
 
+  const hasItalic = selectionHasStyle('italic')
+
   for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
     for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
       const currentStyle = getCellStyle(r, c) || {}
-      const newStyle = { ...currentStyle, italic: !currentStyle.italic }
+      const newStyle = { ...currentStyle, italic: !hasItalic }
 
       emit('style-change', {
         row: r,
@@ -283,6 +437,7 @@ function toggleItalic() {
     }
   }
 
+  showContextMenu.value = false
   setTimeout(() => refreshCells(), 100)
 }
 
@@ -304,7 +459,7 @@ function setColor(color) {
     }
   }
 
-  showColorPicker.value = false
+  showContextMenu.value = false
   setTimeout(() => refreshCells(), 100)
 }
 
@@ -332,6 +487,33 @@ async function copySelection() {
     await navigator.clipboard.writeText(text)
   } catch (err) {
     console.error('Copy failed:', err)
+  }
+}
+
+// Delete selected cells
+function deleteSelectedCells() {
+  const bounds = selectionBounds.value
+  if (!bounds) return
+
+  const cols = columns.value
+
+  for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
+    for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
+      emit('cell-change', {
+        row: r,
+        col: c,
+        value: '',
+        isFormula: false
+      })
+
+      // Update grid display
+      if (gridApi.value) {
+        const rowNode = gridApi.value.getRowNode(String(r))
+        if (rowNode && cols[c]) {
+          rowNode.setDataValue(cols[c].name, '')
+        }
+      }
+    }
   }
 }
 
@@ -426,6 +608,15 @@ function handleKeyDown(event) {
   if (event.key === 'Escape') {
     clearSelection()
   }
+
+  // Delete/Backspace - Clear selected cells
+  if (event.key === 'Delete' || event.key === 'Backspace') {
+    if (selectionBounds.value) {
+      event.preventDefault()
+      event.stopPropagation()
+      deleteSelectedCells()
+    }
+  }
 }
 
 function onCellValueChanged(params) {
@@ -502,10 +693,173 @@ function deleteTable() {
   }
 }
 
+function handleDocumentClick(event) {
+  // Close context menu when clicking outside
+  if (showContextMenu.value && !event.target.closest('.context-menu')) {
+    showContextMenu.value = false
+  }
+  // Close column menu when clicking outside
+  if (showColumnMenu.value && !event.target.closest('.column-menu')) {
+    closeColumnMenu()
+  }
+  // Close column rename input when clicking outside
+  if (editingColumn.value !== null && !event.target.closest('.column-rename-input')) {
+    cancelColumnRename()
+  }
+}
+
+function handleHeaderDoubleClick(event) {
+  const headerCell = event.target.closest('.ag-header-cell')
+  if (!headerCell) return
+
+  const colId = headerCell.getAttribute('col-id')
+  if (!colId || colId === '_rowIndex') return
+
+  const colIndex = columns.value.findIndex(c => c.name === colId)
+  if (colIndex === -1) return
+
+  event.preventDefault()
+  event.stopPropagation()
+
+  const rect = headerCell.getBoundingClientRect()
+  editingColumn.value = colIndex
+  editingColumnName.value = columns.value[colIndex].name
+  columnInputPos.value = { x: rect.left, y: rect.top, width: rect.width }
+}
+
+function saveColumnRename() {
+  if (editingColumn.value === null) return
+
+  const newName = editingColumnName.value.trim()
+  if (!newName) {
+    cancelColumnRename()
+    return
+  }
+
+  const currentCols = props.tableData?.column_definitions || []
+
+  // Check for duplicate names (excluding current column)
+  const isDuplicate = currentCols.some((col, idx) =>
+    idx !== editingColumn.value && col.name === newName
+  )
+
+  if (isDuplicate) {
+    // Append number to make unique
+    let uniqueName = newName
+    let counter = 2
+    while (currentCols.some((col, idx) => idx !== editingColumn.value && col.name === uniqueName)) {
+      uniqueName = `${newName}${counter}`
+      counter++
+    }
+    editingColumnName.value = uniqueName
+  }
+
+  const finalName = isDuplicate ? editingColumnName.value : newName
+
+  // Create plain objects to avoid Vue Proxy issues
+  const updatedCols = currentCols.map((col, idx) => ({
+    id: col.id,
+    name: idx === editingColumn.value ? finalName : col.name,
+    type: col.type || 'text',
+    width: col.width || 100
+  }))
+
+  emit('structure-change', { type: 'column_definitions', value: updatedCols })
+  editingColumn.value = null
+  editingColumnName.value = ''
+}
+
+function cancelColumnRename() {
+  editingColumn.value = null
+  editingColumnName.value = ''
+}
+
+function handleColumnInputKeydown(event) {
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    saveColumnRename()
+  } else if (event.key === 'Escape') {
+    event.preventDefault()
+    cancelColumnRename()
+  }
+}
+
+function handleHeaderContextMenu(event) {
+  const headerCell = event.target.closest('.ag-header-cell')
+  if (!headerCell) return
+
+  const colId = headerCell.getAttribute('col-id')
+  if (!colId || colId === '_rowIndex') return
+
+  const colIndex = columns.value.findIndex(c => c.name === colId)
+  if (colIndex === -1) return
+
+  event.preventDefault()
+  event.stopPropagation()
+
+  columnMenuIndex.value = colIndex
+  columnMenuPos.value = { x: event.clientX, y: event.clientY }
+  showColumnMenu.value = true
+  showContextMenu.value = false
+}
+
+function renameColumnFromMenu() {
+  if (columnMenuIndex.value === null) return
+
+  const headerCells = document.querySelectorAll('.ag-header-cell')
+  const colName = columns.value[columnMenuIndex.value].name
+
+  for (const cell of headerCells) {
+    if (cell.getAttribute('col-id') === colName) {
+      const rect = cell.getBoundingClientRect()
+      editingColumn.value = columnMenuIndex.value
+      editingColumnName.value = colName
+      columnInputPos.value = { x: rect.left, y: rect.top, width: rect.width }
+      break
+    }
+  }
+
+  showColumnMenu.value = false
+  columnMenuIndex.value = null
+}
+
+function deleteColumn() {
+  if (columnMenuIndex.value === null) return
+
+  const currentCols = props.tableData?.column_definitions || []
+  if (currentCols.length <= 1) {
+    // Don't delete the last column
+    showColumnMenu.value = false
+    columnMenuIndex.value = null
+    return
+  }
+
+  // Create plain objects to avoid Vue Proxy issues
+  const updatedCols = currentCols
+    .filter((_, idx) => idx !== columnMenuIndex.value)
+    .map(col => ({
+      id: col.id,
+      name: col.name,
+      type: col.type || 'text',
+      width: col.width || 100
+    }))
+
+  emit('structure-change', { type: 'column_definitions', value: updatedCols })
+
+  showColumnMenu.value = false
+  columnMenuIndex.value = null
+}
+
+function closeColumnMenu() {
+  showColumnMenu.value = false
+  columnMenuIndex.value = null
+}
+
 onMounted(() => {
   document.addEventListener('keydown', handleKeyDown, true)
   document.addEventListener('mousemove', handleMouseMove)
   document.addEventListener('mouseup', handleMouseUp)
+  document.addEventListener('click', handleDocumentClick)
 })
 
 onUnmounted(() => {
@@ -513,6 +867,7 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown, true)
   document.removeEventListener('mousemove', handleMouseMove)
   document.removeEventListener('mouseup', handleMouseUp)
+  document.removeEventListener('click', handleDocumentClick)
 })
 </script>
 
@@ -531,51 +886,10 @@ onUnmounted(() => {
             <span class="selection-info">
               {{ selectionBounds.maxRow - selectionBounds.minRow + 1 }}x{{ selectionBounds.maxCol - selectionBounds.minCol + 1 }}
             </span>
-            <button
-              class="toolbar-btn format-btn"
-              @click="toggleBold"
-              title="Bold (Cmd+B)"
-            >
-              <strong>B</strong>
-            </button>
-            <button
-              class="toolbar-btn format-btn"
-              @click="toggleItalic"
-              title="Italic (Cmd+I)"
-            >
-              <em>I</em>
-            </button>
-            <div class="color-picker-wrapper">
-              <button
-                class="toolbar-btn format-btn color-btn"
-                @click="showColorPicker = !showColorPicker"
-                title="Text Color"
-              >
-                A
-              </button>
-              <div v-if="showColorPicker" class="color-picker-dropdown">
-                <button
-                  v-for="color in colorOptions"
-                  :key="color.name"
-                  class="color-option"
-                  :style="{ backgroundColor: color.value || '#d0d0d0' }"
-                  :title="color.name"
-                  @click="setColor(color.value)"
-                />
-              </div>
-            </div>
-            <button
-              class="toolbar-btn"
-              @click="copySelection"
-              title="Copy (Cmd+C)"
-            >
+            <button class="toolbar-btn" @click="copySelection" title="Copy (Cmd+C)">
               Copy
             </button>
-            <button
-              class="toolbar-btn"
-              @click="pasteSelection"
-              title="Paste (Cmd+V)"
-            >
+            <button class="toolbar-btn" @click="pasteSelection" title="Paste (Cmd+V)">
               Paste
             </button>
           </template>
@@ -595,6 +909,8 @@ onUnmounted(() => {
         class="grid-wrapper"
         tabindex="0"
         @mousedown.capture="handleMouseDown"
+        @contextmenu.capture.prevent="handleContextMenu"
+        @dblclick="handleHeaderDoubleClick"
       >
         <AgGridVue
           :key="nodeId + '-' + columnDefs.length + '-' + rowData.length"
@@ -602,9 +918,9 @@ onUnmounted(() => {
           :columnDefs="columnDefs"
           :rowData="rowData"
           :defaultColDef="defaultColDef"
-                    domLayout="autoHeight"
+          domLayout="autoHeight"
           :stopEditingWhenCellsLoseFocus="true"
-          :singleClickEdit="false"
+          :singleClickEdit="true"
           :enterNavigatesVertically="true"
           :enterNavigatesVerticallyAfterEdit="true"
           :enableCellTextSelection="false"
@@ -616,6 +932,63 @@ onUnmounted(() => {
           @cell-value-changed="onCellValueChanged"
           @cell-double-clicked="clearSelection"
         />
+      </div>
+
+      <!-- Context Menu -->
+      <div
+        v-if="showContextMenu && selectionBounds"
+        class="context-menu"
+        :style="{ left: contextMenuPos.x + 'px', top: contextMenuPos.y + 'px' }"
+        @click.stop
+      >
+        <button
+          class="ctx-btn"
+          :class="{ active: selectionHasStyle('bold') }"
+          @click="toggleBold"
+          title="Bold"
+        ><strong>B</strong></button>
+        <button
+          class="ctx-btn"
+          :class="{ active: selectionHasStyle('italic') }"
+          @click="toggleItalic"
+          title="Italic"
+        ><em>I</em></button>
+        <span class="ctx-divider"></span>
+        <button
+          v-for="color in colorOptions"
+          :key="color.name"
+          class="ctx-color"
+          :class="{ active: getSelectionColor() === color.value }"
+          :style="{ backgroundColor: color.value || '#888' }"
+          :title="color.name"
+          @click="setColor(color.value)"
+        />
+      </div>
+
+      <!-- Column Rename Input -->
+      <input
+        v-if="editingColumn !== null"
+        ref="columnInput"
+        v-model="editingColumnName"
+        class="column-rename-input"
+        :style="{
+          left: columnInputPos.x + 'px',
+          top: columnInputPos.y + 'px',
+          width: columnInputPos.width + 'px'
+        }"
+        @keydown="handleColumnInputKeydown"
+        @blur="saveColumnRename"
+      />
+
+      <!-- Column Context Menu -->
+      <div
+        v-if="showColumnMenu"
+        class="column-menu"
+        :style="{ left: columnMenuPos.x + 'px', top: columnMenuPos.y + 'px' }"
+        @click.stop
+      >
+        <button class="column-menu-item" @click="renameColumnFromMenu">Rename</button>
+        <button class="column-menu-item delete" @click="deleteColumn">Delete</button>
       </div>
     </div>
   </div>
@@ -716,49 +1089,131 @@ onUnmounted(() => {
   font-style: italic;
 }
 
-.color-picker-wrapper {
-  position: relative;
-}
-
-.color-btn {
-  text-decoration: underline;
-  text-decoration-color: #E69F00;
-  text-underline-offset: 2px;
-}
-
-.color-picker-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  margin-top: 4px;
-  background: #1e1e2e;
-  border: 1px solid #3a3a4e;
-  border-radius: 4px;
-  padding: 4px;
-  display: flex;
-  gap: 4px;
-  z-index: 100;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-}
-
-.color-option {
-  width: 20px;
-  height: 20px;
-  border: 1px solid #4a4a5e;
-  border-radius: 3px;
-  cursor: pointer;
-  transition: transform 0.1s;
-}
-
-.color-option:hover {
-  transform: scale(1.15);
-  border-color: #fff;
-}
-
 .delete-btn:hover {
   background: #4a2a2a;
   border-color: #6a3a3a;
   color: #ff6b6b;
+}
+
+/* Context Menu */
+.context-menu {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: #1e1e2e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  padding: 4px;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.ctx-btn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2a2a3e;
+  border: 1px solid #3a3a4e;
+  color: #a0a0b0;
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.ctx-btn:hover {
+  background: #3a3a4e;
+  color: #fff;
+}
+
+.ctx-btn.active {
+  background: #2a3a4e;
+  border-color: #4a8af4;
+  color: #4a8af4;
+}
+
+.ctx-btn strong {
+  font-weight: 700;
+}
+
+.ctx-btn em {
+  font-style: italic;
+}
+
+.ctx-divider {
+  width: 1px;
+  height: 16px;
+  background: #3a3a4e;
+  margin: 0 2px;
+}
+
+.ctx-color {
+  width: 16px;
+  height: 16px;
+  border: 1px solid #4a4a5e;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.ctx-color:hover {
+  transform: scale(1.1);
+}
+
+.ctx-color.active {
+  border: 2px solid #fff;
+}
+
+/* Column rename input */
+.column-rename-input {
+  position: fixed;
+  height: 28px;
+  background: #1e1e2e;
+  border: 1px solid #4a8af4;
+  color: #d0d0d0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0 8px;
+  z-index: 1000;
+  outline: none;
+  box-sizing: border-box;
+}
+
+/* Column context menu */
+.column-menu {
+  position: fixed;
+  background: #1e1e2e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  padding: 4px 0;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  min-width: 100px;
+}
+
+.column-menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  background: none;
+  border: none;
+  color: #d0d0d0;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.column-menu-item:hover {
+  background: #2a2a3e;
+}
+
+.column-menu-item.delete {
+  color: #ff6b6b;
+}
+
+.column-menu-item.delete:hover {
+  background: #3a2a2a;
 }
 
 .grid-wrapper {
@@ -779,7 +1234,7 @@ onUnmounted(() => {
   background-color: #1a1a24 !important;
   color: #888 !important;
   text-align: center !important;
-  font-size: 11px !important;
+  font-size: 10px !important;
   font-weight: 600 !important;
   user-select: none !important;
   cursor: default !important;
@@ -793,6 +1248,14 @@ onUnmounted(() => {
 .ag-header-cell-text {
   font-weight: 600 !important;
   color: #a0a0b0 !important;
+}
+
+/* Hide resize handle but keep functional */
+.ag-header-cell-resize {
+  opacity: 0;
+}
+.ag-header-cell-resize:hover {
+  opacity: 0;
 }
 
 /* Selected cell highlighting */
