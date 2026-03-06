@@ -199,9 +199,16 @@ function handleMouseDown(event) {
   if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return
 
   const cell = getCellFromPoint(event.clientX, event.clientY)
-  if (!cell) return
+  if (!cell) {
+    // Clicked outside data cells, clear selection
+    clearSelection()
+    return
+  }
 
+  // Prevent AG Grid from handling this click
   event.preventDefault()
+  event.stopPropagation()
+
   isSelecting.value = true
   selectionStart.value = { ...cell }
   selectionEnd.value = { ...cell }
@@ -587,7 +594,7 @@ onUnmounted(() => {
         ref="gridWrapper"
         class="grid-wrapper"
         tabindex="0"
-        @mousedown="handleMouseDown"
+        @mousedown.capture="handleMouseDown"
       >
         <AgGridVue
           :key="nodeId + '-' + columnDefs.length + '-' + rowData.length"
