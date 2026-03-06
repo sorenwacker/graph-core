@@ -33,7 +33,7 @@ const props = defineProps({
   cellData: { type: Array, default: () => [] }
 })
 
-const emit = defineEmits(['create', 'delete', 'cell-change', 'structure-change'])
+const emit = defineEmits(['create', 'delete', 'cell-change', 'structure-change', 'style-change'])
 
 const gridApi = shallowRef(null)
 const gridWrapper = ref(null)
@@ -43,6 +43,17 @@ let saveTimeout = null
 const isSelecting = ref(false)
 const selectionStart = ref(null)
 const selectionEnd = ref(null)
+const showColorPicker = ref(false)
+
+// Colorblind-friendly palette (based on Wong's palette)
+const colorOptions = [
+  { name: 'Default', value: null },
+  { name: 'Blue', value: '#56B4E9' },
+  { name: 'Orange', value: '#E69F00' },
+  { name: 'Green', value: '#009E73' },
+  { name: 'Pink', value: '#CC79A7' },
+  { name: 'Red', value: '#D55E00' }
+]
 
 // Computed selection bounds
 const selectionBounds = computed(() => {
@@ -54,6 +65,29 @@ const selectionBounds = computed(() => {
     maxCol: Math.max(selectionStart.value.col, selectionEnd.value.col)
   }
 })
+
+// Get cell style from cellData
+function getCellStyle(row, col) {
+  const cell = props.cellData.find(c => c.row_index === row && c.col_index === col)
+  if (!cell?.style) return null
+  try {
+    return typeof cell.style === 'string' ? JSON.parse(cell.style) : cell.style
+  } catch {
+    return null
+  }
+}
+
+// AG Grid cellStyle callback
+function cellStyleCallback(params) {
+  if (!params.colDef.colIndex && params.colDef.colIndex !== 0) return null
+  const style = getCellStyle(params.node.rowIndex, params.colDef.colIndex)
+  if (!style) return null
+  return {
+    fontWeight: style.bold ? '700' : 'normal',
+    fontStyle: style.italic ? 'italic' : 'normal',
+    color: style.color || null
+  }
+}
 
 // Row index column
 const rowIndexCol = {
@@ -96,6 +130,8 @@ const columnDefs = computed(() => {
     headerName: col.name,
     editable: true,
     width: col.width || 100,
+    colIndex: idx,
+    cellStyle: cellStyleCallback,
     cellClassRules: {
       'cell-selected': (params) => isCellSelected(params.node.rowIndex, idx)
     }
@@ -129,6 +165,7 @@ const defaultColDef = {
   flex: 1,
   minWidth: 80
 }
+
 
 function onGridReady(params) {
   gridApi.value = params.api
@@ -199,6 +236,71 @@ function clearSelection() {
   refreshCells()
 }
 
+// Toggle bold on selected cells
+function toggleBold() {
+  const bounds = selectionBounds.value
+  if (!bounds) return
+
+  for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
+    for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
+      const currentStyle = getCellStyle(r, c) || {}
+      const newStyle = { ...currentStyle, bold: !currentStyle.bold }
+
+      emit('style-change', {
+        row: r,
+        col: c,
+        style: newStyle
+      })
+    }
+  }
+
+  // Refresh after a short delay to allow state to update
+  setTimeout(() => refreshCells(), 100)
+}
+
+// Toggle italic on selected cells
+function toggleItalic() {
+  const bounds = selectionBounds.value
+  if (!bounds) return
+
+  for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
+    for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
+      const currentStyle = getCellStyle(r, c) || {}
+      const newStyle = { ...currentStyle, italic: !currentStyle.italic }
+
+      emit('style-change', {
+        row: r,
+        col: c,
+        style: newStyle
+      })
+    }
+  }
+
+  setTimeout(() => refreshCells(), 100)
+}
+
+// Set color on selected cells
+function setColor(color) {
+  const bounds = selectionBounds.value
+  if (!bounds) return
+
+  for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
+    for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
+      const currentStyle = getCellStyle(r, c) || {}
+      const newStyle = { ...currentStyle, color: color }
+
+      emit('style-change', {
+        row: r,
+        col: c,
+        style: newStyle
+      })
+    }
+  }
+
+  showColorPicker.value = false
+  setTimeout(() => refreshCells(), 100)
+}
+
 // Copy selected cells to clipboard
 async function copySelection() {
   const bounds = selectionBounds.value
@@ -221,13 +323,8 @@ async function copySelection() {
 
   try {
     await navigator.clipboard.writeText(text)
-    console.log('Copied to clipboard:', text)
   } catch (err) {
     console.error('Copy failed:', err)
-    // Fallback for Electron
-    if (window.electronAPI?.clipboard) {
-      window.electronAPI.clipboard.writeText(text)
-    }
   }
 }
 
@@ -267,7 +364,6 @@ async function pasteSelection() {
           isFormula: isFormula
         })
 
-        // Update grid display
         if (gridApi.value) {
           const rowNode = gridApi.value.getRowNode(String(targetRow))
           if (rowNode) {
@@ -280,7 +376,6 @@ async function pasteSelection() {
 }
 
 function handleKeyDown(event) {
-  // Only handle if grid is focused
   if (!gridWrapper.value?.contains(document.activeElement) &&
       document.activeElement !== document.body) {
     return
@@ -302,6 +397,24 @@ function handleKeyDown(event) {
     pasteSelection()
   }
 
+  // Cmd/Ctrl+B - Bold
+  if ((event.metaKey || event.ctrlKey) && event.key === 'b') {
+    if (selectionBounds.value) {
+      event.preventDefault()
+      event.stopPropagation()
+      toggleBold()
+    }
+  }
+
+  // Cmd/Ctrl+I - Italic
+  if ((event.metaKey || event.ctrlKey) && event.key === 'i') {
+    if (selectionBounds.value) {
+      event.preventDefault()
+      event.stopPropagation()
+      toggleItalic()
+    }
+  }
+
   // Escape - Clear selection
   if (event.key === 'Escape') {
     clearSelection()
@@ -315,13 +428,15 @@ function onCellValueChanged(params) {
     const rowIndex = params.node.rowIndex
     const colIndex = columnDefs.value.findIndex(c => c.field === params.colDef.field) - 1
     if (colIndex < 0) return
-    const value = params.newValue || ''
-    const isFormula = value.toString().startsWith('=')
+    // Handle null/undefined but preserve 0 and empty string
+    const value = params.newValue ?? ''
+    const valueStr = String(value)
+    const isFormula = valueStr.startsWith('=')
 
     emit('cell-change', {
       row: rowIndex,
       col: colIndex,
-      value: value,
+      value: valueStr,
       isFormula: isFormula
     })
   }, 300)
@@ -381,7 +496,6 @@ function deleteTable() {
 }
 
 onMounted(() => {
-  // Use capture phase to intercept before AG Grid
   document.addEventListener('keydown', handleKeyDown, true)
   document.addEventListener('mousemove', handleMouseMove)
   document.addEventListener('mouseup', handleMouseUp)
@@ -406,25 +520,58 @@ onUnmounted(() => {
       <div class="spreadsheet-toolbar">
         <span class="table-name">{{ tableData.name || 'Table' }}</span>
         <div class="toolbar-actions">
-          <span v-if="selectionBounds" class="selection-info">
-            {{ selectionBounds.maxRow - selectionBounds.minRow + 1 }}x{{ selectionBounds.maxCol - selectionBounds.minCol + 1 }}
-          </span>
-          <button
-            v-if="selectionBounds"
-            class="toolbar-btn copy-btn"
-            @click="copySelection"
-            title="Copy (Cmd+C)"
-          >
-            Copy
-          </button>
-          <button
-            v-if="selectionBounds"
-            class="toolbar-btn paste-btn"
-            @click="pasteSelection"
-            title="Paste (Cmd+V)"
-          >
-            Paste
-          </button>
+          <template v-if="selectionBounds">
+            <span class="selection-info">
+              {{ selectionBounds.maxRow - selectionBounds.minRow + 1 }}x{{ selectionBounds.maxCol - selectionBounds.minCol + 1 }}
+            </span>
+            <button
+              class="toolbar-btn format-btn"
+              @click="toggleBold"
+              title="Bold (Cmd+B)"
+            >
+              <strong>B</strong>
+            </button>
+            <button
+              class="toolbar-btn format-btn"
+              @click="toggleItalic"
+              title="Italic (Cmd+I)"
+            >
+              <em>I</em>
+            </button>
+            <div class="color-picker-wrapper">
+              <button
+                class="toolbar-btn format-btn color-btn"
+                @click="showColorPicker = !showColorPicker"
+                title="Text Color"
+              >
+                A
+              </button>
+              <div v-if="showColorPicker" class="color-picker-dropdown">
+                <button
+                  v-for="color in colorOptions"
+                  :key="color.name"
+                  class="color-option"
+                  :style="{ backgroundColor: color.value || '#d0d0d0' }"
+                  :title="color.name"
+                  @click="setColor(color.value)"
+                />
+              </div>
+            </div>
+            <button
+              class="toolbar-btn"
+              @click="copySelection"
+              title="Copy (Cmd+C)"
+            >
+              Copy
+            </button>
+            <button
+              class="toolbar-btn"
+              @click="pasteSelection"
+              title="Paste (Cmd+V)"
+            >
+              Paste
+            </button>
+          </template>
           <button class="toolbar-btn" @click="addRow" title="Add row">
             + Row
           </button>
@@ -448,7 +595,7 @@ onUnmounted(() => {
           :columnDefs="columnDefs"
           :rowData="rowData"
           :defaultColDef="defaultColDef"
-          domLayout="autoHeight"
+                    domLayout="autoHeight"
           :stopEditingWhenCellsLoseFocus="true"
           :singleClickEdit="false"
           :enterNavigatesVertically="true"
@@ -519,15 +666,15 @@ onUnmounted(() => {
 
 .toolbar-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.375rem;
   align-items: center;
 }
 
 .selection-info {
   font-size: 0.65rem;
-  color: #4a8af4;
+  color: #888;
   padding: 0.15rem 0.4rem;
-  background: rgba(74, 138, 244, 0.15);
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 3px;
 }
 
@@ -548,15 +695,57 @@ onUnmounted(() => {
   border-color: #4a4a5e;
 }
 
-.copy-btn, .paste-btn {
-  background: #2a3a4e;
-  border-color: #4a8af4;
-  color: #4a8af4;
+.format-btn {
+  padding: 0.25rem 0.4rem;
+  min-width: 24px;
+  text-align: center;
 }
 
-.copy-btn:hover, .paste-btn:hover {
-  background: #3a4a5e;
-  color: #6aa0ff;
+.format-btn strong {
+  font-weight: 700;
+}
+
+.format-btn em {
+  font-style: italic;
+}
+
+.color-picker-wrapper {
+  position: relative;
+}
+
+.color-btn {
+  text-decoration: underline;
+  text-decoration-color: #E69F00;
+  text-underline-offset: 2px;
+}
+
+.color-picker-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: #1e1e2e;
+  border: 1px solid #3a3a4e;
+  border-radius: 4px;
+  padding: 4px;
+  display: flex;
+  gap: 4px;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.color-option {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #4a4a5e;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.color-option:hover {
+  transform: scale(1.15);
+  border-color: #fff;
 }
 
 .delete-btn:hover {

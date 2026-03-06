@@ -141,6 +141,36 @@ export function useNodeTable() {
   }
 
   /**
+   * Save cell style
+   * @param {number} nodeId - Node ID
+   * @param {number} rowIndex - Row index
+   * @param {number} colIndex - Column index
+   * @param {Object} style - Style object { bold?, italic?, color? }
+   */
+  async function saveCellStyle(nodeId, rowIndex, colIndex, style) {
+    const cellData = {
+      row_index: rowIndex,
+      col_index: colIndex,
+      style: JSON.stringify(style)
+    }
+
+    try {
+      await api.setCells(nodeId, [cellData])
+      // Update local cells array
+      const existingCell = cells.value.find(
+        c => c.row_index === rowIndex && c.col_index === colIndex
+      )
+      if (existingCell) {
+        existingCell.style = JSON.stringify(style)
+      } else {
+        cells.value.push({ row_index: rowIndex, col_index: colIndex, style: JSON.stringify(style) })
+      }
+    } catch (err) {
+      error.value = err.message
+    }
+  }
+
+  /**
    * Save multiple cells at once
    * @param {number} nodeId - Node ID
    * @param {Array} cellsToSave - Array of { row_index, col_index, value?, formula? }
@@ -233,6 +263,7 @@ export function useNodeTable() {
     updateTable,
     deleteTable,
     saveCell,
+    saveCellStyle,
     saveCells,
     clearAllCells,
     addRows,
