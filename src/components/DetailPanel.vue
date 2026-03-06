@@ -65,7 +65,8 @@ const {
   createTable,
   updateTable,
   deleteTable,
-  saveCell
+  saveCell,
+  saveCellStyle
 } = useNodeTable()
 
 // Expanded children and their grandchildren
@@ -803,6 +804,11 @@ async function handleCellChange({ row, col, value, isFormula }) {
   await saveCell(props.node.id, row, col, value, isFormula)
 }
 
+async function handleStyleChange({ row, col, style }) {
+  if (!props.node?.id) return
+  await saveCellStyle(props.node.id, row, col, style)
+}
+
 async function handleTableStructureChange({ type, value }) {
   if (!props.node?.id) return
   console.log('handleTableStructureChange:', type, value)
@@ -1338,6 +1344,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
               @delete="handleDeleteTable"
               @cell-change="handleCellChange"
               @structure-change="handleTableStructureChange"
+              @style-change="handleStyleChange"
             />
           </div>
         </div>
