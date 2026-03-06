@@ -275,6 +275,35 @@ class Database {
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `)
+
+    // Node tables (spreadsheet data per node)
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS node_tables (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        node_id INTEGER NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+        name TEXT DEFAULT 'Table',
+        column_definitions TEXT NOT NULL DEFAULT '[]',
+        row_count INTEGER DEFAULT 5,
+        settings TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(node_id)
+      )
+    `)
+
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS node_table_cells (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        table_id INTEGER NOT NULL REFERENCES node_tables(id) ON DELETE CASCADE,
+        row_index INTEGER NOT NULL,
+        col_index INTEGER NOT NULL,
+        value TEXT,
+        formula TEXT,
+        computed_value TEXT,
+        style TEXT,
+        UNIQUE(table_id, row_index, col_index)
+      )
+    `)
   }
 
   /**
@@ -287,6 +316,8 @@ class Database {
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_deleted ON nodes(deleted_at)`)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_workspace ON nodes(workspace_id)`)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_workspaces_sort ON workspaces(sort_order)`)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_node_tables_node_id ON node_tables(node_id)`)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_node_table_cells_table_id ON node_table_cells(table_id)`)
   }
 
   /**
@@ -1218,6 +1249,168 @@ class Database {
     console.log(`repairWorkspaces: fixed ${fixed} nodes`)
     if (fixed > 0) this._save()
     return { fixed }
+  }
+
+  // =========================================
+  // NODE TABLES (Spreadsheet data)
+  // =========================================
+
+  /**
+   * Get table for a node
+   * @param {number} nodeId - Node ID
+   * @returns {Object|null} Table object or null
+   */
+  getNodeTable(nodeId) {
+    const row = this._get('SELECT * FROM node_tables WHERE node_id = ?', [nodeId])
+    if (!row) return null
+    return {
+      ...row,
+      column_definitions: JSON.parse(row.column_definitions || '[]'),
+      settings: JSON.parse(row.settings || '{}')
+    }
+  }
+
+  /**
+   * Create a table for a node
+   * @param {number} nodeId - Node ID
+   * @param {Object} data - Table data { name?, column_definitions?, row_count?, settings? }
+   * @returns {Object} Created table
+   */
+  createNodeTable(nodeId, data = {}) {
+    // Default column definitions: 4 columns A-D
+    const defaultColumns = [
+      { id: 'col0', name: 'A', type: 'text', width: 100 },
+      { id: 'col1', name: 'B', type: 'text', width: 100 },
+      { id: 'col2', name: 'C', type: 'text', width: 100 },
+      { id: 'col3', name: 'D', type: 'text', width: 100 }
+    ]
+
+    const columns = data.column_definitions || defaultColumns
+    const rowCount = data.row_count || 5
+    const name = data.name || 'Table'
+    const settings = data.settings || {}
+
+    this._run(
+      `INSERT INTO node_tables (node_id, name, column_definitions, row_count, settings)
+       VALUES (?, ?, ?, ?, ?)`,
+      [nodeId, name, JSON.stringify(columns), rowCount, JSON.stringify(settings)]
+    )
+
+    return this.getNodeTable(nodeId)
+  }
+
+  /**
+   * Update a node's table
+   * @param {number} nodeId - Node ID
+   * @param {Object} data - Fields to update { name?, column_definitions?, row_count?, settings? }
+   * @returns {Object} Updated table
+   */
+  updateNodeTable(nodeId, data) {
+    const updates = []
+    const values = []
+
+    if (data.name !== undefined) {
+      updates.push('name = ?')
+      values.push(data.name)
+    }
+    if (data.column_definitions !== undefined) {
+      updates.push('column_definitions = ?')
+      values.push(JSON.stringify(data.column_definitions))
+    }
+    if (data.row_count !== undefined) {
+      updates.push('row_count = ?')
+      values.push(data.row_count)
+    }
+    if (data.settings !== undefined) {
+      updates.push('settings = ?')
+      values.push(JSON.stringify(data.settings))
+    }
+
+    if (updates.length > 0) {
+      updates.push('updated_at = CURRENT_TIMESTAMP')
+      values.push(nodeId)
+      this._run(`UPDATE node_tables SET ${updates.join(', ')} WHERE node_id = ?`, values)
+    }
+
+    return this.getNodeTable(nodeId)
+  }
+
+  /**
+   * Delete a node's table (and all its cells via CASCADE)
+   * @param {number} nodeId - Node ID
+   * @returns {Object} Success status
+   */
+  deleteNodeTable(nodeId) {
+    this._run('DELETE FROM node_tables WHERE node_id = ?', [nodeId])
+    return { success: true }
+  }
+
+  /**
+   * Get all cells for a node's table
+   * @param {number} nodeId - Node ID
+   * @returns {Array} Cell objects
+   */
+  getTableCells(nodeId) {
+    const table = this.getNodeTable(nodeId)
+    if (!table) return []
+
+    return this._query(
+      `SELECT row_index, col_index, value, formula, computed_value, style
+       FROM node_table_cells
+       WHERE table_id = ?
+       ORDER BY row_index, col_index`,
+      [table.id]
+    ).map(cell => ({
+      ...cell,
+      style: cell.style ? JSON.parse(cell.style) : null
+    }))
+  }
+
+  /**
+   * Set cells for a node's table (upsert)
+   * @param {number} nodeId - Node ID
+   * @param {Array} cells - Array of { row_index, col_index, value?, formula?, computed_value?, style? }
+   * @returns {Object} Success status with count
+   */
+  setCells(nodeId, cells) {
+    const table = this.getNodeTable(nodeId)
+    if (!table) {
+      return { success: false, error: 'Table not found' }
+    }
+
+    let updated = 0
+    for (const cell of cells) {
+      const styleJson = cell.style ? JSON.stringify(cell.style) : null
+
+      // Use INSERT OR REPLACE to upsert
+      this.db.run(
+        `INSERT OR REPLACE INTO node_table_cells (table_id, row_index, col_index, value, formula, computed_value, style)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [table.id, cell.row_index, cell.col_index, cell.value || null, cell.formula || null, cell.computed_value || null, styleJson]
+      )
+      updated++
+    }
+
+    this._save()
+    return { success: true, updated }
+  }
+
+  /**
+   * Clear all cells for a node's table
+   * @param {number} nodeId - Node ID
+   * @returns {Object} Success status with count
+   */
+  clearCells(nodeId) {
+    const table = this.getNodeTable(nodeId)
+    if (!table) {
+      return { success: false, error: 'Table not found' }
+    }
+
+    const countResult = this._query('SELECT COUNT(*) as cnt FROM node_table_cells WHERE table_id = ?', [table.id])
+    const cleared = countResult[0]?.cnt || 0
+
+    this._run('DELETE FROM node_table_cells WHERE table_id = ?', [table.id])
+    return { success: true, cleared }
   }
 }
 

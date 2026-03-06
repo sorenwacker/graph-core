@@ -66,6 +66,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   reload: () => ipcRenderer.invoke('db:reload'),
   repairWorkspaces: () => ipcRenderer.invoke('db:repairWorkspaces'),
 
+  // Node Tables (Spreadsheet)
+  getNodeTable: (nodeId) => ipcRenderer.invoke('db:getNodeTable', nodeId),
+  createNodeTable: (nodeId, data) => ipcRenderer.invoke('db:createNodeTable', nodeId, data),
+  updateNodeTable: (nodeId, data) => ipcRenderer.invoke('db:updateNodeTable', nodeId, data),
+  deleteNodeTable: (nodeId) => ipcRenderer.invoke('db:deleteNodeTable', nodeId),
+  getTableCells: (nodeId) => ipcRenderer.invoke('db:getTableCells', nodeId),
+  setCells: (nodeId, cells) => ipcRenderer.invoke('db:setCells', nodeId, cells),
+  clearCells: (nodeId) => ipcRenderer.invoke('db:clearCells', nodeId),
+
   // Shell
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
 
@@ -81,5 +90,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Menu events
   onMenuUndo: (callback) => ipcRenderer.on('menu-undo', callback),
   onMenuRedo: (callback) => ipcRenderer.on('menu-redo', callback),
-  onOpenSettings: (callback) => ipcRenderer.on('open-settings', callback)
+  onOpenSettings: (callback) => ipcRenderer.on('open-settings', callback),
+
+  // App lifecycle
+  onBeforeQuit: (callback) => ipcRenderer.on('app-before-quit', callback)
 })
