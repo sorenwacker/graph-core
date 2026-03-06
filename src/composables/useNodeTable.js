@@ -148,18 +148,28 @@ export function useNodeTable() {
    * @param {Object} style - Style object { bold?, italic?, color? }
    */
   async function saveCellStyle(nodeId, rowIndex, colIndex, style) {
+    // Find existing cell to preserve value/formula
+    const existingCell = cells.value.find(
+      c => c.row_index === rowIndex && c.col_index === colIndex
+    )
+
     const cellData = {
       row_index: rowIndex,
       col_index: colIndex,
       style: JSON.stringify(style)
     }
 
+    // Preserve existing value and formula
+    if (existingCell?.value !== undefined) {
+      cellData.value = existingCell.value
+    }
+    if (existingCell?.formula !== undefined) {
+      cellData.formula = existingCell.formula
+    }
+
     try {
       await api.setCells(nodeId, [cellData])
       // Update local cells array
-      const existingCell = cells.value.find(
-        c => c.row_index === rowIndex && c.col_index === colIndex
-      )
       if (existingCell) {
         existingCell.style = JSON.stringify(style)
       } else {

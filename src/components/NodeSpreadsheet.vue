@@ -604,9 +604,15 @@ function handleKeyDown(event) {
     }
   }
 
-  // Escape - Clear selection
+  // Escape - Close menus and clear selection
   if (event.key === 'Escape') {
-    clearSelection()
+    if (showColumnMenu.value) {
+      closeColumnMenu()
+    } else if (showContextMenu.value) {
+      showContextMenu.value = false
+    } else {
+      clearSelection()
+    }
   }
 
   // Delete/Backspace - Clear selected cells
@@ -693,7 +699,10 @@ function deleteTable() {
   }
 }
 
-function handleDocumentClick(event) {
+function handleDocumentMouseDown(event) {
+  // Don't close menus on right-click (let contextmenu handler deal with it)
+  if (event.button === 2) return
+
   // Close context menu when clicking outside
   if (showContextMenu.value && !event.target.closest('.context-menu')) {
     showContextMenu.value = false
@@ -859,7 +868,7 @@ onMounted(() => {
   document.addEventListener('keydown', handleKeyDown, true)
   document.addEventListener('mousemove', handleMouseMove)
   document.addEventListener('mouseup', handleMouseUp)
-  document.addEventListener('click', handleDocumentClick)
+  document.addEventListener('mousedown', handleDocumentMouseDown, true)
 })
 
 onUnmounted(() => {
@@ -867,7 +876,7 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown, true)
   document.removeEventListener('mousemove', handleMouseMove)
   document.removeEventListener('mouseup', handleMouseUp)
-  document.removeEventListener('click', handleDocumentClick)
+  document.removeEventListener('mousedown', handleDocumentMouseDown, true)
 })
 </script>
 
