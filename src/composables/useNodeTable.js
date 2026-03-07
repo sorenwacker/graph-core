@@ -13,7 +13,7 @@ export function useNodeTable() {
   const hasTable = computed(() => table.value !== null)
 
   /**
-   * Convert cells array to a 2D matrix for jspreadsheet
+   * Convert cells array to a 2D matrix for grid display
    * @returns {Array<Array>} 2D array organized as [row][col]
    */
   const cellsAsMatrix = computed(() => {
@@ -114,6 +114,23 @@ export function useNodeTable() {
   }
 
   /**
+   * Find or create a cell in the local cache
+   * @param {number} rowIndex - Row index
+   * @param {number} colIndex - Column index
+   * @returns {Object} The cell object
+   */
+  function findOrCreateCell(rowIndex, colIndex) {
+    let cell = cells.value.find(
+      c => c.row_index === rowIndex && c.col_index === colIndex
+    )
+    if (!cell) {
+      cell = { row_index: rowIndex, col_index: colIndex }
+      cells.value.push(cell)
+    }
+    return cell
+  }
+
+  /**
    * Save a single cell value
    * @param {number} nodeId - Node ID
    * @param {number} rowIndex - Row index
@@ -137,24 +154,13 @@ export function useNodeTable() {
       await api.setCells(nodeId, [cellData])
 
       // Update local cells array to keep it in sync
-      const existingCell = cells.value.find(
-        c => c.row_index === rowIndex && c.col_index === colIndex
-      )
-      if (existingCell) {
-        if (isFormula) {
-          existingCell.formula = value
-          existingCell.value = undefined
-        } else {
-          existingCell.value = value
-          existingCell.formula = undefined
-        }
+      const cell = findOrCreateCell(rowIndex, colIndex)
+      if (isFormula) {
+        cell.formula = value
+        cell.value = undefined
       } else {
-        cells.value.push({
-          row_index: rowIndex,
-          col_index: colIndex,
-          value: isFormula ? undefined : value,
-          formula: isFormula ? value : undefined
-        })
+        cell.value = value
+        cell.formula = undefined
       }
     } catch (err) {
       error.value = err.message
@@ -169,10 +175,7 @@ export function useNodeTable() {
    * @param {Object} style - Style object { bold?, italic?, color? }
    */
   async function saveCellStyle(nodeId, rowIndex, colIndex, style) {
-    // Find existing cell to preserve value/formula
-    const existingCell = cells.value.find(
-      c => c.row_index === rowIndex && c.col_index === colIndex
-    )
+    const cell = findOrCreateCell(rowIndex, colIndex)
 
     const cellData = {
       row_index: rowIndex,
@@ -181,21 +184,16 @@ export function useNodeTable() {
     }
 
     // Preserve existing value and formula
-    if (existingCell?.value !== undefined) {
-      cellData.value = existingCell.value
+    if (cell.value !== undefined) {
+      cellData.value = cell.value
     }
-    if (existingCell?.formula !== undefined) {
-      cellData.formula = existingCell.formula
+    if (cell.formula !== undefined) {
+      cellData.formula = cell.formula
     }
 
     try {
       await api.setCells(nodeId, [cellData])
-      // Update local cells array
-      if (existingCell) {
-        existingCell.style = JSON.stringify(style)
-      } else {
-        cells.value.push({ row_index: rowIndex, col_index: colIndex, style: JSON.stringify(style) })
-      }
+      cell.style = JSON.stringify(style)
     } catch (err) {
       error.value = err.message
     }
