@@ -394,74 +394,41 @@ function clearSelection() {
   refreshCells()
 }
 
-// Toggle bold on selected cells
-function toggleBold() {
+// Apply style transformation to all selected cells
+function applyStyleToSelection(styleUpdater) {
   const bounds = selectionBounds.value
   if (!bounds) return
-
-  const hasBold = selectionHasStyle('bold')
 
   for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
     for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
       const currentStyle = getCellStyle(r, c) || {}
-      const newStyle = { ...currentStyle, bold: !hasBold }
-
       emit('style-change', {
         row: r,
         col: c,
-        style: newStyle
+        style: styleUpdater(currentStyle)
       })
     }
   }
 
   showContextMenu.value = false
   setTimeout(() => refreshCells(), 100)
+}
+
+// Toggle bold on selected cells
+function toggleBold() {
+  const hasBold = selectionHasStyle('bold')
+  applyStyleToSelection(style => ({ ...style, bold: !hasBold }))
 }
 
 // Toggle italic on selected cells
 function toggleItalic() {
-  const bounds = selectionBounds.value
-  if (!bounds) return
-
   const hasItalic = selectionHasStyle('italic')
-
-  for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
-    for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
-      const currentStyle = getCellStyle(r, c) || {}
-      const newStyle = { ...currentStyle, italic: !hasItalic }
-
-      emit('style-change', {
-        row: r,
-        col: c,
-        style: newStyle
-      })
-    }
-  }
-
-  showContextMenu.value = false
-  setTimeout(() => refreshCells(), 100)
+  applyStyleToSelection(style => ({ ...style, italic: !hasItalic }))
 }
 
 // Set color on selected cells
 function setColor(color) {
-  const bounds = selectionBounds.value
-  if (!bounds) return
-
-  for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
-    for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
-      const currentStyle = getCellStyle(r, c) || {}
-      const newStyle = { ...currentStyle, color: color }
-
-      emit('style-change', {
-        row: r,
-        col: c,
-        style: newStyle
-      })
-    }
-  }
-
-  showContextMenu.value = false
-  setTimeout(() => refreshCells(), 100)
+  applyStyleToSelection(style => ({ ...style, color }))
 }
 
 // Copy selected cells to clipboard
@@ -807,25 +774,6 @@ function handleColumnInputKeydown(event) {
     event.preventDefault()
     cancelColumnRename()
   }
-}
-
-function handleHeaderContextMenu(event) {
-  const headerCell = event.target.closest('.ag-header-cell')
-  if (!headerCell) return
-
-  const colId = headerCell.getAttribute('col-id')
-  if (!colId || colId === '_rowIndex') return
-
-  const colIndex = columns.value.findIndex(c => c.name === colId)
-  if (colIndex === -1) return
-
-  event.preventDefault()
-  event.stopPropagation()
-
-  columnMenuIndex.value = colIndex
-  columnMenuPos.value = { x: event.clientX, y: event.clientY }
-  showColumnMenu.value = true
-  showContextMenu.value = false
 }
 
 function renameColumnFromMenu() {
