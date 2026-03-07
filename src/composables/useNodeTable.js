@@ -135,6 +135,27 @@ export function useNodeTable() {
 
     try {
       await api.setCells(nodeId, [cellData])
+
+      // Update local cells array to keep it in sync
+      const existingCell = cells.value.find(
+        c => c.row_index === rowIndex && c.col_index === colIndex
+      )
+      if (existingCell) {
+        if (isFormula) {
+          existingCell.formula = value
+          existingCell.value = undefined
+        } else {
+          existingCell.value = value
+          existingCell.formula = undefined
+        }
+      } else {
+        cells.value.push({
+          row_index: rowIndex,
+          col_index: colIndex,
+          value: isFormula ? undefined : value,
+          formula: isFormula ? value : undefined
+        })
+      }
     } catch (err) {
       error.value = err.message
     }
