@@ -51,7 +51,7 @@ const showSensitivePreview = ref(false)
 
 // Collapsible sections
 const notesCollapsed = ref(false)
-const tableCollapsed = ref(false)
+const tableCollapsed = ref(true)
 const childrenCollapsed = ref(false)
 const metadataCollapsed = ref(false)
 
@@ -231,6 +231,8 @@ watch(() => props.node, async (newNode) => {
       newNode.website || newNode.role || newNode.organization ||
       (newNode.tags && newNode.tags.length > 0)
     metadataCollapsed.value = !hasMetadata
+    // Table: collapse if no table
+    tableCollapsed.value = !hasTable.value
 
     // Auto-resize title for long titles
     nextTick(() => {
@@ -1329,28 +1331,27 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
           </div>
         </div>
 
-        <!-- Table Section -->
-        <div class="table-section" :class="{ collapsed: tableCollapsed }">
-          <div class="section-header" @click="tableCollapsed = !tableCollapsed">
-            <span class="section-title">Table</span>
-            <span class="collapse-indicator">{{ tableCollapsed ? '+' : '-' }}</span>
+        <!-- Bottom sections (table + children + metadata) -->
+        <div class="bottom-sections" :class="{ 'all-collapsed': tableCollapsed && childrenCollapsed && metadataCollapsed }">
+          <!-- Table Section -->
+          <div class="table-section" :class="{ collapsed: tableCollapsed }">
+            <div class="section-header" @click="tableCollapsed = !tableCollapsed">
+              <span class="section-title">Table</span>
+              <span class="collapse-indicator">{{ tableCollapsed ? '+' : '-' }}</span>
+            </div>
+            <div v-show="!tableCollapsed" class="section-content">
+              <NodeSpreadsheet
+                :node-id="props.node?.id"
+                :table-data="nodeTable"
+                :cell-data="tableCells"
+                @create="handleCreateTable"
+                @delete="handleDeleteTable"
+                @cell-change="handleCellChange"
+                @structure-change="handleTableStructureChange"
+                @style-change="handleStyleChange"
+              />
+            </div>
           </div>
-          <div v-show="!tableCollapsed" class="section-content">
-            <NodeSpreadsheet
-              :node-id="props.node?.id"
-              :table-data="nodeTable"
-              :cell-data="tableCells"
-              @create="handleCreateTable"
-              @delete="handleDeleteTable"
-              @cell-change="handleCellChange"
-              @structure-change="handleTableStructureChange"
-              @style-change="handleStyleChange"
-            />
-          </div>
-        </div>
-
-        <!-- Bottom sections (children + metadata) -->
-        <div class="bottom-sections" :class="{ 'both-collapsed': childrenCollapsed && metadataCollapsed }">
           <!-- Children Section -->
           <div class="children-section" :class="{ collapsed: childrenCollapsed }">
             <div class="section-header" @click="childrenCollapsed = !childrenCollapsed">
@@ -1642,8 +1643,22 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
 }
 
 .detail-panel.fullscreen .bottom-sections {
-  flex-direction: row;
+  flex-direction: column;
   gap: 20px;
+}
+
+.detail-panel.fullscreen .bottom-sections.all-collapsed {
+  flex-direction: row;
+}
+
+.detail-panel.fullscreen .table-section:not(.collapsed) {
+  flex: 1 1 auto;
+  min-height: 300px;
+}
+
+.detail-panel.fullscreen .bottom-sections:has(.table-section:not(.collapsed)) .children-section,
+.detail-panel.fullscreen .bottom-sections:has(.table-section:not(.collapsed)) .meta-section {
+  flex: 0 0 auto;
 }
 
 .detail-panel.fullscreen .children-section {
@@ -1870,15 +1885,17 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
 .table-section {
   display: flex;
   flex-direction: column;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   padding: 8px;
   background: var(--bg-secondary);
   border-radius: 6px;
   overflow: hidden;
+  min-height: 200px;
 }
 
 .table-section.collapsed {
   flex: 0 0 auto;
+  min-height: 0;
 }
 
 .table-section .section-content {
@@ -2048,13 +2065,14 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
   flex-shrink: 0;
 }
 
-.bottom-sections.both-collapsed {
+.bottom-sections.all-collapsed {
   flex-direction: row;
   gap: 8px;
 }
 
-.bottom-sections.both-collapsed .children-section,
-.bottom-sections.both-collapsed .meta-section {
+.bottom-sections.all-collapsed .table-section,
+.bottom-sections.all-collapsed .children-section,
+.bottom-sections.all-collapsed .meta-section {
   flex: 1;
 }
 

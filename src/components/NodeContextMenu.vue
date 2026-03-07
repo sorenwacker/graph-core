@@ -28,6 +28,7 @@ const emit = defineEmits([
   'toggle-complete',
   'toggle-favorite',
   'open-link-search',
+  'open-move-search',
   'unlink',
   'move-to-workspace',
   'delete',
@@ -66,6 +67,11 @@ function toggleFavorite() {
 
 function openLinkSearch() {
   emit('open-link-search', props.node)
+  close()
+}
+
+function openMoveSearch() {
+  emit('open-move-search', props.node)
   close()
 }
 
@@ -177,7 +183,7 @@ function getInitials(name) {
 
         <div class="menu-divider"></div>
 
-        <!-- Linking section -->
+        <!-- Linking and moving section -->
         <div class="menu-group">
           <button class="menu-item" @click="openLinkSearch">
             <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -185,6 +191,17 @@ function getInitials(name) {
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
             </svg>
             <span>Link to...</span>
+          </button>
+          <button class="menu-item" @click="openMoveSearch">
+            <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M5 9l-3 3 3 3"/>
+              <path d="M9 5l3-3 3 3"/>
+              <path d="M15 19l3 3 3-3"/>
+              <path d="M19 9l3 3-3 3"/>
+              <path d="M2 12h20"/>
+              <path d="M12 2v20"/>
+            </svg>
+            <span>Move to...</span>
           </button>
         </div>
 

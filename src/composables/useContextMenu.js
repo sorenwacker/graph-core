@@ -12,6 +12,7 @@ import { ref } from 'vue'
  * @param {Function} options.onToggleComplete - Called when toggling complete: onToggleComplete(node)
  * @param {Function} options.onToggleFavorite - Called when toggling favorite: onToggleFavorite(node)
  * @param {Function} options.onOpenLinkSearch - Called to open link search: onOpenLinkSearch(node)
+ * @param {Function} options.onOpenMoveSearch - Called to open move search: onOpenMoveSearch(node)
  * @param {Function} options.onUnlink - Called to unlink nodes: onUnlink(sourceId, targetId)
  * @param {Function} options.onMoveToWorkspace - Called to move node to workspace: onMoveToWorkspace(nodeId, workspaceId)
  * @param {Function} options.onDelete - Called to delete node: onDelete(nodeId)
@@ -25,6 +26,7 @@ export function useContextMenu({
   onToggleComplete,
   onToggleFavorite,
   onOpenLinkSearch,
+  onOpenMoveSearch,
   onUnlink,
   onMoveToWorkspace,
   onDelete,
@@ -95,6 +97,11 @@ export function useContextMenu({
     closeContextMenu()
   }
 
+  function handleOpenMoveSearch(node) {
+    if (onOpenMoveSearch) onOpenMoveSearch(node)
+    closeContextMenu()
+  }
+
   async function handleUnlink({ source, target }) {
     if (onUnlink) {
       try {
@@ -162,6 +169,7 @@ export function useContextMenu({
     handleToggleComplete,
     handleToggleFavorite,
     handleOpenLinkSearch,
+    handleOpenMoveSearch,
     handleUnlink,
     handleMoveToWorkspace,
     handleDelete,

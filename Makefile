@@ -1,4 +1,4 @@
-.PHONY: dev install clean stop build dist reset-db
+.PHONY: dev install clean stop build dist install-mac reset-db
 
 # Start Electron app in dev mode
 dev:
@@ -15,6 +15,14 @@ build:
 # Create DMG installer
 dist:
 	npm run dist
+
+# Build DMG and install to /Applications (Mac only)
+install-mac: dist
+	@echo "Installing Graph Core to /Applications..."
+	@hdiutil attach release/*.dmg -nobrowse -quiet
+	@cp -R "/Volumes/Graph Core/Graph Core.app" /Applications/
+	@hdiutil detach "/Volumes/Graph Core" -quiet
+	@echo "Installed to /Applications/Graph Core.app"
 
 # Stop dev servers
 stop:

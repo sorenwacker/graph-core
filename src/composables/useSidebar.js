@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { SIDEBAR_WIDTH, SIDEBAR_HIDE_DELAY_MS } from '../utils/uiConstants.js'
 
 /**
@@ -14,11 +14,25 @@ export function useSidebar({ pinned } = {}) {
   const hovered = ref(false)
   let hideTimeout = null
 
-  // Section collapse states
-  const treeCollapsed = ref(false)
-  const favoritesCollapsed = ref(false)
-  const recentCollapsed = ref(false)
-  const tagsCollapsed = ref(false)
+  // Helper to get boolean from localStorage
+  function getStoredBoolean(key, defaultValue = false) {
+    if (typeof localStorage === 'undefined') return defaultValue
+    const stored = localStorage.getItem(key)
+    if (stored === null) return defaultValue
+    return stored === 'true'
+  }
+
+  // Section collapse states - persisted to localStorage
+  const treeCollapsed = ref(getStoredBoolean('sidebar-tree-collapsed'))
+  const favoritesCollapsed = ref(getStoredBoolean('sidebar-favorites-collapsed'))
+  const recentCollapsed = ref(getStoredBoolean('sidebar-recent-collapsed'))
+  const tagsCollapsed = ref(getStoredBoolean('sidebar-tags-collapsed'))
+
+  // Persist collapse state changes
+  watch(treeCollapsed, (val) => localStorage.setItem('sidebar-tree-collapsed', String(val)))
+  watch(favoritesCollapsed, (val) => localStorage.setItem('sidebar-favorites-collapsed', String(val)))
+  watch(recentCollapsed, (val) => localStorage.setItem('sidebar-recent-collapsed', String(val)))
+  watch(tagsCollapsed, (val) => localStorage.setItem('sidebar-tags-collapsed', String(val)))
 
   // Tree expansion state
   const expandedIds = ref(new Set())

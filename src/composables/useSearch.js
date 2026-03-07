@@ -16,7 +16,7 @@ export function useSearch({ onSearch, onSelect, onFetchBreadcrumbs, selectedNode
   const showSearch = ref(false)
   const searchTimeout = ref(null)
   const selectedResultIndex = ref(0)
-  const searchMode = ref('normal') // 'normal' or 'link'
+  const searchMode = ref('normal') // 'normal', 'link', or 'move'
   const linkSourceNodeId = ref(null)
   const searchInputRef = ref(null)
 
@@ -34,14 +34,31 @@ export function useSearch({ onSearch, onSelect, onFetchBreadcrumbs, selectedNode
     })
   }
 
-  function openLinkSearch() {
-    if (!selectedNode?.value) return
+  function openLinkSearch(node = null) {
+    const targetNode = node || selectedNode?.value
+    if (!targetNode) return
     showSearch.value = true
     searchQuery.value = ''
     searchResults.value = []
     selectedResultIndex.value = 0
     searchMode.value = 'link'
-    linkSourceNodeId.value = selectedNode.value.id
+    linkSourceNodeId.value = targetNode.id
+    nextTick(() => {
+      if (searchInputRef.value) {
+        searchInputRef.value.focus()
+      }
+    })
+  }
+
+  function openMoveSearch(node = null) {
+    const targetNode = node || selectedNode?.value
+    if (!targetNode) return
+    showSearch.value = true
+    searchQuery.value = ''
+    searchResults.value = []
+    selectedResultIndex.value = 0
+    searchMode.value = 'move'
+    linkSourceNodeId.value = targetNode.id
     nextTick(() => {
       if (searchInputRef.value) {
         searchInputRef.value.focus()
@@ -137,6 +154,7 @@ export function useSearch({ onSearch, onSelect, onFetchBreadcrumbs, selectedNode
     // Methods
     openSearch,
     openLinkSearch,
+    openMoveSearch,
     closeSearch,
     handleSearch,
     onSearchInput,

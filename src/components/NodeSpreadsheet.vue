@@ -8,14 +8,14 @@ import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-communi
 // ============================================================================
 
 const COLORS = {
-  bg: '#12121a',
-  bgHeader: '#1a1a24',
-  bgOddRow: '#14141c',
-  bgHover: '#1e2e3e',
-  bgSelected: '#2a3a4a',
+  bg: '#000000',
+  bgHeader: '#080808',
+  bgOddRow: '#040404',
+  bgHover: '#0a1520',
+  bgSelected: '#102030',
   text: '#d0d0d0',
-  textMuted: '#888888',
-  border: '#3a3a4a',
+  textMuted: '#666666',
+  border: '#1a1a1a',
   accent: '#4a8af4',
 }
 
@@ -998,7 +998,7 @@ onUnmounted(() => {
 }
 
 .spreadsheet-container {
-  border: 1px solid #2a2a3a;
+  border: 1px solid #1a1a1a;
   border-radius: 4px;
   overflow: hidden;
 }
@@ -1008,8 +1008,8 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 0.375rem 0.5rem;
-  background: #1e1e2e;
-  border-bottom: 1px solid #2a2a3a;
+  background: #080808;
+  border-bottom: 1px solid #1a1a1a;
 }
 
 .table-name {
@@ -1033,8 +1033,8 @@ onUnmounted(() => {
 }
 
 .toolbar-btn {
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: #101010;
+  border: 1px solid #222222;
   color: #a0a0b0;
   padding: 0.25rem 0.5rem;
   cursor: pointer;
@@ -1044,14 +1044,14 @@ onUnmounted(() => {
 }
 
 .toolbar-btn:hover {
-  background: #3a3a4e;
+  background: #222222;
   color: #fff;
-  border-color: #4a4a5e;
+  border-color: #2a2a2a;
 }
 
 .delete-btn:hover {
-  background: #4a2a2a;
-  border-color: #6a3a3a;
+  background: #200808;
+  border-color: #3a1a1a;
   color: #ff6b6b;
 }
 
@@ -1061,8 +1061,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 3px;
-  background: #1e1e2e;
-  border: 1px solid #3a3a4e;
+  background: #080808;
+  border: 1px solid #222222;
   border-radius: 4px;
   padding: 4px;
   z-index: 1000;
@@ -1075,8 +1075,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #2a2a3e;
-  border: 1px solid #3a3a4e;
+  background: #101010;
+  border: 1px solid #222222;
   color: #a0a0b0;
   font-size: 11px;
   cursor: pointer;
@@ -1084,12 +1084,12 @@ onUnmounted(() => {
 }
 
 .ctx-btn:hover {
-  background: #3a3a4e;
+  background: #222222;
   color: #fff;
 }
 
 .ctx-btn.active {
-  background: #2a3a4e;
+  background: #0a1520;
   border-color: #4a8af4;
   color: #4a8af4;
 }
@@ -1105,14 +1105,14 @@ onUnmounted(() => {
 .ctx-divider {
   width: 1px;
   height: 16px;
-  background: #3a3a4e;
+  background: #222222;
   margin: 0 2px;
 }
 
 .ctx-color {
   width: 16px;
   height: 16px;
-  border: 1px solid #4a4a5e;
+  border: 1px solid #2a2a2a;
   border-radius: 2px;
   cursor: pointer;
 }
@@ -1129,7 +1129,7 @@ onUnmounted(() => {
 .column-rename-input {
   position: fixed;
   height: 28px;
-  background: #1e1e2e;
+  background: #080808;
   border: 1px solid #4a8af4;
   color: #d0d0d0;
   font-size: 11px;
@@ -1143,8 +1143,8 @@ onUnmounted(() => {
 /* Column context menu */
 .column-menu {
   position: fixed;
-  background: #1e1e2e;
-  border: 1px solid #3a3a4e;
+  background: #080808;
+  border: 1px solid #222222;
   border-radius: 4px;
   padding: 4px 0;
   z-index: 1000;
@@ -1165,7 +1165,7 @@ onUnmounted(() => {
 }
 
 .column-menu-item:hover {
-  background: #2a2a3e;
+  background: #101010;
 }
 
 .column-menu-item.delete {
@@ -1173,7 +1173,7 @@ onUnmounted(() => {
 }
 
 .column-menu-item.delete:hover {
-  background: #3a2a2a;
+  background: #180808;
 }
 
 .grid-wrapper {
@@ -1191,7 +1191,7 @@ onUnmounted(() => {
 <style>
 /* Row index column styling */
 .row-index-cell {
-  background-color: #1a1a24 !important;
+  background-color: #080808 !important;
   color: #888 !important;
   text-align: center !important;
   font-size: 10px !important;
@@ -1201,7 +1201,7 @@ onUnmounted(() => {
 }
 
 .row-index-header {
-  background-color: #1a1a24 !important;
+  background-color: #080808 !important;
 }
 
 /* Bold column headers */
