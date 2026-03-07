@@ -370,11 +370,12 @@ function handleMouseUp(event) {
     return
   }
 
-  // If we didn't drag, clear the selection so AG Grid can handle the click
-  if (!isDragging.value) {
-    selectionStart.value = null
-    selectionEnd.value = null
+  // Keep single-cell selection for copy/paste even without drag
+  // Only refresh cells (show highlight) if we dragged
+  if (isDragging.value) {
+    refreshCells()
   }
+
   isSelecting.value = false
   isDragging.value = false
   dragStartPos.value = null
@@ -490,6 +491,12 @@ async function copySelection() {
   }
 }
 
+// Cut selected cells (copy then delete)
+async function cutSelection() {
+  await copySelection()
+  deleteSelectedCells()
+}
+
 // Delete selected cells
 function deleteSelectedCells() {
   const bounds = selectionBounds.value
@@ -584,6 +591,15 @@ function handleKeyDown(event) {
     event.preventDefault()
     event.stopPropagation()
     pasteSelection()
+  }
+
+  // Cmd/Ctrl+X - Cut
+  if ((event.metaKey || event.ctrlKey) && event.key === 'x') {
+    if (selectionBounds.value) {
+      event.preventDefault()
+      event.stopPropagation()
+      cutSelection()
+    }
   }
 
   // Cmd/Ctrl+B - Bold
