@@ -3,85 +3,108 @@ import { ref, computed, onUnmounted, onMounted, shallowRef, watch, nextTick } fr
 import { AgGridVue } from 'ag-grid-vue3'
 import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community'
 
-// Register AG Grid modules
+// ============================================================================
+// Constants
+// ============================================================================
+
+const COLORS = {
+  bg: '#12121a',
+  bgHeader: '#1a1a24',
+  bgOddRow: '#14141c',
+  bgHover: '#1e2e3e',
+  bgSelected: '#2a3a4a',
+  text: '#d0d0d0',
+  textMuted: '#888888',
+  border: '#3a3a4a',
+  accent: '#4a8af4',
+}
+
+// Colorblind-friendly palette (Wong's palette)
+const COLOR_OPTIONS = [
+  { name: 'Default', value: null },
+  { name: 'Blue', value: '#56B4E9' },
+  { name: 'Orange', value: '#E69F00' },
+  { name: 'Green', value: '#009E73' },
+  { name: 'Pink', value: '#CC79A7' },
+  { name: 'Red', value: '#D55E00' },
+]
+
+// ============================================================================
+// AG Grid Setup
+// ============================================================================
+
 ModuleRegistry.registerModules([AllCommunityModule])
 
-// Create dark theme
 const darkTheme = themeQuartz.withParams({
-  backgroundColor: '#12121a',
-  foregroundColor: '#d0d0d0',
-  headerBackgroundColor: '#1a1a24',
-  headerTextColor: '#888888',
-  oddRowBackgroundColor: '#14141c',
-  rowHoverColor: '#1e2e3e',
-  selectedRowBackgroundColor: '#2a3a4a',
-  borderColor: '#3a3a4a',
-  rowBorder: { style: 'solid', width: 1, color: '#3a3a4a' },
-  columnBorder: { style: 'solid', width: 1, color: '#3a3a4a' },
-  headerColumnBorder: { style: 'solid', width: 1, color: '#3a3a4a' },
-  headerRowBorder: { style: 'solid', width: 1, color: '#3a3a4a' },
-  accentColor: '#4a8af4',
+  backgroundColor: COLORS.bg,
+  foregroundColor: COLORS.text,
+  headerBackgroundColor: COLORS.bgHeader,
+  headerTextColor: COLORS.textMuted,
+  oddRowBackgroundColor: COLORS.bgOddRow,
+  rowHoverColor: COLORS.bgHover,
+  selectedRowBackgroundColor: COLORS.bgSelected,
+  borderColor: COLORS.border,
+  rowBorder: { style: 'solid', width: 1, color: COLORS.border },
+  columnBorder: { style: 'solid', width: 1, color: COLORS.border },
+  headerColumnBorder: { style: 'solid', width: 1, color: COLORS.border },
+  headerRowBorder: { style: 'solid', width: 1, color: COLORS.border },
+  accentColor: COLORS.accent,
   fontSize: 11,
   headerFontSize: 11,
   rowHeight: 24,
-  headerHeight: 28
+  headerHeight: 28,
 })
+
+// ============================================================================
+// Props & Emits
+// ============================================================================
 
 const props = defineProps({
   nodeId: { type: Number, required: true },
   tableData: { type: Object, default: null },
-  cellData: { type: Array, default: () => [] }
+  cellData: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['create', 'delete', 'cell-change', 'structure-change', 'style-change'])
+
+// ============================================================================
+// State
+// ============================================================================
 
 const gridApi = shallowRef(null)
 const gridWrapper = ref(null)
 let saveTimeout = null
 
-// Range selection state
+// Selection
 const isSelecting = ref(false)
 const selectionStart = ref(null)
 const selectionEnd = ref(null)
 const dragStartPos = ref(null)
 const isDragging = ref(false)
 
-// Context menu state
+// Context menus
 const showContextMenu = ref(false)
 const contextMenuPos = ref({ x: 0, y: 0 })
+const showColumnMenu = ref(false)
+const columnMenuPos = ref({ x: 0, y: 0 })
+const columnMenuIndex = ref(null)
 
-// Column rename state
+// Column editing
 const editingColumn = ref(null)
 const editingColumnName = ref('')
 const columnInputPos = ref({ x: 0, y: 0 })
 const columnInput = ref(null)
 
-// Column context menu state
-const showColumnMenu = ref(false)
-const columnMenuPos = ref({ x: 0, y: 0 })
-const columnMenuIndex = ref(null)
-
-// Auto-focus column input when editing starts
-watch(editingColumn, (newVal) => {
-  if (newVal !== null) {
-    nextTick(() => {
-      columnInput.value?.focus()
-      columnInput.value?.select()
-    })
-  }
+// Auto-focus column input
+watch(editingColumn, (val) => {
+  if (val !== null) nextTick(() => { columnInput.value?.focus(); columnInput.value?.select() })
 })
 
-// Colorblind-friendly palette (based on Wong's palette)
-const colorOptions = [
-  { name: 'Default', value: null },
-  { name: 'Blue', value: '#56B4E9' },
-  { name: 'Orange', value: '#E69F00' },
-  { name: 'Green', value: '#009E73' },
-  { name: 'Pink', value: '#CC79A7' },
-  { name: 'Red', value: '#D55E00' }
-]
 
-// Computed selection bounds
+// ============================================================================
+// Computed Properties
+// ============================================================================
+
 const selectionBounds = computed(() => {
   if (!selectionStart.value || !selectionEnd.value) return null
   return {
@@ -92,7 +115,10 @@ const selectionBounds = computed(() => {
   }
 })
 
-// Get cell style from cellData
+// ============================================================================
+// Cell Style Helpers
+// ============================================================================
+
 function getCellStyle(row, col) {
   const cell = props.cellData.find(c => c.row_index === row && c.col_index === col)
   if (!cell?.style) return null
@@ -149,7 +175,10 @@ function cellStyleCallback(params) {
   }
 }
 
-// Row index column
+// ============================================================================
+// AG Grid Column Definitions
+// ============================================================================
+
 const rowIndexCol = {
   headerName: '',
   field: '_rowIndex',
@@ -227,11 +256,14 @@ const defaultColDef = {
 }
 
 
+// ============================================================================
+// Event Handlers
+// ============================================================================
+
 function onGridReady(params) {
   gridApi.value = params.api
 }
 
-// Get cell coordinates from mouse event
 function getCellFromPoint(x, y) {
   const element = document.elementFromPoint(x, y)
   if (!element) return null
@@ -277,51 +309,48 @@ function handleMouseDown(event) {
   // Don't call refreshCells() here - let AG Grid handle the click for editing
 }
 
-function handleContextMenu(event) {
-  // Check if right-clicking on a header
+// Get column index from header click event
+function getColumnIndexFromHeader(event) {
+  // Direct header cell click
   const headerCell = event.target.closest('.ag-header-cell')
   if (headerCell) {
     const colId = headerCell.getAttribute('col-id')
     if (colId && colId !== '_rowIndex') {
-      const colIndex = columns.value.findIndex(c => c.name === colId)
-      if (colIndex !== -1) {
-        columnMenuIndex.value = colIndex
-        columnMenuPos.value = { x: event.clientX, y: event.clientY }
-        showColumnMenu.value = true
-        showContextMenu.value = false
-        return
-      }
+      return columns.value.findIndex(c => c.name === colId)
     }
   }
 
-  // Check if in header row area (fallback)
-  const headerRow = event.target.closest('.ag-header-row')
-  if (headerRow) {
-    // Find column from x position
+  // Fallback: find column from x position in header row
+  if (event.target.closest('.ag-header-row')) {
     const headerCells = gridWrapper.value?.querySelectorAll('.ag-header-cell')
-    if (headerCells) {
-      for (const cell of headerCells) {
-        const rect = cell.getBoundingClientRect()
-        const colId = cell.getAttribute('col-id')
-        if (colId && colId !== '_rowIndex' &&
-            event.clientX >= rect.left && event.clientX <= rect.right) {
-          const colIndex = columns.value.findIndex(c => c.name === colId)
-          if (colIndex !== -1) {
-            columnMenuIndex.value = colIndex
-            columnMenuPos.value = { x: event.clientX, y: event.clientY }
-            showColumnMenu.value = true
-            showContextMenu.value = false
-            return
-          }
-        }
+    for (const cell of headerCells || []) {
+      const rect = cell.getBoundingClientRect()
+      const colId = cell.getAttribute('col-id')
+      if (colId && colId !== '_rowIndex' &&
+          event.clientX >= rect.left && event.clientX <= rect.right) {
+        return columns.value.findIndex(c => c.name === colId)
       }
     }
   }
+  return -1
+}
 
+function handleContextMenu(event) {
+  // Handle header right-click
+  const colIndex = getColumnIndexFromHeader(event)
+  if (colIndex !== -1) {
+    columnMenuIndex.value = colIndex
+    columnMenuPos.value = { x: event.clientX, y: event.clientY }
+    showColumnMenu.value = true
+    showContextMenu.value = false
+    return
+  }
+
+  // Handle cell right-click
   const cell = getCellFromPoint(event.clientX, event.clientY)
   if (!cell) return
 
-  // If no selection or right-clicking outside current selection, select this cell
+  // Select cell if not already selected
   if (!selectionBounds.value || !isCellSelected(cell.row, cell.col)) {
     selectionStart.value = { ...cell }
     selectionEnd.value = { ...cell }
@@ -538,73 +567,45 @@ async function pasteSelection() {
   }
 }
 
+// Keyboard shortcut definitions
+const shortcuts = {
+  c: { handler: copySelection, needsSelection: true },
+  v: { handler: pasteSelection, needsSelection: false },
+  x: { handler: cutSelection, needsSelection: true },
+  b: { handler: toggleBold, needsSelection: true },
+  i: { handler: toggleItalic, needsSelection: true },
+}
+
 function handleKeyDown(event) {
   if (!gridWrapper.value?.contains(document.activeElement) &&
       document.activeElement !== document.body) {
     return
   }
 
-  // Cmd/Ctrl+C - Copy
-  if ((event.metaKey || event.ctrlKey) && event.key === 'c') {
-    if (selectionBounds.value) {
+  // Handle Cmd/Ctrl shortcuts
+  if (event.metaKey || event.ctrlKey) {
+    const shortcut = shortcuts[event.key]
+    if (shortcut && (!shortcut.needsSelection || selectionBounds.value)) {
       event.preventDefault()
       event.stopPropagation()
-      copySelection()
-    }
-  }
-
-  // Cmd/Ctrl+V - Paste
-  if ((event.metaKey || event.ctrlKey) && event.key === 'v') {
-    event.preventDefault()
-    event.stopPropagation()
-    pasteSelection()
-  }
-
-  // Cmd/Ctrl+X - Cut
-  if ((event.metaKey || event.ctrlKey) && event.key === 'x') {
-    if (selectionBounds.value) {
-      event.preventDefault()
-      event.stopPropagation()
-      cutSelection()
-    }
-  }
-
-  // Cmd/Ctrl+B - Bold
-  if ((event.metaKey || event.ctrlKey) && event.key === 'b') {
-    if (selectionBounds.value) {
-      event.preventDefault()
-      event.stopPropagation()
-      toggleBold()
-    }
-  }
-
-  // Cmd/Ctrl+I - Italic
-  if ((event.metaKey || event.ctrlKey) && event.key === 'i') {
-    if (selectionBounds.value) {
-      event.preventDefault()
-      event.stopPropagation()
-      toggleItalic()
+      shortcut.handler()
+      return
     }
   }
 
   // Escape - Close menus and clear selection
   if (event.key === 'Escape') {
-    if (showColumnMenu.value) {
-      closeColumnMenu()
-    } else if (showContextMenu.value) {
-      showContextMenu.value = false
-    } else {
-      clearSelection()
-    }
+    if (showColumnMenu.value) closeColumnMenu()
+    else if (showContextMenu.value) showContextMenu.value = false
+    else clearSelection()
+    return
   }
 
   // Delete/Backspace - Clear selected cells
-  if (event.key === 'Delete' || event.key === 'Backspace') {
-    if (selectionBounds.value) {
-      event.preventDefault()
-      event.stopPropagation()
-      deleteSelectedCells()
-    }
+  if ((event.key === 'Delete' || event.key === 'Backspace') && selectionBounds.value) {
+    event.preventDefault()
+    event.stopPropagation()
+    deleteSelectedCells()
   }
 }
 
@@ -928,7 +929,7 @@ onUnmounted(() => {
         ><em>I</em></button>
         <span class="ctx-divider"></span>
         <button
-          v-for="color in colorOptions"
+          v-for="color in COLOR_OPTIONS"
           :key="color.name"
           class="ctx-color"
           :class="{ active: getSelectionColor() === color.value }"
@@ -1046,20 +1047,6 @@ onUnmounted(() => {
   background: #3a3a4e;
   color: #fff;
   border-color: #4a4a5e;
-}
-
-.format-btn {
-  padding: 0.25rem 0.4rem;
-  min-width: 24px;
-  text-align: center;
-}
-
-.format-btn strong {
-  font-weight: 700;
-}
-
-.format-btn em {
-  font-style: italic;
 }
 
 .delete-btn:hover {
