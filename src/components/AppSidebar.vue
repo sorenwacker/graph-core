@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { getTypeIcon, typeConfig, nodeTypes } from '../utils/constants.js'
 
 const props = defineProps({
@@ -25,10 +25,15 @@ const emit = defineEmits([
   'mouseleave'
 ])
 
-// Local collapse state
-const treeCollapsed = ref(false)
-const favoritesCollapsed = ref(false)
-const tagsCollapsed = ref(false)
+// Local collapse state - persisted to localStorage
+const treeCollapsed = ref(localStorage.getItem('sidebar-tree-collapsed') === 'true')
+const favoritesCollapsed = ref(localStorage.getItem('sidebar-favorites-collapsed') === 'true')
+const tagsCollapsed = ref(localStorage.getItem('sidebar-tags-collapsed') === 'true')
+
+// Persist collapse state changes
+watch(treeCollapsed, (val) => localStorage.setItem('sidebar-tree-collapsed', String(val)))
+watch(favoritesCollapsed, (val) => localStorage.setItem('sidebar-favorites-collapsed', String(val)))
+watch(tagsCollapsed, (val) => localStorage.setItem('sidebar-tags-collapsed', String(val)))
 </script>
 
 <template>
@@ -66,6 +71,28 @@ const tagsCollapsed = ref(false)
     </div>
 
     <div class="sidebar-content">
+      <!-- Favorites -->
+      <div v-if="favoriteItems.length > 0" class="sidebar-section collapsible-section">
+        <div class="sidebar-section-header" @click="favoritesCollapsed = !favoritesCollapsed">
+          <span class="collapse-btn">{{ favoritesCollapsed ? '+' : '-' }}</span>
+          <span>Favorites</span>
+          <span class="section-count">{{ favoriteItems.length }}</span>
+        </div>
+        <div v-show="!favoritesCollapsed">
+          <div
+            v-for="item in favoriteItems"
+            :key="'fav-' + item.id"
+            class="sidebar-item favorite-item"
+            :class="{ active: selectedNodeId === item.id }"
+            @click="emit('enter', item)"
+          >
+            <span class="favorite-star">&#9733;</span>
+            <span class="type-icon" :class="item.type"><span v-html="getTypeIcon(item.type)"></span></span>
+            <span class="label">{{ item.title }}</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Global Tree -->
       <div class="sidebar-section collapsible-section">
         <div class="sidebar-section-header" @click="treeCollapsed = !treeCollapsed">
@@ -125,28 +152,6 @@ const tagsCollapsed = ref(false)
               </template>
             </template>
           </template>
-        </div>
-      </div>
-
-      <!-- Favorites -->
-      <div v-if="favoriteItems.length > 0" class="sidebar-section collapsible-section">
-        <div class="sidebar-section-header" @click="favoritesCollapsed = !favoritesCollapsed">
-          <span class="collapse-btn">{{ favoritesCollapsed ? '+' : '-' }}</span>
-          <span>Favorites</span>
-          <span class="section-count">{{ favoriteItems.length }}</span>
-        </div>
-        <div v-show="!favoritesCollapsed">
-          <div
-            v-for="item in favoriteItems"
-            :key="'fav-' + item.id"
-            class="sidebar-item favorite-item"
-            :class="{ active: selectedNodeId === item.id }"
-            @click="emit('enter', item)"
-          >
-            <span class="favorite-star">&#9733;</span>
-            <span class="type-icon" :class="item.type"><span v-html="getTypeIcon(item.type)"></span></span>
-            <span class="label">{{ item.title }}</span>
-          </div>
         </div>
       </div>
 

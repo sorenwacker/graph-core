@@ -393,6 +393,7 @@ const {
   searchMode,
   openSearch,
   openLinkSearch,
+  openMoveSearch,
   closeSearch,
   onSearchInput: _onSearchInput,
   handleSearchKeydown,
@@ -422,6 +423,21 @@ const {
         }
       } catch (e) {
         console.error('Failed to create link:', e)
+      }
+      return
+    }
+
+    // Handle move mode - move node to new parent
+    if (mode === 'move' && sourceId) {
+      try {
+        await api.moveNode(sourceId, node.id)
+        await refreshGraphAfterStructureChange()
+        if (selectedNode.value?.id === sourceId) {
+          const updatedNode = await api.getNode(sourceId)
+          selectedNode.value = updatedNode
+        }
+      } catch (e) {
+        console.error('Failed to move node:', e)
       }
       return
     }
@@ -579,9 +595,6 @@ async function loadChildren(containerId = null, options = {}) {
       // Filter out any null entries and any ancestor that has same id as container (prevents duplicates)
       breadcrumbs.value = (ancestors || []).filter(a => a && a.id !== container.id)
       if (container) breadcrumbs.value.push(container)
-
-      // Expand sidebar tree to show current path
-      expandSidebarToPath(breadcrumbs.value)
     }
     currentContainerId.value = containerId
     // Keep stored expanded state from localStorage (don't reset)
@@ -1152,6 +1165,7 @@ const {
   handleToggleComplete: handleContextMenuToggleComplete,
   handleToggleFavorite: handleContextMenuToggleFavorite,
   handleOpenLinkSearch: handleContextMenuOpenLinkSearch,
+  handleOpenMoveSearch: handleContextMenuOpenMoveSearch,
   handleUnlink: handleContextMenuUnlink,
   handleMoveToWorkspace: handleContextMenuMoveToWorkspace,
   handleDelete: handleContextMenuDelete,
@@ -1164,6 +1178,7 @@ const {
   onToggleComplete: (node) => toggleComplete(node),
   onToggleFavorite: (node) => toggleFavorite(node),
   onOpenLinkSearch: (node) => openLinkSearch(node),
+  onOpenMoveSearch: (node) => openMoveSearch(node),
   onUnlink: (sourceId, targetId) => api.unlinkNodes(sourceId, targetId),
   onMoveToWorkspace: async (nodeId, workspaceId) => {
     await api.updateNode(nodeId, { workspace_id: workspaceId })
@@ -1300,6 +1315,12 @@ onMounted(async () => {
     window.electronAPI.onMenuUndo(() => undo())
     window.electronAPI.onMenuRedo(() => redo())
     window.electronAPI.onOpenSettings(() => { showSettings.value = true })
+
+    // Autosave before app quits
+    window.electronAPI.onBeforeQuit(() => {
+      saveInlineNotes()
+      detailPanelRef.value?.saveChanges()
+    })
   }
 })
 
@@ -1660,6 +1681,7 @@ onUnmounted(() => {
       @toggle-complete="handleContextMenuToggleComplete"
       @toggle-favorite="handleContextMenuToggleFavorite"
       @open-link-search="handleContextMenuOpenLinkSearch"
+      @open-move-search="handleContextMenuOpenMoveSearch"
       @unlink="handleContextMenuUnlink"
       @move-to-workspace="handleContextMenuMoveToWorkspace"
       @delete="handleContextMenuDelete"

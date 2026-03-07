@@ -4,14 +4,32 @@ import { useSidebar } from '../composables/useSidebar.js'
 
 describe('useSidebar composable', () => {
   let sidebar
+  let mockStorage
 
   beforeEach(() => {
     vi.useFakeTimers()
+
+    // Mock localStorage
+    mockStorage = {}
+    global.localStorage = {
+      getItem: vi.fn((key) => mockStorage[key] ?? null),
+      setItem: vi.fn((key, value) => {
+        mockStorage[key] = value
+      }),
+      removeItem: vi.fn((key) => {
+        delete mockStorage[key]
+      }),
+      clear: vi.fn(() => {
+        mockStorage = {}
+      })
+    }
+
     sidebar = useSidebar({ pinned: ref(false) })
   })
 
   afterEach(() => {
     vi.useRealTimers()
+    delete global.localStorage
   })
 
   describe('initial state', () => {

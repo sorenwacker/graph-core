@@ -44,7 +44,20 @@ function decodeHtml(html) {
 
 function getSearchActionLabel(result) {
   if (props.searchMode === 'link') return 'Link'
+  if (props.searchMode === 'move') return 'Move to'
   return 'Go to'
+}
+
+function getPlaceholder() {
+  if (props.searchMode === 'link') return 'Search to link...'
+  if (props.searchMode === 'move') return 'Search for new parent...'
+  return 'Search nodes...'
+}
+
+function getModeBadge() {
+  if (props.searchMode === 'link') return 'Link mode'
+  if (props.searchMode === 'move') return 'Move mode'
+  return null
 }
 </script>
 
@@ -57,7 +70,7 @@ function getSearchActionLabel(result) {
             ref="searchInputRef"
             :value="searchQuery"
             type="text"
-            :placeholder="searchMode === 'link' ? 'Search to link...' : 'Search nodes...'"
+            :placeholder="getPlaceholder()"
             class="spotlight-input"
             @input="emit('update:searchQuery', $event.target.value); emit('search-input')"
             @keydown="emit('keydown', $event)"
@@ -71,7 +84,7 @@ function getSearchActionLabel(result) {
 
         <div class="spotlight-results" v-if="searchResults.length > 0">
           <div class="spotlight-results-header">
-            <span v-if="searchMode === 'link'" class="link-mode-badge">Link mode</span>
+            <span v-if="getModeBadge()" class="link-mode-badge">{{ getModeBadge() }}</span>
             {{ searchResults.length }} result{{ searchResults.length !== 1 ? 's' : '' }}
             <span class="current-view-badge">{{ viewMode }}</span>
           </div>
