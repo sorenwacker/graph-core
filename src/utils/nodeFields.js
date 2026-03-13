@@ -7,7 +7,8 @@ import { toRaw } from 'vue'
 export const NODE_UPDATE_FIELDS = [
   'title', 'type', 'notes', 'notes_sensitive', 'completed', 'favorite',
   'due_date', 'start_date', 'end_date', 'color', 'importance',
-  'location', 'email', 'phone', 'organization', 'role', 'website', 'tags'
+  'location', 'email', 'phone', 'organization', 'role', 'website', 'tags',
+  'show_links'
 ]
 
 /**
