@@ -180,7 +180,7 @@ const isAiEnabled = computed(() => props.aiEnabled ?? props.ollamaEnabled)
     <div class="settings-container">
       <div class="settings-header">
         <span class="settings-title">Settings</span>
-        <button class="close-btn" @click="emit('close')">&times;</button>
+        <button class="close-btn" @click="emit('close')" title="Close settings">&times;</button>
       </div>
 
       <div class="settings-grid">
@@ -421,10 +421,10 @@ const isAiEnabled = computed(() => props.aiEnabled ?? props.ollamaEnabled)
           <h3 class="section-title">AI Prompts</h3>
           <div class="settings-item">
             <div class="snapshot-actions">
-              <button class="snapshot-btn" @click="showPromptList = !showPromptList">
+              <button class="snapshot-btn" @click="showPromptList = !showPromptList" title="Show or hide AI prompts">
                 {{ showPromptList ? 'Hide' : 'Show' }} Prompts
               </button>
-              <button class="snapshot-btn" @click="openPromptEditor()">Add New</button>
+              <button class="snapshot-btn" @click="openPromptEditor()" title="Create a new custom prompt">Add New</button>
             </div>
           </div>
 
@@ -463,8 +463,8 @@ const isAiEnabled = computed(() => props.aiEnabled ?? props.ollamaEnabled)
           <div class="settings-item">
             <label>Snapshots</label>
             <div class="snapshot-actions">
-              <button class="snapshot-btn" @click="emit('create-snapshot')">Create</button>
-              <button class="snapshot-btn" @click="emit('toggle-snapshots')">
+              <button class="snapshot-btn" @click="emit('create-snapshot')" title="Create a backup snapshot">Create</button>
+              <button class="snapshot-btn" @click="emit('toggle-snapshots')" title="Show available snapshots">
                 {{ showSnapshotList ? 'Hide' : 'Show' }}
               </button>
             </div>
@@ -477,13 +477,13 @@ const isAiEnabled = computed(() => props.aiEnabled ?? props.ollamaEnabled)
               class="snapshot-item"
             >
               <span class="snapshot-date">{{ formatSnapshotDate(snapshot.created) }}</span>
-              <button class="snapshot-restore-btn" @click="emit('restore-snapshot', snapshot.path)">Restore</button>
+              <button class="snapshot-restore-btn" @click="emit('restore-snapshot', snapshot.path)" title="Restore this snapshot">Restore</button>
             </div>
           </div>
           <div v-else-if="showSnapshotList" class="settings-hint">No snapshots available</div>
 
           <div class="settings-item">
-            <button class="snapshot-btn reload-btn" @click="emit('reload-database')">
+            <button class="snapshot-btn reload-btn" @click="emit('reload-database')" title="Reload database from disk">
               Reload Database
             </button>
             <span class="settings-hint">Reload from disk (picks up external changes)</span>
@@ -495,7 +495,7 @@ const isAiEnabled = computed(() => props.aiEnabled ?? props.ollamaEnabled)
           <h3 class="section-title">Lost & Found</h3>
           <div class="settings-item">
             <div class="snapshot-actions">
-              <button class="snapshot-btn" @click="emit('toggle-lost-found')">
+              <button class="snapshot-btn" @click="emit('toggle-lost-found')" title="Show orphaned nodes without parents">
                 {{ showLostFound ? 'Hide' : 'Show' }} ({{ orphanedNodes.length }})
               </button>
             </div>

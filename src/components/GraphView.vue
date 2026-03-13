@@ -2195,24 +2195,32 @@ function autoRelaxNewNodes(newNodeIds) {
   // Skip if continuous relax is already running
   if (relaxLocked.value) return
 
-  // Get the new nodes and their neighborhoods
+  // Get the new nodes
   const newNodes = newNodeIds.map(id => cy.getElementById(String(id))).filter(n => n.length > 0)
   if (newNodes.length === 0) return
 
-  // Get the combined neighborhood of all new nodes
+  // Create collection of new nodes
+  let newNodesCollection = cy.collection()
+  newNodes.forEach(node => {
+    newNodesCollection = newNodesCollection.add(node)
+  })
+
+  // Get the combined neighborhood (for running layout on connected subgraph)
   let neighborhood = cy.collection()
   newNodes.forEach(node => {
     neighborhood = neighborhood.union(node.neighborhood().add(node))
   })
 
-  // Lock nodes outside the neighborhood
-  cy.nodes().not(neighborhood).lock()
+  // Lock ALL existing nodes - only new nodes should move
+  // This prevents the parent and siblings from jumping around
+  cy.nodes().not(newNodesCollection).lock()
 
   // Save viewport
   const savedZoom = cy.zoom()
   const savedPan = { ...cy.pan() }
 
   // Run cola layout on neighborhood for auto-equilibration
+  // Only new nodes will actually move since others are locked
   const layout = neighborhood.layout({
     name: 'cola',
     animate: true,
@@ -2220,7 +2228,7 @@ function autoRelaxNewNodes(newNodeIds) {
     randomize: false,
     nodeSpacing: 40,
     edgeLength: radialSettings.edgeLength || 80,
-    maxSimulationTime: 1000,
+    maxSimulationTime: 500,
     ungrabifyWhileSimulating: false
   })
 

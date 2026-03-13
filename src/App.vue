@@ -449,37 +449,14 @@ const {
       return
     }
 
-    // Check if node is visible in current graph view
-    const isVisibleInCurrentView = viewMode.value === 'graph' &&
-      graphViewRef.value?.isNodeVisible?.(node.id)
-
-    if (isVisibleInCurrentView) {
-      selectNode(node)
-      await nextTick()
-      window.dispatchEvent(new CustomEvent('graph-center-node', { detail: { nodeId: node.id } }))
-      return
+    // Navigate INTO the searched node (make it the current container)
+    // This shows the node's children, with the node as the current context
+    if (currentContainerId.value !== node.id) {
+      await loadChildren(node.id)
     }
 
-    // Navigate to the container that holds this node
-    const targetContainerId = node.parent_id || null
-    if (currentContainerId.value !== targetContainerId) {
-      await loadChildren(targetContainerId)
-    }
-
-    // Expand tree to show the node if in tree view
-    if (viewMode.value === 'tree') {
-      expandAncestors(node.id)
-    }
-
+    // Select the node to show its details
     selectNode(node)
-    await nextTick()
-    await new Promise(resolve => setTimeout(resolve, 100))
-
-    if (viewMode.value === 'graph') {
-      window.dispatchEvent(new CustomEvent('graph-center-node', { detail: { nodeId: node.id } }))
-    } else {
-      scrollToNode(node.id)
-    }
   },
   onFetchBreadcrumbs: fetchBreadcrumbsForResults
 })
