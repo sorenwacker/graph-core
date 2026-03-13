@@ -110,6 +110,7 @@ watch(tagsCollapsed, (val) => localStorage.setItem('sidebar-tags-collapsed', Str
                 v-if="node.children?.length"
                 class="tree-expand-btn"
                 @click.stop="emit('toggle-expand', node.id)"
+                :title="expandedIds.has(node.id) ? 'Collapse' : 'Expand'"
               >{{ expandedIds.has(node.id) ? '−' : '+' }}</button>
               <span v-else class="tree-spacer"></span>
               <span class="type-icon" :class="node.type"><span v-html="getTypeIcon(node.type)"></span></span>
@@ -128,6 +129,7 @@ watch(tagsCollapsed, (val) => localStorage.setItem('sidebar-tags-collapsed', Str
                     v-if="child.children?.length"
                     class="tree-expand-btn"
                     @click.stop="emit('toggle-expand', child.id)"
+                    :title="expandedIds.has(child.id) ? 'Collapse' : 'Expand'"
                   >{{ expandedIds.has(child.id) ? '−' : '+' }}</button>
                   <span v-else class="tree-spacer"></span>
                   <span class="type-icon" :class="child.type"><span v-html="getTypeIcon(child.type)"></span></span>

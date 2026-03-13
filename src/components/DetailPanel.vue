@@ -1177,9 +1177,9 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
                   @apply-improvement="onAIImproveNotes"
                 />
                 <div class="tab-buttons">
-                  <button :class="{ active: activeTab === 'edit' }" @click="activeTab = 'edit'">Edit</button>
-                  <button :class="{ active: activeTab === 'preview' }" @click="activeTab = 'preview'">Preview</button>
-                  <button :class="{ active: activeTab === 'split' }" @click="activeTab = 'split'">Split</button>
+                  <button :class="{ active: activeTab === 'edit' }" @click="activeTab = 'edit'" title="Edit notes (markdown source)">Edit</button>
+                  <button :class="{ active: activeTab === 'preview' }" @click="activeTab = 'preview'" title="Preview rendered markdown">Preview</button>
+                  <button :class="{ active: activeTab === 'split' }" @click="activeTab = 'split'" title="Side-by-side edit and preview">Split</button>
                 </div>
               </div>
             </div>
@@ -1506,7 +1506,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
                       :value="editedNode.start_date?.split('T')[0] || ''"
                       @change="updateDate('start_date', $event.target.value)"
                     />
-                    <button v-if="editedNode.start_date" class="clear-btn" @click="clearDate('start_date')">x</button>
+                    <button v-if="editedNode.start_date" class="clear-btn" @click="clearDate('start_date')" title="Clear start date">x</button>
                   </div>
                 </div>
 
@@ -1519,7 +1519,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
                       :value="editedNode.due_date?.split('T')[0] || ''"
                       @change="updateDate('due_date', $event.target.value)"
                     />
-                    <button v-if="editedNode.due_date" class="clear-btn" @click="clearDate('due_date')">x</button>
+                    <button v-if="editedNode.due_date" class="clear-btn" @click="clearDate('due_date')" title="Clear due date">x</button>
                   </div>
                 </div>
 
@@ -1532,7 +1532,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
                       :value="editedNode.end_date?.split('T')[0] || ''"
                       @change="updateDate('end_date', $event.target.value)"
                     />
-                    <button v-if="editedNode.end_date" class="clear-btn" @click="clearDate('end_date')">x</button>
+                    <button v-if="editedNode.end_date" class="clear-btn" @click="clearDate('end_date')" title="Clear end date">x</button>
                   </div>
                 </div>
 
@@ -1549,6 +1549,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
                       v-if="editedNode.color && editedNode.color !== '#0f4c75'"
                       class="clear-btn"
                       @click="editedNode.color = '#0f4c75'; saveChanges()"
+                      title="Reset to default color"
                     >x</button>
                   </div>
                 </div>
@@ -1564,7 +1565,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
                       @blur="saveChanges"
                       class="location-input"
                     />
-                    <button class="clear-btn" @click="editedNode.location = null; saveChanges()">x</button>
+                    <button class="clear-btn" @click="editedNode.location = null; saveChanges()" title="Clear location">x</button>
                   </div>
                   <button v-else class="add-field-btn compact" @click="editedNode.location = ' '" title="Add location">+Location</button>
 
@@ -1627,11 +1628,11 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
 
       <!-- Actions -->
       <div class="detail-actions">
-        <button @click="wrapWithParent">Wrap with Parent</button>
-        <button @click="moveToRoot">Move to Root</button>
-        <button @click="copyNodeContent">Export</button>
+        <button @click="wrapWithParent" title="Create a new parent node and make this node its child">Wrap with Parent</button>
+        <button @click="moveToRoot" title="Move this node to the root level">Move to Root</button>
+        <button @click="copyNodeContent" title="Copy node content as markdown">Export</button>
         <span class="spacer"></span>
-        <button class="danger" @click="deleteNode">Delete</button>
+        <button class="danger" @click="deleteNode" title="Delete this node">Delete</button>
       </div>
     </div>
   </aside>

@@ -12,7 +12,7 @@
               </svg>
               <h3>{{ title }}</h3>
             </div>
-            <button class="close-btn" @click="$emit('close')" aria-label="Close">
+            <button class="close-btn" @click="$emit('close')" aria-label="Close" title="Close dialog">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M18 6L6 18M6 6l12 12"/>
               </svg>
@@ -43,6 +43,7 @@
                 :class="[t, { disabled: !nodeTitle.trim() }]"
                 :disabled="!nodeTitle.trim()"
                 @click="createWithType(t)"
+                :title="`Create as ${t}`"
               >
                 <span class="type-icon">{{ getTypeIcon(t) }}</span>
                 <span class="type-label">{{ t }}</span>

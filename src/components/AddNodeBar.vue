@@ -28,7 +28,7 @@ function formatType(t) {
       @input="emit('update:nodeTitle', $event.target.value)"
       @keyup.enter="emit('create')"
     />
-    <button class="primary" @click="emit('create')">Add</button>
+    <button class="primary" @click="emit('create')" title="Add new node">Add</button>
   </div>
 </template>
 

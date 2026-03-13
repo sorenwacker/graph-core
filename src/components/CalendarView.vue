@@ -224,7 +224,7 @@ function handleDragEnd() {
       <button class="nav-btn" @click="prevMonth" title="Previous month">&lt;</button>
       <h2 class="month-title" @click="goToToday">{{ monthName }}</h2>
       <button class="nav-btn" @click="nextMonth" title="Next month">&gt;</button>
-      <button class="today-btn" @click="goToToday">Today</button>
+      <button class="today-btn" @click="goToToday" title="Go to current month">Today</button>
     </div>
 
     <!-- Day names header -->
