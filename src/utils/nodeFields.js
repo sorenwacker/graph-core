@@ -8,7 +8,7 @@ export const NODE_UPDATE_FIELDS = [
   'title', 'type', 'notes', 'notes_sensitive', 'completed', 'favorite',
   'due_date', 'start_date', 'end_date', 'color', 'importance',
   'location', 'email', 'phone', 'organization', 'role', 'website', 'tags',
-  'show_links'
+  'show_links', 'show_root_node', 'show_external_links', 'graph_layout'
 ]
 
 /**
