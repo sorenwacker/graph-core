@@ -1005,9 +1005,9 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
                     @apply-improvement="onAIImproveNotes"
                   />
                   <div class="tab-buttons">
-                    <button :class="{ active: activeTab === 'edit' }" @click="activeTab = 'edit'">Edit</button>
-                    <button :class="{ active: activeTab === 'preview' }" @click="activeTab = 'preview'">Preview</button>
-                    <button :class="{ active: activeTab === 'split' }" @click="activeTab = 'split'">Split</button>
+                    <button :class="{ active: activeTab === 'edit' }" @click="activeTab = 'edit'" title="Edit notes">Edit</button>
+                    <button :class="{ active: activeTab === 'preview' }" @click="activeTab = 'preview'" title="Preview markdown">Preview</button>
+                    <button :class="{ active: activeTab === 'split' }" @click="activeTab = 'split'" title="Side-by-side view">Split</button>
                   </div>
                 </div>
               </div>
@@ -1071,7 +1071,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
                 >
                   <span class="link-type" :class="linked.type" v-html="getTypeIcon(linked.type)"></span>
                   {{ linked.title }}
-                  <button class="remove-link-btn" @click.stop="removeLink(linked)">x</button>
+                  <button class="remove-link-btn" @click.stop="removeLink(linked)" title="Remove link">x</button>
                 </span>
                 <button class="add-link-btn" @click="emit('open-link-search')" title="Add link">+</button>
               </div>
@@ -1242,7 +1242,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
                 >
                   <span class="link-type" :class="linked.type" v-html="getTypeIcon(linked.type)"></span>
                   {{ linked.title }}
-                  <button class="remove-link-btn" @click.stop="removeLink(linked)">x</button>
+                  <button class="remove-link-btn" @click.stop="removeLink(linked)" title="Remove link">x</button>
                 </span>
                 <button class="add-link-btn" @click="emit('open-link-search')" title="Add link">+</button>
               </div>
@@ -1313,7 +1313,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
             <div v-else-if="activeTab === 'preview'" class="notes-preview markdown-body">
               <div v-if="editedNode.notes_sensitive && !showSensitivePreview" class="sensitive-hidden">
                 <p>Sensitive notes hidden</p>
-                <button class="unlock-btn" @click="showSensitivePreview = true">Unlock</button>
+                <button class="unlock-btn" @click="showSensitivePreview = true" title="Show sensitive notes">Unlock</button>
               </div>
               <MarkdownRenderer v-else-if="editedNode.notes" :content="editedNode.notes" />
               <p v-else class="placeholder">No notes yet</p>
@@ -1332,7 +1332,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
               >
                 <div v-if="editedNode.notes_sensitive && !showSensitivePreview" class="sensitive-hidden">
                   <p>Sensitive notes hidden</p>
-                  <button class="unlock-btn" @click="showSensitivePreview = true">Unlock</button>
+                  <button class="unlock-btn" @click="showSensitivePreview = true" title="Show sensitive notes">Unlock</button>
                 </div>
                 <MarkdownRenderer v-else-if="editedNode.notes" :content="editedNode.notes" />
                 <p v-else class="placeholder">No notes yet</p>
@@ -1388,7 +1388,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
                   class="add-task-input"
                   @keydown.enter="addTask"
                 />
-                <button class="add-task-btn" @click="addTask" :disabled="!newTaskTitle.trim()">+</button>
+                <button class="add-task-btn" @click="addTask" :disabled="!newTaskTitle.trim()" title="Add task">+</button>
               </div>
               <div v-if="loadingChildren" class="loading">Loading...</div>
               <div v-if="filteredChildren.length" class="children-list">
@@ -1592,7 +1592,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
                           <span v-if="linked.type === 'person'" class="link-type person" v-html="personIconSvg"></span>
                           <span v-else class="link-type" :class="linked.type" v-html="getTypeIcon(linked.type)"></span>
                           {{ linked.title }}
-                          <button class="remove-link-btn" @click.stop="removeLink(linked)">x</button>
+                          <button class="remove-link-btn" @click.stop="removeLink(linked)" title="Remove link">x</button>
                         </span>
                         <button class="add-link-btn" @click="emit('open-link-search')" title="Add link">+</button>
                       </div>

@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useOllama } from '../composables/useOllama.js'
 import { useSettings } from '../composables/useSettings.js'
 import OllamaPromptModal from './OllamaPromptModal.vue'
@@ -22,8 +22,25 @@ const originalContent = ref('')
 const improvedContent = ref('')
 const usedPrompt = ref('')
 
+const buttonRef = ref(null)
+const dropdownStyle = ref({})
+
 function toggleDropdown() {
   showDropdown.value = !showDropdown.value
+  if (showDropdown.value) {
+    nextTick(updateDropdownPosition)
+  }
+}
+
+function updateDropdownPosition() {
+  if (!buttonRef.value) return
+  const rect = buttonRef.value.getBoundingClientRect()
+  dropdownStyle.value = {
+    position: 'fixed',
+    top: `${rect.bottom + 4}px`,
+    left: `${rect.left}px`,
+    zIndex: 9999
+  }
 }
 
 function closeDropdown() {
@@ -78,6 +95,7 @@ function handleRejectImprovement() {
   <div class="ai-toolbar" v-if="ollamaEnabled">
     <div class="toolbar-wrapper">
       <button
+        ref="buttonRef"
         class="ai-btn"
         :class="{ active: showDropdown, loading: isGenerating }"
         @click="toggleDropdown"
@@ -90,26 +108,29 @@ function handleRejectImprovement() {
           <path d="M2 12l10 5 10-5"/>
         </svg>
         <span v-else class="spinner"></span>
-        <span>AI</span>
+        <span>{{ isGenerating ? 'Running...' : 'AI' }}</span>
         <svg class="chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M6 9l6 6 6-6"/>
         </svg>
       </button>
 
-      <div v-if="showDropdown" class="dropdown" @mouseleave="closeDropdown">
-        <button
-          v-for="preset in presetPrompts"
-          :key="preset.id"
-          class="dropdown-item"
-          @click="handlePresetAction(preset)"
-        >
-          {{ preset.label }}
-        </button>
-        <div class="dropdown-divider"></div>
-        <button class="dropdown-item" @click="handleCustomPrompt">
-          Custom prompt...
-        </button>
-      </div>
+      <Teleport to="body">
+        <div v-if="showDropdown" class="dropdown" :style="dropdownStyle" @mouseleave="closeDropdown">
+          <button
+            v-for="preset in presetPrompts"
+            :key="preset.id"
+            class="dropdown-item"
+            :title="preset.prompt"
+            @click="handlePresetAction(preset)"
+          >
+            {{ preset.label }}
+          </button>
+          <div class="dropdown-divider"></div>
+          <button class="dropdown-item" @click="handleCustomPrompt" title="Enter your own AI instruction">
+            Custom prompt...
+          </button>
+        </div>
+      </Teleport>
     </div>
 
     <span v-if="error" class="error-message">{{ error }}</span>
@@ -171,6 +192,15 @@ function handleRejectImprovement() {
 
 .ai-btn.loading {
   cursor: wait;
+  background: var(--accent-subtle);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 
 .ai-btn:disabled {
@@ -203,16 +233,11 @@ function handleRejectImprovement() {
 }
 
 .dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  margin-top: 4px;
   min-width: 150px;
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 6px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  z-index: 100;
   overflow: hidden;
 }
 
