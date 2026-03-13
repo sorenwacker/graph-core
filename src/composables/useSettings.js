@@ -84,11 +84,23 @@ export function useSettings() {
     // Workspace
     workspace: persistedRef('graphcore-workspace', 'work'),
 
+    // AI provider settings
+    aiProvider: persistedRef('graphcore-aiProvider', 'ollama'), // 'ollama' or 'openai'
+    aiEnabled: persistedRef('graphcore-aiEnabled', true, { type: 'boolean' }),
+    aiCustomPrompts: persistedRef('graphcore-aiCustomPrompts', [], { type: 'json' }),
+
     // Ollama LLM settings
-    ollamaEnabled: persistedRef('graphcore-ollamaEnabled', true, { type: 'boolean' }),
     ollamaEndpoint: persistedRef('graphcore-ollamaEndpoint', 'http://localhost:11434'),
     ollamaModel: persistedRef('graphcore-ollamaModel', 'llama3.2'),
     ollamaContextSize: persistedRef('graphcore-ollamaContextSize', 32768, { type: 'number' }),
+
+    // OpenAI-compatible settings
+    openaiEndpoint: persistedRef('graphcore-openaiEndpoint', 'https://api.openai.com/v1'),
+    openaiApiKey: persistedRef('graphcore-openaiApiKey', ''),
+    openaiModel: persistedRef('graphcore-openaiModel', 'gpt-4o-mini'),
+
+    // Legacy (for backwards compatibility)
+    ollamaEnabled: persistedRef('graphcore-ollamaEnabled', true, { type: 'boolean' }),
     ollamaCustomPrompts: persistedRef('graphcore-ollamaCustomPrompts', [], { type: 'json' })
   }
 }

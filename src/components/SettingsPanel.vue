@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { api } from '../services/api.js'
 import { useOllama } from '../composables/useOllama.js'
 
@@ -24,10 +24,19 @@ const props = defineProps({
   availableSnapshots: { type: Array, default: () => [] },
   showLostFound: { type: Boolean, default: false },
   orphanedNodes: { type: Array, default: () => [] },
-  ollamaEnabled: { type: Boolean, default: false },
+  // AI settings
+  aiEnabled: { type: Boolean, default: true },
+  aiProvider: { type: String, default: 'ollama' },
+  // Ollama settings
   ollamaEndpoint: { type: String, default: 'http://localhost:11434' },
   ollamaModel: { type: String, default: 'llama3.2' },
-  ollamaContextSize: { type: Number, default: 32768 }
+  ollamaContextSize: { type: Number, default: 32768 },
+  // OpenAI settings
+  openaiEndpoint: { type: String, default: 'https://api.openai.com/v1' },
+  openaiApiKey: { type: String, default: '' },
+  openaiModel: { type: String, default: 'gpt-4o-mini' },
+  // Legacy
+  ollamaEnabled: { type: Boolean, default: false }
 })
 
 const emit = defineEmits([
@@ -36,10 +45,17 @@ const emit = defineEmits([
   'update:graphRootMaxDepth',
   'update:openDetailFullscreen',
   'update:hoverPreviewEnabled',
-  'update:ollamaEnabled',
+  // AI settings
+  'update:aiEnabled',
+  'update:aiProvider',
   'update:ollamaEndpoint',
   'update:ollamaModel',
   'update:ollamaContextSize',
+  'update:openaiEndpoint',
+  'update:openaiApiKey',
+  'update:openaiModel',
+  // Legacy
+  'update:ollamaEnabled',
   'create-snapshot',
   'toggle-snapshots',
   'restore-snapshot',
@@ -52,7 +68,11 @@ const emit = defineEmits([
 
 const ollamaConnectionStatus = ref(null) // null, 'testing', 'success', 'error'
 const ollamaConnectionError = ref('')
-const availableModels = ref([])
+const ollamaModels = ref([])
+
+const openaiConnectionStatus = ref(null)
+const openaiConnectionError = ref('')
+const openaiModels = ref([])
 
 // Prompt management
 const showPromptEditor = ref(false)
@@ -113,9 +133,9 @@ async function testOllamaConnection() {
       ollamaConnectionStatus.value = 'success'
       // Also fetch available models
       try {
-        availableModels.value = await api.ollamaListModels(props.ollamaEndpoint)
+        ollamaModels.value = await api.ollamaListModels(props.ollamaEndpoint)
       } catch {
-        availableModels.value = []
+        ollamaModels.value = []
       }
     } else {
       ollamaConnectionStatus.value = 'error'
@@ -126,6 +146,33 @@ async function testOllamaConnection() {
     ollamaConnectionError.value = error.message || 'Connection failed'
   }
 }
+
+async function testOpenaiConnection() {
+  openaiConnectionStatus.value = 'testing'
+  openaiConnectionError.value = ''
+
+  try {
+    const result = await api.openaiTestConnection(props.openaiEndpoint, props.openaiApiKey)
+    if (result.success) {
+      openaiConnectionStatus.value = 'success'
+      // Also fetch available models
+      try {
+        openaiModels.value = await api.openaiListModels(props.openaiEndpoint, props.openaiApiKey)
+      } catch {
+        openaiModels.value = []
+      }
+    } else {
+      openaiConnectionStatus.value = 'error'
+      openaiConnectionError.value = result.error || 'Connection failed'
+    }
+  } catch (error) {
+    openaiConnectionStatus.value = 'error'
+    openaiConnectionError.value = error.message || 'Connection failed'
+  }
+}
+
+// Computed for current provider's enabled state
+const isAiEnabled = computed(() => props.aiEnabled ?? props.ollamaEnabled)
 </script>
 
 <template>
@@ -208,89 +255,169 @@ async function testOllamaConnection() {
 
         <!-- AI Settings -->
         <section class="settings-section">
-          <h3 class="section-title">AI (Ollama)</h3>
+          <h3 class="section-title">AI</h3>
           <div class="settings-item">
             <label>
               <input
                 type="checkbox"
-                :checked="ollamaEnabled"
-                @change="emit('update:ollamaEnabled', $event.target.checked)"
+                :checked="isAiEnabled"
+                @change="emit('update:aiEnabled', $event.target.checked); emit('update:ollamaEnabled', $event.target.checked)"
               />
               Enable AI
             </label>
-            <span class="settings-hint">Use local Ollama LLM to improve notes</span>
+            <span class="settings-hint">Use LLM to improve notes</span>
           </div>
 
-          <div v-if="ollamaEnabled" class="ollama-settings">
+          <div v-if="isAiEnabled" class="ai-settings">
             <div class="settings-item">
-              <label>Endpoint</label>
-              <input
-                type="text"
-                :value="ollamaEndpoint"
-                @input="emit('update:ollamaEndpoint', $event.target.value)"
-                placeholder="http://localhost:11434"
-                class="text-input"
-              />
+              <label>Provider</label>
+              <select
+                :value="aiProvider"
+                @change="emit('update:aiProvider', $event.target.value)"
+                class="settings-select"
+              >
+                <option value="ollama">Ollama (Local)</option>
+                <option value="openai">OpenAI-compatible</option>
+              </select>
             </div>
 
-            <div class="settings-item">
-              <label>Model</label>
-              <div class="model-input-row">
+            <!-- Ollama Settings -->
+            <template v-if="aiProvider === 'ollama'">
+              <div class="settings-item">
+                <label>Endpoint</label>
                 <input
                   type="text"
-                  :value="ollamaModel"
-                  @input="emit('update:ollamaModel', $event.target.value)"
-                  placeholder="llama3.2"
-                  list="ollama-models"
+                  :value="ollamaEndpoint"
+                  @input="emit('update:ollamaEndpoint', $event.target.value)"
+                  placeholder="http://localhost:11434"
                   class="text-input"
                 />
-                <datalist id="ollama-models">
-                  <option v-for="model in availableModels" :key="model" :value="model" />
-                </datalist>
               </div>
-              <span class="settings-hint">Run: ollama pull {{ ollamaModel }} to download</span>
-            </div>
 
-            <div class="settings-item">
-              <label>Context Size <span class="slider-value">{{ (ollamaContextSize / 1024).toFixed(0) }}K</span></label>
-              <input
-                type="range"
-                :value="ollamaContextSize"
-                min="4096"
-                max="131072"
-                step="4096"
-                class="settings-slider"
-                @input="emit('update:ollamaContextSize', Number($event.target.value))"
-              />
-              <span class="settings-hint">Larger context for longer notes (requires more RAM)</span>
-            </div>
+              <div class="settings-item">
+                <label>Model</label>
+                <div class="model-input-row">
+                  <input
+                    type="text"
+                    :value="ollamaModel"
+                    @input="emit('update:ollamaModel', $event.target.value)"
+                    placeholder="llama3.2"
+                    list="ollama-models"
+                    class="text-input"
+                  />
+                  <datalist id="ollama-models">
+                    <option v-for="model in ollamaModels" :key="model" :value="model" />
+                  </datalist>
+                </div>
+                <span class="settings-hint">Run: ollama pull {{ ollamaModel }} to download</span>
+              </div>
 
-            <div class="settings-item">
-              <button
-                class="snapshot-btn test-btn"
-                :class="{ testing: ollamaConnectionStatus === 'testing' }"
-                @click="testOllamaConnection"
-                :disabled="ollamaConnectionStatus === 'testing'"
-              >
-                <span v-if="ollamaConnectionStatus === 'testing'">Testing...</span>
-                <span v-else>Test Connection</span>
-              </button>
-              <span v-if="ollamaConnectionStatus === 'success'" class="connection-status success">
-                Connected
-              </span>
-              <span v-else-if="ollamaConnectionStatus === 'error'" class="connection-status error">
-                {{ ollamaConnectionError }}
-              </span>
-            </div>
+              <div class="settings-item">
+                <label>Context Size <span class="slider-value">{{ (ollamaContextSize / 1024).toFixed(0) }}K</span></label>
+                <input
+                  type="range"
+                  :value="ollamaContextSize"
+                  min="4096"
+                  max="131072"
+                  step="4096"
+                  class="settings-slider"
+                  @input="emit('update:ollamaContextSize', Number($event.target.value))"
+                />
+                <span class="settings-hint">Larger context for longer notes (requires more RAM)</span>
+              </div>
 
-            <div v-if="availableModels.length > 0" class="settings-item">
-              <span class="settings-hint">Available: {{ availableModels.join(', ') }}</span>
-            </div>
+              <div class="settings-item">
+                <button
+                  class="snapshot-btn test-btn"
+                  :class="{ testing: ollamaConnectionStatus === 'testing' }"
+                  @click="testOllamaConnection"
+                  :disabled="ollamaConnectionStatus === 'testing'"
+                >
+                  <span v-if="ollamaConnectionStatus === 'testing'">Testing...</span>
+                  <span v-else>Test Connection</span>
+                </button>
+                <span v-if="ollamaConnectionStatus === 'success'" class="connection-status success">
+                  Connected
+                </span>
+                <span v-else-if="ollamaConnectionStatus === 'error'" class="connection-status error">
+                  {{ ollamaConnectionError }}
+                </span>
+              </div>
+
+              <div v-if="ollamaModels.length > 0" class="settings-item">
+                <span class="settings-hint">Available: {{ ollamaModels.join(', ') }}</span>
+              </div>
+            </template>
+
+            <!-- OpenAI Settings -->
+            <template v-else-if="aiProvider === 'openai'">
+              <div class="settings-item">
+                <label>Endpoint</label>
+                <input
+                  type="text"
+                  :value="openaiEndpoint"
+                  @input="emit('update:openaiEndpoint', $event.target.value)"
+                  placeholder="https://api.openai.com/v1"
+                  class="text-input"
+                />
+                <span class="settings-hint">OpenAI or compatible API endpoint</span>
+              </div>
+
+              <div class="settings-item">
+                <label>API Key</label>
+                <input
+                  type="password"
+                  :value="openaiApiKey"
+                  @input="emit('update:openaiApiKey', $event.target.value)"
+                  placeholder="sk-..."
+                  class="text-input"
+                />
+              </div>
+
+              <div class="settings-item">
+                <label>Model</label>
+                <div class="model-input-row">
+                  <input
+                    type="text"
+                    :value="openaiModel"
+                    @input="emit('update:openaiModel', $event.target.value)"
+                    placeholder="gpt-4o-mini"
+                    list="openai-models"
+                    class="text-input"
+                  />
+                  <datalist id="openai-models">
+                    <option v-for="model in openaiModels" :key="model" :value="model" />
+                  </datalist>
+                </div>
+              </div>
+
+              <div class="settings-item">
+                <button
+                  class="snapshot-btn test-btn"
+                  :class="{ testing: openaiConnectionStatus === 'testing' }"
+                  @click="testOpenaiConnection"
+                  :disabled="openaiConnectionStatus === 'testing' || !openaiApiKey"
+                >
+                  <span v-if="openaiConnectionStatus === 'testing'">Testing...</span>
+                  <span v-else>Test Connection</span>
+                </button>
+                <span v-if="openaiConnectionStatus === 'success'" class="connection-status success">
+                  Connected
+                </span>
+                <span v-else-if="openaiConnectionStatus === 'error'" class="connection-status error">
+                  {{ openaiConnectionError }}
+                </span>
+              </div>
+
+              <div v-if="openaiModels.length > 0" class="settings-item">
+                <span class="settings-hint">Available: {{ openaiModels.slice(0, 10).join(', ') }}{{ openaiModels.length > 10 ? '...' : '' }}</span>
+              </div>
+            </template>
           </div>
         </section>
 
         <!-- AI Prompts -->
-        <section v-if="ollamaEnabled" class="settings-section">
+        <section v-if="isAiEnabled" class="settings-section">
           <h3 class="section-title">AI Prompts</h3>
           <div class="settings-item">
             <div class="snapshot-actions">

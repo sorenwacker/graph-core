@@ -20,11 +20,19 @@ const props = defineProps({
   availableSnapshots: { type: Array, default: () => [] },
   showLostFound: { type: Boolean, default: false },
   orphanedNodes: { type: Array, default: () => [] },
+  // AI settings
+  aiEnabled: { type: Boolean, default: true },
+  aiProvider: { type: String, default: 'ollama' },
   // Ollama settings
-  ollamaEnabled: { type: Boolean, default: false },
   ollamaEndpoint: { type: String, default: 'http://localhost:11434' },
   ollamaModel: { type: String, default: 'llama3.2' },
-  ollamaContextSize: { type: Number, default: 32768 }
+  ollamaContextSize: { type: Number, default: 32768 },
+  // OpenAI settings
+  openaiEndpoint: { type: String, default: 'https://api.openai.com/v1' },
+  openaiApiKey: { type: String, default: '' },
+  openaiModel: { type: String, default: 'gpt-4o-mini' },
+  // Legacy
+  ollamaEnabled: { type: Boolean, default: false }
 })
 
 const emit = defineEmits([
@@ -40,10 +48,15 @@ const emit = defineEmits([
   'update:graphRootMaxDepth',
   'update:openDetailFullscreen',
   'update:hoverPreviewEnabled',
-  'update:ollamaEnabled',
+  'update:aiEnabled',
+  'update:aiProvider',
   'update:ollamaEndpoint',
   'update:ollamaModel',
   'update:ollamaContextSize',
+  'update:openaiEndpoint',
+  'update:openaiApiKey',
+  'update:openaiModel',
+  'update:ollamaEnabled',
   'create-snapshot',
   'toggle-snapshots',
   'restore-snapshot',
@@ -124,19 +137,29 @@ function handleClickOutside(e) {
           :available-snapshots="availableSnapshots"
           :show-lost-found="showLostFound"
           :orphaned-nodes="orphanedNodes"
-          :ollama-enabled="ollamaEnabled"
+          :ai-enabled="aiEnabled"
+          :ai-provider="aiProvider"
           :ollama-endpoint="ollamaEndpoint"
           :ollama-model="ollamaModel"
           :ollama-context-size="ollamaContextSize"
+          :openai-endpoint="openaiEndpoint"
+          :openai-api-key="openaiApiKey"
+          :openai-model="openaiModel"
+          :ollama-enabled="ollamaEnabled"
           @update:graph-detail-threshold="emit('update:graphDetailThreshold', $event)"
           @update:graph-max-depth="emit('update:graphMaxDepth', $event)"
           @update:graph-root-max-depth="emit('update:graphRootMaxDepth', $event)"
           @update:open-detail-fullscreen="emit('update:openDetailFullscreen', $event)"
           @update:hover-preview-enabled="emit('update:hoverPreviewEnabled', $event)"
-          @update:ollama-enabled="emit('update:ollamaEnabled', $event)"
+          @update:ai-enabled="emit('update:aiEnabled', $event)"
+          @update:ai-provider="emit('update:aiProvider', $event)"
           @update:ollama-endpoint="emit('update:ollamaEndpoint', $event)"
           @update:ollama-model="emit('update:ollamaModel', $event)"
           @update:ollama-context-size="emit('update:ollamaContextSize', $event)"
+          @update:openai-endpoint="emit('update:openaiEndpoint', $event)"
+          @update:openai-api-key="emit('update:openaiApiKey', $event)"
+          @update:openai-model="emit('update:openaiModel', $event)"
+          @update:ollama-enabled="emit('update:ollamaEnabled', $event)"
           @create-snapshot="emit('create-snapshot')"
           @toggle-snapshots="emit('toggle-snapshots')"
           @restore-snapshot="emit('restore-snapshot', $event)"
