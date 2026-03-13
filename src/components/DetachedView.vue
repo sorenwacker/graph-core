@@ -204,7 +204,7 @@ watch(() => currentNode.value?.title, (newTitle) => {
 
     <!-- Back navigation when we've drilled into children -->
     <div v-if="navigationHistory.length > 0" class="detached-nav">
-      <button class="back-btn" @click="goBack">
+      <button class="back-btn" @click="goBack" title="Go back to previous node">
         <span class="back-icon">&larr;</span> Back
       </button>
     </div>

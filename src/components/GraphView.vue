@@ -2672,8 +2672,8 @@ onUnmounted(() => {
         </button>
         <div v-if="showTypeFilter" class="type-filter-dropdown">
           <div class="type-filter-actions">
-            <button @click="selectAllTypes">All</button>
-            <button @click="selectNoTypes">None</button>
+            <button @click="selectAllTypes" title="Show all node types">All</button>
+            <button @click="selectNoTypes" title="Hide all node types">None</button>
           </div>
           <label
             v-for="type in ALL_NODE_TYPES"
