@@ -105,6 +105,53 @@ describe('useSettings composable', () => {
     })
   })
 
+  describe('AI settings', () => {
+    it('should have default AI provider as ollama', () => {
+      const settings = useSettings()
+      expect(settings.aiProvider.value).toBe('ollama')
+    })
+
+    it('should have AI enabled by default', () => {
+      const settings = useSettings()
+      expect(settings.aiEnabled.value).toBe(true)
+    })
+
+    it('should have default OpenAI endpoint', () => {
+      const settings = useSettings()
+      expect(settings.openaiEndpoint.value).toBe('https://api.openai.com/v1')
+    })
+
+    it('should have empty OpenAI API key by default', () => {
+      const settings = useSettings()
+      expect(settings.openaiApiKey.value).toBe('')
+    })
+
+    it('should have default OpenAI model', () => {
+      const settings = useSettings()
+      expect(settings.openaiModel.value).toBe('gpt-4o-mini')
+    })
+
+    it('should persist AI provider changes', async () => {
+      const settings = useSettings()
+      settings.aiProvider.value = 'openai'
+      await vi.waitFor(() => {
+        expect(mockStorage['graphcore-aiProvider']).toBe('openai')
+      })
+    })
+
+    it('should persist OpenAI settings', async () => {
+      const settings = useSettings()
+      settings.openaiEndpoint.value = 'https://custom.api.com/v1'
+      settings.openaiApiKey.value = 'sk-test123'
+      settings.openaiModel.value = 'gpt-4o'
+      await vi.waitFor(() => {
+        expect(mockStorage['graphcore-openaiEndpoint']).toBe('https://custom.api.com/v1')
+        expect(mockStorage['graphcore-openaiApiKey']).toBe('sk-test123')
+        expect(mockStorage['graphcore-openaiModel']).toBe('gpt-4o')
+      })
+    })
+  })
+
   describe('containerId', () => {
     it('should default to null', () => {
       const settings = useSettings()

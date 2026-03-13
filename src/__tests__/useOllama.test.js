@@ -7,7 +7,10 @@ vi.mock('../services/api.js', () => ({
   api: {
     ollamaGenerate: vi.fn(),
     ollamaTestConnection: vi.fn(),
-    ollamaListModels: vi.fn()
+    ollamaListModels: vi.fn(),
+    openaiGenerate: vi.fn(),
+    openaiTestConnection: vi.fn(),
+    openaiListModels: vi.fn()
   }
 }))
 
@@ -15,10 +18,20 @@ vi.mock('../services/api.js', () => ({
 import { ref } from 'vue'
 vi.mock('../composables/useSettings.js', () => ({
   useSettings: () => ({
-    ollamaEnabled: ref(true),
+    // New AI settings
+    aiProvider: ref('ollama'),
+    aiEnabled: ref(true),
+    aiCustomPrompts: ref([]),
+    // Ollama settings
     ollamaEndpoint: ref('http://localhost:11434'),
     ollamaModel: ref('llama3.2'),
     ollamaContextSize: ref(32768),
+    // OpenAI settings
+    openaiEndpoint: ref('https://api.openai.com/v1'),
+    openaiApiKey: ref('sk-test'),
+    openaiModel: ref('gpt-4o-mini'),
+    // Legacy
+    ollamaEnabled: ref(true),
     ollamaCustomPrompts: ref([])
   })
 }))
@@ -259,6 +272,27 @@ describe('useOllama', () => {
         success: false,
         error: 'Connection refused'
       })
+    })
+  })
+
+  describe('AI_PROVIDERS', () => {
+    it('should export AI provider constants', () => {
+      const { AI_PROVIDERS } = useOllama()
+      expect(AI_PROVIDERS).toBeDefined()
+      expect(AI_PROVIDERS.OLLAMA).toBe('ollama')
+      expect(AI_PROVIDERS.OPENAI).toBe('openai')
+    })
+  })
+
+  describe('provider state', () => {
+    it('should expose provider ref', () => {
+      const { provider } = useOllama()
+      expect(provider.value).toBe('ollama')
+    })
+
+    it('should expose isEnabled ref', () => {
+      const { isEnabled } = useOllama()
+      expect(isEnabled.value).toBe(true)
     })
   })
 })
