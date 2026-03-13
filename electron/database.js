@@ -331,6 +331,7 @@ class Database {
       { table: 'nodes', column: 'graph_layout', def: 'TEXT DEFAULT NULL' },
       { table: 'nodes', column: 'show_root_node', def: 'INTEGER DEFAULT NULL' },
       { table: 'nodes', column: 'show_external_links', def: 'INTEGER DEFAULT NULL' },
+      { table: 'nodes', column: 'show_links', def: 'INTEGER DEFAULT 1' },
       { table: 'nodes', column: 'workspace_id', def: 'TEXT DEFAULT NULL', onAdd: () => {
         this.backup('-pre-workspace-migration')
         console.log('Created backup before workspace migration')

@@ -1056,23 +1056,29 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
           </div>
 
           <!-- Links section for persons -->
-          <div v-if="linkedNodes.filter(n => n.type !== 'organization').length" class="person-links-section">
-            <label>Linked Items</label>
-            <div class="links-list">
-              <span
-                v-for="linked in linkedNodes.filter(n => n.type !== 'organization')"
-                :key="linked.id"
-                class="link-chip"
-                @click="emit('select-child', linked.id)"
-              >
-                <span class="link-type" :class="linked.type" v-html="getTypeIcon(linked.type)"></span>
-                {{ linked.title }}
-                <button class="remove-link-btn" @click.stop="removeLink(linked)">x</button>
-              </span>
-              <button class="add-link-btn" @click="emit('open-link-search')" title="Add link">+</button>
+          <template v-if="editedNode.show_links !== 0">
+            <div v-if="linkedNodes.filter(n => n.type !== 'organization').length" class="person-links-section">
+              <label>
+                Linked Items
+                <button class="toggle-links-btn" @click.stop="editedNode.show_links = 0; saveChanges()" title="Hide links section">-</button>
+              </label>
+              <div class="links-list">
+                <span
+                  v-for="linked in linkedNodes.filter(n => n.type !== 'organization')"
+                  :key="linked.id"
+                  class="link-chip"
+                  @click="emit('select-child', linked.id)"
+                >
+                  <span class="link-type" :class="linked.type" v-html="getTypeIcon(linked.type)"></span>
+                  {{ linked.title }}
+                  <button class="remove-link-btn" @click.stop="removeLink(linked)">x</button>
+                </span>
+                <button class="add-link-btn" @click="emit('open-link-search')" title="Add link">+</button>
+              </div>
             </div>
-          </div>
-          <button v-else class="add-field-btn link-btn" @click="emit('open-link-search')" title="Add link">+ Link to project/task</button>
+            <button v-else class="add-field-btn link-btn" @click="emit('open-link-search')" title="Add link">+ Link to project/task</button>
+          </template>
+          <button v-else class="add-field-btn link-btn" @click="editedNode.show_links = 1; saveChanges()" title="Show links section">+ Link to project/task</button>
 
           <!-- Tags for person -->
           <div class="person-tags-section">
@@ -1221,23 +1227,29 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
           </div>
 
           <!-- Links section for organization (non-person links) -->
-          <div v-if="linkedNodes.filter(n => n.type !== 'person').length" class="org-links-section">
-            <label>Linked Items</label>
-            <div class="links-list">
-              <span
-                v-for="linked in linkedNodes.filter(n => n.type !== 'person')"
-                :key="linked.id"
-                class="link-chip"
-                @click="emit('select-child', linked.id)"
-              >
-                <span class="link-type" :class="linked.type" v-html="getTypeIcon(linked.type)"></span>
-                {{ linked.title }}
-                <button class="remove-link-btn" @click.stop="removeLink(linked)">x</button>
-              </span>
-              <button class="add-link-btn" @click="emit('open-link-search')" title="Add link">+</button>
+          <template v-if="editedNode.show_links !== 0">
+            <div v-if="linkedNodes.filter(n => n.type !== 'person').length" class="org-links-section">
+              <label>
+                Linked Items
+                <button class="toggle-links-btn" @click.stop="editedNode.show_links = 0; saveChanges()" title="Hide links section">-</button>
+              </label>
+              <div class="links-list">
+                <span
+                  v-for="linked in linkedNodes.filter(n => n.type !== 'person')"
+                  :key="linked.id"
+                  class="link-chip"
+                  @click="emit('select-child', linked.id)"
+                >
+                  <span class="link-type" :class="linked.type" v-html="getTypeIcon(linked.type)"></span>
+                  {{ linked.title }}
+                  <button class="remove-link-btn" @click.stop="removeLink(linked)">x</button>
+                </span>
+                <button class="add-link-btn" @click="emit('open-link-search')" title="Add link">+</button>
+              </div>
             </div>
-          </div>
-          <button v-else class="add-field-btn link-btn" @click="emit('open-link-search')" title="Add link">+ Link to project/task</button>
+            <button v-else class="add-field-btn link-btn" @click="emit('open-link-search')" title="Add link">+ Link to project/task</button>
+          </template>
+          <button v-else class="add-field-btn link-btn" @click="editedNode.show_links = 1; saveChanges()" title="Show links section">+ Link to project/task</button>
 
           <!-- Tags for organization -->
           <div class="org-tags-section">
@@ -1564,24 +1576,30 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
                     />
                   </div>
 
-                  <div v-if="linkedNodes.length" class="compact-field links-field">
-                    <label>Links</label>
-                    <div class="links-inline">
-                      <span
-                        v-for="linked in linkedNodes"
-                        :key="linked.id"
-                        class="link-chip"
-                        @click="emit('select-child', linked.id)"
-                      >
-                        <span v-if="linked.type === 'person'" class="link-type person" v-html="personIconSvg"></span>
-                        <span v-else class="link-type" :class="linked.type" v-html="getTypeIcon(linked.type)"></span>
-                        {{ linked.title }}
-                        <button class="remove-link-btn" @click.stop="removeLink(linked)">x</button>
-                      </span>
-                      <button class="add-link-btn" @click="emit('open-link-search')" title="Add link">+</button>
+                  <template v-if="editedNode.show_links !== 0">
+                    <div v-if="linkedNodes.length" class="compact-field links-field">
+                      <label>
+                        Links
+                        <button class="toggle-links-btn" @click.stop="editedNode.show_links = 0; saveChanges()" title="Hide links section">-</button>
+                      </label>
+                      <div class="links-inline">
+                        <span
+                          v-for="linked in linkedNodes"
+                          :key="linked.id"
+                          class="link-chip"
+                          @click="emit('select-child', linked.id)"
+                        >
+                          <span v-if="linked.type === 'person'" class="link-type person" v-html="personIconSvg"></span>
+                          <span v-else class="link-type" :class="linked.type" v-html="getTypeIcon(linked.type)"></span>
+                          {{ linked.title }}
+                          <button class="remove-link-btn" @click.stop="removeLink(linked)">x</button>
+                        </span>
+                        <button class="add-link-btn" @click="emit('open-link-search')" title="Add link">+</button>
+                      </div>
                     </div>
-                  </div>
-                  <button v-else class="add-field-btn compact" @click="emit('open-link-search')" title="Add link">+Link</button>
+                    <button v-else class="add-field-btn compact" @click="emit('open-link-search')" title="Add link">+Link</button>
+                  </template>
+                  <button v-else class="add-field-btn compact" @click="editedNode.show_links = 1; saveChanges()" title="Show links section">+Link</button>
                 </div>
 
                 <!-- System info (compact second row) -->
@@ -2521,6 +2539,27 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
   color: var(--accent-color);
 }
 
+.toggle-links-btn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 4px;
+  margin-left: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.links-field:hover .toggle-links-btn,
+.person-links-section:hover .toggle-links-btn,
+.org-links-section:hover .toggle-links-btn {
+  opacity: 1;
+}
+
+.toggle-links-btn:hover {
+  color: var(--text-primary);
+}
 
 .meta-item label {
   font-size: 10px;
