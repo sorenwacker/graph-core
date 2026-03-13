@@ -659,7 +659,7 @@ class Database {
   createNode(data) {
     const fields = ['type', 'title', 'parent_id', 'notes', 'completed', 'color', 'sort_order',
       'importance', 'start_date', 'end_date', 'due_date', 'location', 'email', 'phone',
-      'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive', 'category_id', 'status_id', 'tags', 'workspace_id', 'graph_layout', 'show_root_node', 'show_external_links']
+      'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive', 'category_id', 'status_id', 'tags', 'workspace_id', 'graph_layout', 'show_root_node', 'show_external_links', 'show_links']
 
     const presentFields = fields.filter(f => data[f] !== undefined)
     const values = presentFields.map(f => {
@@ -694,7 +694,7 @@ class Database {
   updateNode(id, data) {
     const fields = ['type', 'title', 'parent_id', 'notes', 'completed', 'color', 'sort_order',
       'importance', 'start_date', 'end_date', 'due_date', 'location', 'email', 'phone',
-      'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive', 'category_id', 'status_id', 'tags', 'workspace_id', 'graph_layout', 'show_root_node', 'show_external_links']
+      'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive', 'category_id', 'status_id', 'tags', 'workspace_id', 'graph_layout', 'show_root_node', 'show_external_links', 'show_links']
 
     const updates = []
     const values = []
