@@ -19,16 +19,34 @@ A hierarchical node management application built with Vue 3, Vite, and Electron.
 - **Keyboard Shortcuts**: Efficient navigation and editing
 - **AI Notes**: Local LLM integration via Ollama for improving, summarizing, and transforming notes
 
-## AI Notes (Ollama)
+## AI Notes
 
-The app integrates with [Ollama](https://ollama.ai) for local AI-powered note improvements.
+The app supports AI-powered note improvements via two providers:
 
-### Setup
+### Ollama (Local)
 
 1. Install Ollama: https://ollama.ai/download
 2. Pull a model: `ollama pull llama3.2`
 3. Start Ollama: `ollama serve`
-4. Enable AI in Settings and test the connection
+4. In Settings, select "Ollama" as provider and test the connection
+
+**Settings:**
+- **Endpoint**: Ollama server URL (default: `http://localhost:11434`)
+- **Model**: Any Ollama model (default: `llama3.2`)
+- **Context Size**: Token limit for processing (4K-128K, default: 32K)
+
+### OpenAI-compatible APIs
+
+Use OpenAI, Azure OpenAI, or any compatible endpoint.
+
+1. In Settings, select "OpenAI-compatible" as provider
+2. Enter your API endpoint and API key
+3. Select a model and test the connection
+
+**Settings:**
+- **Endpoint**: API URL (default: `https://api.openai.com/v1`)
+- **API Key**: Your API key (required)
+- **Model**: Model name (default: `gpt-4o-mini`)
 
 ### Features
 
@@ -36,12 +54,6 @@ The app integrates with [Ollama](https://ollama.ai) for local AI-powered note im
 - **Custom Prompts**: Create your own prompts in Settings
 - **Preview & Diff**: Review changes before applying
 - **Undo Support**: All AI changes can be undone
-
-### Settings
-
-- **Endpoint**: Ollama server URL (default: `http://localhost:11434`)
-- **Model**: Any Ollama model (default: `llama3.2`)
-- **Context Size**: Token limit for processing (4K-128K, default: 32K)
 
 ## Development
 
