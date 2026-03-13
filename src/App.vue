@@ -68,10 +68,17 @@ const {
   openDetailFullscreen,
   hoverPreviewEnabled,
   sidebarPinned,
-  ollamaEnabled,
+  // AI settings
+  aiProvider,
+  aiEnabled,
   ollamaEndpoint,
   ollamaModel,
-  ollamaContextSize
+  ollamaContextSize,
+  openaiEndpoint,
+  openaiApiKey,
+  openaiModel,
+  // Legacy
+  ollamaEnabled
 } = useSettings()
 
 const loading = ref(true)
@@ -1394,10 +1401,15 @@ onUnmounted(() => {
             v-model:graph-root-max-depth="graphRootMaxDepth"
             v-model:open-detail-fullscreen="openDetailFullscreen"
             v-model:hover-preview-enabled="hoverPreviewEnabled"
-            v-model:ollama-enabled="ollamaEnabled"
+            v-model:ai-enabled="aiEnabled"
+            v-model:ai-provider="aiProvider"
             v-model:ollama-endpoint="ollamaEndpoint"
             v-model:ollama-model="ollamaModel"
             v-model:ollama-context-size="ollamaContextSize"
+            v-model:openai-endpoint="openaiEndpoint"
+            v-model:openai-api-key="openaiApiKey"
+            v-model:openai-model="openaiModel"
+            v-model:ollama-enabled="ollamaEnabled"
             :hide-completed="hideCompleted"
             :can-undo="undoStack.length > 0"
             :can-redo="redoStack.length > 0"

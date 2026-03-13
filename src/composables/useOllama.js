@@ -3,6 +3,14 @@ import { api } from '../services/api.js'
 import { useSettings } from './useSettings.js'
 
 /**
+ * Supported AI providers
+ */
+export const AI_PROVIDERS = {
+  OLLAMA: 'ollama',
+  OPENAI: 'openai'
+}
+
+/**
  * Default prompts for common note improvement actions
  */
 const defaultPrompts = [
@@ -49,25 +57,40 @@ const defaultPrompts = [
 ]
 
 /**
- * Composable for Ollama LLM integration.
+ * Composable for AI LLM integration (Ollama and OpenAI-compatible).
  * Provides methods for generating improved notes and managing generation state.
  *
- * @returns {Object} Ollama state and methods
+ * @returns {Object} AI state and methods
  */
 export function useOllama() {
-  const { ollamaEnabled, ollamaEndpoint, ollamaModel, ollamaContextSize, ollamaCustomPrompts } = useSettings()
+  const {
+    aiProvider, aiEnabled, aiCustomPrompts,
+    ollamaEndpoint, ollamaModel, ollamaContextSize,
+    openaiEndpoint, openaiApiKey, openaiModel,
+    // Legacy settings for backwards compatibility
+    ollamaEnabled, ollamaCustomPrompts
+  } = useSettings()
+
+  // Use new settings if available, fall back to legacy
+  const isEnabled = computed(() => aiEnabled?.value ?? ollamaEnabled.value)
+  const customPrompts = computed(() => aiCustomPrompts?.value ?? ollamaCustomPrompts.value)
+  const provider = computed(() => aiProvider?.value ?? AI_PROVIDERS.OLLAMA)
 
   const isGenerating = ref(false)
   const error = ref(null)
   const generatedContent = ref('')
 
   /**
-   * Check if Ollama is properly configured
+   * Check if AI is properly configured
    */
   const isConfigured = computed(() => {
-    return ollamaEnabled.value &&
-      ollamaEndpoint.value &&
-      ollamaModel.value
+    if (!isEnabled.value) return false
+
+    if (provider.value === AI_PROVIDERS.OPENAI) {
+      return openaiEndpoint.value && openaiApiKey.value && openaiModel.value
+    }
+    // Default: Ollama
+    return ollamaEndpoint.value && ollamaModel.value
   })
 
   /**
@@ -75,7 +98,7 @@ export function useOllama() {
    * Custom prompts with _deleted: true are filtered out
    */
   const presetPrompts = computed(() => {
-    const custom = ollamaCustomPrompts.value || []
+    const custom = customPrompts.value || []
     const deletedIds = new Set(custom.filter(p => p._deleted).map(p => p.id))
     const customById = new Map(custom.filter(p => !p._deleted).map(p => [p.id, p]))
 
@@ -94,24 +117,33 @@ export function useOllama() {
   })
 
   /**
+   * Get the ref to write custom prompts to (prefers new setting, falls back to legacy)
+   */
+  function getCustomPromptsRef() {
+    return aiCustomPrompts ?? ollamaCustomPrompts
+  }
+
+  /**
    * Add or update a custom prompt
    */
   function savePrompt(prompt) {
-    const custom = [...(ollamaCustomPrompts.value || [])]
+    const ref = getCustomPromptsRef()
+    const custom = [...(ref.value || [])]
     const idx = custom.findIndex(p => p.id === prompt.id)
     if (idx >= 0) {
       custom[idx] = { ...prompt, _deleted: false }
     } else {
       custom.push({ ...prompt })
     }
-    ollamaCustomPrompts.value = custom
+    ref.value = custom
   }
 
   /**
    * Delete a prompt (marks default prompts as deleted, removes custom ones)
    */
   function deletePrompt(id) {
-    const custom = [...(ollamaCustomPrompts.value || [])]
+    const ref = getCustomPromptsRef()
+    const custom = [...(ref.value || [])]
     const isDefault = defaultPrompts.some(p => p.id === id)
 
     if (isDefault) {
@@ -129,18 +161,19 @@ export function useOllama() {
         custom.splice(idx, 1)
       }
     }
-    ollamaCustomPrompts.value = custom
+    ref.value = custom
   }
 
   /**
    * Reset a prompt to its default (removes custom override)
    */
   function resetPrompt(id) {
-    const custom = [...(ollamaCustomPrompts.value || [])]
+    const ref = getCustomPromptsRef()
+    const custom = [...(ref.value || [])]
     const idx = custom.findIndex(p => p.id === id)
     if (idx >= 0) {
       custom.splice(idx, 1)
-      ollamaCustomPrompts.value = custom
+      ref.value = custom
     }
   }
 
@@ -148,7 +181,7 @@ export function useOllama() {
    * Check if a prompt is modified from default
    */
   function isPromptModified(id) {
-    const custom = ollamaCustomPrompts.value || []
+    const custom = customPrompts.value || []
     return custom.some(p => p.id === id && !p._deleted)
   }
 
@@ -160,7 +193,7 @@ export function useOllama() {
   }
 
   /**
-   * Improve notes using Ollama
+   * Improve notes using the configured AI provider
    * @param {string} originalContent - The original notes content
    * @param {string} prompt - The improvement prompt
    * @returns {Promise<string|null>} Generated content or null on error
@@ -171,13 +204,25 @@ export function useOllama() {
     generatedContent.value = ''
 
     try {
-      const result = await api.ollamaGenerate({
-        prompt,
-        content: originalContent,
-        model: ollamaModel.value,
-        endpoint: ollamaEndpoint.value,
-        contextSize: ollamaContextSize.value
-      })
+      let result
+      if (provider.value === AI_PROVIDERS.OPENAI) {
+        result = await api.openaiGenerate({
+          prompt,
+          content: originalContent,
+          model: openaiModel.value,
+          endpoint: openaiEndpoint.value,
+          apiKey: openaiApiKey.value
+        })
+      } else {
+        // Default: Ollama
+        result = await api.ollamaGenerate({
+          prompt,
+          content: originalContent,
+          model: ollamaModel.value,
+          endpoint: ollamaEndpoint.value,
+          contextSize: ollamaContextSize.value
+        })
+      }
 
       generatedContent.value = result
       return result
@@ -190,11 +235,25 @@ export function useOllama() {
   }
 
   /**
-   * Test connection to Ollama server
+   * Test connection to AI provider
    * @returns {Promise<{success: boolean, error?: string}>}
    */
   async function testConnection() {
+    if (provider.value === AI_PROVIDERS.OPENAI) {
+      return api.openaiTestConnection(openaiEndpoint.value, openaiApiKey.value)
+    }
     return api.ollamaTestConnection(ollamaEndpoint.value)
+  }
+
+  /**
+   * List available models from the configured provider
+   * @returns {Promise<string[]>}
+   */
+  async function listModels() {
+    if (provider.value === AI_PROVIDERS.OPENAI) {
+      return api.openaiListModels(openaiEndpoint.value, openaiApiKey.value)
+    }
+    return api.ollamaListModels(ollamaEndpoint.value)
   }
 
   return {
@@ -205,14 +264,18 @@ export function useOllama() {
 
     // Computed
     isConfigured,
+    isEnabled,
+    provider,
     presetPrompts,
 
     // Constants
     defaultPrompts,
+    AI_PROVIDERS,
 
     // Methods
     improveNotes,
     testConnection,
+    listModels,
     savePrompt,
     deletePrompt,
     resetPrompt,

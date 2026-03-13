@@ -520,3 +520,122 @@ ipcMain.handle('ollama:listModels', async (event, endpoint) => {
   const response = await ollamaRequest(endpoint, '/api/tags')
   return (response.models || []).map(m => m.name)
 })
+
+// =========================================
+// OPENAI-COMPATIBLE API INTEGRATION
+// =========================================
+
+/**
+ * Make HTTP request to OpenAI-compatible API
+ */
+async function openaiRequest(endpoint, path, apiKey, options = {}) {
+  const url = `${endpoint}${path}`
+
+  return new Promise((resolve, reject) => {
+    const request = net.request({
+      method: options.method || 'GET',
+      url
+    })
+
+    request.setHeader('Authorization', `Bearer ${apiKey}`)
+    if (options.body) {
+      request.setHeader('Content-Type', 'application/json')
+    }
+
+    let responseData = ''
+
+    request.on('response', (response) => {
+      response.on('data', (chunk) => {
+        responseData += chunk.toString()
+      })
+
+      response.on('end', () => {
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          try {
+            resolve(JSON.parse(responseData))
+          } catch {
+            resolve(responseData)
+          }
+        } else {
+          const error = new Error(`API error: ${response.statusCode}`)
+          error.statusCode = response.statusCode
+          try {
+            error.data = JSON.parse(responseData)
+          } catch {
+            error.data = responseData
+          }
+          reject(error)
+        }
+      })
+    })
+
+    request.on('error', (error) => {
+      if (error.code === 'ECONNREFUSED') {
+        reject(new Error('Cannot connect to API endpoint'))
+      } else {
+        reject(error)
+      }
+    })
+
+    if (options.body) {
+      request.write(JSON.stringify(options.body))
+    }
+
+    request.end()
+  })
+}
+
+ipcMain.handle('openai:generate', async (event, { prompt, content, model, endpoint, apiKey }) => {
+  if (!apiKey) {
+    throw new Error('API key is required')
+  }
+
+  try {
+    const response = await openaiRequest(endpoint, '/chat/completions', apiKey, {
+      method: 'POST',
+      body: {
+        model,
+        messages: [
+          { role: 'system', content: prompt },
+          { role: 'user', content: content }
+        ],
+        stream: false
+      }
+    })
+    return response.choices?.[0]?.message?.content || ''
+  } catch (error) {
+    if (error.statusCode === 401) {
+      throw new Error('Invalid API key')
+    }
+    if (error.data?.error?.message) {
+      throw new Error(error.data.error.message)
+    }
+    throw error
+  }
+})
+
+ipcMain.handle('openai:testConnection', async (event, endpoint, apiKey) => {
+  if (!apiKey) {
+    return { success: false, error: 'API key is required' }
+  }
+  try {
+    await openaiRequest(endpoint, '/models', apiKey)
+    return { success: true }
+  } catch (error) {
+    if (error.statusCode === 401) {
+      return { success: false, error: 'Invalid API key' }
+    }
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+})
+
+ipcMain.handle('openai:listModels', async (event, endpoint, apiKey) => {
+  if (!apiKey) {
+    throw new Error('API key is required')
+  }
+  const response = await openaiRequest(endpoint, '/models', apiKey)
+  return (response.data || []).map(m => m.id).sort()
+})

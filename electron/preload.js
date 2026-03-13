@@ -87,6 +87,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ollamaTestConnection: (endpoint) => ipcRenderer.invoke('ollama:testConnection', endpoint),
   ollamaListModels: (endpoint) => ipcRenderer.invoke('ollama:listModels', endpoint),
 
+  // OpenAI-compatible API
+  openaiGenerate: (options) => ipcRenderer.invoke('openai:generate', options),
+  openaiTestConnection: (endpoint, apiKey) => ipcRenderer.invoke('openai:testConnection', endpoint, apiKey),
+  openaiListModels: (endpoint, apiKey) => ipcRenderer.invoke('openai:listModels', endpoint, apiKey),
+
   // Menu events
   onMenuUndo: (callback) => ipcRenderer.on('menu-undo', callback),
   onMenuRedo: (callback) => ipcRenderer.on('menu-redo', callback),

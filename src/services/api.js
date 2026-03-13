@@ -368,6 +368,70 @@ const webApi = {
     const data = await response.json()
     return (data.models || []).map(m => m.name)
   },
+
+  // OpenAI-compatible API
+  async openaiGenerate({ prompt, content, model, endpoint, apiKey }) {
+    const response = await fetch(`${endpoint}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: prompt },
+          { role: 'user', content: content }
+        ],
+        stream: false
+      })
+    })
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Invalid API key')
+      }
+      const data = await response.json().catch(() => ({}))
+      throw new Error(data.error?.message || `API error: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    return data.choices?.[0]?.message?.content || ''
+  },
+
+  async openaiTestConnection(endpoint, apiKey) {
+    if (!apiKey) {
+      return { success: false, error: 'API key is required' }
+    }
+    try {
+      const response = await fetch(`${endpoint}/models`, {
+        headers: { 'Authorization': `Bearer ${apiKey}` }
+      })
+      if (!response.ok) {
+        if (response.status === 401) {
+          return { success: false, error: 'Invalid API key' }
+        }
+        return { success: false, error: `API error: ${response.status}` }
+      }
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: 'Cannot connect to API endpoint' }
+    }
+  },
+
+  async openaiListModels(endpoint, apiKey) {
+    if (!apiKey) {
+      throw new Error('API key is required')
+    }
+    const response = await fetch(`${endpoint}/models`, {
+      headers: { 'Authorization': `Bearer ${apiKey}` }
+    })
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`)
+    }
+    const data = await response.json()
+    return (data.data || []).map(m => m.id).sort()
+  },
 }
 
 // Electron API implementation (uses IPC)
@@ -449,6 +513,11 @@ const electronApi = {
   ollamaGenerate: (options) => window.electronAPI.ollamaGenerate(options),
   ollamaTestConnection: (endpoint) => window.electronAPI.ollamaTestConnection(endpoint),
   ollamaListModels: (endpoint) => window.electronAPI.ollamaListModels(endpoint),
+
+  // OpenAI-compatible API
+  openaiGenerate: (options) => window.electronAPI.openaiGenerate(options),
+  openaiTestConnection: (endpoint, apiKey) => window.electronAPI.openaiTestConnection(endpoint, apiKey),
+  openaiListModels: (endpoint, apiKey) => window.electronAPI.openaiListModels(endpoint, apiKey),
 }
 
 // Export the appropriate API based on environment
