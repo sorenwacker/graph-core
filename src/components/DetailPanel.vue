@@ -69,12 +69,6 @@ const {
   saveCellStyle
 } = useNodeTable()
 
-// Keep table section collapsed when there's no table
-watch(hasTable, (hasIt) => {
-  if (!hasIt) {
-    tableCollapsed.value = true
-  }
-}, { immediate: true })
 
 // Expanded children and their grandchildren
 const expandedChildren = ref(new Set())
@@ -214,6 +208,8 @@ watch(() => props.node, async (newNode) => {
     memberQuery.value = ''
     showMemberDropdown.value = false
     linkedMembers.value = []
+    // Reset table collapsed - will be expanded only if table exists after loading
+    tableCollapsed.value = true
 
     await Promise.all([loadChildren(), loadLinkedNodes(), loadTable(newNode.id)])
 
