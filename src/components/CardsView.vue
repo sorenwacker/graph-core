@@ -27,6 +27,7 @@ const emit = defineEmits([
   'toggle-complete',
   'delete',
   'add-child',
+  'create',
   'context-menu',
   'show-tooltip',
   'hide-tooltip',
@@ -154,10 +155,20 @@ const filteredNodes = computed(() => {
   if (!props.hideCompleted) return props.nodes
   return props.nodes.filter(n => !n.completed && !n.inheritedCompleted)
 })
+
+function handleCanvasClick(e) {
+  if (e.metaKey || e.ctrlKey) {
+    // Cmd/Ctrl+click on canvas: create new node
+    emit('create')
+  } else {
+    // Regular click: deselect
+    emit('select', null)
+  }
+}
 </script>
 
 <template>
-  <div class="cards-view" :style="gridStyle" @click.self="emit('select', null)">
+  <div class="cards-view" :style="gridStyle" @click.self="handleCanvasClick">
     <div
       v-for="node in filteredNodes"
       :key="node.id"
