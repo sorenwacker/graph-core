@@ -1195,6 +1195,11 @@ function addChildToCard(parentId, e) {
   showAddNodeModal(parentId)
 }
 
+function createNodeInCards() {
+  hideTooltip()
+  showAddNodeModal(currentContainerId.value)
+}
+
 let resizeObserver = null
 
 // Keyboard shortcuts via composable
@@ -1494,6 +1499,7 @@ onUnmounted(() => {
           @toggle-complete="toggleComplete"
           @delete="deleteNode"
           @add-child="addChildToCard"
+          @create="createNodeInCards"
           @context-menu="(e, node) => showContextMenu(e, node)"
           @show-tooltip="showCardTooltip"
           @hide-tooltip="hideTooltip"
