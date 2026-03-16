@@ -1,14 +1,8 @@
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch } from 'vue'
 import { getTypeIcon, typeConfig, nodeTypes } from '../utils/constants.js'
 
-const appVersion = ref('')
-
-onMounted(async () => {
-  if (window.electronAPI?.getVersion) {
-    appVersion.value = await window.electronAPI.getVersion()
-  }
-})
+const appVersion = ref(__APP_VERSION__)
 
 const props = defineProps({
   visible: { type: Boolean, default: true },
