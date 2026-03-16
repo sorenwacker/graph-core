@@ -44,7 +44,8 @@ describe('useNodeOperations composable', () => {
         title: 'Test',
         type: 'task',
         parent_id: null,
-        workspace_id: 'work'
+        workspace_id: 'work',
+        start_date: expect.any(String)
       })
       expect(mockPushCommand).toHaveBeenCalled()
       expect(mockOnSuccess).toHaveBeenCalledWith({ type: 'create', node: newNode, x: undefined, y: undefined })
