@@ -639,3 +639,6 @@ ipcMain.handle('openai:listModels', async (event, endpoint, apiKey) => {
   const response = await openaiRequest(endpoint, '/models', apiKey)
   return (response.data || []).map(m => m.id).sort()
 })
+
+// App info
+ipcMain.handle('app:getVersion', () => app.getVersion())
