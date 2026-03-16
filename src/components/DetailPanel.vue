@@ -82,6 +82,8 @@ const dropPosition = ref(null) // 'before' or 'after'
 // Split view preview ref
 const splitPreview = ref(null)
 const titleInput = ref(null)
+const notesEditorRef = ref(null)
+const notesEditorSplitRef = ref(null)
 
 // Panel resizing
 const isResizing = ref(false)
@@ -144,6 +146,15 @@ function onMentionSelect(index) {
 
 function onAIImproveNotes(payload) {
   emit('ai-improve-notes', payload)
+}
+
+function getNotesSelection() {
+  // Check both refs for the active editor
+  const editor = notesEditorRef.value || notesEditorSplitRef.value
+  if (editor && typeof editor.getSelection === 'function') {
+    return editor.getSelection()
+  }
+  return { text: '', from: 0, to: 0 }
 }
 
 // Handle Escape key to close
@@ -998,6 +1009,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
                   <NotesAIToolbar
                     :notes="editedNode.notes"
                     :node-id="editedNode.id"
+                    :get-selection="getNotesSelection"
                     @apply-improvement="onAIImproveNotes"
                   />
                   <div class="tab-buttons">
@@ -1009,6 +1021,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
               </div>
               <NotesEditor
                 v-if="activeTab === 'edit'"
+                ref="notesEditorRef"
                 :model-value="editedNode.notes"
                 @update:model-value="onCodeMirrorNotesUpdate"
                 @blur="saveChanges"
@@ -1020,6 +1033,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
               </div>
               <div v-else class="notes-split person-notes">
                 <NotesEditor
+                  ref="notesEditorSplitRef"
                   :model-value="editedNode.notes"
                   @update:model-value="onCodeMirrorNotesUpdate"
                   @blur="saveChanges"
@@ -1170,6 +1184,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
                 <NotesAIToolbar
                   :notes="editedNode.notes"
                   :node-id="editedNode.id"
+                  :get-selection="getNotesSelection"
                   @apply-improvement="onAIImproveNotes"
                 />
                 <div class="tab-buttons">
@@ -1181,6 +1196,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
             </div>
             <NotesEditor
               v-if="activeTab === 'edit'"
+              ref="notesEditorRef"
               :model-value="editedNode.notes"
               @update:model-value="onCodeMirrorNotesUpdate"
               @blur="saveChanges"
@@ -1192,6 +1208,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
             </div>
             <div v-else class="notes-split org-notes">
               <NotesEditor
+                ref="notesEditorSplitRef"
                 :model-value="editedNode.notes"
                 @update:model-value="onCodeMirrorNotesUpdate"
                 @blur="saveChanges"
@@ -1281,6 +1298,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
               <NotesAIToolbar
                 :notes="editedNode.notes"
                 :node-id="editedNode.id"
+                :get-selection="getNotesSelection"
                 @apply-improvement="onAIImproveNotes"
               />
               <div class="tabs">
@@ -1300,6 +1318,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
 
             <NotesEditor
               v-if="activeTab === 'edit'"
+              ref="notesEditorRef"
               :model-value="editedNode.notes"
               @update:model-value="onCodeMirrorNotesUpdate"
               @blur="saveChanges"
@@ -1317,6 +1336,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
 
             <div v-else class="notes-split">
               <NotesEditor
+                ref="notesEditorSplitRef"
                 :model-value="editedNode.notes"
                 @update:model-value="onCodeMirrorNotesUpdate"
                 @blur="saveChanges"

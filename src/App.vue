@@ -783,31 +783,58 @@ async function handleReorder({ nodeId, targetId, position }) {
 }
 
 // Helper to save node position for graph view
-function saveNodePosition(nodeId, x, y) {
-  if (x === undefined || y === undefined) return
-  const viewId = currentContainerId.value || 'root'
+// viewId parameter allows saving to a specific view (e.g., the parent's view when adding children)
+function saveNodePosition(nodeId, x, y, viewId = null) {
+  const targetViewId = viewId ?? currentContainerId.value ?? 'root'
   const ws = currentWorkspace.value || 'work'
-  const posKey = `graph-positions-${ws}-${viewId}`
+  const posKey = `graph-positions-${ws}-${targetViewId}`
   const positions = JSON.parse(localStorage.getItem(posKey) || '{}')
-  positions[nodeId] = { x, y }
+
+  // If position provided, use it
+  if (x !== undefined && y !== undefined) {
+    positions[nodeId] = { x, y }
+  } else {
+    // Auto-generate position near existing nodes
+    const existingPositions = Object.values(positions)
+    if (existingPositions.length > 0) {
+      // Find center of existing nodes
+      const centerX = existingPositions.reduce((sum, p) => sum + p.x, 0) / existingPositions.length
+      const centerY = existingPositions.reduce((sum, p) => sum + p.y, 0) / existingPositions.length
+      // Place new node near center with some randomness
+      const angle = Math.random() * Math.PI * 2
+      const distance = 50 + Math.random() * 50
+      positions[nodeId] = {
+        x: centerX + Math.cos(angle) * distance,
+        y: centerY + Math.sin(angle) * distance
+      }
+    } else {
+      // No existing positions, use default center
+      positions[nodeId] = { x: 400 + Math.random() * 50, y: 300 + Math.random() * 50 }
+    }
+  }
+
   localStorage.setItem(posKey, JSON.stringify(positions))
 }
 
 // Core node creation - used by all create functions
 async function createNodeCore({ title, type, parentId, x, y }) {
   const nodeType = type || 'task'
+  const today = new Date().toISOString().split('T')[0]
   const nodeData = {
     title,
     type: nodeType,
     parent_id: parentId,
-    workspace_id: getWorkspaceIdForNode(nodeType)
+    workspace_id: getWorkspaceIdForNode(nodeType),
+    // Auto-set start_date for tasks and projects
+    ...(nodeType === 'task' || nodeType === 'project' ? { start_date: today } : {})
   }
   const newNode = await api.createNode(nodeData)
   if (!newNode || !newNode.id) {
     throw new Error('Failed to create node')
   }
   pushCommand(new CreateCommand({ nodeId: newNode.id, nodeData, parentId }))
-  saveNodePosition(newNode.id, x, y)
+  // Save position to the parent's view (where this node will appear as a child)
+  saveNodePosition(newNode.id, x, y, parentId)
   return newNode
 }
 
@@ -995,17 +1022,35 @@ async function handleDetach(node) {
 
 // Handle AI improve notes event from DetailPanel
 async function handleAIImproveNotes(payload) {
-  const { nodeId, oldNotes, newNotes, prompt } = payload
+  const { nodeId, oldNotes, newNotes, prompt, selectionRange } = payload
+
+  // Get the current full notes for the node
+  const node = selectedNode.value?.id === nodeId ? selectedNode.value : await api.getNodeById(nodeId)
+  const currentFullNotes = node?.notes || ''
+
+  let finalOldNotes, finalNewNotes
+  if (selectionRange) {
+    // Selection-based improvement: replace only the selected portion
+    finalOldNotes = currentFullNotes
+    finalNewNotes = currentFullNotes.slice(0, selectionRange.from) +
+                    newNotes +
+                    currentFullNotes.slice(selectionRange.to)
+  } else {
+    // Full notes improvement
+    finalOldNotes = oldNotes
+    finalNewNotes = newNotes
+  }
+
   const command = new OllamaImproveNotesCommand({
     nodeId,
-    oldNotes,
-    newNotes,
+    oldNotes: finalOldNotes,
+    newNotes: finalNewNotes,
     prompt
   })
   await pushCommand(command)
   // Update selected node to show new notes immediately
   if (selectedNode.value && selectedNode.value.id === nodeId) {
-    selectedNode.value = { ...selectedNode.value, notes: newNotes }
+    selectedNode.value = { ...selectedNode.value, notes: finalNewNotes }
   }
 }
 

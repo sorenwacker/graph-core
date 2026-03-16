@@ -43,11 +43,14 @@ export function useNodeOperations({
 
     try {
       const nodeType = type || 'task'
+      const today = new Date().toISOString().split('T')[0]
       const nodeData = {
         title,
         type: nodeType,
         parent_id: parentId,
-        workspace_id: getWorkspaceIdForNode?.(nodeType)
+        workspace_id: getWorkspaceIdForNode?.(nodeType),
+        // Auto-set start_date for tasks and projects
+        ...(nodeType === 'task' || nodeType === 'project' ? { start_date: today } : {})
       }
 
       const newNode = await api.createNode(nodeData)
