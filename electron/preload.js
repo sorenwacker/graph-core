@@ -98,5 +98,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onOpenSettings: (callback) => ipcRenderer.on('open-settings', callback),
 
   // App lifecycle
-  onBeforeQuit: (callback) => ipcRenderer.on('app-before-quit', callback)
+  onBeforeQuit: (callback) => ipcRenderer.on('app-before-quit', callback),
+
+  // App info
+  getVersion: () => ipcRenderer.invoke('app:getVersion')
 })

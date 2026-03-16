@@ -1,6 +1,14 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { getTypeIcon, typeConfig, nodeTypes } from '../utils/constants.js'
+
+const appVersion = ref('')
+
+onMounted(async () => {
+  if (window.electronAPI?.getVersion) {
+    appVersion.value = await window.electronAPI.getVersion()
+  }
+})
 
 const props = defineProps({
   visible: { type: Boolean, default: true },
@@ -191,6 +199,7 @@ watch(tagsCollapsed, (val) => localStorage.setItem('sidebar-tags-collapsed', Str
           {{ typeConfig[t]?.label || t }}
         </div>
       </div>
+      <div v-if="appVersion" class="app-version">v{{ appVersion }}</div>
     </div>
   </aside>
 </template>
@@ -234,5 +243,12 @@ watch(tagsCollapsed, (val) => localStorage.setItem('sidebar-tags-collapsed', Str
 .legend-badge :deep(svg) {
   width: 13px;
   height: 13px;
+}
+
+.app-version {
+  margin-top: 12px;
+  font-size: 10px;
+  color: var(--text-tertiary, #888);
+  text-align: center;
 }
 </style>
