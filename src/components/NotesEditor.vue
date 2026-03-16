@@ -160,6 +160,25 @@ onUnmounted(() => {
     editor = null
   }
 })
+
+// Expose methods for selection handling
+function getSelection() {
+  if (!editor) return { text: '', from: 0, to: 0 }
+  const state = editor.state
+  const { from, to } = state.selection.main
+  const text = state.sliceDoc(from, to)
+  return { text, from, to }
+}
+
+function replaceSelection(newText) {
+  if (!editor) return
+  const { from, to } = editor.state.selection.main
+  editor.dispatch({
+    changes: { from, to, insert: newText }
+  })
+}
+
+defineExpose({ getSelection, replaceSelection })
 </script>
 
 <template>

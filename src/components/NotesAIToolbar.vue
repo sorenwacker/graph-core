@@ -7,7 +7,8 @@ import OllamaDiffPreview from './OllamaDiffPreview.vue'
 
 const props = defineProps({
   notes: { type: String, default: '' },
-  nodeId: { type: [Number, String], required: true }
+  nodeId: { type: [Number, String], required: true },
+  getSelection: { type: Function, default: null }
 })
 
 const emit = defineEmits(['apply-improvement'])
@@ -21,6 +22,7 @@ const showDiffPreview = ref(false)
 const originalContent = ref('')
 const improvedContent = ref('')
 const usedPrompt = ref('')
+const selectionRange = ref(null) // { from, to } when improving selection only
 
 const buttonRef = ref(null)
 const dropdownStyle = ref({})
@@ -63,10 +65,24 @@ async function handleCustomPromptSubmit(prompt) {
 }
 
 async function generateImprovement(prompt, label) {
-  originalContent.value = props.notes || ''
   usedPrompt.value = label
 
-  const result = await improveNotes(props.notes, prompt)
+  // Check for text selection
+  let textToImprove = props.notes || ''
+  selectionRange.value = null
+
+  if (props.getSelection) {
+    const selection = props.getSelection()
+    if (selection && selection.text && selection.text.length > 0) {
+      // User has selected text - improve only the selection
+      textToImprove = selection.text
+      selectionRange.value = { from: selection.from, to: selection.to }
+    }
+  }
+
+  originalContent.value = textToImprove
+
+  const result = await improveNotes(textToImprove, prompt)
 
   if (result) {
     improvedContent.value = result
@@ -80,7 +96,8 @@ function handleAcceptImprovement(finalContent) {
     nodeId: props.nodeId,
     oldNotes: originalContent.value,
     newNotes: finalContent,
-    prompt: usedPrompt.value
+    prompt: usedPrompt.value,
+    selectionRange: selectionRange.value // { from, to } if selection-only improvement
   })
 }
 
@@ -88,6 +105,7 @@ function handleRejectImprovement() {
   showDiffPreview.value = false
   improvedContent.value = ''
   originalContent.value = ''
+  selectionRange.value = null
 }
 </script>
 

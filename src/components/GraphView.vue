@@ -913,25 +913,51 @@ function addLinkEdges(elements, links) {
 // These are nodes connected via links but outside the current hierarchy
 async function fetchLinkedNodes(elements, links, savedPositions) {
   const existingNodeIds = new Set(elements.filter(el => !el.data.source).map(el => el.data.id))
-  const linkedNodeIds = new Set()
 
-  // Find all node IDs referenced in links that aren't in the graph yet
+  // Build a map of external node ID -> linked internal node IDs
+  const externalToInternal = new Map()
   links.forEach(link => {
     const sourceId = String(link.source_id)
     const targetId = String(link.target_id)
-    if (!existingNodeIds.has(sourceId)) linkedNodeIds.add(link.source_id)
-    if (!existingNodeIds.has(targetId)) linkedNodeIds.add(link.target_id)
+    if (!existingNodeIds.has(sourceId)) {
+      if (!externalToInternal.has(link.source_id)) externalToInternal.set(link.source_id, [])
+      externalToInternal.get(link.source_id).push(link.target_id)
+    }
+    if (!existingNodeIds.has(targetId)) {
+      if (!externalToInternal.has(link.target_id)) externalToInternal.set(link.target_id, [])
+      externalToInternal.get(link.target_id).push(link.source_id)
+    }
   })
 
   // Fetch each linked node and add it to the graph (without parents)
-  for (const nodeId of linkedNodeIds) {
+  for (const [nodeId, linkedInternalIds] of externalToInternal) {
     try {
       const node = await api.getNode(nodeId)
       if (node && !node.deleted_at) {
         // Skip completed nodes if hideCompleted is enabled
         if (props.hideCompleted && node.completed) continue
 
-        const savedPos = savedPositions[node.id]
+        let position = savedPositions[node.id]
+
+        // If no saved position, place near the nodes it's linked to
+        if (!position) {
+          const linkedPositions = linkedInternalIds
+            .map(id => savedPositions[id])
+            .filter(pos => pos)
+
+          if (linkedPositions.length > 0) {
+            // Position near the average of linked nodes
+            const avgX = linkedPositions.reduce((sum, p) => sum + p.x, 0) / linkedPositions.length
+            const avgY = linkedPositions.reduce((sum, p) => sum + p.y, 0) / linkedPositions.length
+            const angle = Math.random() * Math.PI * 2
+            const distance = 80 + Math.random() * 40
+            position = {
+              x: avgX + Math.cos(angle) * distance,
+              y: avgY + Math.sin(angle) * distance
+            }
+          }
+        }
+
         // Get proper colors for this node type
         const colors = getGraphColors(node.type, node.id)
         const isCompleted = node.completed
@@ -951,7 +977,7 @@ async function fetchLinkedNodes(elements, links, savedPositions) {
             isCompleted,
             isSelected: props.selectedIds?.includes(node.id) || props.selectedId === node.id
           },
-          position: savedPos ? { x: savedPos.x, y: savedPos.y } : undefined
+          position: position ? { x: position.x, y: position.y } : undefined
         })
       }
     } catch (err) {

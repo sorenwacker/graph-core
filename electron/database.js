@@ -356,6 +356,15 @@ class Database {
     this._fixRootNodePaths()
     this._migrateOrganizationTextToLinks()
     this._migratePersonsOrgsToWorkWorkspace()
+    this._migrateTasksProjectsStartDate()
+    this._migrateShowLinksDefault()
+  }
+
+  /**
+   * Set show_links = 1 for nodes where it's NULL (newly added column)
+   */
+  _migrateShowLinksDefault() {
+    this.db.run("UPDATE nodes SET show_links = 1 WHERE show_links IS NULL")
   }
 
   /**
@@ -368,6 +377,20 @@ class Database {
     if (unassigned[0]?.cnt > 0) {
       console.log(`Migrating ${unassigned[0].cnt} unassigned nodes to 'work' workspace`)
       this.db.run("UPDATE nodes SET workspace_id = 'work' WHERE workspace_id IS NULL AND type NOT IN ('person', 'organization', 'group')")
+      this._save()
+    }
+  }
+
+  /**
+   * Set start_date to created_at for tasks and projects that don't have one
+   */
+  _migrateTasksProjectsStartDate() {
+    const needsMigration = this._query(
+      "SELECT COUNT(*) as cnt FROM nodes WHERE type IN ('task', 'project') AND start_date IS NULL AND created_at IS NOT NULL AND deleted_at IS NULL"
+    )
+    if (needsMigration[0]?.cnt > 0) {
+      console.log(`Setting start_date for ${needsMigration[0].cnt} tasks/projects`)
+      this.db.run("UPDATE nodes SET start_date = DATE(created_at) WHERE type IN ('task', 'project') AND start_date IS NULL AND created_at IS NOT NULL")
       this._save()
     }
   }

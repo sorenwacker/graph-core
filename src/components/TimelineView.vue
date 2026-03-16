@@ -39,6 +39,12 @@ const zoomLevel = ref(20)
 const minZoom = 5
 const maxZoom = 100
 
+// Labels column width (draggable)
+const labelsWidth = ref(200)
+const minLabelsWidth = 100
+const maxLabelsWidth = 400
+const labelsDragState = ref(null)
+
 // Throttle zoom to reduce sensitivity and flickering
 let lastZoomTime = 0
 const zoomThrottle = 50 // ms between zoom steps
@@ -129,32 +135,48 @@ const timelineNodes = computed(() => {
         continue
       }
 
-      // Calculate effective end date (own or inherited)
-      const effectiveEndDate = node.end_date || node.due_date || inheritedEndDate
+      // Calculate inherited end date (for passing to children)
+      const inheritedEnd = node.end_date || inheritedEndDate
 
-      // Include nodes that have own dates OR can inherit a date
-      if (hasOwnDate(node) || effectiveEndDate) {
-        // Use created_at as start date if no explicit start_date but has due_date or inherited end
-        const startFallback = (node.due_date || effectiveEndDate) && node.created_at
-          ? node.created_at.split('T')[0]
-          : null
-        const displayDate = node.start_date || startFallback || node.due_date || effectiveEndDate
-        const endDisplayDate = node.end_date || node.due_date || effectiveEndDate || node.start_date || startFallback
+      // Only show tasks, projects, and events (groups rendered separately as vertical bars)
+      if (node.type === 'task' || node.type === 'project' || node.type === 'event') {
+        // Include nodes that have own dates OR can inherit a date OR have created_at
+        const createdAtDate = node.created_at ? node.created_at.split('T')[0] : null
+        const today = new Date().toISOString().split('T')[0]
 
-        // Double check we have valid dates
+        const startFallback = createdAtDate
+        const displayDate = node.start_date || node.due_date || inheritedEnd || startFallback
+        // Tasks and projects without end_date use today as fallback (due_date shown separately as marker)
+        const endFallback = (node.type === 'project' || node.type === 'task') ? today : null
+        const endDisplayDate = node.end_date || inheritedEnd || endFallback || node.start_date || startFallback
+
+        // Calculate due date urgency (0-1, where 1 is overdue)
+        let dueUrgency = null
+        if (node.due_date && !node.completed) {
+          const dueDate = new Date(node.due_date)
+          const todayDate = new Date(today)
+          const daysUntilDue = Math.ceil((dueDate - todayDate) / (1000 * 60 * 60 * 24))
+          // Urgency: 1.0 = overdue, 0.8 = due today, scales down over 14 days
+          if (daysUntilDue <= 0) dueUrgency = 1.0
+          else if (daysUntilDue <= 14) dueUrgency = 1 - (daysUntilDue / 14)
+          else dueUrgency = 0
+        }
+
+        // Include node if we have any date to display
         if (displayDate) {
           result.push({
             ...node,
             depth,
             displayDate,
             endDisplayDate,
-            inheritedDate: !hasOwnDate(node) // Mark if date was inherited
+            inheritedDate: !hasOwnDate(node),
+            dueUrgency
           })
         }
       }
 
       if (node.children?.length) {
-        // Pass down the effective end date for inheritance
+        // Pass down the end date for inheritance (due_date can serve as deadline for children)
         const childInheritedEndDate = node.end_date || node.due_date || inheritedEndDate
         flatten(node.children, depth + 1, childInheritedEndDate)
       }
@@ -163,12 +185,8 @@ const timelineNodes = computed(() => {
 
   flatten(props.nodes)
 
-  // Sort by date
-  return result.sort((a, b) => {
-    const dateA = a.displayDate || ''
-    const dateB = b.displayDate || ''
-    return dateA.localeCompare(dateB)
-  })
+  // Preserve graph structure order (parents followed by children)
+  return result
 })
 
 // Get date range - extends from earliest date to 1 year in future
@@ -316,7 +334,7 @@ function getDatePosition(dateStr) {
 
   const start = new Date(dateRange.value.start)
   const date = new Date(dateStr)
-  const days = Math.ceil((date - start) / (1000 * 60 * 60 * 24))
+  const days = Math.round((date - start) / (1000 * 60 * 60 * 24))
 
   return days * zoomLevel.value
 }
@@ -339,6 +357,25 @@ function _formatDate(dateStr) {
 function getTypeColor(type) {
   const colors = getTypeColors(type)
   return colors.text
+}
+
+function getDueColor(urgency) {
+  if (urgency === null || urgency === undefined) return 'transparent'
+  // Interpolate from white/yellow to red based on urgency
+  const r = 255
+  const g = Math.round(255 * (1 - urgency))
+  const b = Math.round(255 * (1 - urgency))
+  return `rgb(${r}, ${g}, ${b})`
+}
+
+// Calculate floating label position for project boxes
+function getProjectLabelLeft(project) {
+  const boxLeft = project.left
+  const boxRight = project.left + project.width
+  // Keep label visible within box bounds, floating with scroll
+  const visibleLeft = Math.max(boxLeft, scrollLeft.value)
+  const labelLeft = Math.min(visibleLeft, boxRight - 60) // 60px min space for label
+  return Math.max(boxLeft, labelLeft) - boxLeft + 4
 }
 
 function getBarStyle(node) {
@@ -376,18 +413,220 @@ const todayPosition = computed(() => {
   return pos
 })
 
+// Group markers - vertical bars that span their child tasks
+const groupMarkers = computed(() => {
+  if (!dateRange.value.start || timelineNodes.value.length === 0) return []
+  const result = []
+  const rowHeight = 36
+
+  const nodeRowIndex = new Map()
+  timelineNodes.value.forEach((node, idx) => {
+    nodeRowIndex.set(node.id, idx)
+  })
+
+  function getAllDescendantIds(node) {
+    const ids = []
+    function collect(n) {
+      if (n.children?.length) {
+        for (const child of n.children) {
+          ids.push(child.id)
+          collect(child)
+        }
+      }
+    }
+    collect(node)
+    return ids
+  }
+
+  function collectGroups(nodeList) {
+    for (const node of nodeList) {
+      if (node.type === 'group') {
+        const descendantIds = getAllDescendantIds(node)
+        const childRowIndices = descendantIds
+          .filter(id => nodeRowIndex.has(id))
+          .map(id => nodeRowIndex.get(id))
+
+        if (childRowIndices.length > 0) {
+          const minRow = Math.min(...childRowIndices)
+          const maxRow = Math.max(...childRowIndices)
+          const date = node.start_date || node.due_date || node.end_date ||
+            (node.created_at ? node.created_at.split('T')[0] : null)
+
+          if (date) {
+            result.push({
+              id: node.id,
+              title: node.title,
+              position: getDatePosition(date),
+              top: minRow * rowHeight,
+              height: (maxRow - minRow + 1) * rowHeight,
+              date,
+              node
+            })
+          }
+        }
+      }
+      if (node.children?.length) {
+        collectGroups(node.children)
+      }
+    }
+  }
+
+  collectGroups(props.nodes)
+  return result
+})
+
+// Project boxes - background rectangles that contain child tasks
+const projectBoxes = computed(() => {
+  if (!dateRange.value.start || timelineNodes.value.length === 0) return []
+  const result = []
+  const rowHeight = 36
+
+  const nodeRowIndex = new Map()
+  const nodeData = new Map()
+  timelineNodes.value.forEach((node, idx) => {
+    nodeRowIndex.set(node.id, idx)
+    nodeData.set(node.id, node)
+  })
+
+  function getAllDescendantIds(node) {
+    const ids = []
+    function collect(n) {
+      if (n.children?.length) {
+        for (const child of n.children) {
+          ids.push(child.id)
+          collect(child)
+        }
+      }
+    }
+    collect(node)
+    return ids
+  }
+
+  function collectProjects(nodeList) {
+    for (const node of nodeList) {
+      if (node.type === 'project' && node.children?.length) {
+        const descendantIds = getAllDescendantIds(node)
+        const childRowIndices = descendantIds
+          .filter(id => nodeRowIndex.has(id))
+          .map(id => nodeRowIndex.get(id))
+
+        // Also include the project itself if it's in the timeline
+        if (nodeRowIndex.has(node.id)) {
+          childRowIndices.push(nodeRowIndex.get(node.id))
+        }
+
+        if (childRowIndices.length > 1) { // Only show box if there are children
+          const minRow = Math.min(...childRowIndices)
+          const maxRow = Math.max(...childRowIndices)
+
+          // Get date range from all descendants
+          const descendantNodes = descendantIds
+            .filter(id => nodeData.has(id))
+            .map(id => nodeData.get(id))
+
+          const allDates = descendantNodes.flatMap(n =>
+            [n.displayDate, n.endDisplayDate].filter(Boolean)
+          )
+
+          // Include project's own dates
+          const projectNode = nodeData.get(node.id)
+          if (projectNode) {
+            if (projectNode.displayDate) allDates.push(projectNode.displayDate)
+            if (projectNode.endDisplayDate) allDates.push(projectNode.endDisplayDate)
+          }
+
+          if (allDates.length > 0) {
+            const minDate = allDates.reduce((a, b) => a < b ? a : b)
+            const maxDate = allDates.reduce((a, b) => a > b ? a : b)
+
+            result.push({
+              id: node.id,
+              title: node.title,
+              left: getDatePosition(minDate),
+              width: getDatePosition(maxDate) - getDatePosition(minDate) + zoomLevel.value,
+              top: minRow * rowHeight,
+              height: (maxRow - minRow + 1) * rowHeight,
+              node
+            })
+          }
+        }
+      }
+      if (node.children?.length) {
+        collectProjects(node.children)
+      }
+    }
+  }
+
+  collectProjects(props.nodes)
+  return result
+})
+
 // Refs for scrollable containers
 const scrollableRef = ref(null)
 const labelsRef = ref(null)
+const scrollLeft = ref(0)
 
 // Sync vertical scroll between labels and timeline
 function syncScroll(source) {
   if (!scrollableRef.value || !labelsRef.value) return
   if (source === 'timeline') {
     labelsRef.value.scrollTop = scrollableRef.value.scrollTop
+    scrollLeft.value = scrollableRef.value.scrollLeft
   } else {
     scrollableRef.value.scrollTop = labelsRef.value.scrollTop
   }
+}
+
+// Labels column resize handlers
+function handleLabelsDragStart(e) {
+  e.preventDefault()
+  labelsDragState.value = { startX: e.clientX, startWidth: labelsWidth.value }
+}
+
+function handleLabelsDragMove(e) {
+  if (!labelsDragState.value) return
+  const delta = e.clientX - labelsDragState.value.startX
+  labelsWidth.value = Math.max(minLabelsWidth, Math.min(maxLabelsWidth, labelsDragState.value.startWidth + delta))
+}
+
+function handleLabelsDragEnd() {
+  labelsDragState.value = null
+}
+
+// Canvas panning state
+const panState = ref(null)
+
+function handlePanStart(e) {
+  // Only pan with middle mouse or when clicking empty space
+  if (e.button === 1 || (e.button === 0 && e.target.classList.contains('timeline-body'))) {
+    e.preventDefault()
+    const container = scrollableRef.value
+    if (!container) return
+    panState.value = {
+      startX: e.clientX,
+      startY: e.clientY,
+      scrollLeft: container.scrollLeft,
+      scrollTop: container.scrollTop
+    }
+  }
+}
+
+function handlePanMove(e) {
+  if (!panState.value) return
+  const container = scrollableRef.value
+  if (!container) return
+  const dx = e.clientX - panState.value.startX
+  const dy = e.clientY - panState.value.startY
+  container.scrollLeft = panState.value.scrollLeft - dx
+  container.scrollTop = panState.value.scrollTop - dy
+  // Sync labels scroll
+  if (labelsRef.value) {
+    labelsRef.value.scrollTop = container.scrollTop
+  }
+}
+
+function handlePanEnd() {
+  panState.value = null
 }
 
 // Scroll to today on mount
@@ -408,11 +647,19 @@ onMounted(() => {
   scrollToToday()
   document.addEventListener('mousemove', handleDragMove)
   document.addEventListener('mouseup', handleDragEnd)
+  document.addEventListener('mousemove', handleLabelsDragMove)
+  document.addEventListener('mouseup', handleLabelsDragEnd)
+  document.addEventListener('mousemove', handlePanMove)
+  document.addEventListener('mouseup', handlePanEnd)
 })
 
 onUnmounted(() => {
   document.removeEventListener('mousemove', handleDragMove)
   document.removeEventListener('mouseup', handleDragEnd)
+  document.removeEventListener('mousemove', handlePanMove)
+  document.removeEventListener('mouseup', handlePanEnd)
+  document.removeEventListener('mousemove', handleLabelsDragMove)
+  document.removeEventListener('mouseup', handleLabelsDragEnd)
 })
 
 watch(() => props.nodes, () => {
@@ -560,7 +807,7 @@ function getDragBarStyle(node) {
       <!-- Scrollable timeline container -->
       <div class="timeline-scroll-container">
         <!-- Fixed row labels column -->
-        <div ref="labelsRef" class="timeline-labels" @scroll="syncScroll('labels')">
+        <div ref="labelsRef" class="timeline-labels" :style="{ width: labelsWidth + 'px' }" @scroll="syncScroll('labels')">
           <div class="label-header">Items</div>
           <div class="labels-body">
             <div
@@ -580,6 +827,13 @@ function getDragBarStyle(node) {
             </div>
           </div>
         </div>
+
+        <!-- Draggable divider for resizing labels column -->
+        <div
+          class="labels-divider"
+          :class="{ dragging: labelsDragState }"
+          @mousedown="handleLabelsDragStart"
+        ></div>
 
         <!-- Scrollable timeline area -->
         <div ref="scrollableRef" class="timeline-scrollable" @scroll="syncScroll('timeline')">
@@ -616,7 +870,11 @@ function getDragBarStyle(node) {
           </div>
 
           <!-- Timeline tracks -->
-          <div class="timeline-body" :style="{ width: timelineWidth + 'px' }">
+          <div
+            class="timeline-body"
+            :style="{ width: timelineWidth + 'px', cursor: panState ? 'grabbing' : 'grab' }"
+            @mousedown="handlePanStart"
+          >
             <div class="timeline-grid">
               <!-- Weekend shading -->
               <div
@@ -665,6 +923,37 @@ function getDragBarStyle(node) {
             </div>
 
             <div class="rows-body">
+              <!-- Project boxes (background rectangles containing children) -->
+              <div
+                v-for="project in projectBoxes"
+                :key="'project-box-' + project.id"
+                class="project-box"
+                :style="{
+                  left: project.left + 'px',
+                  width: project.width + 'px',
+                  top: project.top + 'px',
+                  height: project.height + 'px'
+                }"
+              >
+                <span
+                  class="project-box-label"
+                  :style="{ left: getProjectLabelLeft(project) + 'px' }"
+                >{{ project.title }}</span>
+              </div>
+              <!-- Group markers (vertical bars spanning child tasks) -->
+              <div
+                v-for="group in groupMarkers"
+                :key="'group-' + group.id"
+                class="group-marker"
+                :class="{ selected: selectedId === group.id }"
+                :style="{ left: group.position + 'px', top: group.top + 'px', height: group.height + 'px' }"
+                @click="emit('select', group.node)"
+                @mouseenter="emit('show-tooltip', $event, group.node)"
+                @mouseleave="emit('hide-tooltip')"
+                @contextmenu.prevent="handleContextMenu($event, group.node)"
+              >
+                <span class="group-label">{{ group.title }}</span>
+              </div>
               <div
                 v-for="node in timelineNodes"
                 :key="node.id"
@@ -704,6 +993,13 @@ function getDragBarStyle(node) {
                       @mousedown="handleDragStart($event, node, 'resize-end')"
                     ></div>
                   </div>
+                  <!-- Due date marker at actual date position -->
+                  <div
+                    v-if="node.due_date && !node.completed"
+                    class="due-marker"
+                    :style="{ left: getDatePosition(node.due_date) + 'px', color: getDueColor(node.dueUrgency) }"
+                    :title="'Due: ' + node.due_date"
+                  >&#x2717;</div>
                 </div>
               </div>
             </div>
@@ -785,18 +1081,29 @@ function getDragBarStyle(node) {
 }
 
 .timeline-labels {
-  width: 200px;
   flex-shrink: 0;
   background: var(--bg-secondary);
-  border-right: 1px solid var(--border-color);
   overflow-y: auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
+.labels-divider {
+  width: 4px;
+  flex-shrink: 0;
+  background: var(--border-color);
+  cursor: col-resize;
+  transition: background 0.15s;
+}
+
+.labels-divider:hover,
+.labels-divider.dragging {
+  background: var(--accent-color);
+}
+
 .labels-body {
-  /* Just a container for fixed-height row labels */
+  /* Container for fixed-height row labels */
 }
 
 .label-header {
@@ -877,10 +1184,72 @@ function getDragBarStyle(node) {
   display: flex;
   flex-direction: column;
   min-height: 100%;
+  user-select: none;
 }
 
 .rows-body {
-  /* Just a container for fixed-height timeline rows */
+  position: relative;
+}
+
+.project-box {
+  position: absolute;
+  background: color-mix(in srgb, var(--type-project-bg) 40%, transparent);
+  border: 1px solid var(--type-project-text);
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 0;
+  overflow: visible;
+}
+
+.project-box-label {
+  position: absolute;
+  top: -18px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--type-project-text);
+  background: var(--bg-primary);
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--type-project-text);
+  white-space: nowrap;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.group-marker {
+  position: absolute;
+  width: 3px;
+  background: var(--type-group-text);
+  z-index: 3;
+  cursor: pointer;
+  opacity: 0.7;
+  border-radius: 2px;
+}
+
+.group-marker:hover {
+  opacity: 1;
+  width: 4px;
+}
+
+.group-marker.selected {
+  opacity: 1;
+  box-shadow: 0 0 8px var(--type-group-text);
+}
+
+.group-label {
+  position: absolute;
+  top: 0;
+  left: 6px;
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--type-group-text);
+  background: var(--bg-secondary);
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .timeline-grid {
@@ -1059,6 +1428,8 @@ function getDragBarStyle(node) {
   min-width: 0;
   cursor: grab;
   padding: 0 4px;
+  display: flex;
+  align-items: center;
 }
 
 .bar-content:active,
@@ -1096,6 +1467,17 @@ function getDragBarStyle(node) {
   overflow: hidden;
   text-overflow: ellipsis;
   pointer-events: none;
+}
+
+.due-marker {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1rem;
+  font-weight: bold;
+  pointer-events: none;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.7);
+  z-index: 5;
 }
 
 .type-badge {
