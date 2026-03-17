@@ -1022,11 +1022,10 @@ async function handleDetach(node) {
 
 // Handle AI improve notes event from DetailPanel
 async function handleAIImproveNotes(payload) {
-  const { nodeId, oldNotes, newNotes, prompt, selectionRange } = payload
+  const { nodeId, oldNotes, newNotes, prompt, selectionRange, fullNotes } = payload
 
-  // Get the current full notes for the node
-  const node = selectedNode.value?.id === nodeId ? selectedNode.value : await api.getNodeById(nodeId)
-  const currentFullNotes = node?.notes || ''
+  // Use fullNotes from the editor (current content) for correct selection positions
+  const currentFullNotes = fullNotes ?? ''
 
   let finalOldNotes, finalNewNotes
   if (selectionRange) {
@@ -1047,7 +1046,9 @@ async function handleAIImproveNotes(payload) {
     newNotes: finalNewNotes,
     prompt
   })
-  await pushCommand(command)
+  // Execute the command to persist to database, then push for undo support
+  await command.execute(api)
+  pushCommand(command)
   // Update selected node to show new notes immediately
   if (selectedNode.value && selectedNode.value.id === nodeId) {
     selectedNode.value = { ...selectedNode.value, notes: finalNewNotes }
