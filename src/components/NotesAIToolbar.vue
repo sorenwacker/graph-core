@@ -97,7 +97,8 @@ function handleAcceptImprovement(finalContent) {
     oldNotes: originalContent.value,
     newNotes: finalContent,
     prompt: usedPrompt.value,
-    selectionRange: selectionRange.value // { from, to } if selection-only improvement
+    selectionRange: selectionRange.value, // { from, to } if selection-only improvement
+    fullNotes: props.notes || '' // Pass full notes for correct selection splicing
   })
 }
 
