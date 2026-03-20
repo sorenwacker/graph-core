@@ -142,3 +142,27 @@
 [data-theme="light"] ::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
 }
+
+/* Active/selected items with accent background need white text */
+[data-theme="light"] .sidebar-item.active,
+[data-theme="light"] .sidebar-tree-item.active,
+[data-theme="light"] .node-item.selected,
+[data-theme="light"] .tabs button.active,
+[data-theme="light"] .view-switcher button.active,
+[data-theme="light"] .importance-btn.active {
+  color: white;
+}
+
+/* Graph controls - override hardcoded dark colors */
+[data-theme="light"] .graph-controls button.active {
+  background: var(--accent-subtle);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+/* Spreadsheet context buttons */
+[data-theme="light"] .ctx-btn.active {
+  background: var(--accent-subtle);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
