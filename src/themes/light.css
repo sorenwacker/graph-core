@@ -32,6 +32,9 @@
   --success-color: #16a34a;
   --warning-color: #d97706;
   --error-color: #dc2626;
+  --error-bg: #fef2f2;
+  --error-border: #fecaca;
+  --error-hover: #fee2e2;
 
   /* Checkbox */
   --checkbox-border: #ccc;
@@ -329,5 +332,243 @@
 }
 
 [data-theme="light"] .weekday-header {
+  color: var(--text-secondary);
+}
+
+/* ========================================
+   SpotlightSearch - fix bright text
+   ======================================== */
+[data-theme="light"] .spotlight-overlay {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] .spotlight-container {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .spotlight-input {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .spotlight-results {
+  background: var(--bg-primary);
+}
+
+[data-theme="light"] .result-item {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .result-item:hover,
+[data-theme="light"] .result-item.selected {
+  background: var(--bg-hover);
+}
+
+[data-theme="light"] .result-title {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .result-path {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .result-type {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .search-hint {
+  color: var(--text-tertiary);
+}
+
+/* ========================================
+   CardsView - fix bright text
+   ======================================== */
+[data-theme="light"] .cards-container {
+  background: var(--bg-primary);
+}
+
+[data-theme="light"] .card {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .card-title {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .card-notes {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .card-meta {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .child-count {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .grandchild-title {
+  color: var(--text-primary);
+}
+
+/* ========================================
+   NodeSpreadsheet - fix bright text
+   ======================================== */
+[data-theme="light"] .spreadsheet-container {
+  background: var(--bg-primary);
+}
+
+[data-theme="light"] .spreadsheet-cell {
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+
+[data-theme="light"] .spreadsheet-header {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .cell-input {
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+
+[data-theme="light"] .row-number {
+  color: var(--text-tertiary);
+  background: var(--bg-secondary);
+}
+
+[data-theme="light"] .add-row-btn,
+[data-theme="light"] .add-col-btn {
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+}
+
+/* ========================================
+   DetailPanel - fix bright text
+   ======================================== */
+[data-theme="light"] .detail-panel {
+  background: var(--bg-primary);
+}
+
+[data-theme="light"] .panel-header {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .panel-section-title {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .detail-label {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .detail-value {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .linked-node {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
+[data-theme="light"] .child-item {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .notes-content {
+  color: var(--text-primary);
+}
+
+/* ========================================
+   DetachedView - fix bright text
+   ======================================== */
+[data-theme="light"] .detached-container {
+  background: var(--bg-primary);
+}
+
+[data-theme="light"] .detached-item {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .detached-title {
+  color: var(--text-primary);
+}
+
+/* ========================================
+   General text color fixes
+   ======================================== */
+[data-theme="light"] .meta-item {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .toolbar-btn {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .toolbar-btn:hover {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] input,
+[data-theme="light"] textarea,
+[data-theme="light"] select {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] input::placeholder,
+[data-theme="light"] textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .btn,
+[data-theme="light"] button {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .icon-btn {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .icon-btn:hover {
+  color: var(--text-primary);
+}
+
+/* Fix modal text */
+[data-theme="light"] .modal {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .modal-header {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .modal-body {
+  color: var(--text-primary);
+}
+
+/* Fix dropdown/select text */
+[data-theme="light"] option {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Cytoscape node labels */
+[data-theme="light"] .node-html {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .node-html-title {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .node-html-notes {
   color: var(--text-secondary);
 }

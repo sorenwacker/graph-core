@@ -38,6 +38,9 @@
   --success-color: #22c55e;
   --warning-color: #f59e0b;
   --error-color: #ef4444;
+  --error-bg: #4a1a1a;
+  --error-border: #7a2a2a;
+  --error-hover: #5a2a2a;
 
   --checkbox-size: 16px;
   --checkbox-border: #444;
@@ -85,6 +88,9 @@
   --duration-fast: 150ms;
   --duration-normal: 200ms;
   --duration-slow: 300ms;
+
+  /* Color scheme for native elements (dark by default) */
+  color-scheme: dark;
 }
 
 html, body {
@@ -2212,4 +2218,89 @@ tr.search-highlight td {
 
 .modal-close:hover {
   color: var(--text-primary);
+}
+
+/* ========================================
+   Cytoscape HTML Node Labels
+   These need to be global since they're rendered
+   outside Vue component scope by cytoscape-node-html-label
+   ======================================== */
+
+.node-html {
+  background: var(--bg-secondary);
+  border: 3px solid #1a6fab;
+  border-radius: 8px;
+  padding: 10px 12px;
+  min-width: 120px;
+  max-width: 250px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  cursor: pointer;
+  transition: box-shadow 0.15s, filter 0.15s;
+}
+
+.node-html-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+  margin-bottom: 6px;
+  word-wrap: break-word;
+  max-height: 40px;
+  overflow: hidden;
+}
+
+.notes-indicator {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-left: 4px;
+  opacity: 0.7;
+}
+
+.node-html-notes {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  max-height: 100px;
+  overflow: hidden;
+}
+
+.node-html-notes code {
+  background: var(--bg-tertiary);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: var(--success-color);
+}
+
+.node-html-notes pre {
+  background: var(--bg-tertiary);
+  padding: 6px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 6px 0;
+  font-size: 11px;
+}
+
+.node-html-notes a {
+  color: var(--accent-color);
+  text-decoration: underline;
+}
+
+.node-html-notes blockquote {
+  border-left: 2px solid var(--accent-color);
+  margin: 6px 0;
+  padding-left: 8px;
+  color: var(--text-secondary);
+}
+
+.node-html-notes th,
+.node-html-notes td {
+  border: 1px solid var(--border-color);
+  padding: 3px 6px;
+}
+
+.node-html-notes th {
+  background: var(--bg-tertiary);
 }
