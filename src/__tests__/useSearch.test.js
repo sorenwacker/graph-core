@@ -140,14 +140,14 @@ describe('useSearch composable', () => {
       expect(onSearch).not.toHaveBeenCalled()
     })
 
-    it('should call onSearch with query and mode', async () => {
+    it('should call onSearch with query, mode, and pagination options', async () => {
       search.searchQuery.value = 'test'
       search.searchMode.value = 'normal'
       onSearch.mockResolvedValue([])
 
       await search.handleSearch('work')
 
-      expect(onSearch).toHaveBeenCalledWith('test', 'normal', 'work')
+      expect(onSearch).toHaveBeenCalledWith('test', 'normal', 'work', { limit: 50, offset: 0 })
     })
 
     it('should call onFetchBreadcrumbs if results exist', async () => {

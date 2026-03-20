@@ -9,7 +9,9 @@ const props = defineProps({
   searchResults: { type: Array, default: () => [] },
   recentItems: { type: Array, default: () => [] },
   selectedResultIndex: { type: Number, default: 0 },
-  viewMode: { type: String, default: 'tree' }
+  viewMode: { type: String, default: 'tree' },
+  hasMoreResults: { type: Boolean, default: false },
+  isLoadingMore: { type: Boolean, default: false }
 })
 
 const emit = defineEmits([
@@ -19,8 +21,20 @@ const emit = defineEmits([
   'search-input',
   'keydown',
   'select-result',
-  'clear-recent'
+  'clear-recent',
+  'load-more'
 ])
+
+const resultsRef = ref(null)
+
+function handleScroll(e) {
+  if (!props.hasMoreResults || props.isLoadingMore) return
+  const el = e.target
+  // Load more when scrolled near bottom (within 100px)
+  if (el.scrollHeight - el.scrollTop - el.clientHeight < 100) {
+    emit('load-more')
+  }
+}
 
 const searchInputRef = ref(null)
 
@@ -82,7 +96,7 @@ function getModeBadge() {
           </span>
         </div>
 
-        <div class="spotlight-results" v-if="searchResults.length > 0">
+        <div ref="resultsRef" class="spotlight-results" v-if="searchResults.length > 0" @scroll="handleScroll">
           <div class="spotlight-results-header">
             <span v-if="getModeBadge()" class="link-mode-badge">{{ getModeBadge() }}</span>
             {{ searchResults.length }} result{{ searchResults.length !== 1 ? 's' : '' }}
@@ -113,6 +127,8 @@ function getModeBadge() {
               <span class="action-arrow">-></span>
             </div>
           </div>
+          <div v-if="isLoadingMore" class="loading-more">Loading more...</div>
+          <div v-else-if="hasMoreResults" class="load-more-hint">Scroll for more results</div>
         </div>
 
         <div class="spotlight-empty" v-else-if="searchQuery && searchQuery.length > 0">
@@ -387,5 +403,17 @@ function getModeBadge() {
 .hint-text {
   font-size: 13px;
   color: #666;
+}
+
+.loading-more,
+.load-more-hint {
+  padding: 12px 20px;
+  text-align: center;
+  font-size: 12px;
+  color: #666;
+}
+
+.loading-more {
+  color: #888;
 }
 </style>

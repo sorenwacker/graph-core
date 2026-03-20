@@ -161,9 +161,20 @@ const webApi = {
     return request(`/tree${query}`)
   },
 
-  // Search
+  // Search with pagination
   async search(query, type = null, workspaceId = undefined, options = {}) {
     const params = new URLSearchParams({ q: query })
+    if (type) params.append('type', type)
+    if (workspaceId !== undefined) params.append('workspace_id', workspaceId)
+    if (options.hideCompleted) params.append('hide_completed', 'true')
+    if (options.limit !== undefined) params.append('limit', String(options.limit))
+    if (options.offset !== undefined) params.append('offset', String(options.offset))
+    return request(`/search?${params}`)
+  },
+
+  // Get total count for pagination
+  async searchCount(query, type = null, workspaceId = undefined, options = {}) {
+    const params = new URLSearchParams({ q: query, count_only: 'true' })
     if (type) params.append('type', type)
     if (workspaceId !== undefined) params.append('workspace_id', workspaceId)
     if (options.hideCompleted) params.append('hide_completed', 'true')
@@ -465,8 +476,9 @@ const electronApi = {
   // Tree view
   getTree: (rootId) => window.electronAPI.getTree(rootId),
 
-  // Search
+  // Search with pagination
   search: async (query, type, workspaceId, options) => filterNulls(await window.electronAPI.search(query, type, workspaceId, options)),
+  searchCount: (query, type, workspaceId, options) => window.electronAPI.searchCount(query, type, workspaceId, options),
 
   // Reorder
   reorderNode: (nodeId, targetId, position) => window.electronAPI.reorderNode(nodeId, targetId, position),
