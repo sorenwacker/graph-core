@@ -2996,9 +2996,9 @@ onUnmounted(() => {
 }
 
 .graph-controls button.active {
-  background: #1a3a5a;
-  border-color: #4a9eff;
-  color: #4a9eff;
+  background: var(--accent-subtle);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 
 .graph-controls button.icon-btn {
@@ -3111,18 +3111,18 @@ onUnmounted(() => {
 }
 
 .graph-controls button.relax-locked {
-  background: #1a4a1a !important;
-  border-color: #4a9a4a !important;
-  color: #4f4 !important;
-  box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+  background: rgba(34, 197, 94, 0.15) !important;
+  border-color: var(--success-color) !important;
+  color: var(--success-color) !important;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
   animation: pulse-relax 1s ease-in-out infinite;
 }
 
 .graph-controls button.fit-locked {
-  background: #1a4a1a !important;
-  border-color: #4a9a4a !important;
-  color: #4f4 !important;
-  box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+  background: rgba(34, 197, 94, 0.15) !important;
+  border-color: var(--success-color) !important;
+  color: var(--success-color) !important;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
   animation: pulse-relax 1s ease-in-out infinite;
 }
 
