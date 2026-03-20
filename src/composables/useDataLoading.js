@@ -1,6 +1,13 @@
 import { ref } from 'vue'
 import { api } from '../services/api.js'
 import { handleError } from './useErrorHandler.js'
+import { createNodeCache } from '../services/nodeCache.js'
+
+// Shared cache instance for sidebar data
+const sidebarCache = createNodeCache({
+  maxSize: 100,
+  ttlMs: 60000 // 1 minute TTL for sidebar data
+})
 
 /**
  * Composable for loading sidebar, recent items, favorites, tags, trash, and orphaned nodes
@@ -40,26 +47,53 @@ export function useDataLoading(currentWorkspace) {
     }).filter(Boolean)
   }
 
-  // Sidebar tree loading
-  async function loadSidebarTree() {
+  // Sidebar tree loading with batch fetching and caching
+  async function loadSidebarTree(skipCache = false) {
+    const cacheKey = `sidebar:${currentWorkspace.value}`
+
+    // Check cache first (unless skipCache is true)
+    if (!skipCache) {
+      const cached = sidebarCache.get(cacheKey)
+      if (cached) {
+        sidebarTree.value = cached
+        return
+      }
+    }
+
     try {
       const roots = await api.getRoots(currentWorkspace.value)
       const filteredRoots = (roots || []).filter(matchesWorkspace)
-      const rootsWithChildren = await Promise.all(
-        filteredRoots.map(async (root) => {
-          if (!root || !root.id) return null
-          const descendants = await api.getDescendants(root.id)
-          const filteredDescendants = (descendants || []).filter(matchesWorkspace)
-          return {
-            ...root,
-            children: buildChildTree(filteredDescendants, root.id)
-          }
-        })
-      )
-      sidebarTree.value = rootsWithChildren.filter(Boolean)
+
+      if (filteredRoots.length === 0) {
+        sidebarTree.value = []
+        sidebarCache.set(cacheKey, [])
+        return
+      }
+
+      // Batch fetch all descendants in a single query
+      const rootIds = filteredRoots.map(r => r.id).filter(Boolean)
+      const descendantsByRoot = await api.getDescendantsBatch(rootIds)
+
+      const rootsWithChildren = filteredRoots.map(root => {
+        if (!root || !root.id) return null
+        const descendants = descendantsByRoot.get(root.id) || []
+        const filteredDescendants = descendants.filter(matchesWorkspace)
+        return {
+          ...root,
+          children: buildChildTree(filteredDescendants, root.id)
+        }
+      }).filter(Boolean)
+
+      sidebarTree.value = rootsWithChildren
+      sidebarCache.set(cacheKey, rootsWithChildren)
     } catch (e) {
       handleError(e, { context: 'Loading sidebar' })
     }
+  }
+
+  // Invalidate sidebar cache for current workspace
+  function invalidateSidebarCache() {
+    sidebarCache.invalidatePrefix('sidebar:')
   }
 
   // Recent items
@@ -139,6 +173,7 @@ export function useDataLoading(currentWorkspace) {
     try {
       await api.restoreNode(node.id)
       await loadTrashedItems()
+      invalidateSidebarCache()
       await loadSidebarTree()
     } catch (e) {
       handleError(e, { context: 'Restoring node' })
@@ -181,6 +216,7 @@ export function useDataLoading(currentWorkspace) {
     try {
       await api.reparentToRoot(node.id)
       await loadOrphanedNodes()
+      invalidateSidebarCache()
       await loadSidebarTree()
     } catch (e) {
       handleError(e, { context: 'Moving node to root' })
@@ -218,6 +254,9 @@ export function useDataLoading(currentWorkspace) {
     loadTrashedItems,
     loadOrphanedNodes,
 
+    // Cache operations
+    invalidateSidebarCache,
+
     // Recent operations
     clearRecent,
     undoClearRecent,
@@ -232,3 +271,6 @@ export function useDataLoading(currentWorkspace) {
     deleteOrphanedNode
   }
 }
+
+// Export cache for testing and external invalidation
+export { sidebarCache }

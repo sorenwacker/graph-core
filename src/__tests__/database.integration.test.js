@@ -130,6 +130,42 @@ describe('Database Integration Tests', () => {
       expect(descendants.length).toBe(children.length + grandchildren.length)
     })
 
+    it('should batch get descendants for multiple roots', () => {
+      // Create two separate trees
+      const tree1 = factory.tree(2, 1) // 2 children, 1 grandchild each
+      const tree2 = factory.tree(3, 1) // 3 children, 1 grandchild each
+
+      const result = db.getDescendantsBatch([tree1.root.id, tree2.root.id])
+
+      // Result should be a Map keyed by root ID
+      expect(result).toBeInstanceOf(Map)
+      expect(result.size).toBe(2)
+
+      // Each root should have its descendants
+      const tree1Descendants = result.get(tree1.root.id)
+      const tree2Descendants = result.get(tree2.root.id)
+
+      expect(tree1Descendants.length).toBe(tree1.children.length + tree1.grandchildren.length)
+      expect(tree2Descendants.length).toBe(tree2.children.length + tree2.grandchildren.length)
+    })
+
+    it('should return empty arrays for roots with no descendants in batch', () => {
+      const leafNode = factory.task({ title: 'Leaf' })
+      // tree(depth=1, childrenPerLevel=2) creates root with 2 direct children, no grandchildren
+      const treeWithChildren = factory.tree(1, 2)
+
+      const result = db.getDescendantsBatch([leafNode.id, treeWithChildren.root.id])
+
+      expect(result.get(leafNode.id)).toEqual([])
+      expect(result.get(treeWithChildren.root.id).length).toBe(2)
+    })
+
+    it('should return empty map for empty root IDs array', () => {
+      const result = db.getDescendantsBatch([])
+      expect(result).toBeInstanceOf(Map)
+      expect(result.size).toBe(0)
+    })
+
     it('should get ancestors', () => {
       const root = factory.project({ title: 'Root' })
       const child = factory.task({ title: 'Child', parent_id: root.id })

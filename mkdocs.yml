@@ -51,6 +51,7 @@ nav:
     - Overview: index.md
     - Architecture: architecture/overview.md
     - Database: architecture/database.md
+    - Caching: architecture/caching.md
   - Getting Started:
     - Installation: getting-started/installation.md
     - Quickstart: guides/quickstart.md

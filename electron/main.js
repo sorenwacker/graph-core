@@ -326,6 +326,11 @@ ipcMain.handle('db:getFavorites', (event, workspaceId) => db.getFavorites(worksp
 ipcMain.handle('db:getTasks', (event, params) => db.getTasks(params))
 ipcMain.handle('db:getChildren', (event, id, type) => db.getChildren(id, type))
 ipcMain.handle('db:getDescendants', (event, id, maxDepth) => db.getDescendants(id, maxDepth))
+ipcMain.handle('db:getDescendantsBatch', (event, rootIds) => {
+  const result = db.getDescendantsBatch(rootIds)
+  // Convert Map to plain object for IPC serialization
+  return Object.fromEntries(result)
+})
 ipcMain.handle('db:getAncestors', (event, id) => db.getAncestors(id))
 ipcMain.handle('db:moveNode', (event, id, newParentId) => db.moveNode(id, newParentId))
 

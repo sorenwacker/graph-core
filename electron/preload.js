@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getTasks: (params) => ipcRenderer.invoke('db:getTasks', params),
   getChildren: (id, type) => ipcRenderer.invoke('db:getChildren', id, type),
   getDescendants: (id, maxDepth) => ipcRenderer.invoke('db:getDescendants', id, maxDepth),
+  getDescendantsBatch: (rootIds) => ipcRenderer.invoke('db:getDescendantsBatch', rootIds),
   getAncestors: (id) => ipcRenderer.invoke('db:getAncestors', id),
   moveNode: (id, newParentId) => ipcRenderer.invoke('db:moveNode', id, newParentId),
 

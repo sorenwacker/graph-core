@@ -278,6 +278,59 @@ export class TestDatabase {
     ).map((r) => this._rowToNode(r))
   }
 
+  /**
+   * Batch fetch descendants for multiple root IDs in a single query
+   * @param {number[]} rootIds - Array of root node IDs
+   * @returns {Map<number, Object[]>} Map of rootId -> descendants array
+   */
+  getDescendantsBatch(rootIds) {
+    const result = new Map()
+
+    if (!rootIds || rootIds.length === 0) {
+      return result
+    }
+
+    // Initialize result with empty arrays for each root
+    for (const rootId of rootIds) {
+      result.set(rootId, [])
+    }
+
+    // Get all root nodes to build path prefixes
+    const nodes = rootIds.map(id => this.getNode(id)).filter(Boolean)
+    if (nodes.length === 0) {
+      return result
+    }
+
+    // Build path conditions for all roots
+    const pathConditions = []
+    const values = []
+
+    for (const node of nodes) {
+      const pathPrefix = node.path ? `${node.path}/${node.id}` : `${node.id}`
+      pathConditions.push('(path = ? OR path LIKE ?)')
+      values.push(pathPrefix, `${pathPrefix}/%`)
+    }
+
+    const sql = `SELECT * FROM nodes WHERE (${pathConditions.join(' OR ')}) AND deleted_at IS NULL ORDER BY depth, sort_order`
+    const allDescendants = this._query(sql, values).map(r => this._rowToNode(r))
+
+    // Group descendants by their root
+    for (const descendant of allDescendants) {
+      for (const rootId of rootIds) {
+        const rootNode = nodes.find(n => n.id === rootId)
+        if (!rootNode) continue
+
+        const rootPathPrefix = rootNode.path ? `${rootNode.path}/${rootId}` : `${rootId}`
+        if (descendant.path === rootPathPrefix || descendant.path.startsWith(`${rootPathPrefix}/`)) {
+          result.get(rootId).push(descendant)
+          break
+        }
+      }
+    }
+
+    return result
+  }
+
   getAncestors(id) {
     const node = this.getNode(id)
     if (!node || !node.path) return []
