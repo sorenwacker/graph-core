@@ -131,6 +131,7 @@ Vue 3 composition functions encapsulate reusable logic:
 | `useKeyboardShortcuts` | Global hotkeys |
 | `useOllama` | AI integration |
 | `useToast` | Notifications |
+| `useErrorHandler` | Centralized error handling with toast notifications |
 
 ### State Management
 
