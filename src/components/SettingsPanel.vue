@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { api } from '../services/api.js'
 import { useOllama } from '../composables/useOllama.js'
+import { useTheme } from '../composables/useTheme.js'
 
 const {
   presetPrompts,
@@ -12,6 +13,8 @@ const {
   isPromptModified,
   isDefaultPrompt
 } = useOllama()
+
+const { currentTheme, setTheme, themes } = useTheme()
 
 const props = defineProps({
   graphDetailThreshold: { type: Number, required: true },
@@ -229,6 +232,24 @@ const isAiEnabled = computed(() => props.aiEnabled ?? props.ollamaEnabled)
         <!-- Display Settings -->
         <section class="settings-section">
           <h3 class="section-title">Display</h3>
+          <div class="settings-item">
+            <label>Theme</label>
+            <div class="theme-switcher">
+              <button
+                v-for="theme in themes"
+                :key="theme"
+                class="theme-btn"
+                :class="{ active: currentTheme === theme }"
+                @click="setTheme(theme)"
+              >
+                <span class="theme-icon">
+                  {{ theme === 'light' ? 'sun' : theme === 'dark' ? 'moon' : 'auto' }}
+                </span>
+                <span class="theme-label">{{ theme.charAt(0).toUpperCase() + theme.slice(1) }}</span>
+              </button>
+            </div>
+            <span class="settings-hint">Choose light, dark, or follow system preference</span>
+          </div>
           <div class="settings-item">
             <label>
               <input
@@ -913,5 +934,63 @@ const isAiEnabled = computed(() => props.aiEnabled ?? props.ollamaEnabled)
 .snapshot-btn.primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Theme Switcher */
+.theme-switcher {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.theme-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  flex: 1;
+}
+
+.theme-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--text-tertiary);
+}
+
+.theme-btn.active {
+  background: var(--accent-subtle);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.theme-icon {
+  font-size: 0.9rem;
+}
+
+.theme-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.settings-select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.settings-select:focus {
+  outline: none;
+  border-color: var(--accent-color);
 }
 </style>

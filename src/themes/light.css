@@ -1,0 +1,144 @@
+/**
+ * Light Theme
+ *
+ * A light color scheme for users who prefer lighter interfaces.
+ */
+
+[data-theme="light"] {
+  /* Text */
+  --text-primary: #1a1a1a;
+  --text-secondary: #4a4a4a;
+  --text-tertiary: #6b6b6b;
+
+  /* Borders */
+  --border-color: rgba(0, 0, 0, 0.12);
+  --border-subtle: rgba(0, 0, 0, 0.06);
+
+  /* Backgrounds */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f8f8;
+  --bg-tertiary: #f0f0f0;
+  --bg-elevated: #ffffff;
+  --bg-hover: rgba(0, 0, 0, 0.04);
+  --bg-active: rgba(0, 0, 0, 0.08);
+
+  /* Accent - slightly darker for contrast on light backgrounds */
+  --accent-color: #2563eb;
+  --accent-hover: #3b82f6;
+  --accent-subtle: rgba(37, 99, 235, 0.1);
+  --accent-glow: rgba(37, 99, 235, 0.15);
+
+  /* Status */
+  --success-color: #16a34a;
+  --warning-color: #d97706;
+  --error-color: #dc2626;
+
+  /* Checkbox */
+  --checkbox-border: #ccc;
+  --checkbox-bg: #ffffff;
+
+  /* Shadows - lighter for light theme */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
+  --shadow-glow: 0 0 20px rgba(37, 99, 235, 0.1);
+
+  /* Scrollbar */
+  --scrollbar-thumb: rgba(0, 0, 0, 0.15);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.3);
+
+  /* Type colors - adjusted for light backgrounds */
+  --type-project-bg: #dbeafe;
+  --type-project-text: #1d4ed8;
+  --type-task-bg: #fef3c7;
+  --type-task-text: #b45309;
+  --type-note-bg: #d1fae5;
+  --type-note-text: #059669;
+  --type-milestone-bg: #ede9fe;
+  --type-milestone-text: #7c3aed;
+  --type-group-bg: #e2e8f0;
+  --type-group-text: #475569;
+  --type-person-bg: #ffedd5;
+  --type-person-text: #c2410c;
+  --type-event-bg: #fce7f3;
+  --type-event-text: #be185d;
+  --type-topic-bg: #ccfbf1;
+  --type-topic-text: #0d9488;
+  --type-organization-bg: #e0e7ff;
+  --type-organization-text: #4338ca;
+  --type-component-bg: #cffafe;
+  --type-component-text: #0891b2;
+
+  /* Color scheme for native elements */
+  color-scheme: light;
+}
+
+/* Light theme specific overrides for elements that need more than variable changes */
+
+[data-theme="light"] a {
+  color: var(--accent-color);
+}
+
+[data-theme="light"] a:hover {
+  color: var(--accent-hover);
+}
+
+[data-theme="light"] ::selection {
+  background: rgba(37, 99, 235, 0.3);
+  color: #1a1a1a;
+}
+
+/* Node cards need slightly different shadows in light mode */
+[data-theme="light"] .node-card {
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .node-card:hover {
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.1),
+    0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .node-card.selected {
+  box-shadow:
+    0 0 0 1px var(--accent-color),
+    0 4px 16px rgba(37, 99, 235, 0.15);
+}
+
+/* Sidebar adjustments for light theme */
+[data-theme="light"] .sidebar:not(.pinned) {
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Tooltip adjustments for light theme */
+[data-theme="light"] .tippy-box[data-theme~='graph-tooltip'] {
+  background: linear-gradient(
+    135deg,
+    rgba(240, 245, 250, 0.95) 0%,
+    rgba(230, 235, 240, 0.98) 50%,
+    rgba(235, 240, 245, 0.95) 100%
+  );
+  border-color: rgba(0, 100, 200, 0.3);
+  color: #1a1a1a;
+}
+
+[data-theme="light"] .tippy-box[data-theme~='graph-tooltip'] .tt-title {
+  color: #1a1a1a;
+  text-shadow: none;
+}
+
+[data-theme="light"] .tippy-box[data-theme~='graph-tooltip'] .tt-notes {
+  color: #4a4a4a;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* Scrollbar for light theme */
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
