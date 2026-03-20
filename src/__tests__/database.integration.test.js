@@ -298,6 +298,58 @@ describe('Database Integration Tests', () => {
       const results = db.search('Searchable')
       expect(results.length).toBe(0)
     })
+
+    it('should support pagination with limit and offset', () => {
+      // Create 10 nodes with searchable titles
+      for (let i = 0; i < 10; i++) {
+        factory.task({ title: `Searchable Item ${i}` })
+      }
+
+      const page1 = db.search('Searchable', null, undefined, { limit: 3, offset: 0 })
+      const page2 = db.search('Searchable', null, undefined, { limit: 3, offset: 3 })
+      const page3 = db.search('Searchable', null, undefined, { limit: 3, offset: 6 })
+      const page4 = db.search('Searchable', null, undefined, { limit: 3, offset: 9 })
+
+      expect(page1.length).toBe(3)
+      expect(page2.length).toBe(3)
+      expect(page3.length).toBe(3)
+      expect(page4.length).toBe(1)
+
+      // Results should not overlap
+      const allIds = [...page1, ...page2, ...page3, ...page4].map(n => n.id)
+      const uniqueIds = new Set(allIds)
+      expect(uniqueIds.size).toBe(10)
+    })
+
+    it('should return total count for pagination', () => {
+      for (let i = 0; i < 15; i++) {
+        factory.task({ title: `Countable ${i}` })
+      }
+
+      const count = db.searchCount('Countable')
+      expect(count).toBe(15)
+    })
+
+    it('should filter by workspace in search', () => {
+      factory.task({ title: 'Work Meeting', workspace_id: 'work' })
+      factory.task({ title: 'Private Meeting', workspace_id: 'private' })
+
+      const workResults = db.search('Meeting', null, 'work')
+      expect(workResults.length).toBe(1)
+      expect(workResults[0].workspace_id).toBe('work')
+    })
+
+    it('should hide completed items when option is set', () => {
+      factory.task({ title: 'Open Task', completed: false })
+      factory.task({ title: 'Done Task', completed: true })
+
+      const allResults = db.search('Task')
+      const openOnly = db.search('Task', null, undefined, { hideCompleted: true })
+
+      expect(allResults.length).toBe(2)
+      expect(openOnly.length).toBe(1)
+      expect(openOnly[0].completed).toBe(false)
+    })
   })
 
   describe('Workspaces', () => {

@@ -340,6 +340,7 @@ ipcMain.handle('db:getTree', (event, rootId) => db.getTree(rootId))
 
 // Search
 ipcMain.handle('db:search', (event, query, type, workspaceId, options) => db.search(query, type, workspaceId, options))
+ipcMain.handle('db:searchCount', (event, query, type, workspaceId, options) => db.searchCount(query, type, workspaceId, options))
 
 // Reorder
 ipcMain.handle('db:reorderNode', (event, nodeId, targetId, position) => db.reorderNode(nodeId, targetId, position))

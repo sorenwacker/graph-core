@@ -1,11 +1,13 @@
 import { ref, nextTick } from 'vue'
 
+const SEARCH_PAGE_SIZE = 50
+
 /**
  * Composable for spotlight-style search functionality.
  * Handles search state, debounced input, and navigation through results.
  *
  * @param {Object} options
- * @param {Function} options.onSearch - Called to perform search: onSearch(query, mode, workspaceId) => results[]
+ * @param {Function} options.onSearch - Called to perform search: onSearch(query, mode, workspaceId, paginationOptions) => results[]
  * @param {Function} options.onSelect - Called when a result is selected: onSelect(node, mode, linkSourceId)
  * @param {Function} options.onFetchBreadcrumbs - Called to fetch breadcrumbs for results: onFetchBreadcrumbs(results) => resultsWithBreadcrumbs[]
  * @param {Object} options.selectedNode - Ref to the currently selected node (for link mode)
@@ -19,6 +21,9 @@ export function useSearch({ onSearch, onSelect, onFetchBreadcrumbs, selectedNode
   const searchMode = ref('normal') // 'normal', 'link', or 'move'
   const linkSourceNodeId = ref(null)
   const searchInputRef = ref(null)
+  const searchOffset = ref(0)
+  const hasMoreResults = ref(false)
+  const isLoadingMore = ref(false)
 
   function openSearch() {
     showSearch.value = true
@@ -73,29 +78,62 @@ export function useSearch({ onSearch, onSelect, onFetchBreadcrumbs, selectedNode
     selectedResultIndex.value = 0
     searchMode.value = 'normal'
     linkSourceNodeId.value = null
+    searchOffset.value = 0
+    hasMoreResults.value = false
+    isLoadingMore.value = false
   }
 
-  async function handleSearch(workspaceId) {
+  async function handleSearch(workspaceId, loadMore = false) {
     if (!searchQuery.value.trim()) {
       searchResults.value = []
+      searchOffset.value = 0
+      hasMoreResults.value = false
       return
     }
 
     try {
       if (onSearch) {
-        const results = await onSearch(searchQuery.value, searchMode.value, workspaceId)
+        if (loadMore) {
+          isLoadingMore.value = true
+        } else {
+          searchOffset.value = 0
+        }
+
+        const paginationOptions = {
+          limit: SEARCH_PAGE_SIZE,
+          offset: searchOffset.value
+        }
+
+        const results = await onSearch(searchQuery.value, searchMode.value, workspaceId, paginationOptions)
+
+        // Check if there are more results
+        hasMoreResults.value = results.length === SEARCH_PAGE_SIZE
 
         // Fetch breadcrumbs if callback provided
+        let processedResults = results
         if (onFetchBreadcrumbs && results.length > 0) {
-          searchResults.value = await onFetchBreadcrumbs(results)
-        } else {
-          searchResults.value = results
+          processedResults = await onFetchBreadcrumbs(results)
         }
-        selectedResultIndex.value = 0
+
+        if (loadMore) {
+          // Append to existing results
+          searchResults.value = [...searchResults.value, ...processedResults]
+          isLoadingMore.value = false
+        } else {
+          searchResults.value = processedResults
+          selectedResultIndex.value = 0
+        }
       }
     } catch (e) {
       console.error('Search failed:', e)
+      isLoadingMore.value = false
     }
+  }
+
+  async function loadMoreResults(workspaceId) {
+    if (!hasMoreResults.value || isLoadingMore.value) return
+    searchOffset.value += SEARCH_PAGE_SIZE
+    await handleSearch(workspaceId, true)
   }
 
   function onSearchInput(workspaceId) {
@@ -150,6 +188,8 @@ export function useSearch({ onSearch, onSelect, onFetchBreadcrumbs, selectedNode
     searchMode,
     linkSourceNodeId,
     searchInputRef,
+    hasMoreResults,
+    isLoadingMore,
 
     // Methods
     openSearch,
@@ -160,6 +200,7 @@ export function useSearch({ onSearch, onSelect, onFetchBreadcrumbs, selectedNode
     onSearchInput,
     handleSearchKeydown,
     goToSearchResult,
-    isResultSelected
+    isResultSelected,
+    loadMoreResults
   }
 }

@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Search
   search: (query, type, workspaceId, options) => ipcRenderer.invoke('db:search', query, type, workspaceId, options),
+  searchCount: (query, type, workspaceId, options) => ipcRenderer.invoke('db:searchCount', query, type, workspaceId, options),
 
   // Reorder
   reorderNode: (nodeId, targetId, position) => ipcRenderer.invoke('db:reorderNode', nodeId, targetId, position),
