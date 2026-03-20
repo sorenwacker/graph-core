@@ -752,7 +752,7 @@ input[type="checkbox"] {
 
 .node-card {
   background: var(--bg-secondary);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
   border-radius: 16px;
   padding: 0;
   cursor: pointer;
@@ -779,17 +779,13 @@ input[type="checkbox"] {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  background: linear-gradient(90deg, transparent, var(--border-subtle), transparent);
   pointer-events: none;
 }
 
 .node-card:hover {
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow:
-    0 4px 8px rgba(0, 0, 0, 0.25),
-    0 16px 32px rgba(0, 0, 0, 0.2),
-    0 0 0 1px rgba(255, 255, 255, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-md);
   transform: translateY(-3px) scale(1.005);
 }
 
@@ -923,7 +919,7 @@ input[type="checkbox"] {
 /* Nested Children Grid */
 .node-card-children-grid {
   margin-top: 2px;
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--bg-tertiary);
   border-radius: var(--radius-md);
   padding: 6px;
   flex: 1;
@@ -1000,8 +996,8 @@ input[type="checkbox"] {
 }
 
 .child-card:hover {
-  background: var(--bg-tertiary);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: var(--bg-hover);
+  border-color: var(--border-color);
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
