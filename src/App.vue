@@ -48,6 +48,7 @@ import MainToolbar from './components/MainToolbar.vue'
 import TrashView from './components/TrashView.vue'
 import SpotlightSearch from './components/SpotlightSearch.vue'
 import { showToast } from './composables/useToast.js'
+import { handleError } from './composables/useErrorHandler.js'
 
 // Navigation state - drill-down model
 const currentContainerId = ref(null)  // null = root level
@@ -162,7 +163,7 @@ async function selectTag(tag) {
     showSearch.value = true
     selectedResultIndex.value = 0
   } catch (e) {
-    console.error('Failed to search by tag:', e)
+    handleError(e, { context: 'Searching by tag' })
   }
 }
 
@@ -404,11 +405,17 @@ const {
   closeSearch,
   onSearchInput: _onSearchInput,
   handleSearchKeydown,
-  goToSearchResult: _goToSearchResult
+  goToSearchResult: _goToSearchResult,
+  hasMoreResults,
+  isLoadingMore,
+  loadMoreResults: _loadMoreResults
 } = useSearch({
   selectedNode,
-  onSearch: async (query, mode, workspaceId) => {
-    const searchOptions = { hideCompleted: hideCompleted.value }
+  onSearch: async (query, mode, workspaceId, paginationOptions = {}) => {
+    const searchOptions = {
+      hideCompleted: hideCompleted.value,
+      ...paginationOptions
+    }
     if (query.startsWith('#') && query.length > 1) {
       const tagName = query.slice(1)
       return await api.getNodesByTag(tagName, workspaceId, searchOptions)
@@ -429,7 +436,7 @@ const {
           detailPanelRef.value?.loadLinkedNodes()
         }
       } catch (e) {
-        console.error('Failed to create link:', e)
+        handleError(e, { context: 'Creating link' })
       }
       return
     }
@@ -444,7 +451,7 @@ const {
           selectedNode.value = updatedNode
         }
       } catch (e) {
-        console.error('Failed to move node:', e)
+        handleError(e, { context: 'Moving node' })
       }
       return
     }
@@ -464,6 +471,11 @@ const {
 // Wrap search input to pass current workspace
 function onSearchInput() {
   _onSearchInput(currentWorkspace.value)
+}
+
+// Load more search results
+function loadMoreResults() {
+  _loadMoreResults(currentWorkspace.value)
 }
 
 // Close detail panel when node is deselected (if not pinned)
@@ -583,7 +595,7 @@ async function loadChildren(containerId = null, options = {}) {
     currentContainerId.value = containerId
     // Keep stored expanded state from localStorage (don't reset)
   } catch (e) {
-    console.error('Failed to load:', e)
+    handleError(e, { context: 'Loading data' })
     // If node not found (404), reset to root
     if (e.message?.includes('404') || e.message?.includes('Not found')) {
       currentContainerId.value = null
@@ -724,7 +736,7 @@ async function selectChildById(nodeId, options = {}) {
     const node = await api.getNode(nodeId)
     selectNode(node, options)
   } catch (err) {
-    console.error('Failed to select child:', err)
+    handleError(err, { context: 'Selecting child' })
   }
 }
 
@@ -733,7 +745,7 @@ async function openNodeFullscreen(nodeId) {
     const node = await api.getNode(nodeId)
     selectNode(node, { fullscreen: true })
   } catch (err) {
-    console.error('Failed to open node fullscreen:', err)
+    handleError(err, { context: 'Opening node fullscreen' })
   }
 }
 
@@ -928,7 +940,7 @@ async function linkNodesFromGraph({ sourceId, targetId }) {
     await refreshGraphAfterStructureChange()
     await refreshDetailPanelLinks(sourceId, targetId)
   } catch (e) {
-    console.error('Failed to link nodes:', e)
+    handleError(e, { context: 'Linking nodes' })
     error.value = e.message
   }
 }
@@ -941,7 +953,7 @@ async function unlinkNodesFromGraph({ sourceId, targetId }) {
     await refreshGraphAfterStructureChange()
     await refreshDetailPanelLinks(sourceId, targetId)
   } catch (e) {
-    console.error('Failed to unlink nodes:', e)
+    handleError(e, { context: 'Unlinking nodes' })
     error.value = e.message
   }
 }
@@ -1738,11 +1750,14 @@ onUnmounted(() => {
       :search-results="searchResults"
       :recent-items="recentItems"
       :view-mode="viewMode"
+      :has-more-results="hasMoreResults"
+      :is-loading-more="isLoadingMore"
       @close="closeSearch"
       @search-input="onSearchInput"
       @keydown="handleSearchKeydown"
       @select-result="_goToSearchResult"
       @clear-recent="clearRecent"
+      @load-more="loadMoreResults"
     />
 
     <!-- Toast notifications -->

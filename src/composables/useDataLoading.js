@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { api } from '../services/api.js'
+import { handleError } from './useErrorHandler.js'
 
 /**
  * Composable for loading sidebar, recent items, favorites, tags, trash, and orphaned nodes
@@ -57,7 +58,7 @@ export function useDataLoading(currentWorkspace) {
       )
       sidebarTree.value = rootsWithChildren.filter(Boolean)
     } catch (e) {
-      console.error('Failed to load sidebar tree:', e)
+      handleError(e, { context: 'Loading sidebar' })
     }
   }
 
@@ -78,7 +79,7 @@ export function useDataLoading(currentWorkspace) {
         recentItems.value = validItems
       }
     } catch (e) {
-      console.error('Failed to load recent items:', e)
+      handleError(e, { context: 'Loading recent items' })
     }
   }
 
@@ -130,7 +131,7 @@ export function useDataLoading(currentWorkspace) {
       const items = await api.getTrash(100)
       trashedItems.value = (items || []).filter(Boolean)
     } catch (e) {
-      console.error('Failed to load trashed items:', e)
+      handleError(e, { context: 'Loading trash' })
     }
   }
 
@@ -140,7 +141,7 @@ export function useDataLoading(currentWorkspace) {
       await loadTrashedItems()
       await loadSidebarTree()
     } catch (e) {
-      console.error('Failed to restore node:', e)
+      handleError(e, { context: 'Restoring node' })
     }
   }
 
@@ -150,7 +151,7 @@ export function useDataLoading(currentWorkspace) {
       await api.deleteNode(node.id, true)
       await loadTrashedItems()
     } catch (e) {
-      console.error('Failed to delete node:', e)
+      handleError(e, { context: 'Deleting node' })
     }
   }
 
@@ -161,7 +162,7 @@ export function useDataLoading(currentWorkspace) {
       await api.emptyTrash()
       trashedItems.value = []
     } catch (e) {
-      console.error('Failed to empty trash:', e)
+      handleError(e, { context: 'Emptying trash' })
     }
   }
 
@@ -171,7 +172,7 @@ export function useDataLoading(currentWorkspace) {
       const nodes = await api.getOrphanedNodes()
       orphanedNodes.value = (nodes || []).filter(Boolean)
     } catch (e) {
-      console.error('Failed to load orphaned nodes:', e)
+      handleError(e, { context: 'Loading orphaned nodes' })
       orphanedNodes.value = []
     }
   }
@@ -182,7 +183,7 @@ export function useDataLoading(currentWorkspace) {
       await loadOrphanedNodes()
       await loadSidebarTree()
     } catch (e) {
-      console.error('Failed to move node to root:', e)
+      handleError(e, { context: 'Moving node to root' })
     }
   }
 
@@ -192,7 +193,7 @@ export function useDataLoading(currentWorkspace) {
       await api.deleteNode(node.id, true)
       await loadOrphanedNodes()
     } catch (e) {
-      console.error('Failed to delete orphaned node:', e)
+      handleError(e, { context: 'Deleting orphaned node' })
     }
   }
 
