@@ -310,6 +310,7 @@ class Database {
    * Create all database indexes
    */
   _createIndexes() {
+    // Single-column indexes
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_parent_id ON nodes(parent_id)`)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_type ON nodes(type)`)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_path ON nodes(path)`)
@@ -318,6 +319,11 @@ class Database {
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_workspaces_sort ON workspaces(sort_order)`)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_node_tables_node_id ON node_tables(node_id)`)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_node_table_cells_table_id ON node_table_cells(table_id)`)
+
+    // Composite indexes for common query patterns
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_workspace_parent ON nodes(workspace_id, parent_id)`)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_workspace_deleted ON nodes(workspace_id, deleted_at)`)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_parent_sort ON nodes(parent_id, sort_order)`)
   }
 
   /**
@@ -1055,8 +1061,11 @@ class Database {
    *   - string: specific workspace
    * @param {Object} options - Additional options
    * @param {boolean} options.hideCompleted - Exclude completed nodes from results
+   * @param {number} options.limit - Maximum results (default: 50)
+   * @param {number} options.offset - Results to skip (default: 0)
    */
   search(query, type = null, workspaceId = undefined, options = {}) {
+    const { hideCompleted = false, limit = 50, offset = 0 } = options
     let sql = "SELECT * FROM nodes WHERE deleted_at IS NULL AND (title LIKE ? OR notes LIKE ?)"
     const values = [`%${query}%`, `%${query}%`]
 
@@ -1069,12 +1078,42 @@ class Database {
       values.push(type)
     }
 
-    if (options.hideCompleted) {
+    if (hideCompleted) {
       sql += ' AND completed = 0'
     }
 
-    sql += ' ORDER BY updated_at DESC LIMIT 50'
+    sql += ' ORDER BY updated_at DESC LIMIT ? OFFSET ?'
+    values.push(limit, offset)
     return this._query(sql, values).map(r => this._rowToNode(r))
+  }
+
+  /**
+   * Get total count of search results for pagination
+   * @param {string} query - Search query
+   * @param {string|null} type - Filter by node type
+   * @param {string|null|undefined} workspaceId - Workspace filter
+   * @param {Object} options - Additional options
+   * @returns {number} Total matching results
+   */
+  searchCount(query, type = null, workspaceId = undefined, options = {}) {
+    const { hideCompleted = false } = options
+    let sql = "SELECT COUNT(*) as count FROM nodes WHERE deleted_at IS NULL AND (title LIKE ? OR notes LIKE ?)"
+    const values = [`%${query}%`, `%${query}%`]
+
+    const effectiveWorkspaceId = (type === 'person' && workspaceId === undefined) ? null : workspaceId
+    sql = this._applyWorkspaceFilter(sql, values, effectiveWorkspaceId)
+
+    if (type) {
+      sql += ' AND type = ?'
+      values.push(type)
+    }
+
+    if (hideCompleted) {
+      sql += ' AND completed = 0'
+    }
+
+    const result = this._query(sql, values)
+    return result[0]?.count || 0
   }
 
   // Reorder
