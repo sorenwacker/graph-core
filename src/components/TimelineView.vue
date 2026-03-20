@@ -1194,7 +1194,7 @@ function getDragBarStyle(node) {
   transform: translateY(-50%);
   font-size: 0.7rem;
   font-weight: 700;
-  color: white;
+  color: var(--text-primary);
   background: var(--bg-secondary);
   padding: 2px 8px;
   border-radius: 3px;
@@ -1443,7 +1443,7 @@ function getDragBarStyle(node) {
 }
 
 .resize-handle:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--bg-active);
 }
 
 .bar-label {
