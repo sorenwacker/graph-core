@@ -1311,9 +1311,9 @@ async function initGraph() {
       // Notes indicator when notes exist but not shown in detail
       const notesIndicator = node.notes && !showDetails ? '<span class="notes-indicator">✎</span>' : ''
 
-      // Custom color as subtle background gradient
+      // Custom color as subtle background gradient (base color comes from CSS var)
       const bgStyle = customBgTint
-        ? `background: linear-gradient(135deg, ${customBgTint}99 0%, ${customBgTint}44 50%, transparent 100%), #0d0d0d;`
+        ? `background: linear-gradient(135deg, ${customBgTint}99 0%, ${customBgTint}44 50%, transparent 100%), var(--bg-secondary);`
         : ''
 
       return `
@@ -3240,8 +3240,8 @@ onUnmounted(() => {
 }
 
 .hotkey-help-modal {
-  background: #1a1a1a;
-  border: 1px solid #333;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 24px;
   max-width: 500px;
@@ -3254,8 +3254,8 @@ onUnmounted(() => {
 .hotkey-help-modal h3 {
   margin: 0 0 20px 0;
   font-size: 18px;
-  color: #fff;
-  border-bottom: 1px solid #333;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
   padding-bottom: 12px;
 }
 
@@ -3268,14 +3268,14 @@ onUnmounted(() => {
 .hotkey-section h4 {
   margin: 0 0 10px 0;
   font-size: 13px;
-  color: #888;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .hotkey-item {
   font-size: 13px;
-  color: #ccc;
+  color: var(--text-secondary);
   margin-bottom: 8px;
   display: flex;
   align-items: center;
@@ -3283,13 +3283,13 @@ onUnmounted(() => {
 }
 
 .hotkey-item kbd {
-  background: #2a2a2a;
-  border: 1px solid #444;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   padding: 2px 6px;
   font-family: -apple-system, BlinkMacSystemFont, monospace;
   font-size: 11px;
-  color: #fff;
+  color: var(--text-primary);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
@@ -3297,17 +3297,17 @@ onUnmounted(() => {
   margin-top: 20px;
   width: 100%;
   padding: 10px;
-  background: #333;
+  background: var(--bg-tertiary);
   border: none;
   border-radius: 6px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 14px;
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .hotkey-close:hover {
-  background: #444;
+  background: var(--bg-hover);
 }
 
 /* Edit Modal - full featured */
@@ -3326,8 +3326,8 @@ onUnmounted(() => {
 }
 
 .edit-modal {
-  background: #0d0d0d;
-  border: 2px solid #333;
+  background: var(--bg-primary);
+  border: 2px solid var(--border-color);
   border-radius: 12px;
   width: 90%;
   max-width: 600px;
@@ -3343,21 +3343,21 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #333;
-  background: #111;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
 }
 
 .edit-modal-header h2 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .modal-close {
   background: none;
   border: none;
-  color: #888;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 18px;
   padding: 4px 10px;
@@ -3366,8 +3366,8 @@ onUnmounted(() => {
 }
 
 .modal-close:hover {
-  background: #333;
-  color: #fff;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .edit-modal-content {
@@ -3384,7 +3384,7 @@ onUnmounted(() => {
   display: block;
   font-size: 12px;
   font-weight: 600;
-  color: #aaa;
+  color: var(--text-secondary);
   margin-bottom: 6px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -3396,10 +3396,10 @@ onUnmounted(() => {
   width: 100%;
   padding: 10px 12px;
   font-size: 14px;
-  background: #1a1a1a;
-  border: 1px solid #333;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  color: #fff;
+  color: var(--text-primary);
   transition: border-color 0.15s;
   box-sizing: border-box;
 }
@@ -3408,7 +3408,7 @@ onUnmounted(() => {
 .edit-select:focus,
 .edit-textarea:focus {
   outline: none;
-  border-color: #4a9eff;
+  border-color: var(--accent-color);
 }
 
 .edit-textarea {
@@ -3426,10 +3426,10 @@ onUnmounted(() => {
   width: 60px;
   height: 36px;
   padding: 2px;
-  border: 1px solid #333;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   cursor: pointer;
-  background: #1a1a1a;
+  background: var(--bg-secondary);
 }
 
 .importance-input {
@@ -3443,7 +3443,7 @@ onUnmounted(() => {
   cursor: pointer;
   font-size: 14px;
   text-transform: none;
-  color: #e0e0e0;
+  color: var(--text-primary);
 }
 
 .checkbox-field input[type="checkbox"] {
@@ -3451,13 +3451,12 @@ onUnmounted(() => {
   height: 18px;
   cursor: pointer;
   accent-color: var(--accent-color);
-  color-scheme: dark;
 }
 
 .field-hint {
   display: block;
   font-size: 11px;
-  color: #666;
+  color: var(--text-tertiary);
   margin-top: 4px;
   margin-left: 26px;
 }
@@ -3483,23 +3482,23 @@ onUnmounted(() => {
 .preview-toggle {
   padding: 4px 12px;
   font-size: 11px;
-  background: #222;
-  border: 1px solid #444;
-  color: #aaa;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .preview-toggle:hover {
-  background: #333;
-  color: #fff;
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .preview-toggle.active {
-  background: #4a9eff;
-  border-color: #4a9eff;
-  color: #fff;
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: white;
 }
 
 .notes-preview {
@@ -3507,10 +3506,10 @@ onUnmounted(() => {
   max-height: 300px;
   overflow-y: auto;
   padding: 12px;
-  background: #1a1a1a;
-  border: 1px solid #333;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  color: #e0e0e0;
+  color: var(--text-primary);
 }
 
 .notes-field {
@@ -3521,18 +3520,18 @@ onUnmounted(() => {
   display: flex;
   gap: 20px;
   padding: 12px 0;
-  border-top: 1px solid #222;
+  border-top: 1px solid var(--border-subtle);
   margin-top: 8px;
   font-size: 12px;
-  color: #666;
+  color: var(--text-tertiary);
 }
 
 .edit-modal-footer {
   display: flex;
   justify-content: space-between;
   padding: 16px 20px;
-  border-top: 1px solid #333;
-  background: #111;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-secondary);
 }
 
 .footer-left,
@@ -3553,34 +3552,34 @@ onUnmounted(() => {
 }
 
 .btn-primary {
-  background: #4a9eff;
+  background: var(--accent-color);
   border: none;
-  color: #fff;
+  color: white;
 }
 
 .btn-primary:hover {
-  background: #3a8eef;
+  background: var(--accent-hover);
 }
 
 .btn-secondary {
-  background: #222;
-  border: 1px solid #444;
-  color: #ccc;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
 }
 
 .btn-secondary:hover {
-  background: #333;
-  color: #fff;
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .btn-danger {
-  background: #4a1a1a;
-  border: 1px solid #7a2a2a;
-  color: #ff6b6b;
+  background: var(--error-bg, #4a1a1a);
+  border: 1px solid var(--error-border, #7a2a2a);
+  color: var(--error-color, #ff6b6b);
 }
 
 .btn-danger:hover {
-  background: #5a2a2a;
+  background: var(--error-hover, #5a2a2a);
 }
 
 /* Prompt Modal */
@@ -3599,8 +3598,8 @@ onUnmounted(() => {
 }
 
 .prompt-modal {
-  background: #0d0d0d;
-  border: 2px solid #333;
+  background: var(--bg-primary);
+  border: 2px solid var(--border-color);
   border-radius: 12px;
   width: 90%;
   max-width: 400px;
@@ -3609,14 +3608,14 @@ onUnmounted(() => {
 
 .prompt-modal-header {
   padding: 16px 20px;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .prompt-modal-header h3 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .prompt-modal-content {
@@ -3627,16 +3626,16 @@ onUnmounted(() => {
   width: 100%;
   padding: 12px 14px;
   font-size: 15px;
-  background: #1a1a1a;
-  border: 1px solid #444;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  color: #fff;
+  color: var(--text-primary);
   box-sizing: border-box;
 }
 
 .prompt-input:focus {
   outline: none;
-  border-color: #4a9eff;
+  border-color: var(--accent-color);
 }
 
 .prompt-modal-footer {
@@ -3644,7 +3643,7 @@ onUnmounted(() => {
   justify-content: flex-end;
   gap: 10px;
   padding: 16px 20px;
-  border-top: 1px solid #333;
+  border-top: 1px solid var(--border-color);
 }
 
 /* Person node - compact pill badge */
@@ -3686,14 +3685,14 @@ onUnmounted(() => {
 
 /* HTML Node styling - like old app */
 :global(.node-html) {
-  background: #0d0d0d;
+  background: var(--bg-secondary);
   border: 3px solid #1a6fab;
   border-radius: 8px;
   padding: 10px 12px;
   min-width: 120px;
   max-width: 250px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-  color: #e0e0e0;
+  color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   cursor: pointer;
   transition: box-shadow 0.15s, filter 0.15s;
@@ -3761,7 +3760,7 @@ onUnmounted(() => {
 :global(.node-html-title) {
   font-size: 14px;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
   line-height: 1.3;
   margin-bottom: 6px;
   word-wrap: break-word;
@@ -3771,7 +3770,7 @@ onUnmounted(() => {
 
 :global(.notes-indicator) {
   font-size: 11px;
-  color: #888;
+  color: var(--text-secondary);
   margin-left: 4px;
   opacity: 0.7;
 }
@@ -3779,7 +3778,7 @@ onUnmounted(() => {
 :global(.node-html-notes) {
   font-size: 12px;
   line-height: 1.4;
-  color: #bbb;
+  color: var(--text-secondary);
   max-height: 100px;
   overflow: hidden;
 }
@@ -3793,15 +3792,15 @@ onUnmounted(() => {
 }
 
 :global(.node-html-notes code) {
-  background: #222;
+  background: var(--bg-tertiary);
   padding: 1px 4px;
   border-radius: 3px;
   font-size: 11px;
-  color: #2ecc71;
+  color: var(--success-color, #2ecc71);
 }
 
 :global(.node-html-notes pre) {
-  background: #1a1a1a;
+  background: var(--bg-tertiary);
   padding: 6px;
   border-radius: 4px;
   overflow-x: auto;
@@ -3820,15 +3819,15 @@ onUnmounted(() => {
 }
 
 :global(.node-html-notes a) {
-  color: #3498db;
+  color: var(--accent-color);
   text-decoration: underline;
 }
 
 :global(.node-html-notes blockquote) {
-  border-left: 2px solid #3498db;
+  border-left: 2px solid var(--accent-color);
   margin: 6px 0;
   padding-left: 8px;
-  color: #888;
+  color: var(--text-secondary);
 }
 
 :global(.node-html-notes table) {
@@ -3840,12 +3839,12 @@ onUnmounted(() => {
 
 :global(.node-html-notes th),
 :global(.node-html-notes td) {
-  border: 1px solid #333;
+  border: 1px solid var(--border-color);
   padding: 3px 6px;
 }
 
 :global(.node-html-notes th) {
-  background: #1a1a1a;
+  background: var(--bg-tertiary);
 }
 
 /* Search highlight animation */
