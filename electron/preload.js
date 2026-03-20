@@ -91,8 +91,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // OpenAI-compatible API
   openaiGenerate: (options) => ipcRenderer.invoke('openai:generate', options),
-  openaiTestConnection: (endpoint, apiKey) => ipcRenderer.invoke('openai:testConnection', endpoint, apiKey),
-  openaiListModels: (endpoint, apiKey) => ipcRenderer.invoke('openai:listModels', endpoint, apiKey),
+  openaiTestConnection: (endpoint, apiKey, skipSslVerification) => ipcRenderer.invoke('openai:testConnection', endpoint, apiKey, skipSslVerification),
+  openaiListModels: (endpoint, apiKey, skipSslVerification) => ipcRenderer.invoke('openai:listModels', endpoint, apiKey, skipSslVerification),
 
   // Menu events
   onMenuUndo: (callback) => ipcRenderer.on('menu-undo', callback),

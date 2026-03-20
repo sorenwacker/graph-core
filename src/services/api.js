@@ -537,8 +537,8 @@ const electronApi = {
 
   // OpenAI-compatible API
   openaiGenerate: (options) => window.electronAPI.openaiGenerate(options),
-  openaiTestConnection: (endpoint, apiKey) => window.electronAPI.openaiTestConnection(endpoint, apiKey),
-  openaiListModels: (endpoint, apiKey) => window.electronAPI.openaiListModels(endpoint, apiKey),
+  openaiTestConnection: (endpoint, apiKey, skipSslVerification) => window.electronAPI.openaiTestConnection(endpoint, apiKey, skipSslVerification),
+  openaiListModels: (endpoint, apiKey, skipSslVerification) => window.electronAPI.openaiListModels(endpoint, apiKey, skipSslVerification),
 }
 
 // Export the appropriate API based on environment

@@ -66,7 +66,7 @@ export function useOllama() {
   const {
     aiProvider, aiEnabled, aiCustomPrompts,
     ollamaEndpoint, ollamaModel, ollamaContextSize,
-    openaiEndpoint, openaiApiKey, openaiModel,
+    openaiEndpoint, openaiApiKey, openaiModel, openaiSkipSslVerification,
     // Legacy settings for backwards compatibility
     ollamaEnabled, ollamaCustomPrompts
   } = useSettings()
@@ -211,7 +211,8 @@ export function useOllama() {
           content: originalContent,
           model: openaiModel.value,
           endpoint: openaiEndpoint.value,
-          apiKey: openaiApiKey.value
+          apiKey: openaiApiKey.value,
+          skipSslVerification: openaiSkipSslVerification.value
         })
       } else {
         // Default: Ollama
@@ -240,7 +241,7 @@ export function useOllama() {
    */
   async function testConnection() {
     if (provider.value === AI_PROVIDERS.OPENAI) {
-      return api.openaiTestConnection(openaiEndpoint.value, openaiApiKey.value)
+      return api.openaiTestConnection(openaiEndpoint.value, openaiApiKey.value, openaiSkipSslVerification.value)
     }
     return api.ollamaTestConnection(ollamaEndpoint.value)
   }
@@ -251,7 +252,7 @@ export function useOllama() {
    */
   async function listModels() {
     if (provider.value === AI_PROVIDERS.OPENAI) {
-      return api.openaiListModels(openaiEndpoint.value, openaiApiKey.value)
+      return api.openaiListModels(openaiEndpoint.value, openaiApiKey.value, openaiSkipSslVerification.value)
     }
     return api.ollamaListModels(ollamaEndpoint.value)
   }
