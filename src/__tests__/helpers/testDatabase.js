@@ -48,6 +48,9 @@ export class TestDatabase {
       )
     `)
 
+    // Create indexes for query optimization
+    this._createIndexes()
+
     this.db.run(`
       CREATE TABLE IF NOT EXISTS node_links (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -71,6 +74,20 @@ export class TestDatabase {
 
     this.db.run("INSERT OR IGNORE INTO workspaces (id, name, sort_order) VALUES ('work', 'Work', 1)")
     this.db.run("INSERT OR IGNORE INTO workspaces (id, name, sort_order) VALUES ('private', 'Private', 2)")
+  }
+
+  _createIndexes() {
+    // Single-column indexes
+    this.db.run('CREATE INDEX IF NOT EXISTS idx_nodes_parent_id ON nodes(parent_id)')
+    this.db.run('CREATE INDEX IF NOT EXISTS idx_nodes_type ON nodes(type)')
+    this.db.run('CREATE INDEX IF NOT EXISTS idx_nodes_path ON nodes(path)')
+    this.db.run('CREATE INDEX IF NOT EXISTS idx_nodes_deleted ON nodes(deleted_at)')
+    this.db.run('CREATE INDEX IF NOT EXISTS idx_nodes_workspace ON nodes(workspace_id)')
+
+    // Composite indexes for common query patterns
+    this.db.run('CREATE INDEX IF NOT EXISTS idx_nodes_workspace_parent ON nodes(workspace_id, parent_id)')
+    this.db.run('CREATE INDEX IF NOT EXISTS idx_nodes_workspace_deleted ON nodes(workspace_id, deleted_at)')
+    this.db.run('CREATE INDEX IF NOT EXISTS idx_nodes_parent_sort ON nodes(parent_id, sort_order)')
   }
 
   _query(sql, params = []) {
@@ -334,8 +351,9 @@ export class TestDatabase {
     ).map((r) => this._rowToNode(r))
   }
 
-  // Search
-  search(query, type = null) {
+  // Search with pagination support
+  search(query, type = null, workspaceId = undefined, options = {}) {
+    const { limit = 50, offset = 0, hideCompleted = false } = options
     let sql = 'SELECT * FROM nodes WHERE deleted_at IS NULL AND (title LIKE ? OR notes LIKE ?)'
     const values = [`%${query}%`, `%${query}%`]
 
@@ -344,8 +362,43 @@ export class TestDatabase {
       values.push(type)
     }
 
-    sql += ' ORDER BY updated_at DESC LIMIT 50'
+    if (workspaceId !== undefined) {
+      sql += ' AND workspace_id = ?'
+      values.push(workspaceId)
+    }
+
+    if (hideCompleted) {
+      sql += ' AND completed = 0'
+    }
+
+    sql += ' ORDER BY updated_at DESC LIMIT ? OFFSET ?'
+    values.push(limit, offset)
+
     return this._query(sql, values).map((r) => this._rowToNode(r))
+  }
+
+  // Get total count for pagination
+  searchCount(query, type = null, workspaceId = undefined, options = {}) {
+    const { hideCompleted = false } = options
+    let sql = 'SELECT COUNT(*) as count FROM nodes WHERE deleted_at IS NULL AND (title LIKE ? OR notes LIKE ?)'
+    const values = [`%${query}%`, `%${query}%`]
+
+    if (type) {
+      sql += ' AND type = ?'
+      values.push(type)
+    }
+
+    if (workspaceId !== undefined) {
+      sql += ' AND workspace_id = ?'
+      values.push(workspaceId)
+    }
+
+    if (hideCompleted) {
+      sql += ' AND completed = 0'
+    }
+
+    const result = this._query(sql, values)
+    return result[0]?.count || 0
   }
 
   // Tags
