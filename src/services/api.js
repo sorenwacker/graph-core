@@ -464,6 +464,15 @@ const electronApi = {
   getTasks: async (params) => filterNulls(await window.electronAPI.getTasks(params)),
   getChildren: async (id, type) => filterNulls(await window.electronAPI.getChildren(id, type)),
   getDescendants: async (id, maxDepth) => filterNulls(await window.electronAPI.getDescendants(id, maxDepth)),
+  getDescendantsBatch: async (rootIds) => {
+    const result = await window.electronAPI.getDescendantsBatch(rootIds)
+    // Convert plain object back to Map and filter nulls from each array
+    const map = new Map()
+    for (const [key, descendants] of Object.entries(result)) {
+      map.set(Number(key), filterNulls(descendants))
+    }
+    return map
+  },
   getAncestors: async (id) => filterNulls(await window.electronAPI.getAncestors(id)),
   moveNode: (id, newParentId) => window.electronAPI.moveNode(id, newParentId),
 

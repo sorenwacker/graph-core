@@ -133,6 +133,13 @@ Vue 3 composition functions encapsulate reusable logic:
 | `useToast` | Notifications |
 | `useErrorHandler` | Centralized error handling with toast notifications |
 
+### Services
+
+| Service | Purpose |
+|---------|---------|
+| `api.js` | Backend communication (IPC/REST) |
+| `nodeCache.js` | LRU cache with TTL for node data |
+
 ### State Management
 
 Pinia store (`stores/nodes.js`) manages:
