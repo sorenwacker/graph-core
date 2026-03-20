@@ -166,3 +166,33 @@
   border-color: var(--accent-color);
   color: var(--accent-color);
 }
+
+/* Node cards - fix hardcoded dark theme colors */
+[data-theme="light"] .node-card {
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .node-card::before {
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.05), transparent);
+}
+
+[data-theme="light"] .node-card:hover {
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .node-card-title {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .node-card-children-grid {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .child-card {
+  background: var(--bg-elevated);
+}
+
+/* Grandchild items */
+[data-theme="light"] .grandchild-item {
+  background: var(--bg-tertiary);
+}
