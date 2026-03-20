@@ -84,6 +84,8 @@ function handleClickOutside(e) {
       :class="{ active: sortAlphabetically }"
       @click="emit('update:sortAlphabetically', !sortAlphabetically)"
       title="Sort current level A-Z"
+      aria-label="Sort alphabetically"
+      :aria-pressed="sortAlphabetically"
     >
       A-Z
     </button>
@@ -93,6 +95,8 @@ function handleClickOutside(e) {
       :class="{ active: hideCompleted }"
       @click="emit('toggle-completed')"
       title="Toggle completed items visibility"
+      aria-label="Toggle completed items visibility"
+      :aria-pressed="hideCompleted"
     >
       <svg v-if="!hideCompleted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -109,6 +113,7 @@ function handleClickOutside(e) {
       :disabled="!canUndo"
       @click="emit('undo')"
       title="Undo (Cmd+Z)"
+      aria-label="Undo"
     >
       &#x21A9;
     </button>
@@ -117,11 +122,18 @@ function handleClickOutside(e) {
       :disabled="!canRedo"
       @click="emit('redo')"
       title="Redo (Cmd+Shift+Z)"
+      aria-label="Redo"
     >
       &#x21AA;
     </button>
     <div class="settings-dropdown" v-click-outside="handleClickOutside">
-      <button class="settings-btn" @click="emit('update:showSettings', !showSettings)" title="Settings">
+      <button
+        class="settings-btn"
+        @click="emit('update:showSettings', !showSettings)"
+        title="Settings"
+        aria-label="Open settings menu"
+        :aria-expanded="showSettings"
+      >
         <span>...</span>
       </button>
       <Teleport to="body">

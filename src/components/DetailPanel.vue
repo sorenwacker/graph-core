@@ -838,7 +838,14 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
 </script>
 
 <template>
-  <aside v-if="node" class="detail-panel" :class="{ fullscreen: fullscreen }" :style="fullscreen ? {} : { width: width + 'px' }">
+  <aside
+    v-if="node"
+    class="detail-panel"
+    role="complementary"
+    aria-label="Node details"
+    :class="{ fullscreen: fullscreen }"
+    :style="fullscreen ? {} : { width: width + 'px' }"
+  >
     <div
       v-if="!fullscreen"
       class="resize-handle"

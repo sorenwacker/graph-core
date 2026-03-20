@@ -42,6 +42,8 @@ watch(tagsCollapsed, (val) => localStorage.setItem('sidebar-tags-collapsed', Str
 <template>
   <aside
     class="sidebar"
+    role="navigation"
+    aria-label="Main navigation"
     :class="{ collapsed: !visible && pinned, pinned: pinned, show: hovered }"
     @mouseenter="emit('mouseenter')"
     @mouseleave="emit('mouseleave')"
