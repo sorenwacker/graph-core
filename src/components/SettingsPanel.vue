@@ -537,7 +537,10 @@ onMounted(() => {
                   />
                   Skip SSL verification
                 </label>
-                <span class="settings-hint">Enable for self-hosted endpoints with self-signed certificates</span>
+                <span class="settings-hint">For endpoints with certificate issues (self-signed or untrusted CA)</span>
+                <span v-if="openaiSkipSslVerification" class="ssl-warning">
+                  Warning: Disabling SSL verification exposes data to potential interception. Only use on trusted networks.
+                </span>
               </div>
 
               <div class="settings-item">
@@ -1195,5 +1198,18 @@ onMounted(() => {
 .model-input-row .settings-select,
 .model-input-row .text-input {
   flex: 1;
+}
+
+/* SSL warning */
+.ssl-warning {
+  display: block;
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 4px;
+  color: #ef4444;
+  font-size: 0.75rem;
+  line-height: 1.4;
 }
 </style>
