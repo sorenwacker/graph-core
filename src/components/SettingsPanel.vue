@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { api } from '../services/api.js'
 import { useOllama } from '../composables/useOllama.js'
 import { useTheme } from '../composables/useTheme.js'
@@ -72,10 +72,16 @@ const emit = defineEmits([
 const ollamaConnectionStatus = ref(null) // null, 'testing', 'success', 'error'
 const ollamaConnectionError = ref('')
 const ollamaModels = ref([])
+const ollamaModelsLoading = ref(false)
 
 const openaiConnectionStatus = ref(null)
 const openaiConnectionError = ref('')
 const openaiModels = ref([])
+const openaiModelsLoading = ref(false)
+
+// Debounce timeout refs
+let ollamaFetchTimeout = null
+let openaiFetchTimeout = null
 
 // Prompt management
 const showPromptEditor = ref(false)
@@ -176,6 +182,105 @@ async function testOpenaiConnection() {
 
 // Computed for current provider's enabled state
 const isAiEnabled = computed(() => props.aiEnabled ?? props.ollamaEnabled)
+
+// Fetch Ollama models without full connection test
+async function fetchOllamaModels() {
+  if (!props.ollamaEndpoint) return
+
+  ollamaModelsLoading.value = true
+  try {
+    ollamaModels.value = await api.ollamaListModels(props.ollamaEndpoint)
+    // If we got models, connection is working
+    if (ollamaModels.value.length > 0) {
+      ollamaConnectionStatus.value = 'success'
+      ollamaConnectionError.value = ''
+    }
+  } catch {
+    ollamaModels.value = []
+  } finally {
+    ollamaModelsLoading.value = false
+  }
+}
+
+// Fetch OpenAI models without full connection test
+async function fetchOpenaiModels() {
+  if (!props.openaiEndpoint || !props.openaiApiKey) return
+
+  openaiModelsLoading.value = true
+  try {
+    openaiModels.value = await api.openaiListModels(props.openaiEndpoint, props.openaiApiKey)
+    // If we got models, connection is working
+    if (openaiModels.value.length > 0) {
+      openaiConnectionStatus.value = 'success'
+      openaiConnectionError.value = ''
+    }
+  } catch {
+    openaiModels.value = []
+  } finally {
+    openaiModelsLoading.value = false
+  }
+}
+
+// Debounced fetch for Ollama endpoint changes
+function debouncedFetchOllamaModels() {
+  if (ollamaFetchTimeout) clearTimeout(ollamaFetchTimeout)
+  ollamaFetchTimeout = setTimeout(fetchOllamaModels, 500)
+}
+
+// Debounced fetch for OpenAI settings changes
+function debouncedFetchOpenaiModels() {
+  if (openaiFetchTimeout) clearTimeout(openaiFetchTimeout)
+  openaiFetchTimeout = setTimeout(fetchOpenaiModels, 500)
+}
+
+// Watch for settings changes to auto-fetch models
+watch(() => props.ollamaEndpoint, () => {
+  if (props.aiProvider === 'ollama' && isAiEnabled.value) {
+    debouncedFetchOllamaModels()
+  }
+})
+
+watch(() => props.openaiEndpoint, () => {
+  if (props.aiProvider === 'openai' && isAiEnabled.value) {
+    debouncedFetchOpenaiModels()
+  }
+})
+
+watch(() => props.openaiApiKey, () => {
+  if (props.aiProvider === 'openai' && isAiEnabled.value) {
+    debouncedFetchOpenaiModels()
+  }
+})
+
+watch(() => props.aiProvider, (newProvider) => {
+  if (!isAiEnabled.value) return
+  if (newProvider === 'ollama') {
+    fetchOllamaModels()
+  } else if (newProvider === 'openai') {
+    fetchOpenaiModels()
+  }
+})
+
+watch(() => isAiEnabled.value, (enabled) => {
+  if (enabled) {
+    if (props.aiProvider === 'ollama') {
+      fetchOllamaModels()
+    } else if (props.aiProvider === 'openai') {
+      fetchOpenaiModels()
+    }
+  }
+})
+
+// Fetch models on mount
+onMounted(() => {
+  if (isAiEnabled.value) {
+    if (props.aiProvider === 'ollama') {
+      fetchOllamaModels()
+    } else if (props.aiProvider === 'openai') {
+      fetchOpenaiModels()
+    }
+  }
+})
 </script>
 
 <template>
@@ -316,21 +421,41 @@ const isAiEnabled = computed(() => props.aiEnabled ?? props.ollamaEnabled)
               </div>
 
               <div class="settings-item">
-                <label>Model</label>
+                <label>
+                  Model
+                  <span v-if="ollamaModelsLoading" class="loading-indicator">loading...</span>
+                </label>
                 <div class="model-input-row">
+                  <select
+                    v-if="ollamaModels.length > 0"
+                    :value="ollamaModel"
+                    @change="emit('update:ollamaModel', $event.target.value)"
+                    class="settings-select"
+                  >
+                    <option v-for="model in ollamaModels" :key="model" :value="model">{{ model }}</option>
+                    <option v-if="!ollamaModels.includes(ollamaModel)" :value="ollamaModel">{{ ollamaModel }} (not installed)</option>
+                  </select>
                   <input
+                    v-else
                     type="text"
                     :value="ollamaModel"
                     @input="emit('update:ollamaModel', $event.target.value)"
                     placeholder="llama3.2"
-                    list="ollama-models"
                     class="text-input"
                   />
-                  <datalist id="ollama-models">
-                    <option v-for="model in ollamaModels" :key="model" :value="model" />
-                  </datalist>
+                  <button
+                    class="refresh-btn"
+                    @click="fetchOllamaModels"
+                    :disabled="ollamaModelsLoading"
+                    title="Refresh model list"
+                  >
+                    refresh
+                  </button>
                 </div>
-                <span class="settings-hint">Run: ollama pull {{ ollamaModel }} to download</span>
+                <span class="settings-hint">
+                  <template v-if="ollamaModels.length > 0">{{ ollamaModels.length }} models available</template>
+                  <template v-else>Run: ollama pull {{ ollamaModel }} to download</template>
+                </span>
               </div>
 
               <div class="settings-item">
@@ -365,9 +490,6 @@ const isAiEnabled = computed(() => props.aiEnabled ?? props.ollamaEnabled)
                 </span>
               </div>
 
-              <div v-if="ollamaModels.length > 0" class="settings-item">
-                <span class="settings-hint">Available: {{ ollamaModels.join(', ') }}</span>
-              </div>
             </template>
 
             <!-- OpenAI Settings -->
@@ -396,20 +518,38 @@ const isAiEnabled = computed(() => props.aiEnabled ?? props.ollamaEnabled)
               </div>
 
               <div class="settings-item">
-                <label>Model</label>
+                <label>
+                  Model
+                  <span v-if="openaiModelsLoading" class="loading-indicator">loading...</span>
+                </label>
                 <div class="model-input-row">
+                  <select
+                    v-if="openaiModels.length > 0"
+                    :value="openaiModel"
+                    @change="emit('update:openaiModel', $event.target.value)"
+                    class="settings-select"
+                  >
+                    <option v-for="model in openaiModels" :key="model" :value="model">{{ model }}</option>
+                    <option v-if="!openaiModels.includes(openaiModel)" :value="openaiModel">{{ openaiModel }}</option>
+                  </select>
                   <input
+                    v-else
                     type="text"
                     :value="openaiModel"
                     @input="emit('update:openaiModel', $event.target.value)"
                     placeholder="gpt-4o-mini"
-                    list="openai-models"
                     class="text-input"
                   />
-                  <datalist id="openai-models">
-                    <option v-for="model in openaiModels" :key="model" :value="model" />
-                  </datalist>
+                  <button
+                    class="refresh-btn"
+                    @click="fetchOpenaiModels"
+                    :disabled="openaiModelsLoading || !openaiApiKey"
+                    title="Refresh model list"
+                  >
+                    refresh
+                  </button>
                 </div>
+                <span v-if="openaiModels.length > 0" class="settings-hint">{{ openaiModels.length }} models available</span>
               </div>
 
               <div class="settings-item">
@@ -430,9 +570,6 @@ const isAiEnabled = computed(() => props.aiEnabled ?? props.ollamaEnabled)
                 </span>
               </div>
 
-              <div v-if="openaiModels.length > 0" class="settings-item">
-                <span class="settings-hint">Available: {{ openaiModels.slice(0, 10).join(', ') }}{{ openaiModels.length > 10 ? '...' : '' }}</span>
-              </div>
             </template>
           </div>
         </section>
@@ -992,5 +1129,48 @@ const isAiEnabled = computed(() => props.aiEnabled ?? props.ollamaEnabled)
 .settings-select:focus {
   outline: none;
   border-color: var(--accent-color);
+}
+
+/* Loading indicator for model fetching */
+.loading-indicator {
+  font-size: 0.7rem;
+  color: var(--accent-color);
+  font-weight: normal;
+  margin-left: 6px;
+}
+
+/* Refresh button for model list */
+.refresh-btn {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Model input row layout fix */
+.model-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.model-input-row .settings-select,
+.model-input-row .text-input {
+  flex: 1;
 }
 </style>
