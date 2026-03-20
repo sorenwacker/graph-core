@@ -2,6 +2,17 @@
 import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { getTypeIcon, getTypeColors, personIconSvg } from '../utils/constants.js'
 
+// Layout constants
+const ROW_HEIGHT = 36
+const MIN_BAR_WIDTH = 20
+const DEFAULT_ZOOM = 20
+const MIN_ZOOM = 5
+const MAX_ZOOM = 100
+const ZOOM_THROTTLE_MS = 50
+const MIN_LABELS_WIDTH = 100
+const MAX_LABELS_WIDTH = 400
+const DEFAULT_LABELS_WIDTH = 200
+
 const props = defineProps({
   nodes: { type: Array, default: () => [] },
   selectedId: Number,
@@ -35,26 +46,21 @@ function handleNodeClick(e, node) {
 }
 
 // Zoom level: pixels per day (higher = more zoomed in)
-const zoomLevel = ref(20)
-const minZoom = 5
-const maxZoom = 100
+const zoomLevel = ref(DEFAULT_ZOOM)
 
 // Labels column width (draggable)
-const labelsWidth = ref(200)
-const minLabelsWidth = 100
-const maxLabelsWidth = 400
+const labelsWidth = ref(DEFAULT_LABELS_WIDTH)
 const labelsDragState = ref(null)
 
 // Throttle zoom to reduce sensitivity and flickering
 let lastZoomTime = 0
-const zoomThrottle = 50 // ms between zoom steps
 let pendingScrollUpdate = null
 
 function handleWheel(e) {
   if (e.ctrlKey || e.metaKey) {
     e.preventDefault()
     const now = Date.now()
-    if (now - lastZoomTime < zoomThrottle) return
+    if (now - lastZoomTime < ZOOM_THROTTLE_MS) return
     lastZoomTime = now
 
     const container = scrollableRef.value
@@ -72,9 +78,9 @@ function handleWheel(e) {
     const oldZoom = zoomLevel.value
     let newZoom
     if (e.deltaY < 0) {
-      newZoom = Math.min(maxZoom, oldZoom * 1.08)
+      newZoom = Math.min(MAX_ZOOM, oldZoom * 1.08)
     } else {
-      newZoom = Math.max(minZoom, oldZoom / 1.08)
+      newZoom = Math.max(MIN_ZOOM, oldZoom / 1.08)
     }
 
     // Skip if no change
@@ -102,16 +108,16 @@ function handleWheel(e) {
 // Button zoom functions
 function zoomIn() {
   const now = Date.now()
-  if (now - lastZoomTime < zoomThrottle) return
+  if (now - lastZoomTime < ZOOM_THROTTLE_MS) return
   lastZoomTime = now
-  zoomLevel.value = Math.min(maxZoom, zoomLevel.value * 1.25)
+  zoomLevel.value = Math.min(MAX_ZOOM, zoomLevel.value * 1.25)
 }
 
 function zoomOut() {
   const now = Date.now()
-  if (now - lastZoomTime < zoomThrottle) return
+  if (now - lastZoomTime < ZOOM_THROTTLE_MS) return
   lastZoomTime = now
-  zoomLevel.value = Math.max(minZoom, zoomLevel.value / 1.25)
+  zoomLevel.value = Math.max(MIN_ZOOM, zoomLevel.value / 1.25)
 }
 
 // Calculate timeline width based on zoom
@@ -146,9 +152,8 @@ const timelineNodes = computed(() => {
 
         const startFallback = createdAtDate
         const displayDate = node.start_date || node.due_date || inheritedEnd || startFallback
-        // Tasks and projects without end_date use today as fallback (due_date shown separately as marker)
-        const endFallback = (node.type === 'project' || node.type === 'task') ? today : null
-        const endDisplayDate = node.end_date || inheritedEnd || endFallback || node.start_date || startFallback
+        // Items without end_date stretch to today (due_date shown separately as marker)
+        const endDisplayDate = node.end_date || today
 
         // Calculate due date urgency (0-1, where 1 is overdue)
         let dueUrgency = null
@@ -340,23 +345,33 @@ function getDatePosition(dateStr) {
 }
 
 function getNodeWidth(node) {
-  if (!node.displayDate || !node.endDisplayDate) return 20
+  if (!node.displayDate || !node.endDisplayDate) return MIN_BAR_WIDTH
 
   const start = new Date(node.displayDate)
   const end = new Date(node.endDisplayDate)
   const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1
 
-  return Math.max(days * zoomLevel.value, 20)
-}
-
-function _formatDate(dateStr) {
-  if (!dateStr) return ''
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return Math.max(days * zoomLevel.value, MIN_BAR_WIDTH)
 }
 
 function getTypeColor(type) {
   const colors = getTypeColors(type)
   return colors.text
+}
+
+// Collect all descendant IDs from a node tree
+function getAllDescendantIds(node) {
+  const ids = []
+  function collect(n) {
+    if (n.children?.length) {
+      for (const child of n.children) {
+        ids.push(child.id)
+        collect(child)
+      }
+    }
+  }
+  collect(node)
+  return ids
 }
 
 function getDueColor(urgency) {
@@ -417,26 +432,12 @@ const todayPosition = computed(() => {
 const groupMarkers = computed(() => {
   if (!dateRange.value.start || timelineNodes.value.length === 0) return []
   const result = []
-  const rowHeight = 36
+  const rowHeight = ROW_HEIGHT
 
   const nodeRowIndex = new Map()
   timelineNodes.value.forEach((node, idx) => {
     nodeRowIndex.set(node.id, idx)
   })
-
-  function getAllDescendantIds(node) {
-    const ids = []
-    function collect(n) {
-      if (n.children?.length) {
-        for (const child of n.children) {
-          ids.push(child.id)
-          collect(child)
-        }
-      }
-    }
-    collect(node)
-    return ids
-  }
 
   function collectGroups(nodeList) {
     for (const node of nodeList) {
@@ -479,7 +480,7 @@ const groupMarkers = computed(() => {
 const projectBoxes = computed(() => {
   if (!dateRange.value.start || timelineNodes.value.length === 0) return []
   const result = []
-  const rowHeight = 36
+  const rowHeight = ROW_HEIGHT
 
   const nodeRowIndex = new Map()
   const nodeData = new Map()
@@ -487,20 +488,6 @@ const projectBoxes = computed(() => {
     nodeRowIndex.set(node.id, idx)
     nodeData.set(node.id, node)
   })
-
-  function getAllDescendantIds(node) {
-    const ids = []
-    function collect(n) {
-      if (n.children?.length) {
-        for (const child of n.children) {
-          ids.push(child.id)
-          collect(child)
-        }
-      }
-    }
-    collect(node)
-    return ids
-  }
 
   function collectProjects(nodeList) {
     for (const node of nodeList) {
@@ -586,7 +573,7 @@ function handleLabelsDragStart(e) {
 function handleLabelsDragMove(e) {
   if (!labelsDragState.value) return
   const delta = e.clientX - labelsDragState.value.startX
-  labelsWidth.value = Math.max(minLabelsWidth, Math.min(maxLabelsWidth, labelsDragState.value.startWidth + delta))
+  labelsWidth.value = Math.max(MIN_LABELS_WIDTH, Math.min(MAX_LABELS_WIDTH, labelsDragState.value.startWidth + delta))
 }
 
 function handleLabelsDragEnd() {
@@ -779,7 +766,7 @@ function getDragBarStyle(node) {
       const startDate = new Date(newStart)
       const endDate = new Date(newEnd)
       const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1
-      const width = Math.max(days * zoomLevel.value, 20) + 'px'
+      const width = Math.max(days * zoomLevel.value, MIN_BAR_WIDTH) + 'px'
       return { ...baseStyle, left, width }
     }
   }
@@ -985,7 +972,7 @@ function getDragBarStyle(node) {
                       class="bar-content"
                       @mousedown="handleDragStart($event, node, 'move')"
                     >
-                      <span class="bar-label">{{ node.title }}</span>
+                      <span v-if="node.type !== 'project'" class="bar-label">{{ node.title }}</span>
                     </div>
                     <!-- Right resize handle -->
                     <div
@@ -1203,17 +1190,16 @@ function getDragBarStyle(node) {
 
 .project-box-label {
   position: absolute;
-  top: -18px;
+  top: 18px;
+  transform: translateY(-50%);
   font-size: 0.7rem;
   font-weight: 700;
-  color: var(--type-project-text);
-  background: var(--bg-primary);
+  color: white;
+  background: var(--bg-secondary);
   padding: 2px 8px;
   border-radius: 3px;
-  border: 1px solid var(--type-project-text);
   white-space: nowrap;
   z-index: 10;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .group-marker {

@@ -418,22 +418,36 @@ ipcMain.handle('window:closeDetached', (event, nodeId) => {
 })
 
 // =========================================
-// OLLAMA LLM INTEGRATION
+// HTTP REQUEST UTILITY
 // =========================================
 
 /**
- * Make HTTP request to Ollama API
+ * Generic HTTP request using Electron's net module
+ * @param {string} url - Full URL to request
+ * @param {Object} options - Request options
+ * @param {string} options.method - HTTP method (default: 'GET')
+ * @param {Object} options.body - Request body (will be JSON stringified)
+ * @param {Object} options.headers - Additional headers
+ * @param {string} options.errorPrefix - Prefix for error messages (default: 'API')
+ * @param {string} options.connectionError - Custom connection refused message
  */
-async function ollamaRequest(endpoint, path, options = {}) {
-  const url = `${endpoint}${path}`
+async function httpRequest(url, options = {}) {
+  const {
+    method = 'GET',
+    body,
+    headers = {},
+    errorPrefix = 'API',
+    connectionError = 'Cannot connect to API endpoint'
+  } = options
 
   return new Promise((resolve, reject) => {
-    const request = net.request({
-      method: options.method || 'GET',
-      url
-    })
+    const request = net.request({ method, url })
 
-    if (options.body) {
+    // Set headers
+    Object.entries(headers).forEach(([key, value]) => {
+      request.setHeader(key, value)
+    })
+    if (body) {
       request.setHeader('Content-Type', 'application/json')
     }
 
@@ -452,7 +466,7 @@ async function ollamaRequest(endpoint, path, options = {}) {
             resolve(responseData)
           }
         } else {
-          const error = new Error(`Ollama API error: ${response.statusCode}`)
+          const error = new Error(`${errorPrefix} error: ${response.statusCode}`)
           error.statusCode = response.statusCode
           try {
             error.data = JSON.parse(responseData)
@@ -466,17 +480,33 @@ async function ollamaRequest(endpoint, path, options = {}) {
 
     request.on('error', (error) => {
       if (error.code === 'ECONNREFUSED') {
-        reject(new Error('Ollama is not running. Start with: ollama serve'))
+        reject(new Error(connectionError))
       } else {
         reject(error)
       }
     })
 
-    if (options.body) {
-      request.write(JSON.stringify(options.body))
+    if (body) {
+      request.write(JSON.stringify(body))
     }
 
     request.end()
+  })
+}
+
+// =========================================
+// OLLAMA LLM INTEGRATION
+// =========================================
+
+/**
+ * Make HTTP request to Ollama API
+ */
+function ollamaRequest(endpoint, path, options = {}) {
+  return httpRequest(`${endpoint}${path}`, {
+    method: options.method,
+    body: options.body,
+    errorPrefix: 'Ollama API',
+    connectionError: 'Ollama is not running. Start with: ollama serve'
   })
 }
 
@@ -528,60 +558,11 @@ ipcMain.handle('ollama:listModels', async (event, endpoint) => {
 /**
  * Make HTTP request to OpenAI-compatible API
  */
-async function openaiRequest(endpoint, path, apiKey, options = {}) {
-  const url = `${endpoint}${path}`
-
-  return new Promise((resolve, reject) => {
-    const request = net.request({
-      method: options.method || 'GET',
-      url
-    })
-
-    request.setHeader('Authorization', `Bearer ${apiKey}`)
-    if (options.body) {
-      request.setHeader('Content-Type', 'application/json')
-    }
-
-    let responseData = ''
-
-    request.on('response', (response) => {
-      response.on('data', (chunk) => {
-        responseData += chunk.toString()
-      })
-
-      response.on('end', () => {
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          try {
-            resolve(JSON.parse(responseData))
-          } catch {
-            resolve(responseData)
-          }
-        } else {
-          const error = new Error(`API error: ${response.statusCode}`)
-          error.statusCode = response.statusCode
-          try {
-            error.data = JSON.parse(responseData)
-          } catch {
-            error.data = responseData
-          }
-          reject(error)
-        }
-      })
-    })
-
-    request.on('error', (error) => {
-      if (error.code === 'ECONNREFUSED') {
-        reject(new Error('Cannot connect to API endpoint'))
-      } else {
-        reject(error)
-      }
-    })
-
-    if (options.body) {
-      request.write(JSON.stringify(options.body))
-    }
-
-    request.end()
+function openaiRequest(endpoint, path, apiKey, options = {}) {
+  return httpRequest(`${endpoint}${path}`, {
+    method: options.method,
+    body: options.body,
+    headers: { Authorization: `Bearer ${apiKey}` }
   })
 }
 

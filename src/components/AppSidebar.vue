@@ -1,6 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { getTypeIcon, typeConfig, nodeTypes } from '../utils/constants.js'
+import SidebarTreeItem from './SidebarTreeItem.vue'
 
 const appVersion = ref(__APP_VERSION__)
 
@@ -102,60 +103,17 @@ watch(tagsCollapsed, (val) => localStorage.setItem('sidebar-tags-collapsed', Str
           <span>Tree</span>
         </div>
         <div v-show="!treeCollapsed" class="sidebar-tree">
-          <template v-for="node in sidebarTree" :key="node.id">
-            <div
-              class="sidebar-tree-item"
-              :class="{ active: currentContainerId === node.id }"
-              @contextmenu.prevent="emit('context-menu', $event, node)"
-            >
-              <button
-                v-if="node.children?.length"
-                class="tree-expand-btn"
-                @click.stop="emit('toggle-expand', node.id)"
-                :title="expandedIds.has(node.id) ? 'Collapse' : 'Expand'"
-              >{{ expandedIds.has(node.id) ? '−' : '+' }}</button>
-              <span v-else class="tree-spacer"></span>
-              <span class="type-icon" :class="node.type"><span v-html="getTypeIcon(node.type)"></span></span>
-              <span class="label" @click="emit('enter', node)">{{ node.title }}</span>
-            </div>
-
-            <!-- Level 1 children -->
-            <template v-if="expandedIds.has(node.id) && node.children?.length">
-              <template v-for="child in node.children" :key="child.id">
-                <div
-                  class="sidebar-tree-item level-1"
-                  :class="{ active: currentContainerId === child.id }"
-                  @contextmenu.prevent="emit('context-menu', $event, child)"
-                >
-                  <button
-                    v-if="child.children?.length"
-                    class="tree-expand-btn"
-                    @click.stop="emit('toggle-expand', child.id)"
-                    :title="expandedIds.has(child.id) ? 'Collapse' : 'Expand'"
-                  >{{ expandedIds.has(child.id) ? '−' : '+' }}</button>
-                  <span v-else class="tree-spacer"></span>
-                  <span class="type-icon" :class="child.type"><span v-html="getTypeIcon(child.type)"></span></span>
-                  <span class="label" @click="emit('enter', child)">{{ child.title }}</span>
-                </div>
-
-                <!-- Level 2 children -->
-                <template v-if="expandedIds.has(child.id) && child.children?.length">
-                  <div
-                    v-for="grandchild in child.children"
-                    :key="grandchild.id"
-                    class="sidebar-tree-item level-2"
-                    :class="{ active: currentContainerId === grandchild.id }"
-                    @click="emit('enter', grandchild)"
-                    @contextmenu.prevent="emit('context-menu', $event, grandchild)"
-                  >
-                    <span class="tree-spacer"></span>
-                    <span class="type-icon" :class="grandchild.type"><span v-html="getTypeIcon(grandchild.type)"></span></span>
-                    <span class="label">{{ grandchild.title }}</span>
-                  </div>
-                </template>
-              </template>
-            </template>
-          </template>
+          <SidebarTreeItem
+            v-for="node in sidebarTree"
+            :key="node.id"
+            :node="node"
+            :level="0"
+            :current-container-id="currentContainerId"
+            :expanded-ids="expandedIds"
+            @enter="emit('enter', $event)"
+            @context-menu="(e, n) => emit('context-menu', e, n)"
+            @toggle-expand="emit('toggle-expand', $event)"
+          />
         </div>
       </div>
 
