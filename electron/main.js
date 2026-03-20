@@ -1,5 +1,7 @@
 const { app, BrowserWindow, ipcMain, session, shell, net, Menu } = require('electron')
 const path = require('path')
+const https = require('https')
+const http = require('http')
 const Database = require('./database')
 
 let mainWindow
@@ -428,6 +430,82 @@ ipcMain.handle('window:closeDetached', (event, nodeId) => {
 // =========================================
 
 /**
+ * HTTP request using Node's https module with SSL verification disabled
+ * Used for self-hosted endpoints with self-signed certificates
+ */
+async function httpRequestWithoutSslVerification(url, options = {}) {
+  const {
+    method = 'GET',
+    body,
+    headers = {},
+    errorPrefix = 'API',
+    connectionError = 'Cannot connect to API endpoint'
+  } = options
+
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url)
+    const isHttps = urlObj.protocol === 'https:'
+    const transport = isHttps ? https : http
+
+    const requestOptions = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || (isHttps ? 443 : 80),
+      path: urlObj.pathname + urlObj.search,
+      method,
+      headers: { ...headers },
+      rejectUnauthorized: false // Skip SSL verification
+    }
+
+    if (body) {
+      const bodyStr = JSON.stringify(body)
+      requestOptions.headers['Content-Type'] = 'application/json'
+      requestOptions.headers['Content-Length'] = Buffer.byteLength(bodyStr)
+    }
+
+    const request = transport.request(requestOptions, (response) => {
+      let responseData = ''
+
+      response.on('data', (chunk) => {
+        responseData += chunk.toString()
+      })
+
+      response.on('end', () => {
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          try {
+            resolve(JSON.parse(responseData))
+          } catch {
+            resolve(responseData)
+          }
+        } else {
+          const error = new Error(`${errorPrefix} error: ${response.statusCode}`)
+          error.statusCode = response.statusCode
+          try {
+            error.data = JSON.parse(responseData)
+          } catch {
+            error.data = responseData
+          }
+          reject(error)
+        }
+      })
+    })
+
+    request.on('error', (error) => {
+      if (error.code === 'ECONNREFUSED') {
+        reject(new Error(connectionError))
+      } else {
+        reject(error)
+      }
+    })
+
+    if (body) {
+      request.write(JSON.stringify(body))
+    }
+
+    request.end()
+  })
+}
+
+/**
  * Generic HTTP request using Electron's net module
  * @param {string} url - Full URL to request
  * @param {Object} options - Request options
@@ -436,6 +514,7 @@ ipcMain.handle('window:closeDetached', (event, nodeId) => {
  * @param {Object} options.headers - Additional headers
  * @param {string} options.errorPrefix - Prefix for error messages (default: 'API')
  * @param {string} options.connectionError - Custom connection refused message
+ * @param {boolean} options.skipSslVerification - Skip SSL certificate verification
  */
 async function httpRequest(url, options = {}) {
   const {
@@ -443,8 +522,14 @@ async function httpRequest(url, options = {}) {
     body,
     headers = {},
     errorPrefix = 'API',
-    connectionError = 'Cannot connect to API endpoint'
+    connectionError = 'Cannot connect to API endpoint',
+    skipSslVerification = false
   } = options
+
+  // For SSL bypass, use Node's https module directly
+  if (skipSslVerification && url.startsWith('https://')) {
+    return httpRequestWithoutSslVerification(url, { method, body, headers, errorPrefix, connectionError })
+  }
 
   return new Promise((resolve, reject) => {
     const request = net.request({ method, url })
@@ -487,6 +572,9 @@ async function httpRequest(url, options = {}) {
     request.on('error', (error) => {
       if (error.code === 'ECONNREFUSED') {
         reject(new Error(connectionError))
+      } else if (error.message?.includes('SSL') || error.message?.includes('ERR_SSL') ||
+                 error.message?.includes('CERT') || error.message?.includes('certificate')) {
+        reject(new Error(`SSL/TLS error: ${error.message}. For self-signed certificates, enable "Skip SSL verification" in settings.`))
       } else {
         reject(error)
       }
@@ -568,11 +656,12 @@ function openaiRequest(endpoint, path, apiKey, options = {}) {
   return httpRequest(`${endpoint}${path}`, {
     method: options.method,
     body: options.body,
-    headers: { Authorization: `Bearer ${apiKey}` }
+    headers: { Authorization: `Bearer ${apiKey}` },
+    skipSslVerification: options.skipSslVerification
   })
 }
 
-ipcMain.handle('openai:generate', async (event, { prompt, content, model, endpoint, apiKey }) => {
+ipcMain.handle('openai:generate', async (event, { prompt, content, model, endpoint, apiKey, skipSslVerification }) => {
   if (!apiKey) {
     throw new Error('API key is required')
   }
@@ -587,7 +676,8 @@ ipcMain.handle('openai:generate', async (event, { prompt, content, model, endpoi
           { role: 'user', content: content }
         ],
         stream: false
-      }
+      },
+      skipSslVerification
     })
     return response.choices?.[0]?.message?.content || ''
   } catch (error) {
@@ -601,12 +691,12 @@ ipcMain.handle('openai:generate', async (event, { prompt, content, model, endpoi
   }
 })
 
-ipcMain.handle('openai:testConnection', async (event, endpoint, apiKey) => {
+ipcMain.handle('openai:testConnection', async (event, endpoint, apiKey, skipSslVerification) => {
   if (!apiKey) {
     return { success: false, error: 'API key is required' }
   }
   try {
-    await openaiRequest(endpoint, '/models', apiKey)
+    await openaiRequest(endpoint, '/models', apiKey, { skipSslVerification })
     return { success: true }
   } catch (error) {
     if (error.statusCode === 401) {
@@ -619,11 +709,11 @@ ipcMain.handle('openai:testConnection', async (event, endpoint, apiKey) => {
   }
 })
 
-ipcMain.handle('openai:listModels', async (event, endpoint, apiKey) => {
+ipcMain.handle('openai:listModels', async (event, endpoint, apiKey, skipSslVerification) => {
   if (!apiKey) {
     throw new Error('API key is required')
   }
-  const response = await openaiRequest(endpoint, '/models', apiKey)
+  const response = await openaiRequest(endpoint, '/models', apiKey, { skipSslVerification })
   return (response.data || []).map(m => m.id).sort()
 })
 

@@ -38,6 +38,7 @@ const props = defineProps({
   openaiEndpoint: { type: String, default: 'https://api.openai.com/v1' },
   openaiApiKey: { type: String, default: '' },
   openaiModel: { type: String, default: 'gpt-4o-mini' },
+  openaiSkipSslVerification: { type: Boolean, default: false },
   // Legacy
   ollamaEnabled: { type: Boolean, default: false }
 })
@@ -57,6 +58,7 @@ const emit = defineEmits([
   'update:openaiEndpoint',
   'update:openaiApiKey',
   'update:openaiModel',
+  'update:openaiSkipSslVerification',
   // Legacy
   'update:ollamaEnabled',
   'create-snapshot',
@@ -161,12 +163,12 @@ async function testOpenaiConnection() {
   openaiConnectionError.value = ''
 
   try {
-    const result = await api.openaiTestConnection(props.openaiEndpoint, props.openaiApiKey)
+    const result = await api.openaiTestConnection(props.openaiEndpoint, props.openaiApiKey, props.openaiSkipSslVerification)
     if (result.success) {
       openaiConnectionStatus.value = 'success'
       // Also fetch available models
       try {
-        openaiModels.value = await api.openaiListModels(props.openaiEndpoint, props.openaiApiKey)
+        openaiModels.value = await api.openaiListModels(props.openaiEndpoint, props.openaiApiKey, props.openaiSkipSslVerification)
       } catch {
         openaiModels.value = []
       }
@@ -207,15 +209,18 @@ async function fetchOpenaiModels() {
   if (!props.openaiEndpoint || !props.openaiApiKey) return
 
   openaiModelsLoading.value = true
+  openaiConnectionError.value = ''
   try {
-    openaiModels.value = await api.openaiListModels(props.openaiEndpoint, props.openaiApiKey)
+    openaiModels.value = await api.openaiListModels(props.openaiEndpoint, props.openaiApiKey, props.openaiSkipSslVerification)
     // If we got models, connection is working
     if (openaiModels.value.length > 0) {
       openaiConnectionStatus.value = 'success'
       openaiConnectionError.value = ''
     }
-  } catch {
+  } catch (error) {
     openaiModels.value = []
+    openaiConnectionStatus.value = 'error'
+    openaiConnectionError.value = error.message || 'Failed to fetch models'
   } finally {
     openaiModelsLoading.value = false
   }
@@ -248,6 +253,12 @@ watch(() => props.openaiEndpoint, () => {
 
 watch(() => props.openaiApiKey, () => {
   if (props.aiProvider === 'openai' && isAiEnabled.value) {
+    debouncedFetchOpenaiModels()
+  }
+})
+
+watch(() => props.openaiSkipSslVerification, () => {
+  if (props.aiProvider === 'openai' && isAiEnabled.value && props.openaiApiKey) {
     debouncedFetchOpenaiModels()
   }
 })
@@ -515,6 +526,18 @@ onMounted(() => {
                   placeholder="sk-..."
                   class="text-input"
                 />
+              </div>
+
+              <div class="settings-item">
+                <label>
+                  <input
+                    type="checkbox"
+                    :checked="openaiSkipSslVerification"
+                    @change="emit('update:openaiSkipSslVerification', $event.target.checked)"
+                  />
+                  Skip SSL verification
+                </label>
+                <span class="settings-hint">Enable for self-hosted endpoints with self-signed certificates</span>
               </div>
 
               <div class="settings-item">

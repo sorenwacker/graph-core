@@ -98,6 +98,7 @@ export function useSettings() {
     openaiEndpoint: persistedRef('graphcore-openaiEndpoint', 'https://api.openai.com/v1'),
     openaiApiKey: persistedRef('graphcore-openaiApiKey', ''),
     openaiModel: persistedRef('graphcore-openaiModel', 'gpt-4o-mini'),
+    openaiSkipSslVerification: persistedRef('graphcore-openaiSkipSslVerification', false, { type: 'boolean' }),
 
     // Legacy (for backwards compatibility)
     ollamaEnabled: persistedRef('graphcore-ollamaEnabled', true, { type: 'boolean' }),

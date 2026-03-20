@@ -78,6 +78,7 @@ const {
   openaiEndpoint,
   openaiApiKey,
   openaiModel,
+  openaiSkipSslVerification,
   // Legacy
   ollamaEnabled
 } = useSettings()
@@ -1449,6 +1450,7 @@ onUnmounted(() => {
             v-model:openai-endpoint="openaiEndpoint"
             v-model:openai-api-key="openaiApiKey"
             v-model:openai-model="openaiModel"
+            v-model:openai-skip-ssl-verification="openaiSkipSslVerification"
             v-model:ollama-enabled="ollamaEnabled"
             :hide-completed="hideCompleted"
             :can-undo="undoStack.length > 0"
