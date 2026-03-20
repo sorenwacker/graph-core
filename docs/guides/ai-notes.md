@@ -1,0 +1,125 @@
+# AI Notes
+
+Graph Core integrates with local and cloud LLMs to enhance your notes.
+
+## Providers
+
+### Ollama (Local)
+
+Run AI models locally on your machine.
+
+**Setup:**
+
+1. Install Ollama: https://ollama.ai/download
+2. Pull a model:
+   ```bash
+   ollama pull llama3.2
+   ```
+3. Start Ollama:
+   ```bash
+   ollama serve
+   ```
+4. In Settings, select "Ollama" as provider
+5. Test the connection
+
+**Settings:**
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| Endpoint | Ollama server URL | `http://localhost:11434` |
+| Model | Any installed Ollama model | `llama3.2` |
+| Context Size | Token limit (4K-128K) | 32K |
+
+### OpenAI-Compatible APIs
+
+Use OpenAI, Azure OpenAI, or any compatible endpoint.
+
+**Setup:**
+
+1. In Settings, select "OpenAI-compatible"
+2. Enter your API endpoint
+3. Enter your API key
+4. Select a model
+5. Test the connection
+
+**Settings:**
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| Endpoint | API URL | `https://api.openai.com/v1` |
+| API Key | Your API key | Required |
+| Model | Model name | `gpt-4o-mini` |
+
+## Using AI Features
+
+### Preset Actions
+
+Select text in a note and use the AI toolbar:
+
+| Action | Description |
+|--------|-------------|
+| Improve | Enhance clarity and grammar |
+| Summarize | Create a concise summary |
+| Expand | Add more detail |
+| Fix Grammar | Correct grammatical errors |
+| Simplify | Make easier to understand |
+| Bullet Points | Convert to bullet list |
+| Action Items | Extract actionable tasks |
+| Continue | Generate continuation |
+
+### Custom Prompts
+
+Create your own prompts in Settings:
+
+1. Open Settings > AI
+2. Scroll to Custom Prompts
+3. Add a name and prompt template
+4. Use `{{selection}}` as placeholder for selected text
+
+### Workflow
+
+1. Select text in a note (or entire note if nothing selected)
+2. Click an AI action
+3. Preview the changes
+4. Accept or reject the changes
+
+### Undo Support
+
+All AI changes can be undone with Cmd/Ctrl+Z.
+
+## Troubleshooting
+
+### Ollama Not Running
+
+```
+Error: Ollama is not running. Start with: ollama serve
+```
+
+**Solution:** Start Ollama in a terminal:
+```bash
+ollama serve
+```
+
+### Model Not Found
+
+```
+Error: Model not available. Run: ollama pull llama3.2
+```
+
+**Solution:** Pull the model:
+```bash
+ollama pull llama3.2
+```
+
+### OpenAI Authentication Failed
+
+```
+Error: Invalid API key
+```
+
+**Solution:** Check your API key in Settings.
+
+## See Also
+
+- [Quickstart](quickstart.md)
+- [Keyboard Shortcuts](../reference/keyboard-shortcuts.md)
