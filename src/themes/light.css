@@ -196,3 +196,125 @@
 [data-theme="light"] .grandchild-item {
   background: var(--bg-tertiary);
 }
+
+/* ========================================
+   TableView - override hardcoded dark colors
+   ======================================== */
+[data-theme="light"] .table-container {
+  background: var(--bg-primary);
+}
+
+[data-theme="light"] .table-view {
+  background: var(--bg-primary);
+}
+
+[data-theme="light"] .table-view th {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .table-view td {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .table-view tr:hover td {
+  background: var(--bg-hover);
+}
+
+[data-theme="light"] .table-view tr.selected td {
+  background: var(--accent-subtle);
+}
+
+[data-theme="light"] .table-header-row {
+  background: var(--bg-secondary);
+}
+
+[data-theme="light"] .ghost-row {
+  background: var(--bg-secondary);
+}
+
+[data-theme="light"] .cell-content {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .title-cell {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .notes-preview {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .pagination {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .pagination button {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .column-resize-handle {
+  background: var(--border-color);
+}
+
+[data-theme="light"] .bulk-actions {
+  background: var(--bg-secondary);
+}
+
+/* ========================================
+   TimelineView - override hardcoded colors
+   ======================================== */
+[data-theme="light"] .timeline-container {
+  background: var(--bg-primary);
+}
+
+[data-theme="light"] .year-label,
+[data-theme="light"] .month-label {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .bar-label {
+  color: var(--text-primary);
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="light"] .timeline-header {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .resize-handle:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* ========================================
+   CalendarView - override hardcoded colors
+   ======================================== */
+[data-theme="light"] .calendar-container {
+  background: var(--bg-primary);
+}
+
+[data-theme="light"] .calendar-header {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .calendar-day {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .calendar-day.other-month {
+  background: var(--bg-secondary);
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .day-number {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .weekday-header {
+  color: var(--text-secondary);
+}
