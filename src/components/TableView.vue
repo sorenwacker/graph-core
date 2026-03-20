@@ -623,7 +623,7 @@ function isSelected(nodeId) {
 .table-view {
   flex: 1;
   overflow: auto;
-  background: #0a0a0a;
+  background: var(--bg-primary);
   position: relative;
 }
 
@@ -634,7 +634,7 @@ function isSelected(nodeId) {
   z-index: 10;
   display: flex;
   gap: 4px;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--bg-secondary);
   padding: 4px;
   border-radius: 6px;
   backdrop-filter: blur(8px);
@@ -673,7 +673,7 @@ table.resizing {
 thead {
   position: sticky;
   top: 0;
-  background: #161616;
+  background: var(--bg-secondary);
   z-index: 1;
 }
 
@@ -686,9 +686,9 @@ thead tr {
 th {
   text-align: left;
   padding: 0 12px;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--border-color);
   font-weight: 600;
-  color: #888;
+  color: var(--text-secondary);
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -724,20 +724,20 @@ td {
 .node-row {
   cursor: pointer;
   transition: background 0.1s;
-  background: #0d0d0d;
+  background: var(--bg-primary);
   -webkit-user-drag: element;
   user-select: none;
   height: 30px;
 }
 
 .node-row:hover {
-  background: #1a1a1a;
+  background: var(--bg-hover);
 }
 
 .node-row.selected,
 .node-row.selected:hover {
-  background: #1a3a5a !important;
-  border-left: 3px solid #4a9eff;
+  background: var(--accent-subtle) !important;
+  border-left: 3px solid var(--accent-color);
 }
 
 .node-row.completed {
@@ -746,7 +746,7 @@ td {
 
 .node-row.completed .col-title {
   text-decoration: line-through;
-  color: #666;
+  color: var(--text-tertiary);
 }
 
 /* Inherited completed - parent is done, so children are visually muted */
@@ -844,18 +844,18 @@ td {
 }
 
 .parent-row {
-  background: #0a0a0a;
+  background: var(--bg-secondary);
   opacity: 0.7;
-  border-left: 4px solid #444 !important;
+  border-left: 4px solid var(--border-color) !important;
 }
 
 .parent-row:hover {
   opacity: 1;
-  background: #1a1a1a;
+  background: var(--bg-hover);
 }
 
 .parent-row .col-expand {
-  color: #666;
+  color: var(--text-tertiary);
   font-size: 0.8rem;
   font-weight: 600;
 }
@@ -875,9 +875,9 @@ td {
   min-height: 16px;
   max-width: 16px;
   max-height: 16px;
-  border: 2px solid #555;
+  border: 2px solid var(--checkbox-border);
   border-radius: 2px;
-  background: #000;
+  background: var(--checkbox-bg);
   cursor: pointer;
   position: relative;
   box-sizing: border-box;
@@ -887,8 +887,8 @@ td {
 }
 
 .col-check input[type="checkbox"]:checked {
-  background: #3498db;
-  border-color: #3498db;
+  background: var(--accent-color);
+  border-color: var(--accent-color);
 }
 
 .col-check input[type="checkbox"]:checked::after {
@@ -897,7 +897,7 @@ td {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  color: #fff;
+  color: white;
   font-size: 12px;
   font-weight: bold;
 }
@@ -910,7 +910,7 @@ td {
 }
 
 .tree-prefix {
-  color: #666;
+  color: var(--text-tertiary);
   font-family: 'Courier New', Courier, monospace;
   font-size: 14px;
   white-space: pre;
@@ -1016,9 +1016,9 @@ td.col-title {
   width: 22px;
   height: 22px;
   padding: 0;
-  background: #222;
-  border: 1px solid #555;
-  color: #ccc;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 0.9rem;
   line-height: 1;
@@ -1027,9 +1027,9 @@ td.col-title {
 }
 
 .expand-btn:hover {
-  background: #333;
-  border-color: #777;
-  color: #fff;
+  background: var(--bg-hover);
+  border-color: var(--text-tertiary);
+  color: var(--text-primary);
 }
 
 .type-badge {
@@ -1087,30 +1087,30 @@ td.col-title {
 .empty-state {
   text-align: center;
   padding: 60px;
-  color: #666;
+  color: var(--text-tertiary);
   font-size: 1rem;
 }
 
 /* Root drop zone */
 .root-drop-zone {
-  background: #1a1a1a;
-  border: 2px dashed #444;
+  background: var(--bg-secondary);
+  border: 2px dashed var(--border-color);
 }
 
 .root-drop-zone td {
   padding: 12px;
   text-align: center;
-  color: #666;
+  color: var(--text-tertiary);
   font-style: italic;
 }
 
 .root-drop-zone.active {
-  background: rgba(74, 158, 255, 0.1);
-  border-color: #4a9eff;
+  background: var(--accent-subtle);
+  border-color: var(--accent-color);
 }
 
 .root-drop-zone.active td {
-  color: #4a9eff;
+  color: var(--accent-color);
 }
 
 /* Drop indicators */
@@ -1125,7 +1125,7 @@ td.col-title {
   left: 0;
   right: 0;
   height: 3px;
-  background: #4a9eff;
+  background: var(--accent-color);
   z-index: 10;
 }
 
@@ -1140,13 +1140,13 @@ td.col-title {
   left: 0;
   right: 0;
   height: 3px;
-  background: #4a9eff;
+  background: var(--accent-color);
   z-index: 10;
 }
 
 .node-row.drop-inside {
-  background: rgba(74, 158, 255, 0.15) !important;
-  outline: 2px solid #4a9eff;
+  background: var(--accent-subtle) !important;
+  outline: 2px solid var(--accent-color);
   outline-offset: -2px;
 }
 
