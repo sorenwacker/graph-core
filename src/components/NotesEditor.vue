@@ -189,14 +189,28 @@ defineExpose({ getSelection, replaceSelection })
 .cm-container {
   height: 100%;
   min-height: 150px;
-  background: #0d0d0d;
+  background: var(--bg-secondary);
   border-radius: 4px;
   overflow: hidden;
 }
 
 .cm-container :deep(.cm-editor) {
   height: 100%;
-  background: #0d0d0d;
-  color: #e0e0e0;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.cm-container :deep(.cm-gutters) {
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+  border: none;
+}
+
+.cm-container :deep(.cm-activeLineGutter) {
+  background: var(--bg-hover);
+}
+
+.cm-container :deep(.cm-activeLine) {
+  background: var(--bg-hover);
 }
 </style>
