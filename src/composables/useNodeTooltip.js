@@ -1,6 +1,6 @@
 import { onUnmounted } from 'vue'
 import tippy from 'tippy.js'
-import { buildTooltipHTML, tooltipOptions, getFixedTooltipReference } from '../utils/tooltip.js'
+import { buildTooltipHTML, tooltipOptions, getFixedTooltipReference, getTooltipPlacement } from '../utils/tooltip.js'
 
 /**
  * Composable for handling node tooltips across all views
@@ -44,6 +44,9 @@ export function useNodeTooltip(options = {}) {
       activeTooltip = null
     }
 
+    // Store event for delayed use
+    const storedEvent = event
+
     tooltipShowTimeout = setTimeout(() => {
       // Recheck if tooltip should still be shown (detail panel may have opened during delay)
       if (!shouldShowTooltip(node)) {
@@ -55,11 +58,13 @@ export function useNodeTooltip(options = {}) {
         hideSensitive: getHideSensitive()
       })
 
-      // Use fixed position reference for top-right corner placement
-      const fixedRef = getFixedTooltipReference()
+      // Use dynamic position reference based on cursor location
+      const fixedRef = getFixedTooltipReference(storedEvent)
+      const placement = getTooltipPlacement(storedEvent)
 
       activeTooltip = tippy(fixedRef, {
         ...tooltipOptions,
+        placement,
         content,
         showOnCreate: true,
         hideOnClick: false,

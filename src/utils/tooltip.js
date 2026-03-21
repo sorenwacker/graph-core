@@ -78,26 +78,53 @@ export function buildTooltipHTML(node, options = {}) {
 }
 
 /**
- * Get or create the fixed tooltip anchor element
- * Places tooltip at top-right corner of viewport
+ * Get or create the dynamic tooltip anchor element
+ * Positions tooltip on opposite side of cursor
+ * @param {MouseEvent} event - Mouse event with cursor position
  */
-let fixedAnchor = null
-export function getFixedTooltipReference() {
-  if (!fixedAnchor) {
-    fixedAnchor = document.createElement('div')
-    fixedAnchor.id = 'tooltip-anchor'
-    fixedAnchor.style.cssText = `
+let dynamicAnchor = null
+export function getFixedTooltipReference(event) {
+  if (!dynamicAnchor) {
+    dynamicAnchor = document.createElement('div')
+    dynamicAnchor.id = 'tooltip-anchor'
+    dynamicAnchor.style.cssText = `
       position: fixed;
-      top: 80px;
-      right: 20px;
       width: 1px;
       height: 1px;
       pointer-events: none;
       z-index: -1;
     `
-    document.body.appendChild(fixedAnchor)
+    document.body.appendChild(dynamicAnchor)
   }
-  return fixedAnchor
+
+  // Position on opposite side of cursor
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  const cursorX = event?.clientX ?? viewportWidth / 2
+  const cursorY = event?.clientY ?? viewportHeight / 2
+
+  // Determine which side to show tooltip (opposite of cursor)
+  const showOnRight = cursorX < viewportWidth / 2
+  const showOnBottom = cursorY < viewportHeight / 2
+
+  // Position anchor on opposite side with some margin
+  const margin = 20
+  dynamicAnchor.style.top = showOnBottom ? `${Math.max(80, cursorY)}px` : `${Math.min(cursorY, viewportHeight - 300)}px`
+  dynamicAnchor.style.left = showOnRight ? '' : `${margin}px`
+  dynamicAnchor.style.right = showOnRight ? `${margin}px` : ''
+
+  return dynamicAnchor
+}
+
+/**
+ * Get placement based on cursor position
+ * @param {MouseEvent} event - Mouse event with cursor position
+ */
+export function getTooltipPlacement(event) {
+  const viewportWidth = window.innerWidth
+  const cursorX = event?.clientX ?? viewportWidth / 2
+  const showOnRight = cursorX < viewportWidth / 2
+  return showOnRight ? 'bottom-end' : 'bottom-start'
 }
 
 /**
