@@ -491,29 +491,41 @@ const projectBoxes = computed(() => {
 
   function collectProjects(nodeList) {
     for (const node of nodeList) {
-      if (node.type === 'project' && node.children?.length) {
-        const descendantIds = getAllDescendantIds(node)
-        const childRowIndices = descendantIds
-          .filter(id => nodeRowIndex.has(id))
-          .map(id => nodeRowIndex.get(id))
+      if (node.type === 'project') {
+        const childRowIndices = []
 
-        // Also include the project itself if it's in the timeline
+        // Include descendants if any
+        if (node.children?.length) {
+          const descendantIds = getAllDescendantIds(node)
+          descendantIds
+            .filter(id => nodeRowIndex.has(id))
+            .forEach(id => childRowIndices.push(nodeRowIndex.get(id)))
+        }
+
+        // Include the project itself if it's in the timeline
         if (nodeRowIndex.has(node.id)) {
           childRowIndices.push(nodeRowIndex.get(node.id))
         }
 
-        if (childRowIndices.length > 1) { // Only show box if there are children
+        // Show box if project is in timeline (even without children)
+        if (childRowIndices.length >= 1) {
           const minRow = Math.min(...childRowIndices)
           const maxRow = Math.max(...childRowIndices)
 
           // Get date range from all descendants
-          const descendantNodes = descendantIds
-            .filter(id => nodeData.has(id))
-            .map(id => nodeData.get(id))
+          const allDates = []
 
-          const allDates = descendantNodes.flatMap(n =>
-            [n.displayDate, n.endDisplayDate].filter(Boolean)
-          )
+          if (node.children?.length) {
+            const descendantIds = getAllDescendantIds(node)
+            const descendantNodes = descendantIds
+              .filter(id => nodeData.has(id))
+              .map(id => nodeData.get(id))
+
+            descendantNodes.forEach(n => {
+              if (n.displayDate) allDates.push(n.displayDate)
+              if (n.endDisplayDate) allDates.push(n.endDisplayDate)
+            })
+          }
 
           // Include project's own dates
           const projectNode = nodeData.get(node.id)
