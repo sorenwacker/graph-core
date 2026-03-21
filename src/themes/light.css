@@ -745,14 +745,29 @@
   --ag-secondary-foreground-color: var(--text-secondary);
   --ag-border-color: var(--border-color);
   --ag-header-foreground-color: var(--text-primary);
+  --ag-control-panel-background-color: var(--bg-secondary);
+  --ag-subheader-background-color: var(--bg-secondary);
+  --ag-input-focus-border-color: var(--accent-color);
+  --ag-range-selection-border-color: var(--accent-color);
+  --ag-range-selection-background-color: var(--accent-subtle);
+}
+
+[data-theme="light"] .ag-root-wrapper {
+  background: var(--bg-primary);
 }
 
 [data-theme="light"] .ag-header {
+  background: var(--bg-secondary);
+  border-bottom-color: var(--border-color);
+}
+
+[data-theme="light"] .ag-header-row {
   background: var(--bg-secondary);
 }
 
 [data-theme="light"] .ag-header-cell {
   background: var(--bg-secondary);
+  border-color: var(--border-color);
 }
 
 [data-theme="light"] .ag-header-cell-text {
@@ -762,10 +777,24 @@
 [data-theme="light"] .ag-cell {
   background: var(--bg-primary);
   color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .ag-row {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
 }
 
 [data-theme="light"] .ag-row-odd {
   background: var(--bg-secondary);
+}
+
+[data-theme="light"] .ag-body {
+  background: var(--bg-primary);
+}
+
+[data-theme="light"] .ag-body-viewport {
+  background: var(--bg-primary);
 }
 
 [data-theme="light"] .row-index-header {
