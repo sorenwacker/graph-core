@@ -299,11 +299,31 @@ function handleCanvasClick(e) {
         <div class="person-details">
           <div v-if="node.role" class="person-role">{{ node.role }}</div>
           <div v-if="node.organization" class="person-org">{{ node.organization }}</div>
-          <div v-if="node.email" class="person-contact">
+          <div v-if="node.email" class="person-contact email">
+            <span class="contact-icon">@</span>
             <a :href="'mailto:' + node.email" @click.stop title="Send email">{{ node.email }}</a>
           </div>
-          <div v-if="node.phone" class="person-contact">
+          <div v-if="node.phone" class="person-contact phone">
+            <span class="contact-icon">#</span>
             <a :href="'tel:' + node.phone" @click.stop title="Call">{{ node.phone }}</a>
+          </div>
+          <div v-if="node.website" class="person-contact website">
+            <span class="contact-icon">W</span>
+            <a :href="node.website.startsWith('http') ? node.website : 'https://' + node.website"
+               target="_blank" @click.stop title="Open website">
+              {{ node.website.replace(/^https?:\/\//, '').replace(/\/$/, '') }}
+            </a>
+          </div>
+          <div v-if="node.location" class="person-location">
+            <span class="contact-icon">L</span>
+            {{ node.location }}
+          </div>
+          <div v-if="node.tags && node.tags.length > 0" class="person-tags">
+            <span v-for="tag in node.tags.slice(0, 3)" :key="tag" class="person-tag">{{ tag }}</span>
+            <span v-if="node.tags.length > 3" class="person-tag-more">+{{ node.tags.length - 3 }}</span>
+          </div>
+          <div v-if="node.notes && !node.role && !node.organization" class="person-notes-preview">
+            {{ node.notes.split('\n')[0].substring(0, 60) }}{{ node.notes.length > 60 ? '...' : '' }}
           </div>
         </div>
       </div>
@@ -804,15 +824,74 @@ function handleCanvasClick(e) {
 
 .person-contact {
   font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.person-contact .contact-icon {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  width: 12px;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .person-contact a {
   color: var(--accent-color);
   text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .person-contact a:hover {
   text-decoration: underline;
+}
+
+.person-location {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.person-location .contact-icon {
+  font-size: 10px;
+  width: 12px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.person-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.person-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  color: var(--text-secondary);
+}
+
+.person-tag-more {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.person-notes-preview {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-style: italic;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Smaller cards: compact person info */
@@ -841,7 +920,18 @@ function handleCanvasClick(e) {
   font-size: 11px;
 }
 
-.node-card.card-xs .person-contact {
+/* Hide extra details on small cards */
+.node-card.card-sm .person-location,
+.node-card.card-sm .person-tags,
+.node-card.card-sm .person-notes-preview,
+.node-card.card-sm .person-contact.website {
+  display: none;
+}
+
+.node-card.card-xs .person-contact,
+.node-card.card-xs .person-location,
+.node-card.card-xs .person-tags,
+.node-card.card-xs .person-notes-preview {
   display: none;
 }
 
