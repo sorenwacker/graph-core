@@ -313,14 +313,15 @@ watch(() => currentNode.value?.title, (newTitle) => {
 :deep(.detail-panel) {
   position: static !important;
   width: 100% !important;
-  height: 100vh !important;
+  height: calc(100vh - 32px) !important;
   max-width: none !important;
   border-radius: 0 !important;
   border: none !important;
+  overflow-y: auto !important;
 }
 
 :deep(.detail-panel.fullscreen) {
-  padding-top: 32px !important;
+  padding-top: 0 !important;
 }
 
 :deep(.resize-handle) {
