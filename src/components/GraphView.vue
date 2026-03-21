@@ -3123,6 +3123,24 @@ onUnmounted(() => {
 .layout-setting input[type="range"] {
   width: 100%;
   cursor: pointer;
+  accent-color: var(--accent-color);
+  background: transparent;
+}
+
+.layout-setting input[type="range"]::-webkit-slider-runnable-track {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  height: 6px;
+}
+
+.layout-setting input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  margin-top: -4px;
+  cursor: pointer;
 }
 
 .layout-settings-dropdown .apply-btn {
