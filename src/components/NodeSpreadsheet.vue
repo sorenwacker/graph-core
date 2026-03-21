@@ -313,6 +313,8 @@ function handleMouseDown(event) {
       lastSelectedColumn.value = colIndex
     }
     refreshCells()
+    // Focus grid for keyboard shortcuts
+    gridWrapper.value?.focus()
     return
   }
 
@@ -327,6 +329,7 @@ function handleMouseDown(event) {
   if (event.shiftKey && selectionStart.value) {
     selectionEnd.value = { ...cell }
     refreshCells()
+    gridWrapper.value?.focus()
     return
   }
 
@@ -337,6 +340,8 @@ function handleMouseDown(event) {
   selectionStart.value = { ...cell }
   selectionEnd.value = { ...cell }
   lastSelectedColumn.value = null // Reset column tracking when selecting cells
+  // Focus grid for keyboard shortcuts after selection
+  gridWrapper.value?.focus()
   // Don't call refreshCells() here - let AG Grid handle the click for editing
 }
 
