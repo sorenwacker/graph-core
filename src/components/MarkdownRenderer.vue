@@ -3,6 +3,9 @@ import { ref, watch, onMounted, nextTick } from 'vue'
 import { marked } from 'marked'
 import mermaid from 'mermaid'
 import { decodeHtmlEntities } from '../utils/html.js'
+import { useErrorHandler } from '../composables/useErrorHandler.js'
+
+const { handleError } = useErrorHandler()
 
 const props = defineProps({
   content: { type: String, default: '' }
@@ -79,7 +82,7 @@ async function renderContent() {
         el.innerHTML = svg
       }
     } catch (e) {
-      console.error('Mermaid render error:', e)
+      handleError(e, { context: 'Rendering mermaid diagram', silent: true })
       const el = document.getElementById(block.id)
       if (el) {
         el.innerHTML = `<pre class="mermaid-error">${block.code}\n\nError: ${e.message}</pre>`

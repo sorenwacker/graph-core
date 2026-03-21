@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { MAX_HISTORY_SIZE } from '../utils/uiConstants.js'
+import { useErrorHandler } from './useErrorHandler.js'
 
 /**
  * Composable for managing container navigation state and operations.
@@ -24,6 +25,8 @@ export function useNavigation({
   onError,
   filterByWorkspace
 } = {}) {
+  const { handleError } = useErrorHandler()
+
   // Core navigation state
   const currentContainerId = ref(null)
   const currentContainer = ref(null)
@@ -117,7 +120,7 @@ export function useNavigation({
 
       currentContainerId.value = containerId
     } catch (e) {
-      console.error('Failed to load:', e)
+      handleError(e, { context: 'Loading container', silent: true })
       error.value = e.message
       if (onError) {
         await onError(e, containerId)

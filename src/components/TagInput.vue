@@ -1,6 +1,9 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { api } from '../services/api.js'
+import { useErrorHandler } from '../composables/useErrorHandler.js'
+
+const { handleError } = useErrorHandler()
 
 const props = defineProps({
   tags: { type: Array, default: () => [] }
@@ -18,7 +21,7 @@ async function loadAllTags() {
   try {
     allTags.value = await api.getAllTags()
   } catch (err) {
-    console.error('Failed to load tags:', err)
+    handleError(err, { context: 'Loading tags', silent: true })
     allTags.value = []
   }
 }

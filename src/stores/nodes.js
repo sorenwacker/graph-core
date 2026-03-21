@@ -1,12 +1,15 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api } from '../services/api.js'
+import { useErrorHandler } from '../composables/useErrorHandler.js'
 
 /**
  * Nodes store - manages node data, tree structure, and CRUD operations.
  * This centralizes node state that was previously scattered across App.vue.
  */
 export const useNodesStore = defineStore('nodes', () => {
+  const { handleError } = useErrorHandler()
+
   // ===========================================
   // STATE
   // ===========================================
@@ -86,7 +89,7 @@ export const useNodesStore = defineStore('nodes', () => {
       currentContainerId.value = containerId
     } catch (e) {
       error.value = e.message
-      console.error('Failed to load children:', e)
+      handleError(e, { context: 'Loading children', silent: true })
     } finally {
       loading.value = false
     }

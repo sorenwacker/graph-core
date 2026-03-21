@@ -4,6 +4,9 @@ import { api } from '../services/api.js'
 import { personColors } from '../utils/constants.js'
 import NotesEditor from './NotesEditor.vue'
 import TagInput from './TagInput.vue'
+import { useErrorHandler } from '../composables/useErrorHandler.js'
+
+const { handleError } = useErrorHandler()
 
 const props = defineProps({
   selectedId: Number,
@@ -57,7 +60,7 @@ async function loadOrganizations() {
   try {
     organizations.value = await api.getNodes({ type: 'organization', workspace_id: props.workspaceId })
   } catch (err) {
-    console.error('Failed to load organizations:', err)
+    handleError(err, { context: 'Loading organizations', silent: true })
     organizations.value = []
   }
 }
@@ -113,7 +116,7 @@ async function loadPersons() {
       }
     }
   } catch (err) {
-    console.error('Failed to load persons:', err)
+    handleError(err, { context: 'Loading persons', silent: true })
   }
   loading.value = false
 }
@@ -240,7 +243,7 @@ async function loadLinkedOrganizations(personId) {
     )
     linkedOrganizations.value = orgsWithPaths
   } catch (err) {
-    console.error('Failed to load linked organizations:', err)
+    handleError(err, { context: 'Loading linked organizations', silent: true })
     linkedOrganizations.value = []
   }
 }
@@ -300,7 +303,7 @@ async function savePerson() {
         try {
           await api.linkNodes(personId, org.id)
         } catch (err) {
-          console.error('Failed to link organization:', err)
+          handleError(err, { context: 'Linking organization to new person', silent: true })
         }
       }
     }
@@ -310,7 +313,7 @@ async function savePerson() {
     orgQuery.value = ''
     await loadPersons()
   } catch (err) {
-    console.error('Failed to save person:', err)
+    handleError(err, { context: 'Saving person' })
   }
 }
 
@@ -344,7 +347,7 @@ async function linkOrganization(org) {
       await api.linkNodes(editingPerson.value.id, org.id)
       await loadLinkedOrganizations(editingPerson.value.id)
     } catch (err) {
-      console.error('Failed to link organization:', err)
+      handleError(err, { context: 'Linking organization' })
     }
   }
   orgQuery.value = ''
@@ -361,7 +364,7 @@ async function unlinkOrganization(org) {
       await api.unlinkNodes(editingPerson.value.id, org.id)
       await loadLinkedOrganizations(editingPerson.value.id)
     } catch (err) {
-      console.error('Failed to unlink organization:', err)
+      handleError(err, { context: 'Unlinking organization' })
     }
   }
 }
@@ -383,7 +386,7 @@ async function createAndLinkOrganization() {
     // Link it
     await linkOrganization(newOrg)
   } catch (err) {
-    console.error('Failed to create organization:', err)
+    handleError(err, { context: 'Creating organization' })
   }
 }
 
