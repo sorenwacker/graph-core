@@ -2,11 +2,15 @@
 import { ref, onMounted, watch } from 'vue'
 import { api } from '../services/api.js'
 import { useDetachedWindow } from '../composables/useDetachedWindow.js'
+import { useTheme } from '../composables/useTheme.js'
 import DetailPanel from './DetailPanel.vue'
 
 const props = defineProps({
   nodeId: { type: Number, required: true }
 })
+
+// Initialize theme for detached window
+useTheme()
 
 const {
   broadcastNodeUpdate,
@@ -247,7 +251,7 @@ watch(() => currentNode.value?.title, (newTitle) => {
 .detached-view {
   width: 100vw;
   height: 100vh;
-  background: #0a0a0f;
+  background: var(--bg-primary);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -268,10 +272,10 @@ watch(() => currentNode.value?.title, (newTitle) => {
 }
 
 .back-btn {
-  background: #1a1a24;
-  border: 1px solid #333;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  color: #888;
+  color: var(--text-secondary);
   padding: 6px 12px;
   cursor: pointer;
   font-size: 13px;
@@ -282,9 +286,9 @@ watch(() => currentNode.value?.title, (newTitle) => {
 }
 
 .back-btn:hover {
-  background: #2a2a34;
-  color: #fff;
-  border-color: #444;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-color);
 }
 
 .back-icon {
@@ -297,12 +301,12 @@ watch(() => currentNode.value?.title, (newTitle) => {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #888;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .detached-error {
-  color: #ef4444;
+  color: var(--error-color);
 }
 
 /* Override DetailPanel styles for detached mode */

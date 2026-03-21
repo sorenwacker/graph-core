@@ -732,3 +732,107 @@
   color: var(--text-primary);
   border-color: var(--accent-color);
 }
+
+/* AG Grid overrides for light mode */
+[data-theme="light"] .ag-theme-quartz,
+[data-theme="light"] .ag-root-wrapper {
+  --ag-background-color: var(--bg-primary);
+  --ag-header-background-color: var(--bg-secondary);
+  --ag-odd-row-background-color: var(--bg-secondary);
+  --ag-row-hover-color: var(--bg-hover);
+  --ag-selected-row-background-color: var(--accent-subtle);
+  --ag-foreground-color: var(--text-primary);
+  --ag-secondary-foreground-color: var(--text-secondary);
+  --ag-border-color: var(--border-color);
+  --ag-header-foreground-color: var(--text-primary);
+}
+
+[data-theme="light"] .ag-header {
+  background: var(--bg-secondary);
+}
+
+[data-theme="light"] .ag-header-cell {
+  background: var(--bg-secondary);
+}
+
+[data-theme="light"] .ag-header-cell-text {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .ag-cell {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .ag-row-odd {
+  background: var(--bg-secondary);
+}
+
+[data-theme="light"] .row-index-header {
+  background-color: var(--bg-secondary);
+}
+
+[data-theme="light"] .spreadsheet-container {
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .context-menu {
+  background: var(--bg-elevated);
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-md);
+}
+
+[data-theme="light"] .ctx-btn {
+  background: var(--bg-tertiary);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .ctx-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .table-name {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .selection-info {
+  color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* ========================================
+   Danger buttons - light mode
+   ======================================== */
+[data-theme="light"] button.danger,
+[data-theme="light"] .btn.danger,
+[data-theme="light"] .snapshot-restore-btn.danger {
+  color: var(--error-color);
+  background: var(--error-bg);
+  border-color: var(--error-border);
+}
+
+[data-theme="light"] button.danger:hover,
+[data-theme="light"] .btn.danger:hover,
+[data-theme="light"] .snapshot-restore-btn.danger:hover {
+  background: var(--error-hover);
+}
+
+[data-theme="light"] .detail-actions button.danger {
+  background: var(--error-bg);
+  border-color: var(--error-border);
+  color: var(--error-color);
+}
+
+[data-theme="light"] .detail-actions button.danger:hover {
+  background: var(--error-hover);
+}
+
+[data-theme="light"] .menu-item.danger {
+  color: var(--error-color);
+}
+
+[data-theme="light"] .menu-item.danger:hover {
+  background: var(--error-bg);
+}
