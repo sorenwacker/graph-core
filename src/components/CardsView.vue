@@ -1,7 +1,17 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import CardTitleEdit from './CardTitleEdit.vue'
 import CardNotes from './CardNotes.vue'
+import NodeSpreadsheet from './NodeSpreadsheet.vue'
+import { useNodeTable } from '../composables/useNodeTable.js'
+
+const {
+  table: selectedNodeTable,
+  hasTable: selectedNodeHasTable,
+  loadTable: loadSelectedNodeTable,
+  updateTable,
+  saveCell
+} = useNodeTable()
 
 const props = defineProps({
   nodes: { type: Array, required: true },
@@ -45,6 +55,13 @@ const emit = defineEmits([
   'update:editingTitle',
   'update:inlineNotesText'
 ])
+
+// Load table when selected node changes
+watch(() => props.selectedId, async (newId) => {
+  if (newId) {
+    await loadSelectedNodeTable(newId)
+  }
+}, { immediate: true })
 
 function isCardSelected(nodeId) {
   return props.selectedId === nodeId || props.selectedIds.includes(nodeId)
@@ -252,6 +269,16 @@ function handleCanvasClick(e) {
         @cancel="emit('cancel-notes')"
         @update:model-value="emit('update:inlineNotesText', $event)"
       />
+
+      <!-- Table/Spreadsheet - only for selected card with table -->
+      <div v-if="isCardSelected(node.id) && selectedNodeHasTable" class="card-table-section" @click.stop>
+        <NodeSpreadsheet
+          :node-id="node.id"
+          :table-data="selectedNodeTable"
+          @update-table="updateTable"
+          @save-cell="saveCell"
+        />
+      </div>
 
       <!-- Metadata - xl/lg only -->
       <div v-if="(cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg') && (node.due_date || node.start_date)" class="node-card-meta">
@@ -1232,5 +1259,20 @@ function handleCanvasClick(e) {
 
 .node-card.dragging .card-drag {
   cursor: grabbing;
+}
+
+/* Card table section */
+.card-table-section {
+  margin: 8px 12px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.node-card.card-xl .card-table-section {
+  margin: 12px 20px;
+}
+
+.node-card.card-lg .card-table-section {
+  margin: 10px 16px;
 }
 </style>
