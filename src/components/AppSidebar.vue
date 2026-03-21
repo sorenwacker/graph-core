@@ -57,6 +57,8 @@ watch(tagsCollapsed, (val) => localStorage.setItem('sidebar-tags-collapsed', Str
           @click.stop="emit('toggle-pin')"
           @mouseenter="emit('mouseenter')"
           :title="pinned ? 'Unpin sidebar' : 'Pin sidebar'"
+          :aria-label="pinned ? 'Unpin sidebar' : 'Pin sidebar'"
+          :aria-pressed="pinned"
         >
           <span v-html="pinned ? '&#128205;' : '&#128204;'"></span>
         </button>

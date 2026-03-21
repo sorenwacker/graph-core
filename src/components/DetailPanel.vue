@@ -864,6 +864,8 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
           :class="{ active: editedNode.favorite }"
           @click="editedNode.favorite = !editedNode.favorite; saveChanges()"
           title="Toggle favorite"
+          :aria-label="editedNode.favorite ? 'Remove from favorites' : 'Add to favorites'"
+          :aria-pressed="editedNode.favorite"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1">
             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -876,20 +878,20 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
             @change="editedNode.completed = $event.target.checked; saveChanges()"
           />
         </label>
-        <button class="pin-btn" :class="{ active: pinned }" @click="$emit('toggle-pin')" :title="pinned ? 'Unpin panel' : 'Pin panel open'">
+        <button class="pin-btn" :class="{ active: pinned }" @click="$emit('toggle-pin')" :title="pinned ? 'Unpin panel' : 'Pin panel open'" :aria-label="pinned ? 'Unpin panel' : 'Pin panel open'" :aria-pressed="pinned">
           {{ pinned ? '&#128205;' : '&#128204;' }}
         </button>
-        <button v-if="isElectron && !fullscreen" class="detach-btn" @click="$emit('detach', props.node)" title="Open in new window">
+        <button v-if="isElectron && !fullscreen" class="detach-btn" @click="$emit('detach', props.node)" title="Open in new window" aria-label="Open in new window">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
             <polyline points="15 3 21 3 21 9"/>
             <line x1="10" y1="14" x2="21" y2="3"/>
           </svg>
         </button>
-        <button class="fullscreen-btn" @click="$emit('toggle-fullscreen')" :title="fullscreen ? 'Exit fullscreen' : 'Fullscreen'">
+        <button class="fullscreen-btn" @click="$emit('toggle-fullscreen')" :title="fullscreen ? 'Exit fullscreen' : 'Fullscreen'" :aria-label="fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'" :aria-pressed="fullscreen">
           {{ fullscreen ? '⊙' : '⛶' }}
         </button>
-        <button class="close-btn" @click="$emit('close')" title="Close">x</button>
+        <button class="close-btn" @click="$emit('close')" title="Close" aria-label="Close panel">x</button>
       </div>
       <textarea
         ref="titleInput"
