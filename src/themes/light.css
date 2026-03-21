@@ -675,3 +675,60 @@
   background: var(--bg-primary);
   color: var(--text-primary);
 }
+
+/* ========================================
+   Delete buttons - light mode
+   ======================================== */
+[data-theme="light"] .delete-btn,
+[data-theme="light"] .action-btn.delete,
+[data-theme="light"] .card-delete-btn,
+[data-theme="light"] .child-delete-btn,
+[data-theme="light"] .ws-btn.delete {
+  color: var(--error-color);
+  background: var(--error-bg);
+  border-color: var(--error-border);
+}
+
+[data-theme="light"] .delete-btn:hover,
+[data-theme="light"] .action-btn.delete:hover,
+[data-theme="light"] .card-delete-btn:hover,
+[data-theme="light"] .child-delete-btn:hover,
+[data-theme="light"] .ws-btn.delete:hover {
+  background: var(--error-hover);
+  color: var(--error-color);
+}
+
+/* ========================================
+   NodeSpreadsheet - light mode
+   ======================================== */
+[data-theme="light"] .spreadsheet-wrapper {
+  background: var(--bg-primary);
+}
+
+[data-theme="light"] .spreadsheet-toolbar {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .spreadsheet-toolbar .toolbar-btn {
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .spreadsheet-toolbar .toolbar-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .spreadsheet-toolbar .toolbar-btn.active {
+  background: var(--accent-subtle);
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+}
+
+[data-theme="light"] .cell-editor {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border-color: var(--accent-color);
+}
