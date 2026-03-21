@@ -146,14 +146,18 @@
   background: var(--scrollbar-thumb-hover);
 }
 
-/* Active/selected items with accent background need white text */
+/* Active/selected items with solid accent background need white text */
 [data-theme="light"] .sidebar-item.active,
 [data-theme="light"] .sidebar-tree-item.active,
 [data-theme="light"] .node-item.selected,
 [data-theme="light"] .tabs button.active,
-[data-theme="light"] .view-switcher button.active,
 [data-theme="light"] .importance-btn.active {
   color: white;
+}
+
+/* ViewSwitcher uses accent-subtle background, so use accent-color text */
+[data-theme="light"] .view-switcher button.active {
+  color: var(--accent-color);
 }
 
 /* Graph controls - active state already uses CSS variables, locked states use success color */
