@@ -2,7 +2,7 @@
 import { ref, computed, onUnmounted } from 'vue'
 import { useNodeTooltip } from '../composables/useNodeTooltip.js'
 import { useNodeInteractions } from '../composables/useNodeInteractions.js'
-import { getTypeIcon, getTypeColors, personIconSvg } from '../utils/constants.js'
+import { getTypeIcon, personIconSvg } from '../utils/constants.js'
 
 // Column widths (resizable)
 const defaultColWidths = {
@@ -222,12 +222,9 @@ function isOverdue(dateStr) {
 
 // getTypeIcon imported from constants.js
 
-// Get badge style for person nodes (random colors based on ID)
+// Get badge style for person nodes - uses CSS variables, no inline colors needed
 function getBadgeStyle(node) {
-  if (node.type === 'person') {
-    const colors = getTypeColors('person', node.id)
-    return { background: colors.bg, color: colors.text }
-  }
+  // CSS variables handle all type colors including person
   return {}
 }
 
@@ -294,7 +291,7 @@ function onMouseDown(e, node) {
     top: ${e.clientY + 10}px;
     background: var(--bg-primary, #1a1a2e);
     border: 2px solid var(--accent-color, #4a9eff);
-    color: #fff;
+    color: var(--text-primary, #fff);
     padding: 6px 10px;
     border-radius: 6px;
     pointer-events: none;
@@ -929,7 +926,7 @@ td {
 
 td.col-title {
   font-weight: 500;
-  color: #f0f0f0;
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -943,7 +940,7 @@ td.col-title {
 }
 
 .has-notes-icon {
-  color: #888;
+  color: var(--text-secondary);
   font-size: 12px;
   margin-left: 6px;
   opacity: 0.7;
@@ -952,17 +949,17 @@ td.col-title {
 .col-children {
   width: 60px;
   text-align: center;
-  color: #888;
+  color: var(--text-secondary);
 }
 
 .col-due {
   width: 100px;
-  color: #a0a0a0;
+  color: var(--text-secondary);
 }
 
 .col-notes {
   max-width: 200px;
-  color: #777;
+  color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -974,7 +971,7 @@ td.col-title {
 }
 
 .notes-preview {
-  color: #888;
+  color: var(--text-secondary);
   font-size: 0.85em;
   white-space: nowrap;
   overflow: hidden;
@@ -988,12 +985,12 @@ td.col-title {
 }
 
 .due-date {
-  color: #888;
+  color: var(--text-secondary);
   font-size: 0.85em;
 }
 
 .due-date.overdue {
-  color: #e74c3c;
+  color: var(--error-color);
   font-weight: 500;
 }
 
@@ -1003,7 +1000,7 @@ td.col-title {
 }
 
 .children-count {
-  color: #666;
+  color: var(--text-tertiary);
   font-size: 0.8em;
 }
 
@@ -1068,7 +1065,7 @@ td.col-title {
   padding: 0;
   background: none;
   border: none;
-  color: #aaa;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 0.85rem;
   opacity: 1;
@@ -1077,11 +1074,11 @@ td.col-title {
 
 .action-btn:hover {
   opacity: 1;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .action-btn.delete:hover {
-  color: #ff6b6b;
+  color: var(--error-color);
 }
 
 .empty-state {
