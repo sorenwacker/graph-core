@@ -134,6 +134,27 @@ function isSensitiveNode(node) {
   return node.notes_sensitive
 }
 
+// Calculate task/project completion progress from children
+function getChildProgress(node) {
+  if (!node.children?.length) return null
+  const tasks = node.children.filter(c => c.type === 'task' || c.type === 'project')
+  if (tasks.length === 0) return null
+  const completed = tasks.filter(c => c.completed).length
+  return {
+    completed,
+    total: tasks.length,
+    percent: Math.round((completed / tasks.length) * 100)
+  }
+}
+
+// Get person initials for avatar
+function getInitials(name) {
+  if (!name) return '?'
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
+}
+
 function decodeHtml(html) {
   if (!html) return ''
   const txt = document.createElement('textarea')
@@ -253,6 +274,39 @@ function handleCanvasClick(e) {
         @cancel="emit('cancel-notes')"
         @update:model-value="emit('update:inlineNotesText', $event)"
       />
+
+      <!-- Task/Project progress bar -->
+      <div
+        v-if="(node.type === 'task' || node.type === 'project') && getChildProgress(node)"
+        class="task-progress"
+        :title="`${getChildProgress(node).completed}/${getChildProgress(node).total} completed`"
+      >
+        <div class="progress-bar">
+          <div
+            class="progress-fill"
+            :class="{ complete: getChildProgress(node).percent === 100 }"
+            :style="{ width: getChildProgress(node).percent + '%' }"
+          ></div>
+        </div>
+        <span class="progress-text">{{ getChildProgress(node).completed }}/{{ getChildProgress(node).total }}</span>
+      </div>
+
+      <!-- Person card specialization -->
+      <div v-if="node.type === 'person'" class="person-info">
+        <div class="person-avatar" :style="{ backgroundColor: getNodeColor(node) || 'var(--type-person-bg)' }">
+          {{ getInitials(node.title) }}
+        </div>
+        <div class="person-details">
+          <div v-if="node.role" class="person-role">{{ node.role }}</div>
+          <div v-if="node.organization" class="person-org">{{ node.organization }}</div>
+          <div v-if="node.email" class="person-contact">
+            <a :href="'mailto:' + node.email" @click.stop title="Send email">{{ node.email }}</a>
+          </div>
+          <div v-if="node.phone" class="person-contact">
+            <a :href="'tel:' + node.phone" @click.stop title="Call">{{ node.phone }}</a>
+          </div>
+        </div>
+      </div>
 
       <!-- Table miniature preview for cards with tables -->
       <TableMiniature
@@ -671,6 +725,124 @@ function handleCanvasClick(e) {
 
 .markdown-content a {
   color: var(--accent-color);
+}
+
+/* Task/Project progress bar */
+.task-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  margin-bottom: 8px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent-color);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.progress-fill.complete {
+  background: var(--success-color);
+}
+
+.progress-text {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  min-width: 32px;
+  text-align: right;
+}
+
+/* Person card specialization */
+.person-info {
+  display: flex;
+  gap: 12px;
+  padding: 8px 16px;
+  align-items: flex-start;
+}
+
+.person-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.person-details {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.person-role {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.person-org {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.person-contact {
+  font-size: 12px;
+}
+
+.person-contact a {
+  color: var(--accent-color);
+  text-decoration: none;
+}
+
+.person-contact a:hover {
+  text-decoration: underline;
+}
+
+/* Smaller cards: compact person info */
+.node-card.card-sm .person-info,
+.node-card.card-xs .person-info {
+  padding: 4px 12px;
+  gap: 8px;
+}
+
+.node-card.card-sm .person-avatar,
+.node-card.card-xs .person-avatar {
+  width: 32px;
+  height: 32px;
+  font-size: 12px;
+}
+
+.node-card.card-sm .person-details,
+.node-card.card-xs .person-details {
+  gap: 1px;
+}
+
+.node-card.card-sm .person-role,
+.node-card.card-xs .person-role,
+.node-card.card-sm .person-org,
+.node-card.card-xs .person-org {
+  font-size: 11px;
+}
+
+.node-card.card-xs .person-contact {
+  display: none;
 }
 
 .node-card a,
