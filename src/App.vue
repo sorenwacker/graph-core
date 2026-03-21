@@ -148,6 +148,7 @@ const {
   loadTags,
   loadTrashedItems,
   loadOrphanedNodes,
+  invalidateSidebarCache,
   clearRecent,
   restoreFromTrash,
   permanentlyDelete,
@@ -1030,6 +1031,8 @@ async function updateNode(updatedNode, trackUndo = true) {
   if (success) {
     // Use silent mode to avoid triggering full re-render
     await loadChildren(currentContainerId.value, { silent: true })
+    // Invalidate cache to ensure tooltips show fresh data
+    invalidateSidebarCache()
     await loadSidebarTree()
     await Promise.all([loadRecentItems(), loadFavorites(), loadTags()])
   }
