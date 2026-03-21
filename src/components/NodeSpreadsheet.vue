@@ -998,7 +998,7 @@ onUnmounted(() => {
 }
 
 .spreadsheet-container {
-  border: 1px solid #1a1a1a;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -1008,13 +1008,13 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 0.375rem 0.5rem;
-  background: #080808;
-  border-bottom: 1px solid #1a1a1a;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .table-name {
   font-size: 0.75rem;
-  color: #888;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
@@ -1026,16 +1026,16 @@ onUnmounted(() => {
 
 .selection-info {
   font-size: 0.65rem;
-  color: #888;
+  color: var(--text-secondary);
   padding: 0.15rem 0.4rem;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-tertiary);
   border-radius: 3px;
 }
 
 .toolbar-btn {
-  background: #101010;
-  border: 1px solid #222222;
-  color: #a0a0b0;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
   padding: 0.25rem 0.5rem;
   cursor: pointer;
   border-radius: 3px;
@@ -1061,12 +1061,12 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 3px;
-  background: #080808;
-  border: 1px solid #222222;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   padding: 4px;
   z-index: 1000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-md);
 }
 
 .ctx-btn {
@@ -1075,9 +1075,9 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #101010;
-  border: 1px solid #222222;
-  color: #a0a0b0;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
   font-size: 11px;
   cursor: pointer;
   border-radius: 3px;
@@ -1105,14 +1105,14 @@ onUnmounted(() => {
 .ctx-divider {
   width: 1px;
   height: 16px;
-  background: #222222;
+  background: var(--border-color);
   margin: 0 2px;
 }
 
 .ctx-color {
   width: 16px;
   height: 16px;
-  border: 1px solid #2a2a2a;
+  border: 1px solid var(--border-color);
   border-radius: 2px;
   cursor: pointer;
 }
@@ -1122,16 +1122,16 @@ onUnmounted(() => {
 }
 
 .ctx-color.active {
-  border: 2px solid #fff;
+  border: 2px solid var(--text-primary);
 }
 
 /* Column rename input */
 .column-rename-input {
   position: fixed;
   height: 28px;
-  background: #080808;
-  border: 1px solid #4a8af4;
-  color: #d0d0d0;
+  background: var(--bg-primary);
+  border: 1px solid var(--accent-color);
+  color: var(--text-primary);
   font-size: 11px;
   font-weight: 600;
   padding: 0 8px;
@@ -1143,12 +1143,12 @@ onUnmounted(() => {
 /* Column context menu */
 .column-menu {
   position: fixed;
-  background: #080808;
-  border: 1px solid #222222;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   padding: 4px 0;
   z-index: 1000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-md);
   min-width: 100px;
 }
 
@@ -1158,22 +1158,22 @@ onUnmounted(() => {
   padding: 6px 12px;
   background: none;
   border: none;
-  color: #d0d0d0;
+  color: var(--text-primary);
   font-size: 11px;
   text-align: left;
   cursor: pointer;
 }
 
 .column-menu-item:hover {
-  background: #101010;
+  background: var(--bg-hover);
 }
 
 .column-menu-item.delete {
-  color: #ff6b6b;
+  color: var(--error-color);
 }
 
 .column-menu-item.delete:hover {
-  background: #180808;
+  background: var(--error-bg);
 }
 
 .grid-wrapper {
@@ -1191,8 +1191,8 @@ onUnmounted(() => {
 <style>
 /* Row index column styling */
 .row-index-cell {
-  background-color: #080808 !important;
-  color: #888 !important;
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-tertiary) !important;
   text-align: center !important;
   font-size: 10px !important;
   font-weight: 600 !important;
@@ -1201,13 +1201,13 @@ onUnmounted(() => {
 }
 
 .row-index-header {
-  background-color: #080808 !important;
+  background-color: var(--bg-secondary) !important;
 }
 
 /* Bold column headers */
 .ag-header-cell-text {
   font-weight: 600 !important;
-  color: #a0a0b0 !important;
+  color: var(--text-secondary) !important;
 }
 
 /* Hide resize handle but keep functional */
@@ -1220,7 +1220,7 @@ onUnmounted(() => {
 
 /* Selected cell highlighting */
 .cell-selected {
-  background-color: rgba(74, 138, 244, 0.35) !important;
+  background-color: var(--accent-subtle) !important;
 }
 
 /* Prevent text selection while dragging */

@@ -2768,13 +2768,13 @@ label.due-overdue {
 }
 
 .detail-actions button.danger {
-  background: #4a1a1a;
-  border-color: #7a2a2a;
-  color: #e07d7d;
+  background: var(--error-bg);
+  border-color: var(--error-border);
+  color: var(--error-color);
 }
 
 .detail-actions button.danger:hover {
-  background: #5a2a2a;
+  background: var(--error-hover);
 }
 
 /* Text selection highlight */
