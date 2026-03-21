@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { useErrorHandler } from './useErrorHandler'
 
 /**
  * Composable for context menu state and actions.
@@ -32,6 +33,8 @@ export function useContextMenu({
   onDelete,
   onRefreshSelectedNode
 } = {}) {
+  const { handleError } = useErrorHandler()
+
   const contextMenu = ref({
     visible: false,
     x: 0,
@@ -50,7 +53,7 @@ export function useContextMenu({
       try {
         links = await onLoadLinks(node.id)
       } catch (err) {
-        console.error('Failed to load links:', err)
+        handleError(err, { context: 'Loading links', silent: true })
       }
     }
 
@@ -113,7 +116,7 @@ export function useContextMenu({
           await onRefreshSelectedNode(source.id)
         }
       } catch (err) {
-        console.error('Failed to unlink nodes:', err)
+        handleError(err, { context: 'Unlinking nodes' })
       }
     }
   }
@@ -123,7 +126,7 @@ export function useContextMenu({
       try {
         await onMoveToWorkspace(node.id, workspaceId)
       } catch (err) {
-        console.error('Failed to move to workspace:', err)
+        handleError(err, { context: 'Moving to workspace' })
       }
     }
     closeContextMenu()
