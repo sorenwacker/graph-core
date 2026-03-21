@@ -853,6 +853,9 @@
   --ag-border-color: var(--border-color);
   --ag-header-column-separator-color: var(--border-color);
   --ag-row-border-color: var(--border-color);
+  --ag-borders: solid 1px;
+  --ag-row-border-width: 1px;
+  --ag-cell-horizontal-border: solid 1px var(--border-color);
 }
 
 [data-theme="light"] .spreadsheet-container {
