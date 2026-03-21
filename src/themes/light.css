@@ -836,3 +836,50 @@
 [data-theme="light"] .menu-item.danger:hover {
   background: var(--error-bg);
 }
+
+/* NodeSpreadsheet - row index, column menu, rename input */
+[data-theme="light"] .row-index-cell {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-tertiary) !important;
+}
+
+[data-theme="light"] .column-rename-input {
+  background: var(--bg-primary);
+  border-color: var(--accent-color);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .column-menu {
+  background: var(--bg-elevated);
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-md);
+}
+
+[data-theme="light"] .column-menu-item {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .column-menu-item:hover {
+  background: var(--bg-hover);
+}
+
+[data-theme="light"] .column-menu-item.delete {
+  color: var(--error-color);
+}
+
+[data-theme="light"] .column-menu-item.delete:hover {
+  background: var(--error-bg);
+}
+
+/* TableView - inherited completed rows */
+[data-theme="light"] .node-row.inherited-completed {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .node-row.inherited-completed .col-title {
+  color: var(--text-tertiary);
+}
+
+[data-theme="light"] .node-row.inherited-completed .col-title::after {
+  color: var(--success-color);
+}
