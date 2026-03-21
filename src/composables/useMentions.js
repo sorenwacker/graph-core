@@ -1,5 +1,6 @@
 import { ref, nextTick } from 'vue'
 import { api } from '../services/api.js'
+import { useErrorHandler } from './useErrorHandler'
 
 /**
  * Composable for @person mentions in textarea fields
@@ -10,6 +11,7 @@ import { api } from '../services/api.js'
  */
 export function useMentions(options = {}) {
   const { onMentionInserted, workspaceId = 'work' } = options
+  const { handleError } = useErrorHandler()
 
   const showMentions = ref(false)
   const mentionQuery = ref('')
@@ -25,7 +27,7 @@ export function useMentions(options = {}) {
     try {
       persons.value = await api.getNodes({ type: 'person', workspace_id: workspaceId })
     } catch (err) {
-      console.error('Failed to load persons for mentions:', err)
+      handleError(err, { context: 'Loading persons', silent: true })
       persons.value = []
     }
   }
@@ -172,7 +174,7 @@ export function useMentions(options = {}) {
         await api.linkNodes(currentNodeId, person.id)
         onMentionInserted(person.id, currentNodeId)
       } catch (err) {
-        console.error('Failed to auto-link mention:', err)
+        handleError(err, { context: 'Linking mention' })
       }
     }
   }

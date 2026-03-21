@@ -1,4 +1,5 @@
 import { ref, watch, nextTick } from 'vue'
+import { useErrorHandler } from './useErrorHandler'
 
 /**
  * Composable for inline editing of node titles and notes.
@@ -10,6 +11,8 @@ import { ref, watch, nextTick } from 'vue'
  * @param {Function} options.findNode - Called to find node by ID: findNode(nodeId) => node | null
  */
 export function useInlineEdit({ onSaveTitle, onSaveNotes, findNode } = {}) {
+  const { handleError } = useErrorHandler()
+
   // Title editing state
   const editingCardId = ref(null)
   const editingTitle = ref('')
@@ -48,7 +51,7 @@ export function useInlineEdit({ onSaveTitle, onSaveNotes, findNode } = {}) {
       try {
         await onSaveTitle(nodeId, editingTitle.value)
       } catch (e) {
-        console.error('Failed to save title:', e)
+        handleError(e, { context: 'Saving title' })
       }
     }
 
@@ -100,7 +103,7 @@ export function useInlineEdit({ onSaveTitle, onSaveNotes, findNode } = {}) {
       try {
         await onSaveNotes(nodeId, inlineNotesText.value, { autoSave: true })
       } catch (e) {
-        console.error('Auto-save failed:', e)
+        handleError(e, { context: 'Auto-saving notes', silent: true })
       }
     }
   }
@@ -138,7 +141,7 @@ export function useInlineEdit({ onSaveTitle, onSaveNotes, findNode } = {}) {
       try {
         await onSaveNotes(nodeId, inlineNotesText.value, { autoSave: false })
       } catch (e) {
-        console.error('Failed to save notes:', e)
+        handleError(e, { context: 'Saving notes' })
       }
     }
 
