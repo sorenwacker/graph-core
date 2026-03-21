@@ -1,4 +1,5 @@
 import { ref, nextTick } from 'vue'
+import { useErrorHandler } from './useErrorHandler'
 
 const SEARCH_PAGE_SIZE = 50
 
@@ -13,6 +14,8 @@ const SEARCH_PAGE_SIZE = 50
  * @param {Object} options.selectedNode - Ref to the currently selected node (for link mode)
  */
 export function useSearch({ onSearch, onSelect, onFetchBreadcrumbs, selectedNode } = {}) {
+  const { handleError } = useErrorHandler()
+
   const searchQuery = ref('')
   const searchResults = ref([])
   const showSearch = ref(false)
@@ -125,7 +128,7 @@ export function useSearch({ onSearch, onSelect, onFetchBreadcrumbs, selectedNode
         }
       }
     } catch (e) {
-      console.error('Search failed:', e)
+      handleError(e, { context: 'Searching' })
       isLoadingMore.value = false
     }
   }

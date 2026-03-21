@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { useErrorHandler } from './useErrorHandler'
 
 /**
  * Composable for snapshot/backup management.
@@ -22,6 +23,8 @@ export function useSnapshots({
   onAfterReload,
   confirm: confirmFn = (msg) => window.confirm(msg)
 } = {}) {
+  const { handleError } = useErrorHandler()
+
   const availableSnapshots = ref([])
   const showSnapshotList = ref(false)
   const snapshotMessage = ref('')
@@ -45,7 +48,7 @@ export function useSnapshots({
         availableSnapshots.value = (snapshots || []).filter(Boolean)
       }
     } catch (e) {
-      console.error('Failed to load snapshots:', e)
+      handleError(e, { context: 'Loading snapshots' })
       availableSnapshots.value = []
     }
   }
@@ -58,8 +61,7 @@ export function useSnapshots({
         await loadSnapshots()
       }
     } catch (e) {
-      showMessage('Failed to create snapshot')
-      console.error('Failed to create snapshot:', e)
+      handleError(e, { context: 'Creating snapshot' })
     }
   }
 
@@ -78,8 +80,7 @@ export function useSnapshots({
         showMessage('Snapshot restored successfully')
       }
     } catch (e) {
-      showMessage('Failed to restore snapshot')
-      console.error('Failed to restore snapshot:', e)
+      handleError(e, { context: 'Restoring snapshot' })
     }
   }
 
@@ -94,8 +95,7 @@ export function useSnapshots({
         }
       }
     } catch (e) {
-      showMessage('Failed to reload database')
-      console.error('Failed to reload database:', e)
+      handleError(e, { context: 'Reloading database' })
     }
   }
 

@@ -1,4 +1,5 @@
 import { ref, watch } from 'vue'
+import { useErrorHandler } from './useErrorHandler'
 
 /**
  * Composable for managing workspace state and operations.
@@ -15,6 +16,8 @@ export function useWorkspace({
   onSwitch,
   defaultWorkspace = 'work'
 } = {}) {
+  const { handleError } = useErrorHandler()
+
   // Get initial workspace from localStorage or use default
   const getInitialWorkspace = () => {
     if (typeof localStorage === 'undefined') return defaultWorkspace
@@ -37,7 +40,7 @@ export function useWorkspace({
       const ws = await api.getWorkspaces()
       workspaces.value = (ws || []).filter(Boolean)
     } catch (e) {
-      console.error('Failed to load workspaces:', e)
+      handleError(e, { context: 'Loading workspaces' })
       workspaces.value = []
     }
   }
@@ -70,7 +73,7 @@ export function useWorkspace({
       showNewWorkspaceInput.value = false
       newWorkspaceName.value = ''
     } catch (e) {
-      console.error('Failed to create workspace:', e)
+      handleError(e, { context: 'Creating workspace' })
     }
   }
 
@@ -104,7 +107,7 @@ export function useWorkspace({
       }
       return true
     } catch (e) {
-      console.error('Failed to delete workspace:', e)
+      handleError(e, { context: 'Deleting workspace' })
       return false
     }
   }
@@ -121,7 +124,7 @@ export function useWorkspace({
       await loadWorkspaces()
       return true
     } catch (e) {
-      console.error('Failed to rename workspace:', e)
+      handleError(e, { context: 'Renaming workspace' })
       return false
     }
   }

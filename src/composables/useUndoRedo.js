@@ -1,5 +1,6 @@
 import { ref, computed, watch } from 'vue'
 import { serializeStack, deserializeStack } from '../commands/commandFactory.js'
+import { useErrorHandler } from './useErrorHandler'
 
 const UNDO_STORAGE_KEY = 'graphcore-undoStack'
 const REDO_STORAGE_KEY = 'graphcore-redoStack'
@@ -55,6 +56,8 @@ export function useUndoRedo({
   maxStackSize = 50,
   persist = true
 } = {}) {
+  const { handleError } = useErrorHandler()
+
   // Restore from sessionStorage if persistence enabled
   const restoredUndo = persist ? restoreStack(UNDO_STORAGE_KEY) : []
   const restoredRedo = persist ? restoreStack(REDO_STORAGE_KEY) : []
@@ -97,7 +100,7 @@ export function useUndoRedo({
       if (onSuccess) await onSuccess({ command, action: 'undo' })
       return { command, description: command.getDescription?.() || command.type }
     } catch (error) {
-      console.error('Undo failed:', error, command)
+      handleError(error, { context: 'Undo' })
       undoStack.value.push(command) // Restore to stack on failure
       if (onError) onError(error, command)
       return null
@@ -122,7 +125,7 @@ export function useUndoRedo({
       if (onSuccess) await onSuccess({ command, action: 'redo' })
       return { command, description: command.getDescription?.() || command.type }
     } catch (error) {
-      console.error('Redo failed:', error, command)
+      handleError(error, { context: 'Redo' })
       redoStack.value.push(command) // Restore to stack on failure
       if (onError) onError(error, command)
       return null
