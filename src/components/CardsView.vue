@@ -512,7 +512,7 @@ function handleCanvasClick(e) {
   font-size: 14px;
   color: var(--text-secondary);
   line-height: 1.6;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   outline: none;
@@ -584,7 +584,7 @@ function handleCanvasClick(e) {
 .node-card.card-md .inline-notes-display { font-size: 10px; }
 
 .inline-notes-display:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-hover);
 }
 
 .inline-notes-display.empty {
@@ -612,7 +612,7 @@ function handleCanvasClick(e) {
   font-size: 13px;
   font-family: inherit;
   line-height: 1.5;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--bg-secondary);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
   border-radius: 4px;
@@ -650,14 +650,14 @@ function handleCanvasClick(e) {
 }
 
 .markdown-content code {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--bg-tertiary);
   padding: 0.1em 0.3em;
   border-radius: 3px;
   font-size: 0.9em;
 }
 
 .markdown-content pre {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--bg-secondary);
   padding: 0.5em;
   border-radius: 4px;
   overflow-x: auto;
@@ -839,7 +839,7 @@ function handleCanvasClick(e) {
   gap: 4px;
   padding: 3px 8px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-tertiary);
   color: var(--text-secondary);
 }
 
@@ -892,7 +892,7 @@ function handleCanvasClick(e) {
 .card-date-field input[type="date"] {
   padding: 6px 8px;
   font-size: 12px;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 6px;
 }

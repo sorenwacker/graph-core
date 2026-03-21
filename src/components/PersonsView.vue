@@ -833,7 +833,7 @@ function getOrganizationsForPerson(personId) {
 .person-notes {
   font-size: 13px;
   color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-tertiary);
   padding: 8px;
   border-radius: 4px;
   white-space: pre-wrap;
@@ -1151,7 +1151,7 @@ function getOrganizationsForPerson(personId) {
 .person-modal .org-remove {
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 0 2px;
   font-size: 14px;
@@ -1159,7 +1159,7 @@ function getOrganizationsForPerson(personId) {
 }
 
 .person-modal .org-remove:hover {
-  color: white;
+  color: var(--text-primary);
 }
 
 .person-modal .org-autocomplete {

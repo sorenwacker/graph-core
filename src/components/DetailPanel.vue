@@ -2834,7 +2834,7 @@ textarea::selection {
 .org-remove {
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 0 2px;
   font-size: 12px;
@@ -2842,7 +2842,7 @@ textarea::selection {
 }
 
 .org-remove:hover {
-  color: white;
+  color: var(--text-primary);
 }
 
 .org-autocomplete {
@@ -3284,7 +3284,7 @@ textarea::selection {
 .member-remove {
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 0 2px;
   font-size: 14px;
@@ -3292,7 +3292,7 @@ textarea::selection {
 }
 
 .member-remove:hover {
-  color: white;
+  color: var(--text-primary);
 }
 
 /* Member autocomplete */
