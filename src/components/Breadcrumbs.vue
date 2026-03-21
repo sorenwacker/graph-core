@@ -7,7 +7,7 @@ const emit = defineEmits(['navigate'])
 </script>
 
 <template>
-  <nav class="header-breadcrumbs">
+  <nav class="header-breadcrumbs" aria-label="Breadcrumb navigation">
     <div class="breadcrumb-path">
       <span class="crumb" @click="emit('navigate', -1)">~</span>
       <template v-for="(crumb, index) in breadcrumbs" :key="crumb.id">
