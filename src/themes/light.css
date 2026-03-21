@@ -832,6 +832,29 @@
   border-right-color: var(--border-color) !important;
 }
 
+[data-theme="light"] .ag-header-cell-resize {
+  background-color: var(--border-color) !important;
+}
+
+[data-theme="light"] .ag-header-cell::after,
+[data-theme="light"] .ag-header-group-cell::after {
+  border-color: var(--border-color) !important;
+}
+
+[data-theme="light"] .ag-header-viewport {
+  border-color: var(--border-color) !important;
+}
+
+[data-theme="light"] .ag-header-container {
+  border-color: var(--border-color) !important;
+}
+
+[data-theme="light"] [class*="ag-"] {
+  --ag-border-color: var(--border-color);
+  --ag-header-column-separator-color: var(--border-color);
+  --ag-row-border-color: var(--border-color);
+}
+
 [data-theme="light"] .spreadsheet-container {
   border-color: var(--border-color);
 }
