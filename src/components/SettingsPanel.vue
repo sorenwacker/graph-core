@@ -783,7 +783,7 @@ onMounted(() => {
 }
 
 .reload-btn {
-  background: #e67e22 !important;
+  background: #e67e22;
 }
 
 .settings-header {
@@ -1212,4 +1212,5 @@ onMounted(() => {
   font-size: 0.75rem;
   line-height: 1.4;
 }
+
 </style>

@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import tippy from 'tippy.js'
 import { api } from '../services/api'
 import { buildTooltipHTML } from '../utils/tooltip.js'
 import { useNodeTooltip } from '../composables/useNodeTooltip.js'
@@ -89,6 +90,10 @@ const container = ref(null)
 const editModalEl = ref(null)
 const editTitleInput = ref(null)
 const dropHighlightEl = ref(null)
+
+// Graph control button refs for tooltips
+const graphControlsRef = ref(null)
+let graphControlTippyInstances = []
 
 // Link mode toggle - can be activated by Option key or button
 const linkModeActive = ref(false)
@@ -2553,6 +2558,27 @@ onMounted(() => {
   window.addEventListener('graph-center-node', handleCenterNodeEvent)
   window.addEventListener('keydown', handleGlobalKeydown)
   window.addEventListener('click', handleClickOutside)
+
+  // Initialize tooltips for graph control buttons
+  nextTick(() => {
+    if (graphControlsRef.value) {
+      const buttons = graphControlsRef.value.querySelectorAll('button[title]')
+      buttons.forEach(btn => {
+        const content = btn.getAttribute('title')
+        if (content) {
+          const instance = tippy(btn, {
+            content,
+            placement: 'bottom',
+            delay: [200, 0],
+            duration: [150, 100],
+            theme: 'toolbar'
+          })
+          graphControlTippyInstances.push(instance)
+          btn.removeAttribute('title') // Remove native title to avoid double tooltip
+        }
+      })
+    }
+  })
 })
 
 function handleClickOutside(e) {
@@ -2571,13 +2597,16 @@ onUnmounted(() => {
     cy.destroy()
     cy = null
   }
+  // Cleanup graph control tooltips
+  graphControlTippyInstances.forEach(instance => instance.destroy())
+  graphControlTippyInstances = []
 })
 </script>
 
 <template>
   <div class="graph-wrapper">
     <Teleport to="#view-controls-target">
-    <div class="graph-controls">
+    <div ref="graphControlsRef" class="graph-controls">
       <button
         class="icon-btn"
         @click="setLayout('tree')"
@@ -3111,17 +3140,17 @@ onUnmounted(() => {
 }
 
 .graph-controls button.relax-locked {
-  background: rgba(34, 197, 94, 0.15) !important;
-  border-color: var(--success-color) !important;
-  color: var(--success-color) !important;
+  background: rgba(34, 197, 94, 0.15);
+  border-color: var(--success-color);
+  color: var(--success-color);
   box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
   animation: pulse-relax 1s ease-in-out infinite;
 }
 
 .graph-controls button.fit-locked {
-  background: rgba(34, 197, 94, 0.15) !important;
-  border-color: var(--success-color) !important;
-  color: var(--success-color) !important;
+  background: rgba(34, 197, 94, 0.15);
+  border-color: var(--success-color);
+  color: var(--success-color);
   box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
   animation: pulse-relax 1s ease-in-out infinite;
 }

@@ -9,20 +9,8 @@ import './themes/dark.css'
 import './themes/light.css'
 import App from './App.vue'
 import DetachedView from './components/DetachedView.vue'
-import { typeConfig } from './utils/constants.js'
 
 const pinia = createPinia()
-
-// Inject CSS variables from typeConfig for single source of truth
-function injectTypeColorVars() {
-  const root = document.documentElement
-  for (const [type, config] of Object.entries(typeConfig)) {
-    root.style.setProperty(`--type-${type}-bg`, config.bg)
-    root.style.setProperty(`--type-${type}-text`, config.text)
-  }
-}
-
-injectTypeColorVars()
 
 // Check if this is a detached window
 const params = new URLSearchParams(window.location.search)

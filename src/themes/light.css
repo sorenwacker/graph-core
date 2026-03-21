@@ -22,11 +22,11 @@
   --bg-hover: rgba(0, 0, 0, 0.04);
   --bg-active: rgba(0, 0, 0, 0.08);
 
-  /* Accent - slightly darker for contrast on light backgrounds */
-  --accent-color: #2563eb;
-  --accent-hover: #3b82f6;
-  --accent-subtle: rgba(37, 99, 235, 0.1);
-  --accent-glow: rgba(37, 99, 235, 0.15);
+  /* Accent - muted indigo for professional look on light backgrounds */
+  --accent-color: #4338ca;
+  --accent-hover: #5b50d6;
+  --accent-subtle: rgba(67, 56, 202, 0.1);
+  --accent-glow: rgba(67, 56, 202, 0.15);
 
   /* Status */
   --success-color: #16a34a;
@@ -156,25 +156,7 @@
   color: white;
 }
 
-/* Graph controls - override hardcoded dark colors (need !important for scoped styles) */
-[data-theme="light"] .graph-controls button.active {
-  background: var(--accent-subtle) !important;
-  border-color: var(--accent-color) !important;
-  color: var(--accent-color) !important;
-}
-
-[data-theme="light"] .graph-controls button.relax-locked {
-  background: rgba(34, 197, 94, 0.15) !important;
-  border-color: #16a34a !important;
-  color: #16a34a !important;
-  box-shadow: 0 0 10px rgba(34, 197, 94, 0.2) !important;
-}
-
-[data-theme="light"] .graph-controls button.fit-locked {
-  background: rgba(34, 197, 94, 0.15) !important;
-  border-color: #16a34a !important;
-  color: #16a34a !important;
-}
+/* Graph controls - active state already uses CSS variables, locked states use success color */
 
 /* Spreadsheet context buttons */
 [data-theme="light"] .ctx-btn.active {
@@ -571,4 +553,125 @@
 
 [data-theme="light"] .node-html-notes {
   color: var(--text-secondary);
+}
+
+[data-theme="light"] .node-html-notes code {
+  background: var(--bg-tertiary);
+  color: var(--success-color);
+}
+
+[data-theme="light"] .node-html-notes a {
+  color: var(--accent-color);
+}
+
+[data-theme="light"] .node-html-notes blockquote {
+  color: var(--text-secondary);
+  border-color: var(--accent-color);
+}
+
+[data-theme="light"] .notes-indicator {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .node-person {
+  color: inherit;
+}
+
+/* ========================================
+   DetailPanel form elements - light mode
+   ======================================== */
+[data-theme="light"] .meta-item input[type="date"] {
+  color-scheme: light;
+}
+
+[data-theme="light"] .meta-item input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: none;
+  opacity: 0.7;
+}
+
+[data-theme="light"] .meta-item select {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .org-dropdown,
+[data-theme="light"] .member-dropdown {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-md);
+}
+
+[data-theme="light"] .org-option,
+[data-theme="light"] .member-option {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .org-option:hover,
+[data-theme="light"] .org-option.selected,
+[data-theme="light"] .member-option:hover,
+[data-theme="light"] .member-option.selected {
+  background: var(--bg-hover);
+}
+
+/* ========================================
+   SettingsPanel - light mode overrides
+   ======================================== */
+[data-theme="light"] .settings-panel {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .settings-section {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .settings-select,
+[data-theme="light"] .text-input {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .snapshot-btn,
+[data-theme="light"] .refresh-btn {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .snapshot-btn:hover,
+[data-theme="light"] .refresh-btn:hover {
+  background: var(--bg-hover);
+}
+
+[data-theme="light"] .theme-btn {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .theme-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .theme-btn.active {
+  background: var(--accent-subtle);
+  color: var(--accent-color);
+}
+
+[data-theme="light"] .snapshot-list,
+[data-theme="light"] .prompt-list {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .snapshot-item,
+[data-theme="light"] .prompt-item {
+  border-color: var(--border-color);
+}
+
+[data-theme="light"] .prompt-editor {
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
