@@ -1459,12 +1459,13 @@ function getDragBarStyle(node) {
 }
 
 .bar-label {
-  color: white;
+  color: var(--text-primary);
   font-size: 0.7rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   pointer-events: none;
+  text-shadow: 0 1px 2px var(--bg-primary);
 }
 
 .due-marker {
