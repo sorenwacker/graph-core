@@ -3099,13 +3099,14 @@ onUnmounted(() => {
   top: 100%;
   right: 0;
   margin-top: 4px;
-  background: #111;
+  background: var(--bg-elevated);
   border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 12px;
   min-width: 220px;
   z-index: 100;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
+  color: var(--text-primary);
 }
 
 .layout-setting {
