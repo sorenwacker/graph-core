@@ -1,4 +1,6 @@
 <script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
+import tippy from 'tippy.js'
 import { viewModes } from '../utils/viewConfig.js'
 
 const props = defineProps({
@@ -7,19 +9,42 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue'])
 
+const buttonRefs = ref([])
+let tippyInstances = []
+
 function setView(id) {
   emit('update:modelValue', id)
 }
+
+onMounted(() => {
+  buttonRefs.value.forEach((el, index) => {
+    if (el && viewModes[index]) {
+      const instance = tippy(el, {
+        content: viewModes[index].label,
+        placement: 'bottom',
+        delay: [200, 0],
+        duration: [150, 100],
+        theme: 'toolbar'
+      })
+      tippyInstances.push(instance)
+    }
+  })
+})
+
+onUnmounted(() => {
+  tippyInstances.forEach(instance => instance.destroy())
+  tippyInstances = []
+})
 </script>
 
 <template>
   <div class="view-switcher">
     <button
-      v-for="view in viewModes"
+      v-for="(view, index) in viewModes"
       :key="view.id"
+      :ref="el => buttonRefs[index] = el"
       class="view-btn"
       :class="{ active: modelValue === view.id }"
-      :title="view.label"
       @click="setView(view.id)"
       v-html="view.icon"
     >

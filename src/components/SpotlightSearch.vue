@@ -208,26 +208,26 @@ function getModeBadge() {
   font-size: 18px;
   background: transparent;
   border: none;
-  color: #fff;
+  color: var(--text-primary);
   outline: none;
 }
 
 .spotlight-input::placeholder {
-  color: #666;
+  color: var(--text-tertiary);
 }
 
 .spotlight-hint {
   display: flex;
   gap: 12px;
   font-size: 11px;
-  color: #666;
+  color: var(--text-tertiary);
 }
 
 .spotlight-hint .key {
-  background: #222;
+  background: var(--bg-tertiary);
   padding: 2px 6px;
   border-radius: 4px;
-  color: #888;
+  color: var(--text-secondary);
   font-family: monospace;
   margin-right: 4px;
 }
@@ -242,10 +242,10 @@ function getModeBadge() {
   padding: 10px 20px;
   font-size: 11px;
   font-weight: 600;
-  color: #666;
+  color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  background: #111;
+  background: var(--bg-secondary);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -260,7 +260,7 @@ function getModeBadge() {
 }
 
 .current-view-badge {
-  background: #333;
+  background: var(--bg-tertiary);
   padding: 2px 8px;
   border-radius: 10px;
   margin-left: auto;
@@ -269,12 +269,12 @@ function getModeBadge() {
 .clear-recents {
   margin-left: auto;
   cursor: pointer;
-  color: #888;
+  color: var(--text-secondary);
   transition: color 0.15s;
 }
 
 .clear-recents:hover {
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .spotlight-result {
@@ -284,7 +284,7 @@ function getModeBadge() {
   padding: 12px 20px;
   cursor: pointer;
   transition: background 0.15s;
-  border-bottom: 1px solid #1a1a1a;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .spotlight-result:last-child {
@@ -293,7 +293,7 @@ function getModeBadge() {
 
 .spotlight-result:hover,
 .spotlight-result.selected {
-  background: #1a1a1a;
+  background: var(--bg-hover);
 }
 
 .spotlight-result.completed {
@@ -338,13 +338,13 @@ function getModeBadge() {
 .result-title {
   font-size: 15px;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
   margin-bottom: 4px;
 }
 
 .result-breadcrumb {
   font-size: 12px;
-  color: #666;
+  color: var(--text-tertiary);
   margin-bottom: 4px;
 }
 
@@ -352,12 +352,12 @@ function getModeBadge() {
   display: flex;
   gap: 12px;
   font-size: 11px;
-  color: #888;
+  color: var(--text-secondary);
   margin-bottom: 4px;
 }
 
 .result-due {
-  color: #f59e0b;
+  color: var(--warning-color);
 }
 
 .result-priority {
@@ -366,7 +366,7 @@ function getModeBadge() {
 
 .result-notes {
   font-size: 12px;
-  color: #888;
+  color: var(--text-secondary);
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -376,7 +376,7 @@ function getModeBadge() {
 
 .result-action {
   font-size: 12px;
-  color: #666;
+  color: var(--text-tertiary);
   white-space: nowrap;
   display: flex;
   align-items: center;
@@ -384,7 +384,7 @@ function getModeBadge() {
 }
 
 .action-arrow {
-  color: #444;
+  color: var(--text-tertiary);
 }
 
 .spotlight-empty,
@@ -395,14 +395,14 @@ function getModeBadge() {
 
 .empty-text {
   font-size: 15px;
-  color: #888;
+  color: var(--text-secondary);
   margin-bottom: 8px;
 }
 
 .empty-hint,
 .hint-text {
   font-size: 13px;
-  color: #666;
+  color: var(--text-tertiary);
 }
 
 .loading-more,
@@ -410,10 +410,10 @@ function getModeBadge() {
   padding: 12px 20px;
   text-align: center;
   font-size: 12px;
-  color: #666;
+  color: var(--text-tertiary);
 }
 
 .loading-more {
-  color: #888;
+  color: var(--text-secondary);
 }
 </style>

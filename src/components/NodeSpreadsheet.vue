@@ -1044,15 +1044,15 @@ onUnmounted(() => {
 }
 
 .toolbar-btn:hover {
-  background: #222222;
-  color: #fff;
-  border-color: #2a2a2a;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-color);
 }
 
 .delete-btn:hover {
-  background: #200808;
-  border-color: #3a1a1a;
-  color: #ff6b6b;
+  background: var(--error-bg);
+  border-color: var(--error-border);
+  color: var(--error-color);
 }
 
 /* Context Menu */
@@ -1084,14 +1084,14 @@ onUnmounted(() => {
 }
 
 .ctx-btn:hover {
-  background: #222222;
-  color: #fff;
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .ctx-btn.active {
-  background: #0a1520;
-  border-color: #4a8af4;
-  color: #4a8af4;
+  background: var(--accent-subtle);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 
 .ctx-btn strong {

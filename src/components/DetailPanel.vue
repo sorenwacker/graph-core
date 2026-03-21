@@ -1809,7 +1809,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
 
 .detail-panel-header .close-btn:hover {
   background: var(--bg-hover);
-  color: #ff6b6b;
+  color: var(--error-color);
 }
 
 .detail-panel-content {

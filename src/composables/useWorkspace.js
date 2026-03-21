@@ -110,6 +110,23 @@ export function useWorkspace({
   }
 
   /**
+   * Rename a workspace
+   * @param {string} workspaceId - Workspace ID to rename
+   * @param {string} newName - New name for the workspace
+   */
+  async function renameWorkspace(workspaceId, newName) {
+    if (!newName?.trim()) return false
+    try {
+      await api.updateWorkspace(workspaceId, { name: newName.trim() })
+      await loadWorkspaces()
+      return true
+    } catch (e) {
+      console.error('Failed to rename workspace:', e)
+      return false
+    }
+  }
+
+  /**
    * Switch to a different workspace
    * @param {string} workspaceId - Workspace ID to switch to
    */
@@ -150,6 +167,7 @@ export function useWorkspace({
     openNewWorkspaceDialog,
     createWorkspace,
     deleteCurrentWorkspace,
+    renameWorkspace,
     switchWorkspace,
     getWorkspaceIdForNode
   }

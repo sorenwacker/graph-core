@@ -397,12 +397,12 @@ defineExpose({ loadTasks })
 .tasks-header h2 {
   margin: 0;
   font-size: 1.5rem;
-  color: #f0f0f0;
+  color: var(--text-primary);
 }
 
 .container-scope {
   font-weight: 400;
-  color: #888;
+  color: var(--text-secondary);
   font-size: 1.1rem;
 }
 
@@ -416,7 +416,7 @@ defineExpose({ loadTasks })
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #aaa;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 0.9rem;
 }
@@ -426,16 +426,16 @@ defineExpose({ loadTasks })
 }
 
 .filter-select {
-  background: #1a1a2e;
-  border: 1px solid #333;
-  color: #f0f0f0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
   padding: 6px 10px;
   border-radius: 4px;
   font-size: 0.9rem;
 }
 
 .loading, .empty-state {
-  color: #888;
+  color: var(--text-secondary);
   text-align: center;
   padding: 40px;
 }
@@ -459,15 +459,15 @@ defineExpose({ loadTasks })
 .tasks-table thead {
   position: sticky;
   top: 0;
-  background: #0d0d12;
+  background: var(--bg-primary);
   z-index: 1;
 }
 
 .tasks-table th {
   text-align: left;
   padding: 10px 12px;
-  border-bottom: 1px solid #333;
-  color: #888;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-secondary);
   font-weight: 500;
   font-size: 0.85rem;
   text-transform: uppercase;
@@ -481,7 +481,7 @@ defineExpose({ loadTasks })
 }
 
 .tasks-table th.sortable:hover {
-  color: #f0f0f0;
+  color: var(--text-primary);
 }
 
 .tasks-table td {
@@ -541,7 +541,7 @@ defineExpose({ loadTasks })
 }
 
 .task-title {
-  color: #f0f0f0;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
@@ -550,7 +550,7 @@ defineExpose({ loadTasks })
 }
 
 .parent-path {
-  color: #888;
+  color: var(--text-secondary);
   font-size: 0.9rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -559,27 +559,27 @@ defineExpose({ loadTasks })
 }
 
 .no-project {
-  color: #555;
+  color: var(--text-tertiary);
 }
 
 .direct-child {
-  color: #666;
+  color: var(--text-tertiary);
   font-style: italic;
 }
 
 .col-created, .col-due {
   width: 12%;
-  color: #aaa;
+  color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
 .col-due.overdue {
-  color: #e74c3c;
+  color: var(--error-color);
   font-weight: 500;
 }
 
 .col-due.due-soon {
-  color: #f1c40f;
+  color: var(--warning-color);
 }
 
 .col-importance {
@@ -587,16 +587,16 @@ defineExpose({ loadTasks })
   font-size: 0.85rem;
 }
 
-.importance-low { color: #888; }
-.importance-medium { color: #3498db; }
-.importance-high { color: #f39c12; }
-.importance-critical { color: #e74c3c; font-weight: 600; }
+.importance-low { color: var(--text-secondary); }
+.importance-medium { color: var(--accent-color); }
+.importance-high { color: var(--warning-color); }
+.importance-critical { color: var(--error-color); font-weight: 600; }
 
 .tasks-footer {
   margin-top: 16px;
   padding-top: 12px;
-  border-top: 1px solid #222;
-  color: #666;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-tertiary);
   font-size: 0.85rem;
   flex-shrink: 0;
 }

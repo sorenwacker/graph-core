@@ -1,6 +1,55 @@
 <script setup>
+import { ref, onMounted, onUnmounted, computed } from 'vue'
+import tippy from 'tippy.js'
 import ViewSwitcher from './ViewSwitcher.vue'
 import SettingsPanel from './SettingsPanel.vue'
+import { useTheme } from '../composables/useTheme.js'
+
+const { currentTheme, resolvedTheme, cycleTheme } = useTheme()
+
+// Refs for tooltip targets
+const sortBtn = ref(null)
+const hideCompletedBtn = ref(null)
+const undoBtn = ref(null)
+const redoBtn = ref(null)
+const settingsBtn = ref(null)
+const themeBtn = ref(null)
+
+const themeTooltip = computed(() => {
+  const labels = { light: 'Light', dark: 'Dark', system: 'System' }
+  return `Theme: ${labels[currentTheme.value]} (click to change)`
+})
+
+let tippyInstances = []
+
+onMounted(() => {
+  const buttons = [
+    { el: sortBtn.value, content: 'Sort A-Z' },
+    { el: hideCompletedBtn.value, content: 'Toggle completed visibility' },
+    { el: undoBtn.value, content: 'Undo (Cmd+Z)' },
+    { el: redoBtn.value, content: 'Redo (Cmd+Shift+Z)' },
+    { el: themeBtn.value, content: () => themeTooltip.value },
+    { el: settingsBtn.value, content: 'Settings' }
+  ]
+
+  buttons.forEach(({ el, content }) => {
+    if (el) {
+      const instance = tippy(el, {
+        content,
+        placement: 'bottom',
+        delay: [200, 0],
+        duration: [150, 100],
+        theme: 'toolbar'
+      })
+      tippyInstances.push(instance)
+    }
+  })
+})
+
+onUnmounted(() => {
+  tippyInstances.forEach(instance => instance.destroy())
+  tippyInstances = []
+})
 
 const props = defineProps({
   viewMode: { type: String, required: true },
@@ -81,9 +130,9 @@ function handleClickOutside(e) {
     />
     <span class="toolbar-separator"></span>
     <button
+      ref="sortBtn"
       :class="{ active: sortAlphabetically }"
       @click="emit('update:sortAlphabetically', !sortAlphabetically)"
-      title="Sort current level A-Z"
       aria-label="Sort alphabetically"
       :aria-pressed="sortAlphabetically"
     >
@@ -91,10 +140,10 @@ function handleClickOutside(e) {
     </button>
     <span class="toolbar-separator"></span>
     <button
+      ref="hideCompletedBtn"
       class="icon-btn"
       :class="{ active: hideCompleted }"
       @click="emit('toggle-completed')"
-      title="Toggle completed items visibility"
       aria-label="Toggle completed items visibility"
       :aria-pressed="hideCompleted"
     >
@@ -109,28 +158,48 @@ function handleClickOutside(e) {
     </button>
     <span class="toolbar-separator"></span>
     <button
+      ref="undoBtn"
       class="icon-btn"
       :disabled="!canUndo"
       @click="emit('undo')"
-      title="Undo (Cmd+Z)"
       aria-label="Undo"
     >
       &#x21A9;
     </button>
     <button
+      ref="redoBtn"
       class="icon-btn"
       :disabled="!canRedo"
       @click="emit('redo')"
-      title="Redo (Cmd+Shift+Z)"
       aria-label="Redo"
     >
       &#x21AA;
     </button>
+    <span class="toolbar-separator"></span>
+    <button
+      ref="themeBtn"
+      class="icon-btn theme-btn"
+      @click="cycleTheme"
+      aria-label="Toggle theme"
+    >
+      <!-- Sun icon for light mode -->
+      <svg v-if="resolvedTheme === 'light'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="5"/>
+        <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+        <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+      </svg>
+      <!-- Moon icon for dark mode -->
+      <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    </button>
     <div class="settings-dropdown" v-click-outside="handleClickOutside">
       <button
+        ref="settingsBtn"
         class="settings-btn"
         @click="emit('update:showSettings', !showSettings)"
-        title="Settings"
         aria-label="Open settings menu"
         :aria-expanded="showSettings"
       >

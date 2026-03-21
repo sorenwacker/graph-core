@@ -2220,6 +2220,29 @@ tr.search-highlight td {
   color: var(--text-primary);
 }
 
+/* Toolbar tooltip theme */
+.tippy-box[data-theme~='toolbar'] {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 4px 8px;
+  box-shadow: var(--shadow-md);
+}
+
+.tippy-box[data-theme~='toolbar'] > .tippy-arrow::before {
+  border-bottom-color: var(--bg-elevated);
+}
+
+.tippy-box[data-theme~='toolbar'][data-placement^='top'] > .tippy-arrow::before {
+  border-top-color: var(--bg-elevated);
+}
+
+.tippy-box[data-theme~='toolbar'][data-placement^='bottom'] > .tippy-arrow::before {
+  border-bottom-color: var(--bg-elevated);
+}
+
 /* ========================================
    Cytoscape HTML Node Labels
    These need to be global since they're rendered
