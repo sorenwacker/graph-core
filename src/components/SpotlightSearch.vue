@@ -184,19 +184,19 @@ function getModeBadge() {
 }
 
 .spotlight-modal {
-  background: #0a0a0a;
-  border: 2px solid #333;
+  background: var(--bg-primary);
+  border: 2px solid var(--border-color);
   border-radius: 16px;
   width: 90%;
   max-width: 640px;
   max-height: 70vh;
   overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+  box-shadow: var(--shadow-lg);
 }
 
 .spotlight-header {
   padding: 16px 20px;
-  border-bottom: 1px solid #222;
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   gap: 8px;

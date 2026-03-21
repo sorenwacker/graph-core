@@ -83,6 +83,10 @@ const dragStartPos = ref(null)
 const isDragging = ref(false)
 const lastSelectedColumn = ref(null) // For shift-click column range selection
 
+// Multi-cell typing buffer
+const typingBuffer = ref('')
+let typingTimeout = null
+
 // Context menus
 const showContextMenu = ref(false)
 const contextMenuPos = ref({ x: 0, y: 0 })
@@ -312,6 +316,8 @@ function handleMouseDown(event) {
       selectionEnd.value = { row: rowCount - 1, col: colIndex }
       lastSelectedColumn.value = colIndex
     }
+    typingBuffer.value = '' // Reset typing buffer on column selection
+    if (typingTimeout) clearTimeout(typingTimeout)
     refreshCells()
     // Focus grid for keyboard shortcuts
     gridWrapper.value?.focus()
@@ -340,6 +346,8 @@ function handleMouseDown(event) {
   selectionStart.value = { ...cell }
   selectionEnd.value = { ...cell }
   lastSelectedColumn.value = null // Reset column tracking when selecting cells
+  typingBuffer.value = '' // Reset typing buffer on new selection
+  if (typingTimeout) clearTimeout(typingTimeout)
   // Focus grid for keyboard shortcuts after selection
   gridWrapper.value?.focus()
   // Don't call refreshCells() here - let AG Grid handle the click for editing
@@ -456,6 +464,8 @@ function refreshCells() {
 function clearSelection() {
   selectionStart.value = null
   selectionEnd.value = null
+  typingBuffer.value = ''
+  if (typingTimeout) clearTimeout(typingTimeout)
   refreshCells()
 }
 
@@ -556,6 +566,34 @@ function deleteSelectedCells() {
   }
 }
 
+// Fill all selected cells with a value
+function fillSelectionWithValue(value) {
+  const bounds = selectionBounds.value
+  if (!bounds) return
+
+  const cols = columns.value
+  const isFormula = value.startsWith('=')
+
+  for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
+    for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
+      emit('cell-change', {
+        row: r,
+        col: c,
+        value: value,
+        isFormula: isFormula
+      })
+
+      // Update grid display
+      if (gridApi.value) {
+        const rowNode = gridApi.value.getRowNode(String(r))
+        if (rowNode && cols[c]) {
+          rowNode.setDataValue(cols[c].name, value)
+        }
+      }
+    }
+  }
+}
+
 // Paste from clipboard
 async function pasteSelection() {
   const bounds = selectionBounds.value
@@ -642,6 +680,36 @@ function handleKeyDown(event) {
     event.preventDefault()
     event.stopPropagation()
     deleteSelectedCells()
+    return
+  }
+
+  // Type into multiple selected cells
+  // Only handle if we have a multi-cell selection (more than 1 cell)
+  const bounds = selectionBounds.value
+  if (bounds) {
+    const cellCount = (bounds.maxRow - bounds.minRow + 1) * (bounds.maxCol - bounds.minCol + 1)
+
+    // Check if it's a printable character (single char, not special key)
+    if (cellCount > 1 && event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      event.preventDefault()
+      event.stopPropagation()
+
+      // Accumulate characters in typing buffer
+      typingBuffer.value += event.key
+
+      // Clear existing timeout
+      if (typingTimeout) clearTimeout(typingTimeout)
+
+      // Fill all selected cells with accumulated buffer
+      fillSelectionWithValue(typingBuffer.value)
+
+      // Clear buffer after 1.5 seconds of no typing
+      typingTimeout = setTimeout(() => {
+        typingBuffer.value = ''
+      }, 1500)
+
+      return
+    }
   }
 }
 
@@ -874,6 +942,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (saveTimeout) clearTimeout(saveTimeout)
+  if (typingTimeout) clearTimeout(typingTimeout)
   document.removeEventListener('keydown', handleKeyDown, true)
   document.removeEventListener('mousemove', handleMouseMove)
   document.removeEventListener('mouseup', handleMouseUp)

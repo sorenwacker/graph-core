@@ -143,15 +143,12 @@ watch(() => props.visible, (visible) => {
 
 /* Modal container */
 .modal {
-  background: rgba(16, 16, 16, 0.98);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 16px;
   width: 90%;
   max-width: 480px;
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.5),
-    0 24px 80px rgba(0, 0, 0, 0.7),
-    0 0 120px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
 }
 
@@ -166,8 +163,8 @@ watch(() => props.visible, (visible) => {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(255, 255, 255, 0.15) 30%,
-    rgba(255, 255, 255, 0.15) 70%,
+    var(--border-color) 30%,
+    var(--border-color) 70%,
     transparent
   );
 }
@@ -178,7 +175,7 @@ watch(() => props.visible, (visible) => {
   justify-content: space-between;
   align-items: center;
   padding: 18px 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .modal-title-row {
@@ -226,7 +223,7 @@ watch(() => props.visible, (visible) => {
 }
 
 .close-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-hover);
   color: var(--text-primary);
 }
 
@@ -249,8 +246,8 @@ watch(() => props.visible, (visible) => {
   padding: 14px 16px;
   font-size: 15px;
   font-family: inherit;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 10px;
   color: var(--text-primary);
   box-sizing: border-box;
@@ -287,9 +284,9 @@ watch(() => props.visible, (visible) => {
   align-items: center;
   gap: 6px;
   padding: 12px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-subtle);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--bg-secondary);
   color: var(--text-secondary);
   font-family: inherit;
   cursor: pointer;
@@ -297,8 +294,8 @@ watch(() => props.visible, (visible) => {
 }
 
 .type-btn:hover:not(.disabled) {
-  border-color: rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--border-color);
+  background: var(--bg-hover);
   transform: translateY(-2px);
 }
 
@@ -361,7 +358,7 @@ watch(() => props.visible, (visible) => {
 /* Footer */
 .modal-footer {
   padding: 12px 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-top: 1px solid var(--border-subtle);
   text-align: center;
   font-size: 11px;
   color: var(--text-tertiary);
@@ -372,7 +369,7 @@ watch(() => props.visible, (visible) => {
   padding: 2px 6px;
   margin-right: 4px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-tertiary);
   font-family: inherit;
   font-size: 10px;
 }

@@ -440,6 +440,7 @@ class Database {
       ...row,
       completed: Boolean(row.completed),
       favorite: Boolean(row.favorite),
+      has_table: Boolean(row.has_table),
       tags
     }
   }
@@ -681,7 +682,11 @@ class Database {
   }
 
   getNode(id) {
-    const row = this._get('SELECT * FROM nodes WHERE id = ? AND deleted_at IS NULL', [id])
+    const row = this._get(
+      `SELECT *, (EXISTS(SELECT 1 FROM node_tables WHERE node_id = nodes.id)) as has_table
+       FROM nodes WHERE id = ? AND deleted_at IS NULL`,
+      [id]
+    )
     return this._rowToNode(row)
   }
 
@@ -783,7 +788,7 @@ class Database {
    *   - string: specific workspace
    */
   getRoots(workspaceId = undefined) {
-    let sql = 'SELECT * FROM nodes WHERE parent_id IS NULL AND deleted_at IS NULL'
+    let sql = 'SELECT *, (EXISTS(SELECT 1 FROM node_tables WHERE node_id = nodes.id)) as has_table FROM nodes WHERE parent_id IS NULL AND deleted_at IS NULL'
     const values = []
 
     sql = this._applyWorkspaceFilter(sql, values, workspaceId)
@@ -880,7 +885,7 @@ class Database {
 
   getChildren(id, type = null, workspaceId = undefined) {
     const parent = this.getNode(id)
-    let sql = 'SELECT * FROM nodes WHERE parent_id = ? AND deleted_at IS NULL'
+    let sql = 'SELECT *, (EXISTS(SELECT 1 FROM node_tables WHERE node_id = nodes.id)) as has_table FROM nodes WHERE parent_id = ? AND deleted_at IS NULL'
     const values = [id]
 
     if (type) {
@@ -902,7 +907,7 @@ class Database {
 
     const pathPrefix = node.path ? `${node.path}/${id}` : `${id}`
 
-    let sql = "SELECT * FROM nodes WHERE (path = ? OR path LIKE ?) AND deleted_at IS NULL"
+    let sql = "SELECT *, (EXISTS(SELECT 1 FROM node_tables WHERE node_id = nodes.id)) as has_table FROM nodes WHERE (path = ? OR path LIKE ?) AND deleted_at IS NULL"
     const values = [pathPrefix, `${pathPrefix}/%`]
 
     sql = this._applyWorkspaceFilter(sql, values, node.workspace_id)
@@ -950,7 +955,7 @@ class Database {
       values.push(pathPrefix, `${pathPrefix}/%`)
     }
 
-    let sql = `SELECT * FROM nodes WHERE (${pathConditions.join(' OR ')}) AND deleted_at IS NULL`
+    let sql = `SELECT *, (EXISTS(SELECT 1 FROM node_tables WHERE node_id = nodes.id)) as has_table FROM nodes WHERE (${pathConditions.join(' OR ')}) AND deleted_at IS NULL`
 
     // Apply workspace filter from first node (assumes all roots are in same workspace)
     if (nodes[0].workspace_id) {
