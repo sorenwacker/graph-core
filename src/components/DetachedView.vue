@@ -98,6 +98,37 @@ async function handleDelete(node) {
   }
 }
 
+// Handle AI improve notes
+async function handleAIImproveNotes(payload) {
+  const { nodeId, oldNotes, newNotes, prompt, selectionRange, fullNotes } = payload
+
+  // Use fullNotes from the editor (current content) for correct selection positions
+  const currentFullNotes = fullNotes ?? ''
+
+  let finalNewNotes
+  if (selectionRange) {
+    // Selection-based improvement: replace only the selected portion
+    finalNewNotes = currentFullNotes.slice(0, selectionRange.from) +
+                    newNotes +
+                    currentFullNotes.slice(selectionRange.to)
+  } else {
+    // Full notes improvement
+    finalNewNotes = newNotes
+  }
+
+  try {
+    await api.updateNode(nodeId, { notes: finalNewNotes })
+    // Update local state
+    if (currentNode.value && currentNode.value.id === nodeId) {
+      currentNode.value = { ...currentNode.value, notes: finalNewNotes }
+      // Broadcast update to other windows
+      broadcastNodeUpdate(currentNode.value)
+    }
+  } catch (e) {
+    console.error('Failed to apply AI improvement:', e)
+  }
+}
+
 // Navigate to a child node
 function selectChild(childId) {
   if (currentNode.value) {
@@ -243,6 +274,7 @@ watch(() => currentNode.value?.title, (newTitle) => {
       @open-link-search="() => {}"
       @add-child="addChild"
       @child-updated="onChildUpdated"
+      @ai-improve-notes="handleAIImproveNotes"
     />
   </div>
 </template>

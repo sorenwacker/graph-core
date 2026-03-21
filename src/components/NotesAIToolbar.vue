@@ -13,7 +13,7 @@ const props = defineProps({
 
 const emit = defineEmits(['apply-improvement'])
 
-const { ollamaEnabled } = useSettings()
+const { aiEnabled } = useSettings()
 const { isGenerating, error, presetPrompts, improveNotes } = useOllama()
 
 const showDropdown = ref(false)
@@ -111,7 +111,7 @@ function handleRejectImprovement() {
 </script>
 
 <template>
-  <div class="ai-toolbar" v-if="ollamaEnabled">
+  <div class="ai-toolbar" v-if="aiEnabled">
     <div class="toolbar-wrapper">
       <button
         ref="buttonRef"

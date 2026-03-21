@@ -3,6 +3,7 @@ import { computed, watch } from 'vue'
 import CardTitleEdit from './CardTitleEdit.vue'
 import CardNotes from './CardNotes.vue'
 import NodeSpreadsheet from './NodeSpreadsheet.vue'
+import TableMiniature from './TableMiniature.vue'
 import { useNodeTable } from '../composables/useNodeTable.js'
 
 const {
@@ -173,6 +174,12 @@ const filteredNodes = computed(() => {
   return props.nodes.filter(n => !n.completed && !n.inheritedCompleted)
 })
 
+// Handle cell changes from spreadsheet
+async function handleCellChange({ row, col, value, isFormula }) {
+  if (!props.selectedId) return
+  await saveCell(props.selectedId, row, col, value, isFormula)
+}
+
 function handleCanvasClick(e) {
   if (e.metaKey || e.ctrlKey) {
     // Cmd/Ctrl+click on canvas: create new node
@@ -270,15 +277,23 @@ function handleCanvasClick(e) {
         @update:model-value="emit('update:inlineNotesText', $event)"
       />
 
-      <!-- Table/Spreadsheet - only for selected card with table -->
+      <!-- Table/Spreadsheet - full interactive for selected card -->
       <div v-if="isCardSelected(node.id) && selectedNodeHasTable" class="card-table-section" @click.stop>
         <NodeSpreadsheet
           :node-id="node.id"
           :table-data="selectedNodeTable"
           @update-table="updateTable"
-          @save-cell="saveCell"
+          @cell-change="handleCellChange"
         />
       </div>
+
+      <!-- Table miniature preview for non-selected cards with tables -->
+      <TableMiniature
+        v-else-if="node.has_table && !isCardSelected(node.id)"
+        :node-id="node.id"
+        :max-rows="cardSizeClass === 'card-xl' ? 4 : cardSizeClass === 'card-lg' ? 3 : 2"
+        :max-cols="cardSizeClass === 'card-xl' ? 5 : cardSizeClass === 'card-lg' ? 4 : 3"
+      />
 
       <!-- Metadata - xl/lg only -->
       <div v-if="(cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg') && (node.due_date || node.start_date)" class="node-card-meta">

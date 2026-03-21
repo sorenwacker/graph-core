@@ -486,7 +486,7 @@ defineExpose({ loadTasks })
 
 .tasks-table td {
   padding: 12px;
-  border-bottom: 1px solid #222;
+  border-bottom: 1px solid var(--border-color);
   vertical-align: middle;
   height: 44px;
   max-height: 44px;

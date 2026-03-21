@@ -634,6 +634,13 @@ async function enterContainer(node, { skipHistory = false, direction = 'forward'
 
   // Handle both node objects and node IDs
   const nodeId = typeof node === 'object' ? node?.id : node
+  const nodeObj = typeof node === 'object' ? node : null
+
+  // If node has no children, open detail panel fullscreen instead of entering
+  if (nodeObj && (!nodeObj.children || nodeObj.children.length === 0)) {
+    selectNode(nodeObj, { fullscreen: true })
+    return
+  }
 
   // Push current location to history before navigating (unless skipping)
   if (!skipHistory && currentContainerId.value !== nodeId) {
