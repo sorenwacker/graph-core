@@ -1,4 +1,4 @@
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { SIDEBAR_WIDTH, SIDEBAR_HIDE_DELAY_MS } from '../utils/uiConstants.js'
 
 /**
@@ -13,6 +13,16 @@ export function useSidebar({ pinned } = {}) {
   // Hover state
   const hovered = ref(false)
   let hideTimeout = null
+  let isUnmounted = false
+
+  // Cleanup on unmount
+  onUnmounted(() => {
+    isUnmounted = true
+    if (hideTimeout) {
+      clearTimeout(hideTimeout)
+      hideTimeout = null
+    }
+  })
 
   // Helper to get boolean from localStorage
   function getStoredBoolean(key, defaultValue = false) {
@@ -65,7 +75,9 @@ export function useSidebar({ pinned } = {}) {
     }
 
     hideTimeout = setTimeout(() => {
-      hovered.value = false
+      if (!isUnmounted) {
+        hovered.value = false
+      }
     }, SIDEBAR_HIDE_DELAY_MS)
   }
 
