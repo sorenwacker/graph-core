@@ -97,19 +97,16 @@ export function getFixedTooltipReference(event) {
     document.body.appendChild(dynamicAnchor)
   }
 
-  // Position on opposite side of cursor
+  // Position on opposite horizontal side of cursor, always at top
   const viewportWidth = window.innerWidth
-  const viewportHeight = window.innerHeight
   const cursorX = event?.clientX ?? viewportWidth / 2
-  const cursorY = event?.clientY ?? viewportHeight / 2
 
   // Determine which side to show tooltip (opposite of cursor)
   const showOnRight = cursorX < viewportWidth / 2
-  const showOnBottom = cursorY < viewportHeight / 2
 
-  // Position anchor on opposite side with some margin
+  // Position anchor at top, on opposite side
   const margin = 20
-  dynamicAnchor.style.top = showOnBottom ? `${Math.max(80, cursorY)}px` : `${Math.min(cursorY, viewportHeight - 300)}px`
+  dynamicAnchor.style.top = '80px'
   dynamicAnchor.style.left = showOnRight ? '' : `${margin}px`
   dynamicAnchor.style.right = showOnRight ? `${margin}px` : ''
 
@@ -124,7 +121,7 @@ export function getTooltipPlacement(event) {
   const viewportWidth = window.innerWidth
   const cursorX = event?.clientX ?? viewportWidth / 2
   const showOnRight = cursorX < viewportWidth / 2
-  return showOnRight ? 'bottom-end' : 'bottom-start'
+  return showOnRight ? 'bottom-start' : 'bottom-end'
 }
 
 /**
