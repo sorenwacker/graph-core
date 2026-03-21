@@ -10,6 +10,7 @@ import { api } from '../services/api'
 import { nodeTypes, getTypeIcon, personIconSvg } from '../utils/constants.js'
 import { useMentions } from '../composables/useMentions.js'
 import { useNodeTable } from '../composables/useNodeTable.js'
+import { useErrorHandler } from '../composables/useErrorHandler.js'
 
 const props = defineProps({
   node: Object,
@@ -109,6 +110,9 @@ const {
   },
   workspaceId: props.currentWorkspace
 })
+
+// Error handling
+const { handleError } = useErrorHandler()
 
 function _onNotesInput(e) {
   editedNode.value.notes = e.target.value
@@ -266,7 +270,7 @@ async function loadChildren() {
     const childNodes = await api.getChildren(props.node.id)
     children.value = childNodes.filter(d => d.type === 'task')
   } catch (err) {
-    console.error('Failed to load children:', err)
+    handleError(err, { context: 'Loading children', silent: true })
     children.value = []
   } finally {
     loadingChildren.value = false
@@ -278,7 +282,7 @@ async function loadLinkedNodes() {
   try {
     linkedNodes.value = await api.getLinkedNodes(props.node.id)
   } catch (err) {
-    console.error('Failed to load linked nodes:', err)
+    handleError(err, { context: 'Loading linked nodes', silent: true })
     linkedNodes.value = []
   }
 }
@@ -288,7 +292,7 @@ async function removeLink(targetNode) {
     await api.unlinkNodes(props.node.id, targetNode.id)
     await loadLinkedNodes()
   } catch (err) {
-    console.error('Failed to unlink nodes:', err)
+    handleError(err, { context: 'Unlinking nodes' })
   }
 }
 
@@ -300,7 +304,7 @@ async function loadOrganizations() {
   try {
     organizations.value = await api.getNodes({ type: 'organization', workspace_id: props.currentWorkspace })
   } catch (err) {
-    console.error('Failed to load organizations:', err)
+    handleError(err, { context: 'Loading organizations', silent: true })
     organizations.value = []
   }
 }
@@ -390,7 +394,7 @@ async function loadLinkedOrganizations() {
     )
     linkedOrganizations.value = orgsWithPaths
   } catch (err) {
-    console.error('Failed to load linked organizations:', err)
+    handleError(err, { context: 'Loading linked organizations', silent: true })
     linkedOrganizations.value = []
   }
 }
@@ -402,7 +406,7 @@ async function linkOrganization(org) {
     await loadLinkedOrganizations()
     await loadLinkedNodes()
   } catch (err) {
-    console.error('Failed to link organization:', err)
+    handleError(err, { context: 'Linking organization' })
   }
   orgQuery.value = ''
   showOrgDropdown.value = false
@@ -415,7 +419,7 @@ async function unlinkOrganization(org) {
     await loadLinkedOrganizations()
     await loadLinkedNodes()
   } catch (err) {
-    console.error('Failed to unlink organization:', err)
+    handleError(err, { context: 'Unlinking organization' })
   }
 }
 
@@ -430,7 +434,7 @@ async function createAndLinkOrganization() {
     organizations.value.push(newOrg)
     await linkOrganization(newOrg)
   } catch (err) {
-    console.error('Failed to create organization:', err)
+    handleError(err, { context: 'Creating organization' })
   }
 }
 
@@ -471,7 +475,7 @@ async function loadAllPersons() {
   try {
     allPersons.value = await api.getNodes({ type: 'person', workspace_id: props.currentWorkspace })
   } catch (err) {
-    console.error('Failed to load persons:', err)
+    handleError(err, { context: 'Loading persons', silent: true })
     allPersons.value = []
   }
 }
@@ -505,7 +509,7 @@ async function loadLinkedMembers() {
     const links = await api.getLinkedNodes(props.node.id)
     linkedMembers.value = links.filter(n => n.type === 'person')
   } catch (err) {
-    console.error('Failed to load members:', err)
+    handleError(err, { context: 'Loading members', silent: true })
     linkedMembers.value = []
   }
 }
@@ -517,7 +521,7 @@ async function linkMember(person) {
     await loadLinkedMembers()
     await loadLinkedNodes()
   } catch (err) {
-    console.error('Failed to link member:', err)
+    handleError(err, { context: 'Linking member' })
   }
   memberQuery.value = ''
   showMemberDropdown.value = false
@@ -530,7 +534,7 @@ async function unlinkMember(person) {
     await loadLinkedMembers()
     await loadLinkedNodes()
   } catch (err) {
-    console.error('Failed to unlink member:', err)
+    handleError(err, { context: 'Unlinking member' })
   }
 }
 
@@ -545,7 +549,7 @@ async function createAndLinkMember() {
     allPersons.value.push(newPerson)
     await linkMember(newPerson)
   } catch (err) {
-    console.error('Failed to create member:', err)
+    handleError(err, { context: 'Creating member' })
   }
 }
 
@@ -660,7 +664,7 @@ async function copyNodeContent() {
     a.click()
     URL.revokeObjectURL(url)
   } catch (err) {
-    console.error('Failed to export:', err)
+    handleError(err, { context: 'Exporting data' })
   }
 }
 
@@ -670,7 +674,7 @@ async function toggleChildComplete(child) {
     await loadChildren()
     emit('child-updated', child.id)
   } catch (err) {
-    console.error('Failed to toggle child:', err)
+    handleError(err, { context: 'Toggling child completion' })
   }
 }
 
@@ -686,7 +690,7 @@ async function _toggleChildExpand(child) {
       try {
         grandchildren.value[child.id] = await api.getChildren(child.id)
       } catch (err) {
-        console.error('Failed to load grandchildren:', err)
+        handleError(err, { context: 'Loading grandchildren', silent: true })
         grandchildren.value[child.id] = []
       }
     }
@@ -789,7 +793,7 @@ async function onDrop(e, child) {
     await loadChildren()
     emit('child-updated', draggedChild.value.id)
   } catch (err) {
-    console.error('Failed to reorder:', err)
+    handleError(err, { context: 'Reordering children' })
   }
 
   draggedChild.value = null

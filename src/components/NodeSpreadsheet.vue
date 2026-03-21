@@ -2,6 +2,9 @@
 import { ref, computed, onUnmounted, onMounted, shallowRef, watch, nextTick } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
 import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community'
+import { useErrorHandler } from '../composables/useErrorHandler.js'
+
+const { handleError } = useErrorHandler()
 
 // ============================================================================
 // Constants
@@ -530,7 +533,7 @@ async function copySelection() {
   try {
     await navigator.clipboard.writeText(text)
   } catch (err) {
-    console.error('Copy failed:', err)
+    handleError(err, { context: 'Copying to clipboard', silent: true })
   }
 }
 
@@ -605,7 +608,7 @@ async function pasteSelection() {
   try {
     text = await navigator.clipboard.readText()
   } catch (err) {
-    console.error('Paste failed:', err)
+    handleError(err, { context: 'Pasting from clipboard', silent: true })
     return
   }
 

@@ -5,6 +5,7 @@ import { api } from '../services/api'
 import { buildTooltipHTML } from '../utils/tooltip.js'
 import { useNodeTooltip } from '../composables/useNodeTooltip.js'
 import { useGraphSettings, ALL_NODE_TYPES } from '../composables/useGraphSettings.js'
+import { useErrorHandler } from '../composables/useErrorHandler.js'
 import { nodeTypes, typeConfig, getGraphColors } from '../utils/constants.js'
 import { decodeHtmlEntities } from '../utils/html.js'
 import cytoscape from 'cytoscape'
@@ -526,6 +527,9 @@ function handleGlobalKeydown(e) {
   }
 }
 
+// Error handling
+const { handleError } = useErrorHandler()
+
 // Setup tooltip composable - single source of truth for all tooltips
 const { showTooltip, hideTooltip, forceHide: forceHideTooltip } = useNodeTooltip({
   onToggleComplete: (nodeId) => {
@@ -986,7 +990,7 @@ async function fetchLinkedNodes(elements, links, savedPositions) {
         })
       }
     } catch (err) {
-      console.error(`Failed to fetch linked node ${nodeId}:`, err)
+      handleError(err, { context: `Fetching linked node ${nodeId}`, silent: true })
     }
   }
 }
@@ -1164,7 +1168,7 @@ async function initGraph() {
         addLinkEdges(elements, links)
       }
     } catch (err) {
-      console.error('Failed to load links:', err)
+      handleError(err, { context: 'Loading links', silent: true })
     }
   }
 
@@ -1913,7 +1917,7 @@ async function updateGraph() {
         addLinkEdges(elements, links)
       }
     } catch (err) {
-      console.error('Failed to load links:', err)
+      handleError(err, { context: 'Loading links', silent: true })
     }
   }
   const hasPositions = Object.keys(savedPositions).length > 0

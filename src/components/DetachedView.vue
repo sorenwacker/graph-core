@@ -3,7 +3,10 @@ import { ref, onMounted, watch } from 'vue'
 import { api } from '../services/api.js'
 import { useDetachedWindow } from '../composables/useDetachedWindow.js'
 import { useTheme } from '../composables/useTheme.js'
+import { useErrorHandler } from '../composables/useErrorHandler.js'
 import DetailPanel from './DetailPanel.vue'
+
+const { handleError } = useErrorHandler()
 
 const props = defineProps({
   nodeId: { type: Number, required: true }
@@ -34,7 +37,7 @@ async function loadNode(id) {
       error.value = 'Node not found'
     }
   } catch (e) {
-    console.error('Failed to load node:', e)
+    handleError(e, { context: 'Loading detached node', silent: true })
     error.value = 'Failed to load node'
   } finally {
     loading.value = false
@@ -46,7 +49,7 @@ async function loadWorkspaces() {
   try {
     workspaces.value = await api.getWorkspaces()
   } catch (e) {
-    console.error('Failed to load workspaces:', e)
+    handleError(e, { context: 'Loading workspaces', silent: true })
     workspaces.value = []
   }
 }
@@ -82,7 +85,7 @@ async function handleUpdate(updatedNode) {
     // Update window title
     document.title = updatedNode.title || 'Detached Node'
   } catch (e) {
-    console.error('Failed to update node:', e)
+    handleError(e, { context: 'Updating node' })
   }
 }
 
@@ -94,7 +97,7 @@ async function handleDelete(node) {
     // Close the window after deleting
     window.close()
   } catch (e) {
-    console.error('Failed to delete node:', e)
+    handleError(e, { context: 'Deleting node' })
   }
 }
 
@@ -125,7 +128,7 @@ async function handleAIImproveNotes(payload) {
       broadcastNodeUpdate(currentNode.value)
     }
   } catch (e) {
-    console.error('Failed to apply AI improvement:', e)
+    handleError(e, { context: 'Applying AI improvement' })
   }
 }
 
@@ -164,7 +167,7 @@ async function wrapWithParent(node) {
     await loadNode(node.id)
     broadcastNodeUpdate(newParent)
   } catch (e) {
-    console.error('Failed to wrap with parent:', e)
+    handleError(e, { context: 'Wrapping with parent' })
   }
 }
 
@@ -175,7 +178,7 @@ async function moveToRoot(node) {
     await loadNode(node.id)
     broadcastNodeUpdate(node)
   } catch (e) {
-    console.error('Failed to move to root:', e)
+    handleError(e, { context: 'Moving to root' })
   }
 }
 
@@ -191,7 +194,7 @@ async function addChild(parentNode) {
     const newChild = await api.createNode(childData)
     broadcastNodeUpdate(newChild)
   } catch (e) {
-    console.error('Failed to add child:', e)
+    handleError(e, { context: 'Adding child' })
   }
 }
 

@@ -1,6 +1,9 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { api } from '../services/api'
+import { useErrorHandler } from '../composables/useErrorHandler.js'
+
+const { handleError } = useErrorHandler()
 
 const props = defineProps({
   workspaceId: { type: String, default: 'work' },
@@ -77,7 +80,7 @@ async function loadTasks() {
         }
         items = filteredItems
       } catch (e) {
-        console.error('Failed to filter by container:', e)
+        handleError(e, { context: 'Filtering tasks by container', silent: true })
       }
     }
 
@@ -144,7 +147,7 @@ async function loadTasks() {
 
     tasks.value = tasksWithPaths
   } catch (e) {
-    console.error('Failed to load tasks:', e)
+    handleError(e, { context: 'Loading tasks', silent: true })
     tasks.value = []
   } finally {
     loading.value = false

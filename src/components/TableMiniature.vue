@@ -1,6 +1,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { api } from '../services/api.js'
+import { useErrorHandler } from '../composables/useErrorHandler.js'
+
+const { handleError } = useErrorHandler()
 
 const props = defineProps({
   nodeId: { type: Number, required: true },
@@ -21,7 +24,7 @@ onMounted(async () => {
       cells.value = cellData || []
     }
   } catch (e) {
-    console.error('Failed to load table miniature:', e)
+    handleError(e, { context: 'Loading table miniature', silent: true })
   } finally {
     loading.value = false
   }
