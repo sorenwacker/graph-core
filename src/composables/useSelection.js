@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import { NARROW_WINDOW_THRESHOLD } from '../utils/uiConstants.js'
 
 /**
  * Composable for managing node selection state and operations.
@@ -57,6 +58,7 @@ export function useSelection({
   /**
    * Full select - selects a node and opens detail panel after a delay.
    * The delay allows for double-click to navigate without opening detail.
+   * Auto-opens fullscreen if window is narrow (< NARROW_WINDOW_THRESHOLD).
    * @param {Object|null} node - Node to select, or null to deselect
    * @param {Object} options - Selection options
    * @param {boolean} options.fullscreen - Open in fullscreen mode
@@ -94,8 +96,9 @@ export function useSelection({
       }
     }
 
-    // Open fullscreen if explicitly requested OR if setting is enabled
-    if (fullscreenDetail && (options.fullscreen || openDetailFullscreen?.value)) {
+    // Open fullscreen if explicitly requested OR if setting is enabled OR window is narrow
+    const isNarrowWindow = typeof window !== 'undefined' && window.innerWidth < NARROW_WINDOW_THRESHOLD
+    if (fullscreenDetail && (options.fullscreen || openDetailFullscreen?.value || isNarrowWindow)) {
       fullscreenDetail.value = true
     }
   }
@@ -129,6 +132,11 @@ export function useSelection({
       }
       if (showDetail) {
         showDetail.value = true
+        // Auto-fullscreen for narrow windows
+        const isNarrowWindow = typeof window !== 'undefined' && window.innerWidth < NARROW_WINDOW_THRESHOLD
+        if (fullscreenDetail && isNarrowWindow) {
+          fullscreenDetail.value = true
+        }
       }
       return
     }
@@ -179,6 +187,11 @@ export function useSelection({
 
     if (showDetail) {
       showDetail.value = true
+      // Auto-fullscreen for narrow windows
+      const isNarrowWindow = typeof window !== 'undefined' && window.innerWidth < NARROW_WINDOW_THRESHOLD
+      if (fullscreenDetail && isNarrowWindow) {
+        fullscreenDetail.value = true
+      }
     }
   }
 

@@ -4,6 +4,7 @@
 
 // Layout dimensions
 export const SIDEBAR_WIDTH = 280
+export const NARROW_WINDOW_THRESHOLD = 900 // Auto-fullscreen detail below this width
 
 // Timing (milliseconds)
 export const SIDEBAR_HIDE_DELAY_MS = 150
