@@ -309,15 +309,12 @@ function getInitials(name) {
   min-width: 240px;
   max-width: 320px;
   padding: 6px;
-  background: rgba(12, 12, 12, 0.95);
+  background: var(--bg-primary);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.5),
-    0 8px 40px rgba(0, 0, 0, 0.6),
-    0 0 80px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-lg);
   font-size: 13px;
   transform-origin: top left;
 }
@@ -331,7 +328,7 @@ function getInitials(name) {
   padding: 1px;
   background: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.1) 0%,
+    var(--border-subtle) 0%,
     transparent 50%,
     transparent 100%
   );
@@ -357,7 +354,7 @@ function getInitials(name) {
   gap: 10px;
   padding: 10px 12px;
   margin-bottom: 4px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .menu-type-badge {
@@ -367,7 +364,7 @@ function getInitials(name) {
   padding: 3px 7px;
   border-radius: 5px;
   text-transform: uppercase;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-tertiary);
   color: var(--text-secondary);
 }
 
@@ -415,7 +412,7 @@ function getInitials(name) {
 }
 
 .menu-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-tertiary);
   color: var(--text-primary);
 }
 
@@ -425,7 +422,7 @@ function getInitials(name) {
 }
 
 .menu-item:active {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--bg-hover);
   transform: scale(0.98);
 }
 
@@ -454,7 +451,7 @@ function getInitials(name) {
   font-family: inherit;
   padding: 2px 5px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-secondary);
   color: var(--text-tertiary);
   border: none;
 }
@@ -466,8 +463,8 @@ function getInitials(name) {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(255, 255, 255, 0.08) 20%,
-    rgba(255, 255, 255, 0.08) 80%,
+    var(--border-subtle) 20%,
+    var(--border-subtle) 80%,
     transparent
   );
 }
@@ -499,7 +496,7 @@ function getInitials(name) {
   margin-left: auto;
   padding: 1px 6px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-tertiary);
   font-size: 10px;
 }
 
@@ -518,7 +515,7 @@ function getInitials(name) {
 }
 
 .linked-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-hover);
 }
 
 .linked-avatar {
@@ -544,7 +541,7 @@ function getInitials(name) {
   font-size: 10px;
   font-weight: 600;
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-tertiary);
   color: var(--text-tertiary);
 }
 
@@ -618,7 +615,7 @@ function getInitials(name) {
 }
 
 .workspace-item:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-hover);
   color: var(--text-primary);
 }
 
