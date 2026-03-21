@@ -801,6 +801,37 @@
   background-color: var(--bg-secondary);
 }
 
+/* AG Grid borders - override hardcoded dark borders */
+[data-theme="light"] .ag-root-wrapper,
+[data-theme="light"] .ag-header,
+[data-theme="light"] .ag-header-row,
+[data-theme="light"] .ag-header-cell,
+[data-theme="light"] .ag-cell,
+[data-theme="light"] .ag-row {
+  border-color: var(--border-color) !important;
+}
+
+[data-theme="light"] .ag-ltr .ag-cell {
+  border-right-color: var(--border-color) !important;
+}
+
+[data-theme="light"] .ag-ltr .ag-header-cell {
+  border-right-color: var(--border-color) !important;
+}
+
+[data-theme="light"] .ag-row {
+  border-bottom-color: var(--border-color) !important;
+}
+
+[data-theme="light"] .ag-header-row {
+  border-bottom-color: var(--border-color) !important;
+}
+
+[data-theme="light"] .ag-pinned-left-header,
+[data-theme="light"] .ag-pinned-left-cols-container {
+  border-right-color: var(--border-color) !important;
+}
+
 [data-theme="light"] .spreadsheet-container {
   border-color: var(--border-color);
 }
