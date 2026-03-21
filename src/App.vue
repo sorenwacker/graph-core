@@ -117,6 +117,7 @@ const {
   loadWorkspaces,
   createWorkspace: createNewWorkspace,
   deleteCurrentWorkspace: _deleteCurrentWorkspace,
+  renameWorkspace,
   getWorkspaceIdForNode
 } = useWorkspace({ api })
 
@@ -1431,6 +1432,7 @@ onUnmounted(() => {
             @update:model-value="currentWorkspace = $event"
             @create="createNewWorkspace($event)"
             @delete="deleteCurrentWorkspace"
+            @rename="renameWorkspace($event.id, $event.name)"
           />
 
           <MainToolbar

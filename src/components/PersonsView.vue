@@ -101,7 +101,7 @@ const sortedPersons = computed(() => {
 async function loadPersons() {
   loading.value = true
   try {
-    const allNodes = await api.getNodes({ type: 'person' })
+    const allNodes = await api.getNodes({ type: 'person', workspace_id: props.workspaceId })
     persons.value = allNodes
 
     for (const person of persons.value) {

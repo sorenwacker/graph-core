@@ -456,8 +456,8 @@ function handleCanvasClick(e) {
   font-weight: 600;
   line-height: 1.35;
   letter-spacing: -0.02em;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
   border: 1px solid var(--accent-color);
   border-radius: 8px;
   outline: none;
@@ -472,8 +472,8 @@ function handleCanvasClick(e) {
 .child-card-title-input {
   font-size: 13px;
   font-weight: 500;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
   border: 1px solid var(--accent-color);
   border-radius: 4px;
   outline: none;
@@ -487,8 +487,8 @@ function handleCanvasClick(e) {
 .grandchild-title-input {
   font-size: 11px;
   font-weight: 500;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
   border: 1px solid var(--accent-color);
   border-radius: 3px;
   outline: none;
@@ -661,13 +661,13 @@ function handleCanvasClick(e) {
 }
 
 .markdown-content a {
-  color: #ffffff !important;
+  color: var(--accent-color);
 }
 
 .node-card a,
 .child-card a,
 .node-cards a {
-  color: #ffffff !important;
+  color: var(--accent-color);
 }
 
 .markdown-content strong {

@@ -1,19 +1,75 @@
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted, watch, computed } from 'vue'
+import tippy from 'tippy.js'
 
 const props = defineProps({
   workspaces: { type: Array, required: true },
   modelValue: { type: String, required: true }
 })
 
-const emit = defineEmits(['update:modelValue', 'create', 'delete'])
+const emit = defineEmits(['update:modelValue', 'create', 'delete', 'rename'])
 
 const showNewInput = ref(false)
+const showSettings = ref(false)
 const newName = ref('')
+const editName = ref('')
 const inputRef = ref(null)
+const editInputRef = ref(null)
+const addBtn = ref(null)
+const settingsBtn = ref(null)
+const dropdownRef = ref(null)
+
+let tippyInstances = []
+
+const currentWorkspace = computed(() => {
+  return props.workspaces.find(ws => ws.id === props.modelValue)
+})
+
+function initTooltips() {
+  tippyInstances.forEach(i => i.destroy())
+  tippyInstances = []
+
+  if (addBtn.value) {
+    tippyInstances.push(tippy(addBtn.value, {
+      content: 'Create new workspace',
+      placement: 'bottom',
+      delay: [200, 0],
+      theme: 'toolbar'
+    }))
+  }
+  if (settingsBtn.value) {
+    tippyInstances.push(tippy(settingsBtn.value, {
+      content: 'Workspace settings',
+      placement: 'bottom',
+      delay: [200, 0],
+      theme: 'toolbar'
+    }))
+  }
+  if (dropdownRef.value) {
+    tippyInstances.push(tippy(dropdownRef.value, {
+      content: 'Switch workspace',
+      placement: 'bottom',
+      delay: [200, 0],
+      theme: 'toolbar'
+    }))
+  }
+}
+
+onMounted(() => {
+  nextTick(initTooltips)
+})
+
+watch([showNewInput, showSettings], () => {
+  nextTick(initTooltips)
+})
+
+onUnmounted(() => {
+  tippyInstances.forEach(i => i.destroy())
+})
 
 function openNewDialog() {
   showNewInput.value = true
+  showSettings.value = false
   newName.value = ''
   nextTick(() => inputRef.value?.focus())
 }
@@ -31,9 +87,31 @@ function cancelCreate() {
   newName.value = ''
 }
 
+function openSettings() {
+  showSettings.value = true
+  showNewInput.value = false
+  editName.value = currentWorkspace.value?.name || ''
+  nextTick(() => editInputRef.value?.focus())
+}
+
+function closeSettings() {
+  showSettings.value = false
+  editName.value = ''
+}
+
+function saveSettings() {
+  if (editName.value.trim() && editName.value.trim() !== currentWorkspace.value?.name) {
+    emit('rename', { id: props.modelValue, name: editName.value.trim() })
+  }
+  closeSettings()
+}
+
 function deleteWorkspace() {
   if (props.workspaces.length > 1) {
-    emit('delete', props.modelValue)
+    if (confirm(`Delete workspace "${currentWorkspace.value?.name}"? This cannot be undone.`)) {
+      emit('delete', props.modelValue)
+      closeSettings()
+    }
   }
 }
 </script>
@@ -41,27 +119,27 @@ function deleteWorkspace() {
 <template>
   <div class="workspace-selector">
     <select
+      ref="dropdownRef"
       :value="modelValue"
       @change="emit('update:modelValue', $event.target.value)"
       class="workspace-dropdown"
-      title="Switch workspace"
     >
       <option v-for="ws in workspaces" :key="ws.id" :value="ws.id">
         {{ ws.name }}
       </option>
     </select>
 
-    <template v-if="!showNewInput">
-      <button class="ws-btn add" @click="openNewDialog" title="Create new workspace">+</button>
-      <button
-        v-if="workspaces.length > 1"
-        class="ws-btn delete"
-        @click="deleteWorkspace"
-        title="Delete current workspace"
-      >-</button>
+    <template v-if="!showNewInput && !showSettings">
+      <button ref="addBtn" class="ws-btn add" @click="openNewDialog">+</button>
+      <button ref="settingsBtn" class="ws-btn settings" @click="openSettings">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.08a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.08a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
     </template>
 
-    <div v-else class="new-workspace-form">
+    <div v-else-if="showNewInput" class="ws-form">
       <input
         ref="inputRef"
         v-model="newName"
@@ -72,6 +150,24 @@ function deleteWorkspace() {
       />
       <button class="ws-btn" @click="createWorkspace">OK</button>
       <button class="ws-btn" @click="cancelCreate">X</button>
+    </div>
+
+    <div v-else-if="showSettings" class="ws-form settings-form">
+      <input
+        ref="editInputRef"
+        v-model="editName"
+        class="ws-input"
+        placeholder="Workspace name"
+        @keyup.enter="saveSettings"
+        @keyup.escape="closeSettings"
+      />
+      <button class="ws-btn save" @click="saveSettings">Save</button>
+      <button
+        v-if="workspaces.length > 1"
+        class="ws-btn delete"
+        @click="deleteWorkspace"
+      >Delete</button>
+      <button class="ws-btn" @click="closeSettings">X</button>
     </div>
   </div>
 </template>
@@ -99,8 +195,9 @@ function deleteWorkspace() {
 }
 
 .ws-btn {
-  width: 24px;
   height: 24px;
+  min-width: 24px;
+  padding: 0 6px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -109,8 +206,9 @@ function deleteWorkspace() {
   background: var(--bg-secondary);
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
+  gap: 4px;
 }
 
 .ws-btn:hover {
@@ -118,13 +216,42 @@ function deleteWorkspace() {
   color: var(--text-primary);
 }
 
-.ws-btn.delete:hover {
-  background: #fee2e2;
-  border-color: #ef4444;
-  color: #ef4444;
+.ws-btn.add {
+  font-size: 14px;
 }
 
-.new-workspace-form {
+.ws-btn.settings {
+  padding: 0 4px;
+}
+
+.ws-btn.settings svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ws-btn.save {
+  background: var(--accent-subtle);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.ws-btn.save:hover {
+  background: var(--accent-color);
+  color: white;
+}
+
+.ws-btn.delete {
+  background: var(--error-bg);
+  border-color: var(--error-border);
+  color: var(--error-color);
+}
+
+.ws-btn.delete:hover {
+  background: var(--error-color);
+  color: white;
+}
+
+.ws-form {
   display: flex;
   align-items: center;
   gap: 4px;
