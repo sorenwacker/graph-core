@@ -883,3 +883,59 @@
 [data-theme="light"] .node-row.inherited-completed .col-title::after {
   color: var(--success-color);
 }
+
+/* TableView - tree indent colors */
+[data-theme="light"] .tree-indent {
+  color: var(--accent-color);
+}
+
+[data-theme="light"] .tree-indent.depth-1 {
+  color: var(--accent-color);
+}
+
+[data-theme="light"] .tree-indent.depth-2 {
+  color: var(--accent-hover);
+}
+
+/* TableView - drag ghost */
+[data-theme="light"] .drag-ghost {
+  background: var(--bg-primary);
+  border-color: var(--accent-color);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .drag-ghost .ghost-action {
+  color: var(--accent-color);
+}
+
+/* TableView - drop indicators */
+[data-theme="light"] .node-row.drop-before {
+  border-top-color: var(--accent-color);
+}
+
+[data-theme="light"] .node-row.drop-after {
+  border-bottom-color: var(--accent-color);
+}
+
+[data-theme="light"] .node-row.drop-child {
+  outline-color: var(--accent-color);
+}
+
+/* Table header row */
+[data-theme="light"] thead tr {
+  background: var(--bg-secondary);
+}
+
+[data-theme="light"] th {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+/* Table body */
+[data-theme="light"] tbody tr {
+  background: var(--bg-primary);
+}
+
+[data-theme="light"] tbody tr:nth-child(even) {
+  background: var(--bg-secondary);
+}
