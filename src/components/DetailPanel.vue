@@ -942,7 +942,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
               />
             </div>
 
-            <div class="form-field full-width">
+            <div v-if="linkedOrganizations.length > 0" class="form-field full-width">
               <label>Organizations</label>
               <div class="org-tags">
                 <div
@@ -1054,17 +1054,16 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
             </div>
           </div>
 
-          <!-- Color picker -->
-          <div class="color-picker-section">
-            <label>Color <span v-if="!editedNode.color || editedNode.color === '#0f4c75'" class="inherit-hint">(inherits from parent)</span></label>
+          <!-- Color picker - only show if custom color set -->
+          <div v-if="editedNode.color && editedNode.color !== '#0f4c75'" class="color-picker-section">
+            <label>Color</label>
             <div class="color-field">
               <input
                 type="color"
-                :value="editedNode.color || '#6b7280'"
+                :value="editedNode.color"
                 @change="editedNode.color = $event.target.value; saveChanges()"
               />
               <button
-                v-if="editedNode.color && editedNode.color !== '#0f4c75'"
                 class="clear-btn"
                 title="Inherit from parent"
                 @click="editedNode.color = null; saveChanges()"
@@ -1098,7 +1097,7 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
           <button v-else class="add-field-btn link-btn" @click="editedNode.show_links = 1; saveChanges()" title="Show links section">+ Link to project/task</button>
 
           <!-- Tags for person -->
-          <div class="person-tags-section">
+          <div v-if="editedNode.tags && editedNode.tags.length > 0" class="person-tags-section">
             <label>Tags</label>
             <TagInput
               :tags="editedNode.tags || []"
@@ -1228,17 +1227,16 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
             </div>
           </div>
 
-          <!-- Color picker for organization -->
-          <div class="color-picker-section">
-            <label>Color <span v-if="!editedNode.color || editedNode.color === '#0f4c75'" class="inherit-hint">(inherits from parent)</span></label>
+          <!-- Color picker for organization - only show if custom color set -->
+          <div v-if="editedNode.color && editedNode.color !== '#0f4c75'" class="color-picker-section">
+            <label>Color</label>
             <div class="color-field">
               <input
                 type="color"
-                :value="editedNode.color || '#6b7280'"
+                :value="editedNode.color"
                 @change="editedNode.color = $event.target.value; saveChanges()"
               />
               <button
-                v-if="editedNode.color && editedNode.color !== '#0f4c75'"
                 class="clear-btn"
                 title="Inherit from parent"
                 @click="editedNode.color = null; saveChanges()"
@@ -1271,8 +1269,8 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
           </template>
           <button v-else class="add-field-btn link-btn" @click="editedNode.show_links = 1; saveChanges()" title="Show links section">+ Link to project/task</button>
 
-          <!-- Tags for organization -->
-          <div class="org-tags-section">
+          <!-- Tags for organization - only show if has tags -->
+          <div v-if="editedNode.tags && editedNode.tags.length > 0" class="org-tags-section">
             <label>Tags</label>
             <TagInput
               :tags="editedNode.tags || []"
