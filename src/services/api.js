@@ -494,6 +494,12 @@ const electronApi = {
 
   // Export
   exportMarkdown: (nodeId) => window.electronAPI.exportMarkdown(nodeId),
+  exportJSON: (nodeId, options) => window.electronAPI.exportJSON(nodeId, options),
+  exportCSV: (nodeId, workspaceId) => window.electronAPI.exportCSV(nodeId, workspaceId),
+
+  // Import
+  importJSON: (data, targetParentId, workspaceId) => window.electronAPI.importJSON(data, targetParentId, workspaceId),
+  importCSV: (csvData, targetParentId, workspaceId) => window.electronAPI.importCSV(csvData, targetParentId, workspaceId),
 
   // Trash
   getTrash: async (limit) => filterNulls(await window.electronAPI.getTrash(limit)),

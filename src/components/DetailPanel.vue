@@ -638,33 +638,60 @@ function moveToRoot() {
   emit('move-to-root', props.node.id)
 }
 
-async function copyNodeContent() {
+// Export helpers
+function generateFilename(ext) {
+  const date = new Date()
+  const yy = String(date.getFullYear()).slice(-2)
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  const dateStr = `${yy}${mm}${dd}`
+  const safeName = editedNode.value.title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 50)
+  return `${dateStr}-${safeName}.${ext}`
+}
+
+function downloadFile(content, filename, mimeType) {
+  const blob = new Blob([content], { type: mimeType })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+const showExportMenu = ref(false)
+
+async function exportMarkdown() {
   try {
     const result = await api.exportMarkdown(editedNode.value.id)
-
-    // Generate filename: YYMMDD-nodename.md
-    const date = new Date()
-    const yy = String(date.getFullYear()).slice(-2)
-    const mm = String(date.getMonth() + 1).padStart(2, '0')
-    const dd = String(date.getDate()).padStart(2, '0')
-    const dateStr = `${yy}${mm}${dd}`
-    const safeName = editedNode.value.title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
-      .substring(0, 50)
-    const filename = `${dateStr}-${safeName}.md`
-
-    // Download file
-    const blob = new Blob([result.markdown], { type: 'text/markdown' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadFile(result.markdown, generateFilename('md'), 'text/markdown')
+    showExportMenu.value = false
   } catch (err) {
-    handleError(err, { context: 'Exporting data' })
+    handleError(err, { context: 'Exporting markdown' })
+  }
+}
+
+async function exportJSON() {
+  try {
+    const result = await api.exportJSON(editedNode.value.id)
+    downloadFile(JSON.stringify(result, null, 2), generateFilename('json'), 'application/json')
+    showExportMenu.value = false
+  } catch (err) {
+    handleError(err, { context: 'Exporting JSON' })
+  }
+}
+
+async function exportCSV() {
+  try {
+    const result = await api.exportCSV(editedNode.value.id, props.currentWorkspace)
+    downloadFile(result.csv, generateFilename('csv'), 'text/csv')
+    showExportMenu.value = false
+  } catch (err) {
+    handleError(err, { context: 'Exporting CSV' })
   }
 }
 
@@ -1657,7 +1684,16 @@ defineExpose({ loadChildren, loadLinkedOrganizations, loadLinkedMembers, loadLin
       <div class="detail-actions">
         <button @click="wrapWithParent" title="Create a new parent node and make this node its child">Wrap with Parent</button>
         <button @click="moveToRoot" title="Move this node to the root level">Move to Root</button>
-        <button @click="copyNodeContent" title="Copy node content as markdown">Export</button>
+        <div class="export-dropdown">
+          <button @click="showExportMenu = !showExportMenu" title="Export node and children">
+            Export <span class="dropdown-arrow">v</span>
+          </button>
+          <div v-if="showExportMenu" class="export-menu" @mouseleave="showExportMenu = false">
+            <button @click="exportJSON">JSON (full data)</button>
+            <button @click="exportCSV">CSV (flat table)</button>
+            <button @click="exportMarkdown">Markdown (text)</button>
+          </div>
+        </div>
         <span class="spacer"></span>
         <button class="danger" @click="deleteNode" title="Delete this node">Delete</button>
       </div>
@@ -2781,6 +2817,47 @@ label.due-overdue {
 
 .detail-actions button.danger:hover {
   background: var(--error-hover);
+}
+
+/* Export dropdown */
+.export-dropdown {
+  position: relative;
+}
+
+.export-dropdown > button .dropdown-arrow {
+  font-size: 10px;
+  margin-left: 4px;
+}
+
+.export-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 4px;
+  min-width: 140px;
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  margin-bottom: 4px;
+}
+
+.export-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.export-menu button:hover {
+  background: var(--bg-hover);
 }
 
 /* Text selection highlight */

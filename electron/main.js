@@ -354,6 +354,12 @@ ipcMain.handle('db:reorderNode', (event, nodeId, targetId, position) => db.reord
 
 // Export
 ipcMain.handle('db:exportMarkdown', (event, nodeId) => db.exportMarkdown(nodeId))
+ipcMain.handle('db:exportJSON', (event, nodeId, options) => db.exportJSON(nodeId, options))
+ipcMain.handle('db:exportCSV', (event, nodeId, workspaceId) => db.exportCSV(nodeId, workspaceId))
+
+// Import
+ipcMain.handle('db:importJSON', (event, data, targetParentId, workspaceId) => db.importJSON(data, targetParentId, workspaceId))
+ipcMain.handle('db:importCSV', (event, csvData, targetParentId, workspaceId) => db.importCSV(csvData, targetParentId, workspaceId))
 
 // Trash
 ipcMain.handle('db:getTrash', (event, limit) => db.getTrash(limit))
