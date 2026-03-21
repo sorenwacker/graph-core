@@ -40,6 +40,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Export
   exportMarkdown: (nodeId) => ipcRenderer.invoke('db:exportMarkdown', nodeId),
+  exportJSON: (nodeId, options) => ipcRenderer.invoke('db:exportJSON', nodeId, options),
+  exportCSV: (nodeId, workspaceId) => ipcRenderer.invoke('db:exportCSV', nodeId, workspaceId),
+
+  // Import
+  importJSON: (data, targetParentId, workspaceId) => ipcRenderer.invoke('db:importJSON', data, targetParentId, workspaceId),
+  importCSV: (csvData, targetParentId, workspaceId) => ipcRenderer.invoke('db:importCSV', csvData, targetParentId, workspaceId),
 
   // Trash
   getTrash: (limit) => ipcRenderer.invoke('db:getTrash', limit),
