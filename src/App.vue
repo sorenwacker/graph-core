@@ -1479,6 +1479,8 @@ onUnmounted(() => {
             @toggle-lost-found="loadOrphanedNodes(); showLostFound = !showLostFound"
             @move-to-root="moveToRoot"
             @delete-orphan="deleteOrphanedNode"
+            :current-workspace="currentWorkspace"
+            @import-complete="loadChildren()"
           />
       </div>
       </div>
