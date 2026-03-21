@@ -441,6 +441,7 @@ class Database {
       completed: Boolean(row.completed),
       favorite: Boolean(row.favorite),
       has_table: Boolean(row.has_table),
+      notes_sensitive: Boolean(row.notes_sensitive),
       tags
     }
   }

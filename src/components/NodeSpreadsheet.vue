@@ -170,8 +170,9 @@ function getSelectionColor() {
 
 // AG Grid cellStyle callback
 function cellStyleCallback(params) {
-  if (!params.colDef.colIndex && params.colDef.colIndex !== 0) return null
-  const style = getCellStyle(params.node.rowIndex, params.colDef.colIndex)
+  const colIndex = params.colDef.context?.colIndex
+  if (colIndex === undefined) return null
+  const style = getCellStyle(params.node.rowIndex, colIndex)
   if (!style) return null
   return {
     fontWeight: style.bold ? '700' : 'normal',
@@ -224,7 +225,7 @@ const columnDefs = computed(() => {
     headerName: col.name,
     editable: true,
     width: col.width || 100,
-    colIndex: idx,
+    context: { colIndex: idx },
     cellStyle: cellStyleCallback,
     cellClassRules: {
       'cell-selected': (params) => isCellSelected(params.node.rowIndex, idx)
@@ -1005,8 +1006,7 @@ onUnmounted(() => {
           :enableCellTextSelection="false"
           :ensureDomOrder="true"
           :suppressClipboardPaste="true"
-          :suppressCopyRowsToClipboard="true"
-          :suppressRowClickSelection="true"
+          :rowSelection="{ mode: 'multiRow', enableClickSelection: false, copySelectedRows: false }"
           @grid-ready="onGridReady"
           @cell-value-changed="onCellValueChanged"
           @cell-double-clicked="clearSelection"
