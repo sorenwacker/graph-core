@@ -81,6 +81,7 @@ const selectionStart = ref(null)
 const selectionEnd = ref(null)
 const dragStartPos = ref(null)
 const isDragging = ref(false)
+const lastSelectedColumn = ref(null) // For shift-click column range selection
 
 // Context menus
 const showContextMenu = ref(false)
@@ -293,10 +294,39 @@ function handleMouseDown(event) {
   // Close context menu on left click
   showContextMenu.value = false
 
+  // Check if clicking on column header
+  const colIndex = getColumnIndexFromHeader(event)
+  if (colIndex !== -1) {
+    const rowCount = rowData.value.length
+    if (rowCount === 0) return
+
+    if (event.shiftKey && lastSelectedColumn.value !== null) {
+      // Shift-click: extend selection to column range
+      const minCol = Math.min(lastSelectedColumn.value, colIndex)
+      const maxCol = Math.max(lastSelectedColumn.value, colIndex)
+      selectionStart.value = { row: 0, col: minCol }
+      selectionEnd.value = { row: rowCount - 1, col: maxCol }
+    } else {
+      // Regular click: select entire column
+      selectionStart.value = { row: 0, col: colIndex }
+      selectionEnd.value = { row: rowCount - 1, col: colIndex }
+      lastSelectedColumn.value = colIndex
+    }
+    refreshCells()
+    return
+  }
+
   const cell = getCellFromPoint(event.clientX, event.clientY)
   if (!cell) {
     // Clicked outside data cells, clear selection
     clearSelection()
+    return
+  }
+
+  // Shift-click to extend selection
+  if (event.shiftKey && selectionStart.value) {
+    selectionEnd.value = { ...cell }
+    refreshCells()
     return
   }
 
@@ -306,6 +336,7 @@ function handleMouseDown(event) {
   isSelecting.value = true
   selectionStart.value = { ...cell }
   selectionEnd.value = { ...cell }
+  lastSelectedColumn.value = null // Reset column tracking when selecting cells
   // Don't call refreshCells() here - let AG Grid handle the click for editing
 }
 
