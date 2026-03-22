@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import { formatDate } from '../../utils/formatting.js'
 
 const props = defineProps({
   id: { type: [String, Number], required: true },
@@ -7,17 +8,8 @@ const props = defineProps({
   updatedAt: { type: String, default: null }
 })
 
-const formattedCreatedDate = computed(() => {
-  if (!props.createdAt) return ''
-  const d = new Date(props.createdAt)
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-})
-
-const formattedUpdatedDate = computed(() => {
-  if (!props.updatedAt) return ''
-  const d = new Date(props.updatedAt)
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-})
+const formattedCreatedDate = computed(() => formatDate(props.createdAt))
+const formattedUpdatedDate = computed(() => formatDate(props.updatedAt))
 </script>
 
 <template>

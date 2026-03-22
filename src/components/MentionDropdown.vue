@@ -1,4 +1,6 @@
 <script setup>
+import { getInitials } from '../utils/formatting.js'
+
 defineProps({
   persons: { type: Array, default: () => [] },
   selectedIndex: { type: Number, default: 0 },
@@ -6,13 +8,6 @@ defineProps({
 })
 
 const emit = defineEmits(['select', 'hover'])
-
-function getInitials(name) {
-  if (!name) return '?'
-  const parts = name.trim().split(/\s+/)
-  if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
-  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
-}
 </script>
 
 <template>

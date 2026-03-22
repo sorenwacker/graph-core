@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../services/api.js'
 import { personColors } from '../utils/constants.js'
+import { getInitials, getContrastColor } from '../utils/formatting.js'
 import NotesEditor from './NotesEditor.vue'
 import TagInput from './TagInput.vue'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
@@ -121,25 +122,8 @@ async function loadPersons() {
   loading.value = false
 }
 
-function getInitials(name) {
-  if (!name) return '?'
-  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-}
-
 function getRandomColor() {
   return personColors[Math.floor(Math.random() * personColors.length)]
-}
-
-// Get contrasting text color (white or black) based on background luminance
-function getContrastColor(hexColor) {
-  if (!hexColor) return '#ffffff'
-  const hex = hexColor.replace('#', '')
-  const r = parseInt(hex.substr(0, 2), 16)
-  const g = parseInt(hex.substr(2, 2), 16)
-  const b = parseInt(hex.substr(4, 2), 16)
-  // Calculate relative luminance (use lower threshold for better contrast)
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-  return luminance > 0.4 ? '#000000' : '#ffffff'
 }
 
 // Get effective color for a person (own color or inherited from parent/organization)

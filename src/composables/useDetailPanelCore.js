@@ -1,5 +1,6 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { api } from '../services/api'
+import { getInitials, formatDate } from '../utils/formatting.js'
 import { useErrorHandler } from './useErrorHandler.js'
 import { useMentions } from './useMentions.js'
 import { useNodeTable } from './useNodeTable.js'
@@ -91,17 +92,8 @@ export function useDetailPanelCore(props, emit) {
     return children.value.filter(c => c.completed).length
   })
 
-  const formattedCreatedDate = computed(() => {
-    if (!editedNode.value?.created_at) return ''
-    const d = new Date(editedNode.value.created_at)
-    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-  })
-
-  const formattedUpdatedDate = computed(() => {
-    if (!editedNode.value?.updated_at) return ''
-    const d = new Date(editedNode.value.updated_at)
-    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-  })
+  const formattedCreatedDate = computed(() => formatDate(editedNode.value?.created_at))
+  const formattedUpdatedDate = computed(() => formatDate(editedNode.value?.updated_at))
 
   const isPerson = computed(() => editedNode.value.type === 'person')
   const isOrganization = computed(() => editedNode.value.type === 'organization')
@@ -192,13 +184,6 @@ export function useDetailPanelCore(props, emit) {
   }
 
   // Helper functions
-  function getInitials(name) {
-    if (!name) return '?'
-    const parts = name.trim().split(/\s+/)
-    if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
-    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
-  }
-
   function getDueStatus(node) {
     if (!node?.due_date || node.completed) return null
     const today = new Date()

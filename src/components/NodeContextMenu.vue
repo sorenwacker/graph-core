@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { calculateMenuPosition } from '../utils/menuPosition'
+import { getInitials } from '../utils/formatting.js'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -94,12 +95,6 @@ function openInWindow() {
   close()
 }
 
-function getInitials(name) {
-  if (!name) return '?'
-  const parts = name.trim().split(/\s+/)
-  if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
-  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
-}
 </script>
 
 <template>

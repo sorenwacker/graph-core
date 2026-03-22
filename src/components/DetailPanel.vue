@@ -10,6 +10,7 @@ import PersonDetailForm from './detail/PersonDetailForm.vue'
 import OrganizationDetailForm from './detail/OrganizationDetailForm.vue'
 import { api } from '../services/api'
 import { nodeTypes, getTypeIcon, personIconSvg } from '../utils/constants.js'
+import { getInitials, formatDate } from '../utils/formatting.js'
 import { useMentions } from '../composables/useMentions.js'
 import { useNodeTable } from '../composables/useNodeTable.js'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
@@ -275,24 +276,8 @@ const completedChildrenCount = computed(() => {
   return children.value.filter(c => c.completed).length
 })
 
-const formattedCreatedDate = computed(() => {
-  if (!editedNode.value?.created_at) return ''
-  const d = new Date(editedNode.value.created_at)
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-})
-
-const formattedUpdatedDate = computed(() => {
-  if (!editedNode.value?.updated_at) return ''
-  const d = new Date(editedNode.value.updated_at)
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-})
-
-function getInitials(name) {
-  if (!name) return '?'
-  const parts = name.trim().split(/\s+/)
-  if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
-  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
-}
+const formattedCreatedDate = computed(() => formatDate(editedNode.value?.created_at))
+const formattedUpdatedDate = computed(() => formatDate(editedNode.value?.updated_at))
 
 function saveChanges() {
   // Clear any pending autosave
