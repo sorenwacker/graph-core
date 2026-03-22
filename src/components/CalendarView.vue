@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { getTypeIcon, getTypeColors, personIconSvg } from '../utils/constants.js'
+import { getTypeColors } from '../utils/constants.js'
 
 const props = defineProps({
   nodes: { type: Array, default: () => [] },
@@ -159,7 +159,7 @@ function handleNodeClick(e, node) {
   emit('select', node)
 }
 
-function handleDayClick(day) {
+function handleDayClick(_day) {
   // Could be used to create new item on this date
 }
 
@@ -176,7 +176,7 @@ function handleDragStart(e, node) {
   e.dataTransfer.effectAllowed = 'move'
 }
 
-function handleDragOver(e, day) {
+function handleDragOver(e, _day) {
   e.preventDefault()
   e.dataTransfer.dropEffect = 'move'
 }

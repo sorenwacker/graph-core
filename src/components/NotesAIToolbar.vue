@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, nextTick } from 'vue'
 import { useOllama } from '../composables/useOllama.js'
 import { useSettings } from '../composables/useSettings.js'
 import OllamaPromptModal from './OllamaPromptModal.vue'
