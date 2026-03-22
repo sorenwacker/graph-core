@@ -39,8 +39,7 @@ import SpotlightSearch from './components/SpotlightSearch.vue'
 import { showToast } from './composables/useToast.js'
 import { handleError } from './composables/useErrorHandler.js'
 
-// Navigation state is managed by useNavigation composable (initialized after dependencies)
-// These refs are placeholders that will be assigned from the composable
+// Navigation state placeholders (reassigned from composable)
 let currentContainerId = ref(null)
 let currentContainer = ref(null)
 let breadcrumbs = ref([])
@@ -124,18 +123,13 @@ const {
   }
 })
 
-// Wrap deleteCurrentWorkspace to add confirmation dialog
+// Wrap deleteCurrentWorkspace with confirmation
 async function deleteCurrentWorkspace() {
   const ws = workspaces.value.find(w => w.id === currentWorkspace.value)
-  if (!ws) return
-
-  const confirmed = confirm(`Delete workspace "${ws.name}"?`)
-  if (!confirmed) return
-
-  await _deleteCurrentWorkspace()
+  if (ws && confirm(`Delete workspace "${ws.name}"?`)) await _deleteCurrentWorkspace()
 }
 
-// Data loading via composable (sidebar tree, recent, favorites, tags, trash, orphans)
+// Data loading
 const {
   sidebarTree,
   recentItems,
@@ -159,13 +153,9 @@ const {
   deleteOrphanedNode
 } = useDataLoading(currentWorkspace)
 
-function selectTag(tag) {
-  searchQuery.value = `#${tag}`
-  showSearch.value = true
-  onSearchInput() // Trigger search with tag query
-}
+const selectTag = (tag) => { searchQuery.value = `#${tag}`; showSearch.value = true; onSearchInput() }
 
-// Detail panel resize - managed by useDetailResize composable
+// Detail panel resize
 const {
   detailWidth,
   isResizing: isResizingDetail,
@@ -174,9 +164,7 @@ const {
 
 const closeDetail = () => { showDetail.value = false; fullscreenDetail.value = false; detailPinned.value = false }
 
-// Inline editing state is managed by useInlineEdit composable (initialized after flatChildren)
-
-// Setup tooltip composable - single source of truth for all tooltips
+// Tooltip composable
 const { showTooltip, hideTooltip, forceHide: forceHideTooltip } = useNodeTooltip({
   onToggleComplete: async (nodeId) => {
     const node = flatChildren.value.find(n => n.id === nodeId)
@@ -186,7 +174,7 @@ const { showTooltip, hideTooltip, forceHide: forceHideTooltip } = useNodeTooltip
   shouldShowTooltip: () => hoverPreviewEnabled.value && !showDetail.value
 })
 
-// Setup detached window composable for cross-window sync
+// Detached window for cross-window sync
 const {
   openDetachedWindow,
   broadcastNodeUpdate,
@@ -198,10 +186,11 @@ const {
 const showSettings = ref(false)
 const sortAlphabetically = ref(false)
 
-// Cards layout - filtering, grid computation, and color inheritance
+// Cards layout - filtering, grid computation, color inheritance, and flat tree
 const {
   filteredChildren,
   sortedChildren,
+  flatChildren,
   cardSizeClass,
   cardsGridStyle,
   inheritedColorMap
@@ -215,8 +204,7 @@ const {
   currentContainer
 })
 
-// Snapshot/backup management - using composable
-// Note: callbacks reference functions defined below (works due to closure)
+// Snapshot/backup management (callbacks reference functions defined below via closure)
 const {
   availableSnapshots,
   showSnapshotList,
@@ -246,19 +234,10 @@ const {
 })
 
 // Load trash items when switching to trash view
-// Note: Persistence is handled by useSettings composable
-watch(viewMode, (newMode) => {
-  if (newMode === 'trash') {
-    loadTrashedItems()
-  }
-})
+watch(viewMode, (mode) => { if (mode === 'trash') loadTrashedItems() })
 
-// Close any active tooltips when detail panel opens
-watch(showDetail, (isOpen) => {
-  if (isOpen) {
-    forceHideTooltip()
-  }
-})
+// Close tooltips when detail panel opens
+watch(showDetail, (isOpen) => { if (isOpen) forceHideTooltip() })
 
 // Component refs
 const viewRendererRef = ref(null)
@@ -287,23 +266,18 @@ const {
   }
 })
 
-// Node operations composable - handles CRUD with undo/redo support
+// Node operations (CRUD with undo/redo)
 const nodeOps = useNodeOperations({
   api,
   pushCommand,
   getWorkspaceIdForNode,
-  onSuccess: async ({ type, node, x, y }) => {
-    // Save position for graph view when creating nodes
-    if (type === 'create' && node) {
-      saveNodePosition(node.id, x, y, node.parent_id)
-    }
-  },
+  onSuccess: async ({ type, node, x, y }) => { if (type === 'create' && node) saveNodePosition(node.id, x, y, node.parent_id) },
   onError: (e) => { error.value = e.message },
   broadcastUpdate: broadcastNodeUpdate,
   broadcastDelete: broadcastNodeDelete
 })
 
-// Cards drag state - using composable
+// Cards drag
 const {
   dropTarget,
   dropPosition,
@@ -317,28 +291,10 @@ const {
   onReorder: (src, tgt, pos) => handleReorder({ nodeId: src.id, targetId: tgt.id, position: pos })
 })
 
-// Use root depth setting when at root level, otherwise use regular max depth
-const effectiveGraphMaxDepth = computed(() => {
-  return currentContainerId.value === null ? graphRootMaxDepth.value : graphMaxDepth.value
-})
+// Graph depth: use root setting at root level
+const effectiveGraphMaxDepth = computed(() => currentContainerId.value === null ? graphRootMaxDepth.value : graphMaxDepth.value)
 
-const flatChildren = computed(() => {
-  const result = []
-  function flatten(nodeList) {
-    if (!nodeList) return
-    for (const node of nodeList) {
-      if (!node) continue
-      result.push(node)
-      if (node.children?.length) {
-        flatten(node.children)
-      }
-    }
-  }
-  flatten(children.value)
-  return result
-})
-
-// Tree expand/collapse state via composable
+// Tree expand/collapse
 const {
   expandedIds,
   toggleExpand,
@@ -351,7 +307,7 @@ const {
   flatChildren
 })
 
-// Initialize selection composable with dependencies
+// Selection
 const {
   selectedNode,
   selectedIds,
@@ -374,26 +330,18 @@ const {
 
 // Wrap selectNode to respect pin state - don't deselect when pinned
 function selectNode(node, options = {}) {
-  // If trying to deselect (node is null) but detail is pinned, ignore
-  if (!node && detailPinned.value) {
-    return
-  }
+  if (!node && detailPinned.value) return
   _selectNode(node, options)
 }
 
-// Navigation composable - manages drill-down navigation, breadcrumbs, history
+// Navigation composable
 const navigation = useNavigation({
   api,
   workspace: currentWorkspace,
   debounce: { enabled: true, delay: 200 },
   buildChildTree,
-  onBeforeNavigate: () => {
-    cancelDetailOpen()
-  },
-  onLeafNode: (node) => {
-    selectNode(node, { fullscreen: true })
-    return true // prevent entering the container
-  },
+  onBeforeNavigate: cancelDetailOpen,
+  onLeafNode: (node) => { selectNode(node, { fullscreen: true }); return true },
   onSelectNode: selectNode,
   onSidebarSync: (rootChildren) => { sidebarTree.value = rootChildren },
   onTransitionStart: (dir) => { transitionDirection.value = dir; transitioning.value = true },
@@ -405,13 +353,11 @@ const navigation = useNavigation({
   }
 })
 
-// Reassign navigation state from composable
+// Reassign navigation state
 currentContainerId = navigation.currentContainerId
 currentContainer = navigation.currentContainer
 breadcrumbs = navigation.breadcrumbs
 children = navigation.children
-
-// Export navigation methods and loading state
 const {
   loading,
   loadChildren,
@@ -426,7 +372,7 @@ const {
   navigateToNode
 } = navigation
 
-// Search composable - handles spotlight search state and navigation
+// Search
 const {
   searchQuery,
   searchResults,
@@ -446,125 +392,71 @@ const {
 } = useSearch({
   selectedNode,
   onSearch: async (query, mode, workspaceId, paginationOptions = {}) => {
-    const searchOptions = {
-      hideCompleted: hideCompleted.value,
-      ...paginationOptions
-    }
+    const searchOptions = { hideCompleted: hideCompleted.value, ...paginationOptions }
     if (query.startsWith('#') && query.length > 1) {
-      const tagName = query.slice(1)
-      return await api.getNodesByTag(tagName, workspaceId, searchOptions)
-    } else {
-      return await api.search(query, null, workspaceId, searchOptions)
+      return await api.getNodesByTag(query.slice(1), workspaceId, searchOptions)
+    }
+    return await api.search(query, null, workspaceId, searchOptions)
+  },
+  onLink: async (targetNode, sourceId) => {
+    const success = await nodeOps.linkNodes(sourceId, targetNode.id)
+    if (success) {
+      await refreshGraphAfterStructureChange()
+      if (selectedNode.value?.id === sourceId) {
+        selectedNode.value = await api.getNode(sourceId)
+        detailPanelRef.value?.loadLinkedNodes()
+      }
     }
   },
-  onSelect: async (node, mode, sourceId) => {
-    // Handle link mode - create link instead of navigating
-    if (mode === 'link' && sourceId) {
-      const success = await nodeOps.linkNodes(sourceId, node.id)
-      if (success) {
-        await refreshGraphAfterStructureChange()
-        if (selectedNode.value?.id === sourceId) {
-          const updatedNode = await api.getNode(sourceId)
-          selectedNode.value = updatedNode
-          detailPanelRef.value?.loadLinkedNodes()
-        }
+  onMove: async (sourceId, targetId) => {
+    try {
+      await api.moveNode(sourceId, targetId)
+      await refreshGraphAfterStructureChange()
+      if (selectedNode.value?.id === sourceId) {
+        selectedNode.value = await api.getNode(sourceId)
       }
-      return
+    } catch (e) {
+      handleError(e, { context: 'Moving node' })
     }
-
-    // Handle move mode - move node to new parent
-    if (mode === 'move' && sourceId) {
-      try {
-        await api.moveNode(sourceId, node.id)
-        await refreshGraphAfterStructureChange()
-        if (selectedNode.value?.id === sourceId) {
-          const updatedNode = await api.getNode(sourceId)
-          selectedNode.value = updatedNode
-        }
-      } catch (e) {
-        handleError(e, { context: 'Moving node' })
-      }
-      return
-    }
-
-    // Navigate INTO the searched node (make it the current container)
-    // This shows the node's children, with the node as the current context
-    if (currentContainerId.value !== node.id) {
-      await loadChildren(node.id)
-    }
-
-    // Select the node to show its details
+  },
+  onNavigate: async (node) => {
+    if (currentContainerId.value !== node.id) await loadChildren(node.id)
     selectNode(node)
   },
-  getAncestors: (nodeId) => api.getAncestors(nodeId),
+  getAncestors: api.getAncestors,
   getWorkspace: () => currentWorkspace.value
 })
 
 // Close detail panel when node is deselected (if not pinned)
-watch(selectedNode, (node) => {
-  if (!node && !detailPinned.value) {
-    showDetail.value = false
-  }
-})
+watch(selectedNode, (node) => { if (!node && !detailPinned.value) showDetail.value = false })
 
-// Initialize inline editing composable
+// Inline editing
 const {
-  editingCardId,
-  editingTitle,
-  inlineNotesId,
-  inlineNotesText,
-  startEditing,
-  saveEditing,
-  cancelEditing,
-  startInlineNotes,
-  saveInlineNotes,
-  cancelInlineNotes
+  editingCardId, editingTitle, inlineNotesId, inlineNotesText,
+  startEditing, saveEditing, cancelEditing, startInlineNotes, saveInlineNotes, cancelInlineNotes
 } = useInlineEdit({
   findNode: (nodeId) => flatChildren.value.find(n => n.id === nodeId),
-  onSaveTitle: async (nodeId, newTitle) => {
-    await api.updateNode(nodeId, { title: newTitle })
-    await loadChildren(currentContainerId.value)
-  },
-  onSaveNotes: async (nodeId, newNotes, { autoSave }) => {
-    await api.updateNode(nodeId, { notes: newNotes })
-    if (!autoSave) {
-      await loadChildren(currentContainerId.value)
-    }
-  }
+  onSaveTitle: async (nodeId, newTitle) => { await api.updateNode(nodeId, { title: newTitle }); await loadChildren(currentContainerId.value) },
+  onSaveNotes: async (nodeId, newNotes, { autoSave }) => { await api.updateNode(nodeId, { notes: newNotes }); if (!autoSave) await loadChildren(currentContainerId.value) }
 })
 
-// Graph operations via composable (saveNodePosition, insertBetween)
-// Note: initialized after refreshAfterChange is defined
+// Graph operations (initialized after refreshAfterChange)
 let graphOps = null
 
 async function createNode() {
   if (!newNodeTitle.value.trim()) return
-
   const targetParentId = addChildParentId.value || currentContainerId.value
-  const newNode = await nodeOps.createNode({
-    title: newNodeTitle.value,
-    type: newNodeType.value,
-    parentId: targetParentId
-  })
-
+  const newNode = await nodeOps.createNode({ title: newNodeTitle.value, type: newNodeType.value, parentId: targetParentId })
   if (newNode) {
-    if (addChildParentId.value) {
-      expandedIds.value.add(addChildParentId.value)
-      await loadSidebarTree()
-    }
-    newNodeTitle.value = ''
-    addChildParentId.value = null
+    if (addChildParentId.value) { expandedIds.value.add(addChildParentId.value); await loadSidebarTree() }
+    newNodeTitle.value = ''; addChildParentId.value = null
     await loadChildren(currentContainerId.value, { silent: true })
   }
 }
 
-async function addChildFromDetail(payload) {
-  await addChildNode(payload)
-  // Reload the detail panel's children list
-  detailPanelRef.value?.loadChildren()
-}
+const addChildFromDetail = async (payload) => { await addChildNode(payload); detailPanelRef.value?.loadChildren() }
 
-// Refresh operations via composable
+// Refresh operations
 const {
   refreshAfterChange,
   refreshAfterDelete,
@@ -643,24 +535,12 @@ const {
 })
 
 async function createNodeAtPosition({ title, type, x, y }) {
-  const newNode = await nodeOps.createNode({
-    title,
-    type,
-    parentId: currentContainerId.value,
-    x,
-    y
-  })
-  if (newNode) {
-    await refreshAfterChange()
-    selectNode(newNode)
-  }
+  const newNode = await nodeOps.createNode({ title, type, parentId: currentContainerId.value, x, y })
+  if (newNode) { await refreshAfterChange(); selectNode(newNode) }
 }
 
-// Handle detach event from DetailPanel - open node in new window
-async function handleDetach(node) {
-  if (!node) return
-  await openDetachedWindow(node.id, node.title)
-}
+// Open node in detached window
+const handleDetach = (node) => node && openDetachedWindow(node.id, node.title)
 
 // Context menu - using composable
 const {
@@ -688,57 +568,27 @@ const {
   onOpenLinkSearch: openLinkSearch,
   onOpenMoveSearch: openMoveSearch,
   onUnlink: nodeOps.unlinkNodes,
-  onMoveToWorkspace: async (nodeId, workspaceId) => {
-    await api.updateNode(nodeId, { workspace_id: workspaceId })
-    await loadChildren()
-  },
+  onMoveToWorkspace: async (nodeId, wsId) => { await api.updateNode(nodeId, { workspace_id: wsId }); await loadChildren() },
   onDelete: deleteNode,
-  onRefreshSelectedNode: async (sourceId) => {
-    if (showDetail.value && selectedNode.value?.id === sourceId) {
-      selectedNode.value = await api.getNode(sourceId)
-    }
-  }
+  onRefreshSelectedNode: async (sourceId) => { if (showDetail.value && selectedNode.value?.id === sourceId) selectedNode.value = await api.getNode(sourceId) }
 })
 
-// Wrapper for tooltip that checks editing state
-function showCardTooltip(event, node) {
-  if (editingCardId.value || inlineNotesId.value) return
-  showTooltip(event, node)
-}
+// Tooltip wrapper that checks editing state
+const showCardTooltip = (e, node) => { if (!editingCardId.value && !inlineNotesId.value) showTooltip(e, node) }
 
-// Add item modal functions
-function showAddNodeModal(parentId = null) {
-  showDetail.value = false
-  addNodeModal.value = { visible: true, parentId }
-}
+// Add node modal
+const showAddNodeModal = (parentId = null) => { showDetail.value = false; addNodeModal.value = { visible: true, parentId } }
 
-// Unified handler for add-child events from different views
-// Cards: emits (parentId, event) - opens modal
-// Graph: emits { parentId, title, type, x, y } - creates node directly
+// Unified add-child handler (Graph: object with title, Cards: parentId)
 function handleAddChild(payload, e) {
-  // Graph view passes object with title
-  if (payload && typeof payload === 'object' && payload.title) {
-    addChildNode(payload)
-    return
-  }
-  // Cards view passes (parentId, event)
-  e?.stopPropagation()
-  hideTooltip()
-  showAddNodeModal(payload)
+  if (payload?.title) { addChildNode(payload); return }
+  e?.stopPropagation(); hideTooltip(); showAddNodeModal(payload)
 }
 
-// Unified handler for create events from different views
-// Cards: emits no args - opens modal
-// Graph: emits { title, type, x, y } - creates node at position
+// Unified create handler (Graph: object with position, Cards: opens modal)
 function handleCreate(payload) {
-  // Graph view passes object with title
-  if (payload && typeof payload === 'object' && payload.title) {
-    createNodeAtPosition(payload)
-    return
-  }
-  // Cards view - open modal
-  hideTooltip()
-  showAddNodeModal(currentContainerId.value)
+  if (payload?.title) { createNodeAtPosition(payload); return }
+  hideTooltip(); showAddNodeModal(currentContainerId.value)
 }
 
 // Keyboard shortcuts via composable
@@ -770,13 +620,8 @@ const { handleKeydown } = useKeyboardShortcuts({
   }
 })
 
-// Handle custom open-link-search event from GraphView context menu
-function handleOpenLinkSearchEvent(e) {
-  const nodeId = e.detail?.nodeId
-  if (nodeId && selectedNode.value?.id === nodeId) {
-    openLinkSearch()
-  }
-}
+// Custom open-link-search event handler
+const handleOpenLinkSearchEvent = (e) => { if (e.detail?.nodeId === selectedNode.value?.id) openLinkSearch() }
 
 // App lifecycle management (initialization, event listeners, cleanup)
 useAppLifecycle({

@@ -152,9 +152,30 @@ export function useCardsLayout({
     return inheritedColorMap.value[node.id] || null
   }
 
+  /**
+   * Flatten nested children tree into a single array
+   * Used by selection, inline edit, and tree expand composables
+   */
+  const flatChildren = computed(() => {
+    const result = []
+    function flatten(nodeList) {
+      if (!nodeList) return
+      for (const node of nodeList) {
+        if (!node) continue
+        result.push(node)
+        if (node.children?.length) {
+          flatten(node.children)
+        }
+      }
+    }
+    flatten(children.value)
+    return result
+  })
+
   return {
     filteredChildren,
     sortedChildren,
+    flatChildren,
     cardSizeClass,
     cardsGridStyle,
     filterChildrenRecursive,

@@ -9,12 +9,15 @@ const SEARCH_PAGE_SIZE = 50
  *
  * @param {Object} options
  * @param {Function} options.onSearch - Called to perform search: onSearch(query, mode, workspaceId, paginationOptions) => results[]
- * @param {Function} options.onSelect - Called when a result is selected: onSelect(node, mode, linkSourceId)
+ * @param {Function} options.onSelect - Called when a result is selected: onSelect(node, mode, linkSourceId) - legacy callback
+ * @param {Function} options.onLink - Called when linking: onLink(targetNode, sourceId) - returns promise
+ * @param {Function} options.onMove - Called when moving: onMove(sourceId, targetId) - returns promise
+ * @param {Function} options.onNavigate - Called for navigation: onNavigate(node) - returns promise
  * @param {Function} options.getAncestors - Called to fetch ancestors for a node: getAncestors(nodeId) => ancestors[]
  * @param {Object} options.selectedNode - Ref to the currently selected node (for link mode)
  * @param {Function} options.getWorkspace - Function that returns current workspace ID
  */
-export function useSearch({ onSearch, onSelect, getAncestors, selectedNode, getWorkspace } = {}) {
+export function useSearch({ onSearch, onSelect, onLink, onMove, onNavigate, getAncestors, selectedNode, getWorkspace } = {}) {
   const { handleError } = useErrorHandler()
 
   const searchQuery = ref('')
@@ -181,11 +184,26 @@ export function useSearch({ onSearch, onSelect, getAncestors, selectedNode, getW
     }
   }
 
-  function goToSearchResult(node) {
+  async function goToSearchResult(node) {
     const mode = searchMode.value
     const sourceId = linkSourceNodeId.value
     closeSearch()
 
+    // Use mode-specific handlers if available
+    if (mode === 'link' && sourceId && onLink) {
+      await onLink(node, sourceId)
+      return
+    }
+    if (mode === 'move' && sourceId && onMove) {
+      await onMove(sourceId, node.id)
+      return
+    }
+    if (mode === 'normal' && onNavigate) {
+      await onNavigate(node)
+      return
+    }
+
+    // Fallback to legacy onSelect callback
     if (onSelect) {
       onSelect(node, mode, sourceId)
     }
