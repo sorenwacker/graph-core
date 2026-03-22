@@ -380,12 +380,16 @@ const {
   selectNode: _selectNode,
   cancelDetailOpen,
   handleMultiSelect,
-  toggleDetailPanel
+  toggleDetailPanel,
+  selectChildById,
+  openNodeFullscreen
 } = useSelection({
   showDetail,
   fullscreenDetail,
   openDetailFullscreen,
-  flatChildren
+  flatChildren,
+  getNode: (nodeId) => api.getNode(nodeId),
+  onError: handleError
 })
 
 // Wrap selectNode to respect pin state - don't deselect when pinned
@@ -574,17 +578,6 @@ async function navigateToNode(node) {
   await loadChildren(parentId)
   selectNode(node)
 }
-
-async function selectChildById(nodeId, options = {}) {
-  try {
-    const node = await api.getNode(nodeId)
-    selectNode(node, options)
-  } catch (err) {
-    handleError(err, { context: 'Selecting child' })
-  }
-}
-
-const openNodeFullscreen = (nodeId) => selectChildById(nodeId, { fullscreen: true })
 
 // Graph operations via composable (saveNodePosition, insertBetween)
 // Note: initialized after refreshAfterChange is defined
