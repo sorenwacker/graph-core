@@ -23,7 +23,8 @@ import { useCardsLayout } from './composables/useCardsLayout.js'
 import { useNavigation } from './composables/useNavigation.js'
 import { useGraphOperations } from './composables/useGraphOperations.js'
 import { useRefresh } from './composables/useRefresh.js'
-import { ReorderCommand, OllamaImproveNotesCommand } from './commands/index.js'
+import { useNodeActionsUI } from './composables/useNodeActionsUI.js'
+import { ReorderCommand } from './commands/index.js'
 import DetailPanel from './components/DetailPanel.vue'
 import ViewRenderer from './components/ViewRenderer.vue'
 import NodeContextMenu from './components/NodeContextMenu.vue'
@@ -725,41 +726,43 @@ graphOps = useGraphOperations({
 
 const { saveNodePosition, insertBetween } = graphOps
 
-async function moveNode({ nodeId, oldParentId, newParentId }) {
-  const success = await nodeOps.moveNode({ nodeId, oldParentId, newParentId })
-  if (success) {
-    if (newParentId) expandedIds.value.add(newParentId)
-    await refreshAfterChange()
-  }
-}
-
-// Handle link events from GraphView (Option+drag)
-async function linkNodesFromGraph({ sourceId, targetId }) {
-  const success = await nodeOps.linkNodes(sourceId, targetId)
-  if (success) {
-    await refreshGraphAfterStructureChange()
-    await refreshDetailPanelLinks(sourceId, targetId)
-  }
-}
-
-// Handle unlink events from GraphView (context menu)
-async function unlinkNodesFromGraph({ sourceId, targetId }) {
-  const success = await nodeOps.unlinkNodes(sourceId, targetId)
-  if (success) {
-    await refreshGraphAfterStructureChange()
-    await refreshDetailPanelLinks(sourceId, targetId)
-  }
-}
-
-async function moveMultipleNodes({ nodeIds, newParentId }) {
-  const success = await nodeOps.moveMultipleNodes({ nodeIds, newParentId })
-  if (success) {
-    if (newParentId) expandedIds.value.add(newParentId)
-    await refreshAfterChange()
-    selectedIds.value.clear()
-  }
-}
-
+// Node actions with UI state management
+const {
+  clearSelectionAfterDelete,
+  deleteNode,
+  deleteMultipleNodes,
+  wrapWithParent,
+  moveNode,
+  moveMultipleNodes,
+  moveNodeToRoot,
+  toggleComplete,
+  toggleFavorite,
+  linkNodesFromGraph,
+  unlinkNodesFromGraph,
+  handleAIImproveNotes
+} = useNodeActionsUI({
+  api,
+  nodeOps,
+  pushCommand,
+  getWorkspaceIdForNode,
+  selectedNode,
+  selectedIds,
+  showDetail,
+  currentContainerId,
+  breadcrumbs,
+  expandedIds,
+  flatChildren,
+  viewRendererRef,
+  enterContainer,
+  navigateBack,
+  refreshAfterChange,
+  refreshAfterDelete,
+  refreshGraphAfterStructureChange,
+  refreshDetailPanelLinks,
+  loadSidebarTree,
+  loadFavorites,
+  loadChildren
+})
 
 async function createNodeAtPosition({ title, type, x, y }) {
   const newNode = await nodeOps.createNode({
@@ -791,145 +794,6 @@ async function updateNode(updatedNode, trackUndo = true) {
 async function handleDetach(node) {
   if (!node) return
   await openDetachedWindow(node.id, node.title)
-}
-
-// Handle AI improve notes event from DetailPanel
-async function handleAIImproveNotes(payload) {
-  const { nodeId, oldNotes, newNotes, prompt, selectionRange, fullNotes } = payload
-
-  // Use fullNotes from the editor (current content) for correct selection positions
-  const currentFullNotes = fullNotes ?? ''
-
-  let finalOldNotes, finalNewNotes
-  if (selectionRange) {
-    // Selection-based improvement: replace only the selected portion
-    finalOldNotes = currentFullNotes
-    finalNewNotes = currentFullNotes.slice(0, selectionRange.from) +
-                    newNotes +
-                    currentFullNotes.slice(selectionRange.to)
-  } else {
-    // Full notes improvement
-    finalOldNotes = oldNotes
-    finalNewNotes = newNotes
-  }
-
-  const command = new OllamaImproveNotesCommand({
-    nodeId,
-    oldNotes: finalOldNotes,
-    newNotes: finalNewNotes,
-    prompt
-  })
-  // Execute the command to persist to database, then push for undo support
-  await command.execute(api)
-  pushCommand(command)
-  // Update selected node to show new notes immediately
-  if (selectedNode.value && selectedNode.value.id === nodeId) {
-    selectedNode.value = { ...selectedNode.value, notes: finalNewNotes }
-  }
-}
-
-// Common cleanup after delete operations
-function clearSelectionAfterDelete() {
-  showDetail.value = false
-  selectedNode.value = null
-}
-
-async function deleteNode(nodeId) {
-  const node = await api.getNode(nodeId)
-  if (!node) return
-
-  const descendants = await api.getDescendants(nodeId) || []
-  const allIds = new Set([node, ...descendants].map(n => String(n.id)))
-  const needsNavigation = allIds.has(String(currentContainerId.value)) ||
-    breadcrumbs.value.some(b => allIds.has(String(b.id)))
-
-  const result = await nodeOps.deleteNode(nodeId)
-  if (result.success) {
-    clearSelectionAfterDelete()
-    if (needsNavigation) {
-      if (node.parent_id) {
-        await enterContainer({ id: node.parent_id })
-      } else {
-        currentContainerId.value = null
-        breadcrumbs.value = []
-      }
-    }
-    await refreshAfterDelete()
-  }
-}
-
-async function deleteMultipleNodes(nodeIds) {
-  if (!nodeIds || nodeIds.length === 0) return
-  if (nodeIds.length > 1 && !confirm(`Delete ${nodeIds.length} nodes? (Cmd+Z to undo)`)) return
-
-  const nodeIdSet = new Set(nodeIds.map(String))
-  const needsNavigation = nodeIdSet.has(String(currentContainerId.value)) ||
-    breadcrumbs.value.some(b => nodeIdSet.has(String(b.id)))
-
-  const result = await nodeOps.deleteMultipleNodes(nodeIds)
-  if (result.success) {
-    clearSelectionAfterDelete()
-    if (needsNavigation) {
-      navigateBack()
-    }
-    await refreshAfterDelete()
-  }
-}
-
-async function wrapWithParent({ nodeId, parentTitle }) {
-  try {
-    // Get the node to find its current parent
-    const node = await api.getNode(nodeId)
-    if (!node) {
-      throw new Error('Node not found')
-    }
-
-    // Create new parent at same level as current node
-    const newParent = await api.createNode({
-      title: parentTitle,
-      type: 'group',
-      parent_id: node.parent_id,
-      workspace_id: getWorkspaceIdForNode('group')
-    })
-    if (!newParent || !newParent.id) {
-      throw new Error('Failed to create parent node')
-    }
-
-    // Move current node under new parent
-    await api.moveNode(nodeId, newParent.id)
-    await refreshAfterChange()
-
-    // Refresh selected node if it was the wrapped node
-    if (selectedNode.value?.id === nodeId) {
-      const updatedNode = flatChildren.value.find(n => n.id === nodeId)
-      if (updatedNode) {
-        selectedNode.value = updatedNode
-      }
-    }
-  } catch (e) {
-    error.value = e.message
-  }
-}
-
-async function moveNodeToRoot(nodeId) {
-  const success = await nodeOps.moveNodeToRoot(nodeId)
-  if (success) await refreshAfterChange()
-}
-
-async function toggleComplete(node) {
-  const success = await nodeOps.toggleComplete(node)
-  if (success) {
-    await loadChildren(currentContainerId.value, { silent: true })
-    tasksViewRef.value?.loadTasks()
-  }
-}
-
-async function toggleFavorite(node) {
-  const success = await nodeOps.toggleFavorite(node)
-  if (success) {
-    await loadChildren(currentContainerId.value, { silent: true })
-    await loadFavorites()
-  }
 }
 
 async function fetchBreadcrumbsForResults(results) {

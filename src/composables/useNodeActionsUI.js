@@ -1,0 +1,250 @@
+import { OllamaImproveNotesCommand } from '../commands/index.js'
+
+/**
+ * Composable for node actions that require UI state management.
+ * Wraps core node operations with selection, navigation, and refresh logic.
+ */
+export function useNodeActionsUI({
+  api,
+  nodeOps,
+  pushCommand,
+  getWorkspaceIdForNode,
+  // State refs
+  selectedNode,
+  selectedIds,
+  showDetail,
+  currentContainerId,
+  breadcrumbs,
+  expandedIds,
+  flatChildren,
+  viewRendererRef,
+  // Navigation
+  enterContainer,
+  navigateBack,
+  // Refresh functions
+  refreshAfterChange,
+  refreshAfterDelete,
+  refreshGraphAfterStructureChange,
+  refreshDetailPanelLinks,
+  loadSidebarTree,
+  loadFavorites,
+  loadChildren
+}) {
+  /**
+   * Clear selection state after delete operations
+   */
+  function clearSelectionAfterDelete() {
+    showDetail.value = false
+    selectedNode.value = null
+  }
+
+  /**
+   * Delete a node with UI state management
+   */
+  async function deleteNode(nodeId) {
+    const node = await api.getNode(nodeId)
+    if (!node) return
+
+    const descendants = await api.getDescendants(nodeId) || []
+    const allIds = new Set([node, ...descendants].map(n => String(n.id)))
+    const needsNavigation = allIds.has(String(currentContainerId.value)) ||
+      breadcrumbs.value.some(b => allIds.has(String(b.id)))
+
+    const result = await nodeOps.deleteNode(nodeId)
+    if (result.success) {
+      clearSelectionAfterDelete()
+      if (needsNavigation) {
+        if (node.parent_id) {
+          await enterContainer({ id: node.parent_id })
+        } else {
+          currentContainerId.value = null
+          breadcrumbs.value = []
+        }
+      }
+      await refreshAfterDelete()
+    }
+  }
+
+  /**
+   * Delete multiple nodes with UI state management
+   */
+  async function deleteMultipleNodes(nodeIds) {
+    if (!nodeIds || nodeIds.length === 0) return
+    if (nodeIds.length > 1 && !confirm(`Delete ${nodeIds.length} nodes? (Cmd+Z to undo)`)) return
+
+    const nodeIdSet = new Set(nodeIds.map(String))
+    const needsNavigation = nodeIdSet.has(String(currentContainerId.value)) ||
+      breadcrumbs.value.some(b => nodeIdSet.has(String(b.id)))
+
+    const result = await nodeOps.deleteMultipleNodes(nodeIds)
+    if (result.success) {
+      clearSelectionAfterDelete()
+      if (needsNavigation) {
+        navigateBack()
+      }
+      await refreshAfterDelete()
+    }
+  }
+
+  /**
+   * Wrap a node with a new parent group
+   */
+  async function wrapWithParent({ nodeId, parentTitle }) {
+    try {
+      const node = await api.getNode(nodeId)
+      if (!node) {
+        throw new Error('Node not found')
+      }
+
+      // Create new parent at same level as current node
+      const newParent = await api.createNode({
+        title: parentTitle,
+        type: 'group',
+        parent_id: node.parent_id,
+        workspace_id: getWorkspaceIdForNode('group')
+      })
+      if (!newParent || !newParent.id) {
+        throw new Error('Failed to create parent node')
+      }
+
+      // Move current node under new parent
+      await api.moveNode(nodeId, newParent.id)
+      await refreshAfterChange()
+
+      // Refresh selected node if it was the wrapped node
+      if (selectedNode.value?.id === nodeId) {
+        const updatedNode = flatChildren.value.find(n => n.id === nodeId)
+        if (updatedNode) {
+          selectedNode.value = updatedNode
+        }
+      }
+    } catch (e) {
+      console.error('Failed to wrap with parent:', e)
+      throw e
+    }
+  }
+
+  /**
+   * Move a node with UI state updates
+   */
+  async function moveNode({ nodeId, oldParentId, newParentId }) {
+    const success = await nodeOps.moveNode({ nodeId, oldParentId, newParentId })
+    if (success) {
+      if (newParentId) expandedIds.value.add(newParentId)
+      await refreshAfterChange()
+    }
+  }
+
+  /**
+   * Move multiple nodes with UI state updates
+   */
+  async function moveMultipleNodes({ nodeIds, newParentId }) {
+    const success = await nodeOps.moveMultipleNodes({ nodeIds, newParentId })
+    if (success) {
+      if (newParentId) expandedIds.value.add(newParentId)
+      await refreshAfterChange()
+      selectedIds.value.clear()
+    }
+  }
+
+  /**
+   * Move a node to root level
+   */
+  async function moveNodeToRoot(nodeId) {
+    const success = await nodeOps.moveNodeToRoot(nodeId)
+    if (success) await refreshAfterChange()
+  }
+
+  /**
+   * Toggle node completion with view updates
+   */
+  async function toggleComplete(node) {
+    const success = await nodeOps.toggleComplete(node)
+    if (success) {
+      await loadChildren(currentContainerId.value, { silent: true })
+      viewRendererRef.value?.loadTasks?.()
+    }
+    return success
+  }
+
+  /**
+   * Toggle node favorite with data reload
+   */
+  async function toggleFavorite(node) {
+    const success = await nodeOps.toggleFavorite(node)
+    if (success) {
+      await loadChildren(currentContainerId.value, { silent: true })
+      await loadFavorites()
+    }
+    return success
+  }
+
+  /**
+   * Link nodes from graph view with refresh
+   */
+  async function linkNodesFromGraph({ sourceId, targetId }) {
+    const success = await nodeOps.linkNodes(sourceId, targetId)
+    if (success) {
+      await refreshGraphAfterStructureChange()
+      await refreshDetailPanelLinks(sourceId, targetId)
+    }
+  }
+
+  /**
+   * Unlink nodes from graph view with refresh
+   */
+  async function unlinkNodesFromGraph({ sourceId, targetId }) {
+    const success = await nodeOps.unlinkNodes(sourceId, targetId)
+    if (success) {
+      await refreshGraphAfterStructureChange()
+      await refreshDetailPanelLinks(sourceId, targetId)
+    }
+  }
+
+  /**
+   * Handle AI-improved notes from DetailPanel
+   */
+  async function handleAIImproveNotes(payload) {
+    const { nodeId, oldNotes, newNotes, prompt, selectionRange, fullNotes } = payload
+    const currentFullNotes = fullNotes ?? ''
+
+    let finalOldNotes, finalNewNotes
+    if (selectionRange) {
+      finalOldNotes = currentFullNotes
+      finalNewNotes = currentFullNotes.slice(0, selectionRange.from) +
+                      newNotes +
+                      currentFullNotes.slice(selectionRange.to)
+    } else {
+      finalOldNotes = oldNotes
+      finalNewNotes = newNotes
+    }
+
+    const command = new OllamaImproveNotesCommand({
+      nodeId,
+      oldNotes: finalOldNotes,
+      newNotes: finalNewNotes,
+      prompt
+    })
+    await command.execute(api)
+    pushCommand(command)
+
+    if (selectedNode.value && selectedNode.value.id === nodeId) {
+      selectedNode.value = { ...selectedNode.value, notes: finalNewNotes }
+    }
+  }
+
+  return {
+    clearSelectionAfterDelete,
+    deleteNode,
+    deleteMultipleNodes,
+    wrapWithParent,
+    moveNode,
+    moveMultipleNodes,
+    moveNodeToRoot,
+    toggleComplete,
+    toggleFavorite,
+    linkNodesFromGraph,
+    unlinkNodesFromGraph,
+    handleAIImproveNotes
+  }
+}
