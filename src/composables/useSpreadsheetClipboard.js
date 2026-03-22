@@ -3,10 +3,6 @@
  * Handles copy, cut, paste, delete, and multi-cell fill operations
  */
 
-import { useErrorHandler } from './useErrorHandler.js'
-
-const { handleError } = useErrorHandler()
-
 /**
  * Copy selected cells to clipboard as tab-separated values
  * @param {Object} options
@@ -35,7 +31,7 @@ export async function copySelection({ selectionBounds, columns, rowData }) {
   try {
     await navigator.clipboard.writeText(text)
   } catch (err) {
-    handleError(err, { context: 'Copying to clipboard', silent: true })
+    console.warn('Failed to copy to clipboard:', err.message)
   }
 }
 
@@ -130,7 +126,7 @@ export async function pasteSelection({ selectionBounds, columns, rowData, gridAp
   try {
     text = await navigator.clipboard.readText()
   } catch (err) {
-    handleError(err, { context: 'Pasting from clipboard', silent: true })
+    console.warn('Failed to read from clipboard:', err.message)
     return
   }
 
