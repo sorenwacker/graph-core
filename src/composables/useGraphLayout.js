@@ -139,6 +139,8 @@ export const LAYOUTS = {
  * @param {Function} options.getRadialSettings - Function returning radial settings
  * @param {Function} options.savePositions - Function to save positions
  * @param {Function} options.clearPositions - Function to clear saved positions
+ * @param {Ref} options.relaxLocked - Ref for relax lock state (from useGraphSettings)
+ * @param {Ref} options.fitLocked - Ref for fit lock state (from useGraphSettings)
  * @returns {Object} Layout management functions
  */
 export function useGraphLayout(options = {}) {
@@ -148,13 +150,13 @@ export function useGraphLayout(options = {}) {
     setLayoutMode,
     getRadialSettings,
     savePositions,
-    clearPositions
+    clearPositions,
+    relaxLocked,
+    fitLocked
   } = options
 
   // Continuous layout state
   let continuousLayout = null
-  const relaxLocked = ref(false)
-  const fitLocked = ref(false)
   let continuousFitInterval = null
   let autoRelaxTimer = null
 
@@ -563,14 +565,12 @@ export function useGraphLayout(options = {}) {
     autoRelaxNewNodes,
 
     // Continuous relax
-    relaxLocked,
     startContinuousRelax,
     stopContinuousRelax,
     restartContinuousRelax,
     handleRelaxClick,
 
     // Fit operations
-    fitLocked,
     fitView,
     startContinuousFit,
     stopContinuousFit,

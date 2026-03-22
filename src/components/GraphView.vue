@@ -123,7 +123,7 @@ const _savePos = () => saveNodePositions(cy, _getKey())
 const _clearPos = () => localStorage.removeItem(_getKey())
 
 // Layout composable
-const layout = useGraphLayout({ getCy: () => cy, getLayoutMode: () => layoutMode.value, setLayoutMode: (m) => { layoutMode.value = m }, getRadialSettings: () => radialSettings, savePositions: _savePos, clearPositions: _clearPos })
+const layout = useGraphLayout({ getCy: () => cy, getLayoutMode: () => layoutMode.value, setLayoutMode: (m) => { layoutMode.value = m }, getRadialSettings: () => radialSettings, savePositions: _savePos, clearPositions: _clearPos, relaxLocked, fitLocked })
 const getLayoutOptions = () => layout.getLayoutOptions(layoutMode.value)
 
 // Events composable
