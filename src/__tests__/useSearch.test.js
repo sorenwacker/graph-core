@@ -3,15 +3,15 @@ import { ref } from 'vue'
 import { useSearch } from '../composables/useSearch.js'
 
 describe('useSearch composable', () => {
-  let onSearch, onSelect, onFetchBreadcrumbs, selectedNode, search
+  let onSearch, onSelect, getAncestors, selectedNode, search
 
   beforeEach(() => {
     vi.useFakeTimers()
     onSearch = vi.fn()
     onSelect = vi.fn()
-    onFetchBreadcrumbs = vi.fn()
+    getAncestors = vi.fn()
     selectedNode = ref(null)
-    search = useSearch({ onSearch, onSelect, onFetchBreadcrumbs, selectedNode })
+    search = useSearch({ onSearch, onSelect, getAncestors, selectedNode })
   })
 
   afterEach(() => {
@@ -150,24 +150,28 @@ describe('useSearch composable', () => {
       expect(onSearch).toHaveBeenCalledWith('test', 'normal', 'work', { limit: 50, offset: 0 })
     })
 
-    it('should call onFetchBreadcrumbs if results exist', async () => {
+    it('should call getAncestors for each result to build breadcrumbs', async () => {
       search.searchQuery.value = 'test'
       const results = [{ id: 1 }, { id: 2 }]
       onSearch.mockResolvedValue(results)
-      onFetchBreadcrumbs.mockResolvedValue(results.map(r => ({ ...r, breadcrumb: 'path' })))
+      getAncestors.mockResolvedValue([{ title: 'Parent' }, { title: 'Root' }])
 
       await search.handleSearch('work')
 
-      expect(onFetchBreadcrumbs).toHaveBeenCalledWith(results)
+      expect(getAncestors).toHaveBeenCalledTimes(2)
+      expect(getAncestors).toHaveBeenCalledWith(1)
+      expect(getAncestors).toHaveBeenCalledWith(2)
+      // Results should have breadcrumbs added
+      expect(search.searchResults.value[0].breadcrumb).toBe('Parent / Root')
     })
 
-    it('should not call onFetchBreadcrumbs if no results', async () => {
+    it('should not call getAncestors if no results', async () => {
       search.searchQuery.value = 'test'
       onSearch.mockResolvedValue([])
 
       await search.handleSearch('work')
 
-      expect(onFetchBreadcrumbs).not.toHaveBeenCalled()
+      expect(getAncestors).not.toHaveBeenCalled()
     })
 
     it('should reset selectedResultIndex on new search', async () => {
