@@ -339,7 +339,7 @@ const navigation = useNavigation({
   debounce: { enabled: true, delay: 200 },
   buildChildTree,
   onBeforeNavigate: cancelDetailOpen,
-  onLeafNode: (node) => { selectNode(node, { fullscreen: true }); return true },
+  onLeafNode: () => false,
   onSelectNode: selectNode,
   onSidebarSync: (rootChildren) => { sidebarTree.value = rootChildren },
   onTransitionStart: (dir) => { transitionDirection.value = dir; transitioning.value = true },
