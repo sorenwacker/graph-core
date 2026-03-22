@@ -494,6 +494,17 @@ function onDragEnd() {
   dropPosition.value = null
 }
 
+// Handler for ChildrenSection reorder event
+async function onChildReorder({ draggedId, targetId, position }) {
+  try {
+    await api.reorderNode(draggedId, targetId, position)
+    await loadChildren()
+    emit('child-updated', draggedId)
+  } catch (err) {
+    handleError(err, { context: 'Reordering children' })
+  }
+}
+
 // Table handlers
 async function handleCreateTable() {
   if (!props.node?.id) return
@@ -753,256 +764,39 @@ defineExpose({
             </div>
           </div>
           <!-- Children Section -->
-          <div class="children-section" :class="{ collapsed: childrenCollapsed }">
-            <div class="section-header" @click="childrenCollapsed = !childrenCollapsed">
-              <span class="section-title">Tasks</span>
-              <span class="collapse-indicator">{{ childrenCollapsed ? '+' : '-' }}</span>
-              <span v-if="children.length" class="section-count">{{ completedChildrenCount }}/{{ children.length }}</span>
-            </div>
-            <div v-show="!childrenCollapsed" class="section-content">
-              <!-- Add task input -->
-              <div class="add-task-row">
-                <input
-                  v-model="newTaskTitle"
-                  type="text"
-                  placeholder="Add task..."
-                  class="add-task-input"
-                  @keydown.enter="addTask"
-                />
-                <button class="add-task-btn" @click="addTask" :disabled="!newTaskTitle.trim()" title="Add task">+</button>
-              </div>
-              <div v-if="loadingChildren" class="loading">Loading...</div>
-              <div v-if="filteredChildren.length" class="children-list">
-                <template v-for="child in filteredChildren" :key="child.id">
-                  <!-- Person: circle with initials -->
-                  <div
-                    v-if="child.type === 'person'"
-                    class="child-item person-item"
-                    :title="child.title + (child.organization ? ' - ' + child.organization : '')"
-                    @click="selectChild(child)"
-                  >
-                    <span class="person-avatar" :style="{ backgroundColor: child.color || '#3498db' }">
-                      {{ getInitials(child.title) }}
-                    </span>
-                  </div>
-                  <!-- Other types: color dot with checkbox -->
-                  <div
-                    v-else
-                    class="child-item"
-                    :class="{
-                      completed: child.completed,
-                      dragging: draggedChild?.id === child.id,
-                      'drop-before': dropTarget?.id === child.id && dropPosition === 'before',
-                      'drop-after': dropTarget?.id === child.id && dropPosition === 'after'
-                    }"
-                    :data-child-id="child.id"
-                    draggable="true"
-                    @dragstart="onDragStart($event, child)"
-                    @dragover="onDragOver($event, child)"
-                    @dragleave="onDragLeave($event)"
-                    @drop="onDrop($event, child)"
-                    @dragend="onDragEnd"
-                    @click="selectChild(child)"
-                  >
-                    <span class="child-color-dot" :style="{ backgroundColor: child.color || '#0f4c75' }">
-                      <input
-                        type="checkbox"
-                        :checked="child.completed"
-                        @click.stop
-                        @change="toggleChildComplete(child)"
-                      />
-                    </span>
-                    <span class="child-title">{{ child.title?.slice(0, 30) }}{{ child.title?.length > 30 ? '...' : '' }}</span>
-                    <span v-if="child.end_date && (fullscreen || width >= 500)" class="child-end-date">{{ child.end_date.split('T')[0] }}</span>
-                    <span v-if="child.due_date" class="child-due" :class="{ 'due-warning': getDueStatus(child) === 'soon', 'due-overdue': getDueStatus(child) === 'overdue' }">{{ child.due_date }}</span>
-                    <button class="add-subtask-btn" @click.stop="emit('add-child', { parentId: child.id, title: '', type: 'task', prompt: true })" title="Add subtask">+</button>
-                  </div>
-                  <!-- Grandchildren -->
-                  <template v-if="expandedChildren.has(child.id) && grandchildren[child.id]?.length">
-                    <div
-                      v-for="gc in grandchildren[child.id]"
-                      :key="gc.id"
-                      class="grandchild-item"
-                      :class="{ completed: gc.completed }"
-                      @click="emit('select-child', gc.id)"
-                    >
-                      <span v-if="gc.type === 'person'" class="gc-type person" v-html="personIconSvg"></span>
-                      <span v-else class="gc-type" :class="gc.type" v-html="getTypeIcon(gc.type)"></span>
-                      <span class="gc-title">{{ gc.title }}</span>
-                      <button class="add-subtask-btn" @click.stop="emit('add-child', { parentId: gc.id, title: '', type: 'task', prompt: true })" title="Add subtask">+</button>
-                    </div>
-                  </template>
-                </template>
-              </div>
-            </div>
-          </div>
+          <ChildrenSection
+            :children="children"
+            :hide-completed="hideCompleted"
+            :loading-children="loadingChildren"
+            :collapsed="childrenCollapsed"
+            :parent-id="props.node?.id"
+            :width="width"
+            :fullscreen="fullscreen"
+            @update:collapsed="childrenCollapsed = $event"
+            @select-child="selectChild({ id: $event })"
+            @toggle-complete="toggleChildComplete"
+            @add-task="emit('add-child', $event)"
+            @add-subtask="emit('add-child', { parentId: $event.parentId, title: '', type: 'task', prompt: true })"
+            @reorder="onChildReorder"
+          />
 
           <!-- Metadata Section -->
-          <div class="meta-section" :class="{ collapsed: metadataCollapsed }">
-            <div class="section-header" @click="metadataCollapsed = !metadataCollapsed">
-              <span class="section-title">Metadata</span>
-              <span class="collapse-indicator">{{ metadataCollapsed ? '+' : '-' }}</span>
-            </div>
-            <div v-show="!metadataCollapsed" class="section-content">
-              <div class="meta-grid">
-                <!-- Type -->
-                <div class="meta-item">
-                  <label>Type</label>
-                  <select v-model="editedNode.type" @change="saveChanges">
-                    <option v-for="t in nodeTypes" :key="t" :value="t">{{ t }}</option>
-                  </select>
-                </div>
-
-                <!-- Workspace -->
-                <div class="meta-item">
-                  <label>Workspace</label>
-                  <select
-                    :value="editedNode.workspace_id"
-                    @change="changeWorkspace($event.target.value)"
-                  >
-                    <option v-for="ws in workspaces" :key="ws.id" :value="ws.id">{{ ws.name }}</option>
-                  </select>
-                </div>
-
-                <!-- Importance -->
-                <div class="meta-item">
-                  <label>Importance</label>
-                  <div class="importance-picker">
-                    <button
-                      v-for="level in 5"
-                      :key="level"
-                      class="importance-btn"
-                      :class="{ active: editedNode.importance === level }"
-                      @click="setImportance(level)"
-                    >{{ level }}</button>
-                  </div>
-                </div>
-
-                <!-- Start Date -->
-                <div class="meta-item">
-                  <label>Start</label>
-                  <div class="date-field">
-                    <input
-                      type="date"
-                      :value="editedNode.start_date?.split('T')[0] || ''"
-                      @change="updateDate('start_date', $event.target.value)"
-                    />
-                    <button v-if="editedNode.start_date" class="clear-btn" @click="clearDate('start_date')" title="Clear start date">x</button>
-                  </div>
-                </div>
-
-                <!-- Due Date -->
-                <div class="meta-item">
-                  <label :class="{ 'due-warning': getDueStatus(editedNode) === 'soon', 'due-overdue': getDueStatus(editedNode) === 'overdue' }">Due</label>
-                  <div class="date-field" :class="{ 'due-warning': getDueStatus(editedNode) === 'soon', 'due-overdue': getDueStatus(editedNode) === 'overdue' }">
-                    <input
-                      type="date"
-                      :value="editedNode.due_date?.split('T')[0] || ''"
-                      @change="updateDate('due_date', $event.target.value)"
-                    />
-                    <button v-if="editedNode.due_date" class="clear-btn" @click="clearDate('due_date')" title="Clear due date">x</button>
-                  </div>
-                </div>
-
-                <!-- End Date -->
-                <div class="meta-item">
-                  <label>End</label>
-                  <div class="date-field">
-                    <input
-                      type="date"
-                      :value="editedNode.end_date?.split('T')[0] || ''"
-                      @change="updateDate('end_date', $event.target.value)"
-                    />
-                    <button v-if="editedNode.end_date" class="clear-btn" @click="clearDate('end_date')" title="Clear end date">x</button>
-                  </div>
-                </div>
-
-                <!-- Color -->
-                <div class="meta-item">
-                  <label>Color</label>
-                  <div class="color-field">
-                    <input
-                      type="color"
-                      :value="editedNode.color || '#0f4c75'"
-                      @change="editedNode.color = $event.target.value; saveChanges()"
-                    />
-                    <button
-                      v-if="editedNode.color && editedNode.color !== '#0f4c75'"
-                      class="clear-btn"
-                      @click="editedNode.color = '#0f4c75'; saveChanges()"
-                      title="Reset to default color"
-                    >x</button>
-                  </div>
-                </div>
-
-                <!-- Location, Tags, Links (compact row) -->
-                <div class="meta-item compact-row">
-                  <div v-if="editedNode.location" class="compact-field location-field">
-                    <label>Location</label>
-                    <input
-                      type="text"
-                      :value="editedNode.location"
-                      @input="editedNode.location = $event.target.value"
-                      @blur="saveChanges"
-                      class="location-input"
-                    />
-                    <button class="clear-btn" @click="editedNode.location = null; saveChanges()" title="Clear location">x</button>
-                  </div>
-                  <button v-else class="add-field-btn compact" @click="editedNode.location = ' '" title="Add location">+Location</button>
-
-                  <div class="compact-field tags-field">
-                    <label>Tags</label>
-                    <TagInput
-                      :tags="editedNode.tags || []"
-                      @update="updateTags"
-                    />
-                  </div>
-
-                  <template v-if="editedNode.show_links !== 0">
-                    <div v-if="linkedNodes.length" class="compact-field links-field">
-                      <label>
-                        Links
-                        <button class="toggle-links-btn" @click.stop="editedNode.show_links = 0; saveChanges()" title="Hide links section">-</button>
-                      </label>
-                      <div class="links-inline">
-                        <span
-                          v-for="linked in linkedNodes"
-                          :key="linked.id"
-                          class="link-chip"
-                          @click="emit('select-child', linked.id)"
-                        >
-                          <span v-if="linked.type === 'person'" class="link-type person" v-html="personIconSvg"></span>
-                          <span v-else class="link-type" :class="linked.type" v-html="getTypeIcon(linked.type)"></span>
-                          {{ linked.title }}
-                          <button class="remove-link-btn" @click.stop="removeLink(linked)" title="Remove link">x</button>
-                        </span>
-                        <button class="add-link-btn" @click="emit('open-link-search')" title="Add link">+</button>
-                      </div>
-                    </div>
-                    <button v-else class="add-field-btn compact" @click="emit('open-link-search')" title="Add link">+Link</button>
-                  </template>
-                  <button v-else class="add-field-btn compact" @click="editedNode.show_links = 1; saveChanges()" title="Show links section">+Link</button>
-                </div>
-
-                <!-- System info (compact second row) -->
-                <div class="meta-item compact-row system-info">
-                  <div class="compact-field">
-                    <label>ID</label>
-                    <span class="meta-value mono">{{ editedNode.id }}</span>
-                  </div>
-                  <div class="compact-field">
-                    <label>Created</label>
-                    <span class="meta-value">{{ formattedCreatedDate }}</span>
-                  </div>
-                  <div class="compact-field">
-                    <label>Modified</label>
-                    <span class="meta-value">{{ formattedUpdatedDate }}</span>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
+          <MetadataGridSection
+            :edited-node="editedNode"
+            :linked-nodes="linkedNodes"
+            :workspaces="workspaces"
+            :collapsed="metadataCollapsed"
+            @update:collapsed="metadataCollapsed = $event"
+            @update:field="editedNode[$event.field] = $event.value"
+            @update:tags="updateTags"
+            @update:color="editedNode.color = $event"
+            @change-workspace="changeWorkspace"
+            @select-link="emit('select-child', $event)"
+            @remove-link="removeLink"
+            @add-link="emit('open-link-search')"
+            @toggle-links-visibility="editedNode.show_links = $event; saveChanges()"
+            @save="saveChanges"
+          />
         </div>
       </div>
       </template>
