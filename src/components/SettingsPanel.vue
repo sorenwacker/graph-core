@@ -6,7 +6,6 @@ import { useTheme } from '../composables/useTheme.js'
 
 const {
   presetPrompts,
-  defaultPrompts,
   savePrompt,
   deletePrompt,
   resetPrompt,
