@@ -23,8 +23,6 @@ import { useTreeExpand } from './composables/useTreeExpand.js'
 import { useCardsLayout } from './composables/useCardsLayout.js'
 import { useNavigation } from './composables/useNavigation.js'
 import {
-  LinkCommand,
-  UnlinkCommand,
   ReorderCommand,
   OllamaImproveNotesCommand
 } from './commands/index.js'
@@ -487,17 +485,14 @@ const {
   onSelect: async (node, mode, sourceId) => {
     // Handle link mode - create link instead of navigating
     if (mode === 'link' && sourceId) {
-      try {
-        await api.linkNodes(sourceId, node.id)
-        pushCommand(new LinkCommand({ sourceId, targetId: node.id }))
+      const success = await nodeOps.linkNodes(sourceId, node.id)
+      if (success) {
         await refreshGraphAfterStructureChange()
         if (selectedNode.value?.id === sourceId) {
           const updatedNode = await api.getNode(sourceId)
           selectedNode.value = updatedNode
           detailPanelRef.value?.loadLinkedNodes()
         }
-      } catch (e) {
-        handleError(e, { context: 'Creating link' })
       }
       return
     }
@@ -779,27 +774,19 @@ async function moveNode({ nodeId, oldParentId, newParentId }) {
 
 // Handle link events from GraphView (Option+drag)
 async function linkNodesFromGraph({ sourceId, targetId }) {
-  try {
-    await api.linkNodes(sourceId, targetId)
-    pushCommand(new LinkCommand({ sourceId, targetId }))
+  const success = await nodeOps.linkNodes(sourceId, targetId)
+  if (success) {
     await refreshGraphAfterStructureChange()
     await refreshDetailPanelLinks(sourceId, targetId)
-  } catch (e) {
-    handleError(e, { context: 'Linking nodes' })
-    error.value = e.message
   }
 }
 
 // Handle unlink events from GraphView (context menu)
 async function unlinkNodesFromGraph({ sourceId, targetId }) {
-  try {
-    await api.unlinkNodes(sourceId, targetId)
-    pushCommand(new UnlinkCommand({ sourceId, targetId }))
+  const success = await nodeOps.unlinkNodes(sourceId, targetId)
+  if (success) {
     await refreshGraphAfterStructureChange()
     await refreshDetailPanelLinks(sourceId, targetId)
-  } catch (e) {
-    handleError(e, { context: 'Unlinking nodes' })
-    error.value = e.message
   }
 }
 
@@ -846,18 +833,16 @@ async function insertBetween({ parentId, childId, title, type, isLink }) {
 }
 
 async function createNodeAtPosition({ title, type, x, y }) {
-  try {
-    const newNode = await createNodeCore({
-      title,
-      type,
-      parentId: currentContainerId.value,
-      x,
-      y
-    })
+  const newNode = await nodeOps.createNode({
+    title,
+    type,
+    parentId: currentContainerId.value,
+    x,
+    y
+  })
+  if (newNode) {
     await refreshAfterChange()
     selectNode(newNode)
-  } catch (e) {
-    error.value = e.message
   }
 }
 
