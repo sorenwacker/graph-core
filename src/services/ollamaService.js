@@ -9,7 +9,7 @@ const DEFAULT_MODEL = 'llama3.2'
 /**
  * Handle connection errors with user-friendly messages
  */
-function handleConnectionError(error, model = null) {
+function handleConnectionError(error, _model = null) {
   if (error.message === 'Failed to fetch' || error.code === 'ECONNREFUSED') {
     throw new Error('Ollama is not running. Start with: ollama serve')
   }
