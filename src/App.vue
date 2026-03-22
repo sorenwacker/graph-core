@@ -21,6 +21,7 @@ import { useDataLoading } from './composables/useDataLoading.js'
 import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts.js'
 import { useTreeExpand } from './composables/useTreeExpand.js'
 import { useCardsLayout } from './composables/useCardsLayout.js'
+import { useNavigation } from './composables/useNavigation.js'
 import {
   CreateCommand,
   LinkCommand,
@@ -28,7 +29,7 @@ import {
   ReorderCommand,
   OllamaImproveNotesCommand
 } from './commands/index.js'
-import { MAX_HISTORY_SIZE, SIDEBAR_HIDE_DELAY_MS } from './utils/uiConstants.js'
+import { SIDEBAR_HIDE_DELAY_MS } from './utils/uiConstants.js'
 import DetailPanel from './components/DetailPanel.vue'
 import GraphView from './components/GraphView.vue'
 import TableView from './components/TableView.vue'
@@ -50,12 +51,13 @@ import SpotlightSearch from './components/SpotlightSearch.vue'
 import { showToast } from './composables/useToast.js'
 import { handleError } from './composables/useErrorHandler.js'
 
-// Navigation state - drill-down model
-const currentContainerId = ref(null)  // null = root level
-const currentContainer = ref(null)
-const breadcrumbs = ref([])  // path from root to current container
-const children = ref([])     // children of current container
-const navigationHistory = ref([])  // Stack of previous container IDs for back navigation
+// Navigation state is managed by useNavigation composable (initialized after dependencies)
+// These refs are placeholders that will be assigned from the composable
+let currentContainerId = ref(null)
+let currentContainer = ref(null)
+let breadcrumbs = ref([])
+let children = ref([])
+let navigationHistory = ref([])
 
 // UI state - managed by useSettings composable
 const {
@@ -83,7 +85,7 @@ const {
   ollamaEnabled
 } = useSettings()
 
-const loading = ref(true)
+// loading state is managed by useNavigation composable
 const error = ref(null)
 const newNodeTitle = ref('')
 const newNodeType = ref('task')
@@ -395,6 +397,57 @@ function selectNode(node, options = {}) {
   _selectNode(node, options)
 }
 
+// Navigation composable - manages drill-down navigation, breadcrumbs, history
+const navigation = useNavigation({
+  api,
+  workspace: currentWorkspace,
+  debounce: { enabled: true, delay: 200 },
+  buildChildTree,
+  onBeforeNavigate: () => {
+    cancelDetailOpen()
+  },
+  onLeafNode: (node) => {
+    selectNode(node, { fullscreen: true })
+    return true // prevent entering the container
+  },
+  onSidebarSync: (rootChildren) => {
+    sidebarTree.value = rootChildren
+  },
+  onTransitionStart: (direction) => {
+    transitionDirection.value = direction
+    transitioning.value = true
+  },
+  onTransitionEnd: () => {
+    transitioning.value = false
+  },
+  onNotFound: async () => {
+    currentContainerId.value = null
+    localStorage.removeItem('graphcore-containerId')
+    await navigation.loadChildren(null)
+  }
+})
+
+// Reassign navigation state from composable
+currentContainerId = navigation.currentContainerId
+currentContainer = navigation.currentContainer
+breadcrumbs = navigation.breadcrumbs
+children = navigation.children
+navigationHistory = navigation.navigationHistory
+
+// Export navigation methods and loading state
+const {
+  loading,
+  loadChildren,
+  enterContainer,
+  navigateBack,
+  navigateToBreadcrumb,
+  goToParent,
+  goToFirstChild,
+  goToSibling,
+  goToPrevSibling,
+  goToNextSibling
+} = navigation
+
 // Search composable - handles spotlight search state and navigation
 const {
   searchQuery,
@@ -527,202 +580,6 @@ const {
     }
   }
 })
-
-let isLoadingChildren = false
-let lastLoadTime = 0
-let lastLoadedContainerId = null
-
-async function loadChildren(containerId = null, options = {}) {
-  const { silent = false } = options
-  const now = Date.now()
-  const timeSinceLastLoad = now - lastLoadTime
-
-  // Strict guard against re-entry
-  if (isLoadingChildren) {
-    return
-  }
-
-  // Debounce: skip if called within 200ms for same container
-  if (timeSinceLastLoad < 200 && lastLoadedContainerId === containerId) {
-    return
-  }
-
-  isLoadingChildren = true
-  lastLoadedContainerId = containerId
-  // Only show loading state if not silent (silent mode preserves mounted components)
-  const showLoading = !silent
-  if (showLoading) {
-    loading.value = true
-  }
-  error.value = null
-  try {
-    if (containerId === null) {
-      // Root level - get all root nodes with their descendants
-      const roots = await api.getRoots(currentWorkspace.value)
-      // Filter out any null/undefined entries
-      const filteredRoots = (roots || []).filter(Boolean)
-      // Fetch descendants for each root to build nested structure
-      const rootsWithChildren = await Promise.all(
-        filteredRoots.map(async (root) => {
-          if (!root || !root.id) return null
-          const descendants = await api.getDescendants(root.id)
-          return {
-            ...root,
-            children: buildChildTree(descendants, root.id)
-          }
-        })
-      )
-      const validRoots = rootsWithChildren.filter(Boolean)
-      children.value = validRoots
-      sidebarTree.value = validRoots  // Update sidebar
-      currentContainer.value = null
-      breadcrumbs.value = []
-    } else {
-      // Get container and its children
-      const [container, containerChildren] = await Promise.all([
-        api.getNode(containerId),
-        api.getChildren(containerId)
-      ])
-      currentContainer.value = container
-
-      // Build children with nested structure for tree view
-      const descendants = await api.getDescendants(containerId)
-      children.value = buildTree(containerChildren, descendants)
-
-      // Build breadcrumbs
-      const ancestors = await api.getAncestors(containerId)
-      // Filter out any null entries and any ancestor that has same id as container (prevents duplicates)
-      breadcrumbs.value = (ancestors || []).filter(a => a && a.id !== container.id)
-      if (container) breadcrumbs.value.push(container)
-    }
-    currentContainerId.value = containerId
-    // Keep stored expanded state from localStorage (don't reset)
-  } catch (e) {
-    handleError(e, { context: 'Loading data' })
-    // If node not found (404), reset to root
-    if (e.message?.includes('404') || e.message?.includes('Not found')) {
-      currentContainerId.value = null
-      localStorage.removeItem('graphcore-containerId')
-      await loadChildren(null)
-      return
-    }
-    error.value = e.message
-  } finally {
-    if (showLoading) {
-      loading.value = false
-    }
-    isLoadingChildren = false
-    lastLoadTime = Date.now()
-  }
-}
-
-function buildTree(directChildren, allDescendants, parentCompleted = false) {
-  if (!directChildren) return []
-  return directChildren.filter(Boolean).map(child => {
-    if (!child || !child.id) return null
-    const inheritedCompleted = parentCompleted || child.completed
-    return {
-      ...child,
-      inheritedCompleted: parentCompleted,  // true if any ancestor is completed
-      children: buildChildTree(allDescendants, child.id, inheritedCompleted)
-    }
-  }).filter(Boolean)
-}
-
-async function enterContainer(node, { skipHistory = false, direction = 'forward' } = {}) {
-  // Cancel pending detail panel open (user double-clicked to navigate)
-  cancelDetailOpen()
-
-  // Handle both node objects and node IDs
-  const nodeId = typeof node === 'object' ? node?.id : node
-  const nodeObj = typeof node === 'object' ? node : null
-
-  // If node has no children, open detail panel fullscreen instead of entering
-  if (nodeObj && (!nodeObj.children || nodeObj.children.length === 0)) {
-    selectNode(nodeObj, { fullscreen: true })
-    return
-  }
-
-  // Push current location to history before navigating (unless skipping)
-  if (!skipHistory && currentContainerId.value !== nodeId) {
-    navigationHistory.value.push(currentContainerId.value)
-    // Limit history size
-    if (navigationHistory.value.length > MAX_HISTORY_SIZE) {
-      navigationHistory.value.shift()
-    }
-  }
-
-  // Animate transition
-  transitionDirection.value = direction
-  transitioning.value = true
-
-  await nextTick()
-  setTimeout(async () => {
-    await loadChildren(nodeId ?? null)
-    transitioning.value = false
-  }, SIDEBAR_HIDE_DELAY_MS)
-}
-
-// Navigate back in history (used after delete)
-function navigateBack() {
-  if (navigationHistory.value.length > 0) {
-    const previousId = navigationHistory.value.pop()
-    enterContainer(previousId, { skipHistory: true, direction: 'back' })
-  } else {
-    // Fallback: go to parent if no history
-    goToParent()
-  }
-}
-
-async function navigateToBreadcrumb(index) {
-  transitionDirection.value = 'back'
-  transitioning.value = true
-
-  await nextTick()
-  setTimeout(async () => {
-    if (index < 0) {
-      // Go to root
-      await loadChildren(null)
-    } else {
-      await loadChildren(breadcrumbs.value[index].id)
-    }
-    transitioning.value = false
-  }, 150)
-}
-
-function goToParent() {
-  // Navigate to parent (one level up)
-  if (breadcrumbs.value.length > 1) {
-    // Go to parent of current container
-    navigateToBreadcrumb(breadcrumbs.value.length - 2)
-  } else if (breadcrumbs.value.length === 1) {
-    // At first level, go to root
-    navigateToBreadcrumb(-1)
-  }
-}
-
-function goToFirstChild() {
-  // Navigate to the first child of the current container
-  if (children.value.length > 0) {
-    enterContainer(children.value[0])
-  }
-}
-
-async function goToSibling(direction) {
-  if (!currentContainer.value) return
-  const parentId = currentContainer.value.parent_id
-  const siblings = parentId
-    ? await api.getChildren(parentId)
-    : await api.getRoots(currentWorkspace.value)
-  const currentIndex = siblings.findIndex(s => s.id === currentContainer.value.id)
-  const targetIndex = currentIndex + direction
-  if (targetIndex >= 0 && targetIndex < siblings.length) {
-    enterContainer(siblings[targetIndex])
-  }
-}
-
-const goToPrevSibling = () => goToSibling(-1)
-const goToNextSibling = () => goToSibling(1)
 
 // Toggle detail panel visibility (for Enter key)
 function toggleDetailPanel() {
