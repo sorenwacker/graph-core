@@ -10,7 +10,6 @@ import {
   filterByType,
   buildInheritedColorMap
 } from './useNodeFiltering.js'
-import { findSmartPosition } from './useNodePositions.js'
 
 /**
  * Strip markdown syntax and clean up text for display.
