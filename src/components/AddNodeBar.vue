@@ -1,7 +1,7 @@
 <script setup>
 import { nodeTypes } from '../utils/constants.js'
 
-const props = defineProps({
+defineProps({
   nodeType: { type: String, required: true },
   nodeTitle: { type: String, required: true }
 })

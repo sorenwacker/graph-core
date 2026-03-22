@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import tippy from 'tippy.js'
 import { viewModes } from '../utils/viewConfig.js'
 
-const props = defineProps({
+defineProps({
   modelValue: { type: String, required: true }
 })
 
