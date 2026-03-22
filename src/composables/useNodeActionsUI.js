@@ -30,7 +30,11 @@ export function useNodeActionsUI({
   refreshDetailPanelLinks,
   loadSidebarTree,
   loadFavorites,
-  loadChildren
+  loadChildren,
+  // Additional dependencies for updateNode
+  invalidateSidebarCache,
+  loadRecentItems,
+  loadTags
 }) {
   /**
    * Clear selection state after delete operations
@@ -236,6 +240,32 @@ export function useNodeActionsUI({
   }
 
   /**
+   * Update a node with full UI refresh
+   */
+  async function updateNode(updatedNode, trackUndo = true) {
+    const success = await nodeOps.updateNode(updatedNode, { trackUndo })
+    if (success) {
+      await loadChildren(currentContainerId.value, { silent: true })
+      invalidateSidebarCache()
+      await loadSidebarTree()
+      await Promise.all([loadRecentItems(), loadFavorites(), loadTags()])
+    }
+    return success
+  }
+
+  /**
+   * Add a child node to a parent
+   */
+  async function addChildNode({ parentId, title, type, x, y }) {
+    const newNode = await nodeOps.createNode({ title, type, parentId, x, y })
+    if (newNode) {
+      expandedIds.value.add(parentId)
+      await refreshAfterChange({ sidebar: false, recent: false })
+    }
+    return newNode
+  }
+
+  /**
    * Handle reorder of a node (for drag-and-drop)
    */
   async function handleReorder({ nodeId, targetId, position }) {
@@ -309,6 +339,7 @@ export function useNodeActionsUI({
   }
 
   return {
+    addChildNode,
     clearSelectionAfterDelete,
     deleteNode,
     deleteMultipleNodes,
@@ -323,6 +354,7 @@ export function useNodeActionsUI({
     unlinkNodesFromGraph,
     handleAIImproveNotes,
     handleReorder,
+    updateNode,
     clearSelection
   }
 }
