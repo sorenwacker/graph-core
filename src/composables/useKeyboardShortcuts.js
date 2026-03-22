@@ -28,9 +28,7 @@ export function useKeyboardShortcuts({ actions, state }) {
     selectedIds,
     currentContainerId,
     fullscreenDetail,
-    detailPinned,
-    showDetail,
-    flatChildren
+    detailPinned
   } = state
 
   function isEditableElement(target) {
