@@ -313,16 +313,8 @@ const {
   onDragLeave: onCardDragLeave,
   onDrop: onCardDrop
 } = useCardDrag({
-  onMove: async (sourceNode, targetNode) => {
-    await moveNode({ nodeId: sourceNode.id, newParentId: targetNode.id })
-  },
-  onReorder: async (sourceNode, targetNode, position) => {
-    await handleReorder({
-      nodeId: sourceNode.id,
-      targetId: targetNode.id,
-      position
-    })
-  }
+  onMove: (src, tgt) => moveNode({ nodeId: src.id, newParentId: tgt.id }),
+  onReorder: (src, tgt, pos) => handleReorder({ nodeId: src.id, targetId: tgt.id, position: pos })
 })
 
 // Use root depth setting when at root level, otherwise use regular max depth
