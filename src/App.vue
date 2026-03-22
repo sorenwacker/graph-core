@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { api } from './services/api.js'
 import { handleExternalLinkClick } from './utils/markdown.js'
 import { useNodeTooltip } from './composables/useNodeTooltip.js'
@@ -630,14 +630,6 @@ async function createNode() {
   }
 }
 
-async function addChildNode({ parentId, title, type, x, y }) {
-  const newNode = await nodeOps.createNode({ title, type, parentId, x, y })
-  if (newNode) {
-    expandedIds.value.add(parentId)
-    await refreshAfterChange({ sidebar: false, recent: false })
-  }
-}
-
 async function addChildFromDetail(payload) {
   await addChildNode(payload)
   // Reload the detail panel's children list
@@ -682,6 +674,7 @@ const { saveNodePosition, insertBetween } = graphOps
 
 // Node actions with UI state management
 const {
+  addChildNode,
   clearSelectionAfterDelete,
   deleteNode,
   deleteMultipleNodes,
@@ -696,6 +689,7 @@ const {
   unlinkNodesFromGraph,
   handleAIImproveNotes,
   handleReorder,
+  updateNode,
   clearSelection
 } = useNodeActionsUI({
   api,
@@ -720,7 +714,10 @@ const {
   refreshDetailPanelLinks,
   loadSidebarTree,
   loadFavorites,
-  loadChildren
+  loadChildren,
+  invalidateSidebarCache,
+  loadRecentItems,
+  loadTags
 })
 
 async function createNodeAtPosition({ title, type, x, y }) {
@@ -734,18 +731,6 @@ async function createNodeAtPosition({ title, type, x, y }) {
   if (newNode) {
     await refreshAfterChange()
     selectNode(newNode)
-  }
-}
-
-async function updateNode(updatedNode, trackUndo = true) {
-  const success = await nodeOps.updateNode(updatedNode, { trackUndo })
-  if (success) {
-    // Use silent mode to avoid triggering full re-render
-    await loadChildren(currentContainerId.value, { silent: true })
-    // Invalidate cache to ensure tooltips show fresh data
-    invalidateSidebarCache()
-    await loadSidebarTree()
-    await Promise.all([loadRecentItems(), loadFavorites(), loadTags()])
   }
 }
 
