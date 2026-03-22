@@ -414,6 +414,7 @@ const navigation = useNavigation({
     selectNode(node, { fullscreen: true })
     return true // prevent entering the container
   },
+  onSelectNode: (node) => selectNode(node),
   onSidebarSync: (rootChildren) => {
     sidebarTree.value = rootChildren
   },
@@ -448,7 +449,8 @@ const {
   goToFirstChild,
   goToSibling,
   goToPrevSibling,
-  goToNextSibling
+  goToNextSibling,
+  navigateToNode
 } = navigation
 
 // Search composable - handles spotlight search state and navigation
@@ -571,13 +573,6 @@ const {
     }
   }
 })
-
-async function navigateToNode(node) {
-  // Navigate to the node's parent container and select the node
-  const parentId = node.parent_id
-  await loadChildren(parentId)
-  selectNode(node)
-}
 
 // Graph operations via composable (saveNodePosition, insertBetween)
 // Note: initialized after refreshAfterChange is defined
