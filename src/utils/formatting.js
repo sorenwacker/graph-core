@@ -39,3 +39,20 @@ export function getContrastColor(hexColor) {
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
   return luminance > 0.4 ? '#000000' : '#ffffff'
 }
+
+/**
+ * Check due date status for a node
+ * @param {Object} node - Node with due_date and completed properties
+ * @returns {string|null} 'overdue', 'soon' (within 3 days), or null
+ */
+export function getDueStatus(node) {
+  if (!node?.due_date || node.completed) return null
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const due = new Date(node.due_date)
+  due.setHours(0, 0, 0, 0)
+  const daysUntilDue = Math.ceil((due - today) / (1000 * 60 * 60 * 24))
+  if (daysUntilDue < 0) return 'overdue'
+  if (daysUntilDue <= 3) return 'soon'
+  return null
+}

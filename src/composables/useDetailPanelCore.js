@@ -1,6 +1,6 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { api } from '../services/api'
-import { getInitials, formatDate } from '../utils/formatting.js'
+import { getInitials, formatDate, getDueStatus } from '../utils/formatting.js'
 import { useErrorHandler } from './useErrorHandler.js'
 import { useMentions } from './useMentions.js'
 import { useNodeTable } from './useNodeTable.js'
@@ -181,19 +181,6 @@ export function useDetailPanelCore(props, emit) {
 
   function moveToRoot() {
     emit('move-to-root', props.node.id)
-  }
-
-  // Helper functions
-  function getDueStatus(node) {
-    if (!node?.due_date || node.completed) return null
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const due = new Date(node.due_date)
-    due.setHours(0, 0, 0, 0)
-    const daysUntilDue = Math.ceil((due - today) / (1000 * 60 * 60 * 24))
-    if (daysUntilDue < 0) return 'overdue'
-    if (daysUntilDue <= 3) return 'soon'
-    return null
   }
 
   // Field update functions
