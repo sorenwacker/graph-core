@@ -717,8 +717,6 @@
 
 :global(.node-person.selected),
 :global(.node-person[data-selected="true"]) {
-  outline: 3px solid var(--accent-color, #4a9eff) !important;
-  outline-offset: 3px;
   box-shadow: 0 0 12px rgba(74, 158, 255, 0.6);
 }
 
@@ -753,11 +751,9 @@
   filter: brightness(1.1);
 }
 
-/* Selected node - cyan outline matching node shape */
+/* Selected node - subtle glow effect */
 :global(.node-html.selected),
 :global(.node-html[data-selected="true"]) {
-  outline: 3px solid var(--accent-color, #4a9eff) !important;
-  outline-offset: 3px;
   box-shadow: 0 0 12px rgba(74, 158, 255, 0.6);
 }
 
