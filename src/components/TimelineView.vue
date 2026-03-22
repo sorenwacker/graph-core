@@ -1009,6 +1009,4 @@ function getDragBarStyle(node) {
   </div>
 </template>
 
-<style scoped>
-
 <style scoped src="./TimelineView.css"></style>
