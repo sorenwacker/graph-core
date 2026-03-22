@@ -8,12 +8,14 @@ import { useErrorHandler } from './useErrorHandler'
  * @param {Object} options
  * @param {Object} options.api - API service for workspace operations
  * @param {Function} options.onSwitch - Callback when workspace switches (receives new workspace id)
+ * @param {Function} options.onWorkspaceChange - Async callback for workspace change (receives new workspace id)
  * @param {string} options.defaultWorkspace - Default workspace id (default: 'work')
  * @returns {Object} Workspace state and functions
  */
 export function useWorkspace({
   api,
   onSwitch,
+  onWorkspaceChange,
   defaultWorkspace = 'work'
 } = {}) {
   const { handleError } = useErrorHandler()
@@ -151,10 +153,13 @@ export function useWorkspace({
     return currentWorkspace.value
   }
 
-  // Persist workspace changes to localStorage
-  watch(currentWorkspace, (newWs) => {
+  // Persist workspace changes to localStorage and call change callback
+  watch(currentWorkspace, async (newWs) => {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('graphcore-workspace', newWs)
+    }
+    if (onWorkspaceChange) {
+      await onWorkspaceChange(newWs)
     }
   })
 
