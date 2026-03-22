@@ -2,9 +2,13 @@
 import { ref, computed, onUnmounted, onMounted, shallowRef, watch, nextTick } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
 import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community'
-import { useErrorHandler } from '../composables/useErrorHandler.js'
-
-const { handleError } = useErrorHandler()
+import {
+  copySelection as clipboardCopy,
+  cutSelection as clipboardCut,
+  deleteSelectedCells as clipboardDelete,
+  fillSelectionWithValue as clipboardFill,
+  pasteSelection as clipboardPaste
+} from '../composables/useSpreadsheetClipboard.js'
 
 // ============================================================================
 // Constants
@@ -506,139 +510,35 @@ function setColor(color) {
   applyStyleToSelection(style => ({ ...style, color }))
 }
 
-// Copy selected cells to clipboard
+// Clipboard operation wrappers
+function getClipboardOptions() {
+  return {
+    selectionBounds: selectionBounds.value,
+    columns: columns.value,
+    rowData: rowData.value,
+    gridApi: gridApi.value,
+    emit
+  }
+}
+
 async function copySelection() {
-  const bounds = selectionBounds.value
-  if (!bounds) return
-
-  const cols = columns.value
-  const lines = []
-
-  for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
-    const row = rowData.value[r]
-    const cells = []
-    for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
-      const colName = cols[c]?.name
-      cells.push(row?.[colName] ?? '')
-    }
-    lines.push(cells.join('\t'))
-  }
-
-  const text = lines.join('\n')
-
-  try {
-    await navigator.clipboard.writeText(text)
-  } catch (err) {
-    handleError(err, { context: 'Copying to clipboard', silent: true })
-  }
+  await clipboardCopy(getClipboardOptions())
 }
 
-// Cut selected cells (copy then delete)
 async function cutSelection() {
-  await copySelection()
-  deleteSelectedCells()
+  await clipboardCut(getClipboardOptions())
 }
 
-// Delete selected cells
 function deleteSelectedCells() {
-  const bounds = selectionBounds.value
-  if (!bounds) return
-
-  const cols = columns.value
-
-  for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
-    for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
-      emit('cell-change', {
-        row: r,
-        col: c,
-        value: '',
-        isFormula: false
-      })
-
-      // Update grid display
-      if (gridApi.value) {
-        const rowNode = gridApi.value.getRowNode(String(r))
-        if (rowNode && cols[c]) {
-          rowNode.setDataValue(cols[c].name, '')
-        }
-      }
-    }
-  }
+  clipboardDelete(getClipboardOptions())
 }
 
-// Fill all selected cells with a value
 function fillSelectionWithValue(value) {
-  const bounds = selectionBounds.value
-  if (!bounds) return
-
-  const cols = columns.value
-  const isFormula = value.startsWith('=')
-
-  for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
-    for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
-      emit('cell-change', {
-        row: r,
-        col: c,
-        value: value,
-        isFormula: isFormula
-      })
-
-      // Update grid display
-      if (gridApi.value) {
-        const rowNode = gridApi.value.getRowNode(String(r))
-        if (rowNode && cols[c]) {
-          rowNode.setDataValue(cols[c].name, value)
-        }
-      }
-    }
-  }
+  clipboardFill({ ...getClipboardOptions(), value })
 }
 
-// Paste from clipboard
 async function pasteSelection() {
-  const bounds = selectionBounds.value
-  const startRow = bounds?.minRow ?? 0
-  const startCol = bounds?.minCol ?? 0
-
-  let text = ''
-  try {
-    text = await navigator.clipboard.readText()
-  } catch (err) {
-    handleError(err, { context: 'Pasting from clipboard', silent: true })
-    return
-  }
-
-  if (!text) return
-
-  const lines = text.split('\n')
-  const cols = columns.value
-
-  for (let r = 0; r < lines.length; r++) {
-    const cells = lines[r].split('\t')
-    for (let c = 0; c < cells.length; c++) {
-      const targetRow = startRow + r
-      const targetCol = startCol + c
-
-      if (targetRow < rowData.value.length && targetCol < cols.length) {
-        const value = cells[c]
-        const isFormula = value.startsWith('=')
-
-        emit('cell-change', {
-          row: targetRow,
-          col: targetCol,
-          value: value,
-          isFormula: isFormula
-        })
-
-        if (gridApi.value) {
-          const rowNode = gridApi.value.getRowNode(String(targetRow))
-          if (rowNode) {
-            rowNode.setDataValue(cols[targetCol].name, value)
-          }
-        }
-      }
-    }
-  }
+  await clipboardPaste(getClipboardOptions())
 }
 
 // Keyboard shortcut definitions
