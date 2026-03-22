@@ -706,24 +706,23 @@ const {
   handleDelete: handleContextMenuDelete,
   handleViewContextMenu
 } = useContextMenu({
-  onLoadLinks: (nodeId) => api.getLinkedNodes(nodeId),
-  onViewDetails: (node) => selectNode(node),
-  onEnter: (node) => enterContainer(node),
+  onLoadLinks: api.getLinkedNodes,
+  onViewDetails: selectNode,
+  onEnter: enterContainer,
   onAddChild: (node) => showAddNodeModal(node.id),
-  onToggleComplete: (node) => toggleComplete(node),
-  onToggleFavorite: (node) => toggleFavorite(node),
-  onOpenLinkSearch: (node) => openLinkSearch(node),
-  onOpenMoveSearch: (node) => openMoveSearch(node),
-  onUnlink: (sourceId, targetId) => nodeOps.unlinkNodes(sourceId, targetId),
+  onToggleComplete: toggleComplete,
+  onToggleFavorite: toggleFavorite,
+  onOpenLinkSearch: openLinkSearch,
+  onOpenMoveSearch: openMoveSearch,
+  onUnlink: nodeOps.unlinkNodes,
   onMoveToWorkspace: async (nodeId, workspaceId) => {
     await api.updateNode(nodeId, { workspace_id: workspaceId })
     await loadChildren()
   },
-  onDelete: (nodeId) => deleteNode(nodeId),
+  onDelete: deleteNode,
   onRefreshSelectedNode: async (sourceId) => {
     if (showDetail.value && selectedNode.value?.id === sourceId) {
-      const updated = await api.getNode(sourceId)
-      if (updated) selectedNode.value = updated
+      selectedNode.value = await api.getNode(sourceId)
     }
   }
 })
