@@ -10,13 +10,17 @@ import { NARROW_WINDOW_THRESHOLD } from '../utils/uiConstants.js'
  * @param {Ref<boolean>} options.fullscreenDetail - Ref controlling fullscreen detail mode
  * @param {Ref<boolean>} options.openDetailFullscreen - Ref for fullscreen preference setting
  * @param {ComputedRef<Array>} options.flatChildren - Computed ref of flattened children for range selection
+ * @param {Function} options.getNode - Function to fetch a node by ID (optional, for selectChildById)
+ * @param {Function} options.onError - Error handler function (optional)
  * @returns {Object} Selection state and functions
  */
 export function useSelection({
   showDetail,
   fullscreenDetail,
   openDetailFullscreen,
-  flatChildren
+  flatChildren,
+  getNode,
+  onError
 } = {}) {
   // Core selection state
   const selectedNode = ref(null)
@@ -234,6 +238,29 @@ export function useSelection({
     }
   }
 
+  /**
+   * Select a node by ID, fetching it first if needed
+   * @param {number|string} nodeId - Node ID to select
+   * @param {Object} options - Selection options (e.g., { fullscreen: true })
+   */
+  async function selectChildById(nodeId, options = {}) {
+    if (!getNode) return
+    try {
+      const node = await getNode(nodeId)
+      selectNode(node, options)
+    } catch (err) {
+      if (onError) onError(err, { context: 'Selecting child' })
+    }
+  }
+
+  /**
+   * Open a node in fullscreen detail view
+   * @param {number|string} nodeId - Node ID to open
+   */
+  function openNodeFullscreen(nodeId) {
+    selectChildById(nodeId, { fullscreen: true })
+  }
+
   return {
     // State
     selectedNode,
@@ -254,6 +281,8 @@ export function useSelection({
     handleMultiSelect,
     updateSelectedNode,
     removeFromSelection,
-    toggleDetailPanel
+    toggleDetailPanel,
+    selectChildById,
+    openNodeFullscreen
   }
 }
