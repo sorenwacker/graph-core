@@ -23,7 +23,8 @@ const emit = defineEmits([
   'save',
   'select-child',
   'open-link-search',
-  'ai-improve-notes'
+  'ai-improve-notes',
+  'remove-link'
 ])
 
 const { handleError } = useErrorHandler()
