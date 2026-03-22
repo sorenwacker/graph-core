@@ -10,7 +10,7 @@ import PersonDetailForm from './detail/PersonDetailForm.vue'
 import OrganizationDetailForm from './detail/OrganizationDetailForm.vue'
 import { api } from '../services/api'
 import { nodeTypes, getTypeIcon, personIconSvg } from '../utils/constants.js'
-import { getInitials, formatDate } from '../utils/formatting.js'
+import { getInitials, formatDate, getDueStatus } from '../utils/formatting.js'
 import { useMentions } from '../composables/useMentions.js'
 import { useNodeTable } from '../composables/useNodeTable.js'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
@@ -425,19 +425,6 @@ function clearDate(field) {
 function updateDate(field, value) {
   editedNode.value[field] = value || null
   saveChanges()
-}
-
-// Check due date status: 'overdue', 'soon' (within 3 days), or null
-function getDueStatus(node) {
-  if (!node?.due_date || node.completed) return null
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const due = new Date(node.due_date)
-  due.setHours(0, 0, 0, 0)
-  const daysUntilDue = Math.ceil((due - today) / (1000 * 60 * 60 * 24))
-  if (daysUntilDue < 0) return 'overdue'
-  if (daysUntilDue <= 3) return 'soon'
-  return null
 }
 
 function updateTags(newTags) {
