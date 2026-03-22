@@ -20,7 +20,7 @@ function hideLinks() {
   emit('update:showLinks', 0)
 }
 
-function showLinks() {
+function expandLinks() {
   emit('update:showLinks', 1)
 }
 
@@ -60,7 +60,7 @@ function onAdd() {
     </div>
     <button v-else class="add-field-btn link-btn" @click="onAdd" :title="addButtonText">{{ addButtonText }}</button>
   </template>
-  <button v-else class="add-field-btn link-btn" @click="showLinks" :title="addButtonText">{{ addButtonText }}</button>
+  <button v-else class="add-field-btn link-btn" @click="expandLinks" :title="addButtonText">{{ addButtonText }}</button>
 </template>
 
 <style scoped>

@@ -4,7 +4,7 @@ import NotesEditor from '../NotesEditor.vue'
 import NotesAIToolbar from '../NotesAIToolbar.vue'
 import MarkdownRenderer from '../MarkdownRenderer.vue'
 
-const props = defineProps({
+defineProps({
   notes: { type: String, default: '' },
   nodeId: { type: [String, Number], required: true },
   activeTab: { type: String, default: 'edit' },
