@@ -50,7 +50,7 @@ function getImportanceLabel(importance) {
   return labels[importance] || importance
 }
 
-function getSearchActionLabel(result) {
+function getSearchActionLabel(_result) {
   if (props.searchMode === 'link') return 'Link'
   if (props.searchMode === 'move') return 'Move to'
   return 'Go to'
