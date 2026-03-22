@@ -45,6 +45,7 @@ function restoreStack(key) {
  * @param {Object} options.api - API service for making backend calls
  * @param {Function} options.onSuccess - Callback after successful undo/redo (receives { command, action })
  * @param {Function} options.onError - Callback on error (receives error and command)
+ * @param {Function} options.showNotification - Callback to show notification (receives message string)
  * @param {number} options.maxStackSize - Maximum stack size (default: 50)
  * @param {boolean} options.persist - Whether to persist stacks to sessionStorage (default: true)
  * @returns {Object} Undo/redo state and functions
@@ -53,6 +54,7 @@ export function useUndoRedo({
   api,
   onSuccess,
   onError,
+  showNotification,
   maxStackSize = 50,
   persist = true
 } = {}) {
@@ -98,7 +100,9 @@ export function useUndoRedo({
       await command.undo(api)
       redoStack.value.push(command)
       if (onSuccess) await onSuccess({ command, action: 'undo' })
-      return { command, description: command.getDescription?.() || command.type }
+      const description = command.getDescription?.() || command.type
+      if (showNotification) showNotification(`Undo: ${description}`)
+      return { command, description }
     } catch (error) {
       handleError(error, { context: 'Undo' })
       undoStack.value.push(command) // Restore to stack on failure
@@ -123,7 +127,9 @@ export function useUndoRedo({
       await command.execute(api)
       undoStack.value.push(command)
       if (onSuccess) await onSuccess({ command, action: 'redo' })
-      return { command, description: command.getDescription?.() || command.type }
+      const description = command.getDescription?.() || command.type
+      if (showNotification) showNotification(`Redo: ${description}`)
+      return { command, description }
     } catch (error) {
       handleError(error, { context: 'Redo' })
       redoStack.value.push(command) // Restore to stack on failure

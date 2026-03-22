@@ -276,26 +276,16 @@ const {
   undoStack,
   redoStack,
   pushCommand,
-  undo: undoAction,
-  redo: redoAction
+  undo,
+  redo
 } = useUndoRedo({
   api,
+  showNotification: showToast,
   onSuccess: async () => {
     await loadChildren(currentContainerId.value, { silent: true })
     await loadSidebarTree()
   }
 })
-
-// Wrapper functions that show toast notifications
-async function undo() {
-  const result = await undoAction()
-  if (result) showToast(`Undo: ${result.description}`)
-}
-
-async function redo() {
-  const result = await redoAction()
-  if (result) showToast(`Redo: ${result.description}`)
-}
 
 // Node operations composable - handles CRUD with undo/redo support
 const nodeOps = useNodeOperations({
