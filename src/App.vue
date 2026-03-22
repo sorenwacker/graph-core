@@ -379,7 +379,8 @@ const {
   hoverSelectNode,
   selectNode: _selectNode,
   cancelDetailOpen,
-  handleMultiSelect
+  handleMultiSelect,
+  toggleDetailPanel
 } = useSelection({
   showDetail,
   fullscreenDetail,
@@ -575,16 +576,6 @@ const {
     }
   }
 })
-
-// Toggle detail panel visibility (for Enter key)
-function toggleDetailPanel() {
-  if (showDetail.value) {
-    showDetail.value = false
-    fullscreenDetail.value = false
-  } else if (selectedNode.value) {
-    showDetail.value = true
-  }
-}
 
 async function navigateToNode(node) {
   // Navigate to the node's parent container and select the node

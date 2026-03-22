@@ -222,6 +222,18 @@ export function useSelection({
     }
   }
 
+  /**
+   * Toggle detail panel visibility (for Enter key shortcut)
+   */
+  function toggleDetailPanel() {
+    if (showDetail?.value) {
+      showDetail.value = false
+      if (fullscreenDetail) fullscreenDetail.value = false
+    } else if (selectedNode.value) {
+      showDetail.value = true
+    }
+  }
+
   return {
     // State
     selectedNode,
@@ -241,6 +253,7 @@ export function useSelection({
     cancelDetailOpen,
     handleMultiSelect,
     updateSelectedNode,
-    removeFromSelection
+    removeFromSelection,
+    toggleDetailPanel
   }
 }
