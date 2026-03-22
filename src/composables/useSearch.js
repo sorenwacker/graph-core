@@ -12,8 +12,9 @@ const SEARCH_PAGE_SIZE = 50
  * @param {Function} options.onSelect - Called when a result is selected: onSelect(node, mode, linkSourceId)
  * @param {Function} options.getAncestors - Called to fetch ancestors for a node: getAncestors(nodeId) => ancestors[]
  * @param {Object} options.selectedNode - Ref to the currently selected node (for link mode)
+ * @param {Function} options.getWorkspace - Function that returns current workspace ID
  */
-export function useSearch({ onSearch, onSelect, getAncestors, selectedNode } = {}) {
+export function useSearch({ onSearch, onSelect, getAncestors, selectedNode, getWorkspace } = {}) {
   const { handleError } = useErrorHandler()
 
   const searchQuery = ref('')
@@ -143,14 +144,16 @@ export function useSearch({ onSearch, onSelect, getAncestors, selectedNode } = {
     }
   }
 
-  async function loadMoreResults(workspaceId) {
+  async function loadMoreResults() {
     if (!hasMoreResults.value || isLoadingMore.value) return
     searchOffset.value += SEARCH_PAGE_SIZE
+    const workspaceId = getWorkspace ? getWorkspace() : null
     await handleSearch(workspaceId, true)
   }
 
-  function onSearchInput(workspaceId) {
+  function onSearchInput() {
     clearTimeout(searchTimeout.value)
+    const workspaceId = getWorkspace ? getWorkspace() : null
     searchTimeout.value = setTimeout(() => handleSearch(workspaceId), 200)
   }
 
