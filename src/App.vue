@@ -458,12 +458,12 @@ const {
   openLinkSearch,
   openMoveSearch,
   closeSearch,
-  onSearchInput: _onSearchInput,
+  onSearchInput,
   handleSearchKeydown,
   goToSearchResult: _goToSearchResult,
   hasMoreResults,
   isLoadingMore,
-  loadMoreResults: _loadMoreResults
+  loadMoreResults
 } = useSearch({
   selectedNode,
   onSearch: async (query, mode, workspaceId, paginationOptions = {}) => {
@@ -517,18 +517,9 @@ const {
     // Select the node to show its details
     selectNode(node)
   },
-  getAncestors: (nodeId) => api.getAncestors(nodeId)
+  getAncestors: (nodeId) => api.getAncestors(nodeId),
+  getWorkspace: () => currentWorkspace.value
 })
-
-// Wrap search input to pass current workspace
-function onSearchInput() {
-  _onSearchInput(currentWorkspace.value)
-}
-
-// Load more search results
-function loadMoreResults() {
-  _loadMoreResults(currentWorkspace.value)
-}
 
 // Close detail panel when node is deselected (if not pinned)
 watch(selectedNode, (node) => {
