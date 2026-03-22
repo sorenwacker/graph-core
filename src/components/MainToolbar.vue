@@ -14,6 +14,7 @@ const undoBtn = ref(null)
 const redoBtn = ref(null)
 const settingsBtn = ref(null)
 const themeBtn = ref(null)
+const settingsDropdownRef = ref(null)
 
 const themeTooltip = computed(() => {
   const labels = { light: 'Light', dark: 'Dark', system: 'System' }
@@ -44,14 +45,25 @@ onMounted(() => {
       tippyInstances.push(instance)
     }
   })
+
+  // Add click outside listener for settings dropdown
+  document.addEventListener('click', onDocumentClick)
 })
+
+// Handle click outside for settings dropdown
+function onDocumentClick(e) {
+  if (props.showSettings && settingsDropdownRef.value && !settingsDropdownRef.value.contains(e.target) && !e.target.closest('.settings-panel')) {
+    emit('update:showSettings', false)
+  }
+}
 
 onUnmounted(() => {
   tippyInstances.forEach(instance => instance.destroy())
   tippyInstances = []
+  document.removeEventListener('click', onDocumentClick)
 })
 
-defineProps({
+const props = defineProps({
   viewMode: { type: String, required: true },
   sortAlphabetically: { type: Boolean, default: false },
   hideCompleted: { type: Boolean, default: false },
@@ -114,12 +126,6 @@ const emit = defineEmits([
   'move-to-root',
   'delete-orphan'
 ])
-
-function handleClickOutside(e) {
-  if (!e.target.closest('.settings-panel')) {
-    emit('update:showSettings', false)
-  }
-}
 </script>
 
 <template>
@@ -195,7 +201,7 @@ function handleClickOutside(e) {
         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
       </svg>
     </button>
-    <div class="settings-dropdown" v-click-outside="handleClickOutside">
+    <div ref="settingsDropdownRef" class="settings-dropdown">
       <button
         ref="settingsBtn"
         class="settings-btn"

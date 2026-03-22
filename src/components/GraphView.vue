@@ -191,7 +191,7 @@ async function initGraph() {
     { selector: 'node', style: { 'background-color': 'transparent', 'background-opacity': 0, 'border-width': 0, 'label': '', 'width': 180, 'height': 80, 'shape': 'rectangle', 'overlay-opacity': 0 } },
     { selector: 'node[?isParent]', style: { 'width': 200, 'height': 100 } },
     { selector: 'node[?isPerson]', style: { 'width': 120, 'height': 40, 'shape': 'round-rectangle' } },
-    { selector: 'node:selected', style: { 'border-width': 3, 'border-color': '#4a9eff', 'border-style': 'solid' } },
+    { selector: 'node:selected', style: { 'border-width': 0 } },
     { selector: 'edge', style: { 'width': 2, 'line-color': '#999', 'target-arrow-color': '#999', 'target-arrow-shape': 'triangle', 'curve-style': 'bezier', 'arrow-scale': 1.2 } },
     { selector: 'edge:selected', style: { 'width': 3, 'line-color': '#f39c12', 'target-arrow-color': '#f39c12' } },
     { selector: 'edge[isLink]', style: { 'line-style': 'dashed', 'line-color': '#9b59b6', 'target-arrow-color': '#9b59b6', 'target-arrow-shape': 'none', 'opacity': 0.7 } }
@@ -315,7 +315,7 @@ onUnmounted(() => {
 
 <template>
   <div class="graph-wrapper">
-    <Teleport to="#view-controls-target">
+    <Teleport to="#view-controls-target" defer>
     <div ref="graphControlsRef" class="graph-controls">
       <button class="icon-btn" @click="setLayout('tree')" :class="{ active: layoutMode === 'tree' }" title="Vertical layout"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></button>
       <button class="icon-btn" @click="setLayout('horizontal')" :class="{ active: layoutMode === 'horizontal' }" title="Horizontal layout"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>

@@ -351,11 +351,19 @@ const navigation = useNavigation({
   }
 })
 
-// Reassign navigation state
-currentContainerId = navigation.currentContainerId
-currentContainer = navigation.currentContainer
-breadcrumbs = navigation.breadcrumbs
-children = navigation.children
+// Sync navigation state to local refs (preserves reactivity for composables initialized earlier)
+watch(navigation.children, (val) => {
+  children.value = val
+}, { immediate: true, deep: true })
+watch(navigation.breadcrumbs, (val) => {
+  breadcrumbs.value = val
+}, { immediate: true, deep: true })
+watch(navigation.currentContainer, (val) => {
+  currentContainer.value = val
+}, { immediate: true })
+watch(navigation.currentContainerId, (val) => {
+  currentContainerId.value = val
+}, { immediate: true })
 const {
   loading,
   loadChildren,
