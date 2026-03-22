@@ -5,7 +5,9 @@ import {
   DeleteCommand,
   DeleteMultipleCommand,
   EditCommand,
-  CompleteCommand
+  CompleteCommand,
+  LinkCommand,
+  UnlinkCommand
 } from '../commands/index.js'
 import { pickNodeFields, NODE_UPDATE_FIELDS } from '../utils/nodeFields.js'
 
@@ -284,6 +286,54 @@ export function useNodeOperations({
     }
   }
 
+  /**
+   * Link two nodes
+   */
+  async function linkNodes(sourceId, targetId) {
+    if (isProcessing.value) return false
+    isProcessing.value = true
+
+    try {
+      await api.linkNodes(sourceId, targetId)
+
+      if (pushCommand) {
+        pushCommand(new LinkCommand({ sourceId, targetId }))
+      }
+
+      if (onSuccess) await onSuccess({ type: 'link', sourceId, targetId })
+      return true
+    } catch (e) {
+      if (onError) onError(e)
+      return false
+    } finally {
+      isProcessing.value = false
+    }
+  }
+
+  /**
+   * Unlink two nodes
+   */
+  async function unlinkNodes(sourceId, targetId) {
+    if (isProcessing.value) return false
+    isProcessing.value = true
+
+    try {
+      await api.unlinkNodes(sourceId, targetId)
+
+      if (pushCommand) {
+        pushCommand(new UnlinkCommand({ sourceId, targetId }))
+      }
+
+      if (onSuccess) await onSuccess({ type: 'unlink', sourceId, targetId })
+      return true
+    } catch (e) {
+      if (onError) onError(e)
+      return false
+    } finally {
+      isProcessing.value = false
+    }
+  }
+
   return {
     // State
     isProcessing,
@@ -298,6 +348,8 @@ export function useNodeOperations({
     moveNodeToRoot,
     toggleComplete,
     toggleFavorite,
+    linkNodes,
+    unlinkNodes,
 
     // Utilities
     pickNodeFields,
