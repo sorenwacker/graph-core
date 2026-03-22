@@ -36,6 +36,7 @@ export function useNavigation({
   onNotFound,
   onLeafNode,
   onError,
+  onSelectNode,
   filterByWorkspace,
   buildChildTree: externalBuildChildTree
 } = {}) {
@@ -329,6 +330,18 @@ export function useNavigation({
    */
   const goToNextSibling = () => goToSibling(1)
 
+  /**
+   * Navigate to a node's parent container and select the node
+   * @param {Object} node - Node to navigate to
+   */
+  async function navigateToNode(node) {
+    const parentId = node.parent_id
+    await loadChildren(parentId)
+    if (onSelectNode) {
+      onSelectNode(node)
+    }
+  }
+
   return {
     // State
     currentContainerId,
@@ -353,6 +366,7 @@ export function useNavigation({
     goToFirstChild,
     goToSibling,
     goToPrevSibling,
-    goToNextSibling
+    goToNextSibling,
+    navigateToNode
   }
 }
