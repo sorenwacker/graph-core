@@ -5,7 +5,7 @@ import SidebarTreeItem from './SidebarTreeItem.vue'
 
 const appVersion = ref(__APP_VERSION__)
 
-const props = defineProps({
+defineProps({
   visible: { type: Boolean, default: true },
   pinned: { type: Boolean, default: true },
   hovered: { type: Boolean, default: false },

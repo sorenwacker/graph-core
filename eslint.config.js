@@ -58,6 +58,8 @@ export default [
         process: 'readonly',
         __dirname: 'readonly',
         __filename: 'readonly',
+        // Vite define constants
+        __APP_VERSION__: 'readonly',
         // Vitest globals
         describe: 'readonly',
         it: 'readonly',

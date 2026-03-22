@@ -103,7 +103,7 @@ async function handleDelete(node) {
 
 // Handle AI improve notes
 async function handleAIImproveNotes(payload) {
-  const { nodeId, oldNotes, newNotes, prompt, selectionRange, fullNotes } = payload
+  const { nodeId, oldNotes: _oldNotes, newNotes, prompt: _prompt, selectionRange, fullNotes } = payload
 
   // Use fullNotes from the editor (current content) for correct selection positions
   const currentFullNotes = fullNotes ?? ''
