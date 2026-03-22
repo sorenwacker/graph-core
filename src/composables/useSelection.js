@@ -261,6 +261,15 @@ export function useSelection({
     selectChildById(nodeId, { fullscreen: true })
   }
 
+  /**
+   * Select all nodes in flatChildren
+   */
+  function selectAll() {
+    if (flatChildren?.value) {
+      selectedIds.value = new Set(flatChildren.value.map(n => n.id))
+    }
+  }
+
   return {
     // State
     selectedNode,
@@ -283,6 +292,7 @@ export function useSelection({
     removeFromSelection,
     toggleDetailPanel,
     selectChildById,
-    openNodeFullscreen
+    openNodeFullscreen,
+    selectAll
   }
 }

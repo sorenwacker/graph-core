@@ -382,7 +382,8 @@ const {
   handleMultiSelect,
   toggleDetailPanel,
   selectChildById,
-  openNodeFullscreen
+  openNodeFullscreen,
+  selectAll
 } = useSelection({
   showDetail,
   fullscreenDetail,
@@ -798,9 +799,7 @@ const { handleKeydown } = useKeyboardShortcuts({
     goToNextSibling,
     toggleDetailPanel,
     clearSelection,
-    selectAll: () => {
-      selectedIds.value = new Set(flatChildren.value.map(n => n.id))
-    }
+    selectAll
   },
   state: {
     viewMode,
