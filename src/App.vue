@@ -92,8 +92,7 @@ const {
   visible: sidebarVisible,
   onEnter: onSidebarEnter,
   onLeave: onSidebarLeave,
-  toggleExpand: toggleSidebarExpand,
-  expandToPath: expandSidebarToPath
+  toggleExpand: toggleSidebarExpand
 } = useSidebar({ pinned: sidebarPinned })
 
 // Context menu state is managed by useContextMenu composable (initialized after functions it needs)
@@ -300,7 +299,6 @@ const {
   toggleExpand,
   expandAll,
   collapseAll,
-  expandAncestors,
   loadExpandedState
 } = useTreeExpand({
   workspace: currentWorkspace,
@@ -366,7 +364,6 @@ const {
   navigateToBreadcrumb,
   goToParent,
   goToFirstChild,
-  goToSibling,
   goToPrevSibling,
   goToNextSibling,
   navigateToNode
