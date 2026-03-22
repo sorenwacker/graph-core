@@ -145,25 +145,10 @@ const {
   deleteOrphanedNode
 } = useDataLoading(currentWorkspace)
 
-async function selectTag(tag) {
-  try {
-    const results = await api.getNodesByTag(tag, currentWorkspace.value)
-    // Add breadcrumbs to each result
-    const resultsWithBreadcrumbs = await Promise.all(
-      results.map(async (result) => {
-        try {
-          const ancestors = await api.getAncestors(result.id)
-          return { ...result, breadcrumb: ancestors.map(a => a.title).join(' / ') }
-        } catch { return { ...result, breadcrumb: '' } }
-      })
-    )
-    searchResults.value = resultsWithBreadcrumbs
-    searchQuery.value = `#${tag}`
-    showSearch.value = true
-    selectedResultIndex.value = 0
-  } catch (e) {
-    handleError(e, { context: 'Searching by tag' })
-  }
+function selectTag(tag) {
+  searchQuery.value = `#${tag}`
+  showSearch.value = true
+  onSearchInput() // Trigger search with tag query
 }
 
 // Detail panel resize - managed by useDetailResize composable
