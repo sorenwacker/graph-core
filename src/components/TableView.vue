@@ -223,7 +223,7 @@ function isOverdue(dateStr) {
 // getTypeIcon imported from constants.js
 
 // Get badge style for person nodes - uses CSS variables, no inline colors needed
-function getBadgeStyle(node) {
+function getBadgeStyle() {
   // CSS variables handle all type colors including person
   return {}
 }

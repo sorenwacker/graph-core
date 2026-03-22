@@ -1922,7 +1922,6 @@ async function updateGraph() {
 
   // Detect new nodes and edge changes
   let hasNewNodes = false
-  let hasNewNodesWithoutPosition = false  // Track if any new node needs layout
   let hasEdgeChanges = false
   const newElementIds = new Set()
   const newEdges = new Set()
@@ -1957,9 +1956,6 @@ async function updateGraph() {
         // Regular new node (not external)
         hasNewNodes = true
         newNodeIds.push(el.data.id)
-        if (!el.position) {
-          hasNewNodesWithoutPosition = true
-        }
       }
 
       // Track external nodes that need positioning (no saved position)

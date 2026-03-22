@@ -410,10 +410,6 @@ function handleContextMenu(event) {
   showColumnMenu.value = false
 }
 
-function closeContextMenu() {
-  showContextMenu.value = false
-}
-
 function handleMouseMove(event) {
   if (!isSelecting.value) return
 
@@ -438,7 +434,7 @@ function handleMouseMove(event) {
   }
 }
 
-function handleMouseUp(event) {
+function handleMouseUp() {
   // Don't clear selection if context menu is open
   if (showContextMenu.value) {
     isSelecting.value = false
