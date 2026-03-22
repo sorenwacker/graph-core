@@ -108,7 +108,21 @@ const {
   deleteCurrentWorkspace: _deleteCurrentWorkspace,
   renameWorkspace,
   getWorkspaceIdForNode
-} = useWorkspace({ api })
+} = useWorkspace({
+  api,
+  onWorkspaceChange: async () => {
+    currentContainerId.value = null
+    currentContainer.value = null
+    breadcrumbs.value = []
+    selectedNode.value = null
+    selectedIds.value = new Set()
+    showDetail.value = false
+    await loadChildren(null)
+    await loadSidebarTree()
+    await Promise.all([loadRecentItems(), loadFavorites(), loadTags()])
+    loadExpandedState()
+  }
+})
 
 // Wrap deleteCurrentWorkspace to add confirmation dialog
 async function deleteCurrentWorkspace() {
@@ -516,20 +530,6 @@ watch(selectedNode, (node) => {
   if (!node && !detailPinned.value) {
     showDetail.value = false
   }
-})
-
-// Reset and reload when switching workspaces
-watch(currentWorkspace, async () => {
-  currentContainerId.value = null
-  currentContainer.value = null
-  breadcrumbs.value = []
-  selectedNode.value = null
-  selectedIds.value = new Set()
-  showDetail.value = false
-  await loadChildren(null)
-  await loadSidebarTree()
-  await Promise.all([loadRecentItems(), loadFavorites(), loadTags()])
-  loadExpandedState()
 })
 
 // Initialize inline editing composable
