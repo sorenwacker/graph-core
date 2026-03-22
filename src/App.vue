@@ -1053,7 +1053,7 @@ const {
   onToggleFavorite: (node) => toggleFavorite(node),
   onOpenLinkSearch: (node) => openLinkSearch(node),
   onOpenMoveSearch: (node) => openMoveSearch(node),
-  onUnlink: (sourceId, targetId) => api.unlinkNodes(sourceId, targetId),
+  onUnlink: (sourceId, targetId) => nodeOps.unlinkNodes(sourceId, targetId),
   onMoveToWorkspace: async (nodeId, workspaceId) => {
     await api.updateNode(nodeId, { workspace_id: workspaceId })
     await loadChildren()
