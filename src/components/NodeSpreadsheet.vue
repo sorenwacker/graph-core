@@ -1072,6 +1072,4 @@ onUnmounted(() => {
   </div>
 </template>
 
-<style scoped>
-
 <style scoped src="./NodeSpreadsheet.css"></style>

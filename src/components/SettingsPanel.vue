@@ -802,6 +802,4 @@ onMounted(() => {
   </div>
 </template>
 
-<style scoped>
-
 <style scoped src="./SettingsPanel.css"></style>

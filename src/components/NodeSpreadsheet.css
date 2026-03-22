@@ -215,9 +215,7 @@
 .grid-wrapper:focus {
   outline: none;
 }
-</style>
 
-<style>
 /* Row index column styling */
 .row-index-cell {
   background-color: var(--bg-secondary) !important;

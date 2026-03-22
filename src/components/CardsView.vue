@@ -426,6 +426,4 @@ function handleCanvasClick(e) {
   </div>
 </template>
 
-<style scoped>
-
 <style scoped src="./CardsView.css"></style>

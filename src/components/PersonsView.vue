@@ -653,6 +653,4 @@ function getOrganizationsForPerson(personId) {
   </div>
 </template>
 
-<style scoped>
-
 <style scoped src="./PersonsView.css"></style>

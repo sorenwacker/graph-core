@@ -269,9 +269,7 @@
   color: var(--text-tertiary);
   padding: 24px !important;
 }
-</style>
 
-<style>
 /* Modal - unscoped for Teleport */
 .person-modal {
   position: fixed;
