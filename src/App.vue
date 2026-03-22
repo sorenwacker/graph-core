@@ -23,7 +23,6 @@ import { useTreeExpand } from './composables/useTreeExpand.js'
 import { useCardsLayout } from './composables/useCardsLayout.js'
 import { useNavigation } from './composables/useNavigation.js'
 import {
-  CreateCommand,
   LinkCommand,
   UnlinkCommand,
   ReorderCommand,
@@ -312,6 +311,12 @@ const nodeOps = useNodeOperations({
   api,
   pushCommand,
   getWorkspaceIdForNode,
+  onSuccess: async ({ type, node, x, y }) => {
+    // Save position for graph view when creating nodes
+    if (type === 'create' && node) {
+      saveNodePosition(node.id, x, y, node.parent_id)
+    }
+  },
   onError: (e) => { error.value = e.message },
   broadcastUpdate: broadcastNodeUpdate,
   broadcastDelete: broadcastNodeDelete
@@ -695,59 +700,32 @@ function saveNodePosition(nodeId, x, y, viewId = null) {
   localStorage.setItem(posKey, JSON.stringify(positions))
 }
 
-// Core node creation - used by all create functions
-async function createNodeCore({ title, type, parentId, x, y }) {
-  const nodeType = type || 'task'
-  const today = new Date().toISOString().split('T')[0]
-  const nodeData = {
-    title,
-    type: nodeType,
-    parent_id: parentId,
-    workspace_id: getWorkspaceIdForNode(nodeType),
-    // Auto-set start_date for tasks and projects
-    ...(nodeType === 'task' || nodeType === 'project' ? { start_date: today } : {})
-  }
-  const newNode = await api.createNode(nodeData)
-  if (!newNode || !newNode.id) {
-    throw new Error('Failed to create node')
-  }
-  pushCommand(new CreateCommand({ nodeId: newNode.id, nodeData, parentId }))
-  // Save position to the parent's view (where this node will appear as a child)
-  saveNodePosition(newNode.id, x, y, parentId)
-  return newNode
-}
-
 async function createNode() {
   if (!newNodeTitle.value.trim()) return
 
-  try {
-    const targetParentId = addChildParentId.value || currentContainerId.value
-    await createNodeCore({
-      title: newNodeTitle.value,
-      type: newNodeType.value,
-      parentId: targetParentId
-    })
+  const targetParentId = addChildParentId.value || currentContainerId.value
+  const newNode = await nodeOps.createNode({
+    title: newNodeTitle.value,
+    type: newNodeType.value,
+    parentId: targetParentId
+  })
 
+  if (newNode) {
     if (addChildParentId.value) {
       expandedIds.value.add(addChildParentId.value)
       await loadSidebarTree()
     }
-
     newNodeTitle.value = ''
     addChildParentId.value = null
     await loadChildren(currentContainerId.value, { silent: true })
-  } catch (e) {
-    error.value = e.message
   }
 }
 
 async function addChildNode({ parentId, title, type, x, y }) {
-  try {
-    await createNodeCore({ title, type, parentId, x, y })
+  const newNode = await nodeOps.createNode({ title, type, parentId, x, y })
+  if (newNode) {
     expandedIds.value.add(parentId)
     await refreshAfterChange({ sidebar: false, recent: false })
-  } catch (e) {
-    error.value = e.message
   }
 }
 
