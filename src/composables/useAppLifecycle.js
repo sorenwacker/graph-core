@@ -13,7 +13,6 @@ export function useAppLifecycle({
   loadFavorites,
   loadTags,
   savedContainerId,
-  currentContainerId,
   // Dimensions
   containerWidth,
   containerHeight,

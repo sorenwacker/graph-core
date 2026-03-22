@@ -629,7 +629,6 @@ useAppLifecycle({
   loadFavorites,
   loadTags,
   savedContainerId,
-  currentContainerId,
   containerWidth,
   containerHeight,
   handleKeydown,

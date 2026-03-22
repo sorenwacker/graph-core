@@ -1,4 +1,4 @@
-import { ref, watch, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 
 /**
  * Theme management composable
