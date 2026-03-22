@@ -1,6 +1,7 @@
 <script setup>
 import { ref, nextTick, watch } from 'vue'
 import { getTypeIcon } from '../utils/constants.js'
+import { decodeHtml } from '../utils/html.js'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -47,13 +48,6 @@ watch(() => props.visible, (val) => {
 function getImportanceLabel(importance) {
   const labels = { 1: 'Low', 2: 'Medium', 3: 'High', 4: 'Critical' }
   return labels[importance] || importance
-}
-
-function decodeHtml(html) {
-  if (!html) return ''
-  const txt = document.createElement('textarea')
-  txt.innerHTML = html
-  return txt.value
 }
 
 function getSearchActionLabel(result) {

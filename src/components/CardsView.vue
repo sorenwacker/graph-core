@@ -1,5 +1,7 @@
 <script setup>
 import { computed } from 'vue'
+import { getInitials } from '../utils/formatting.js'
+import { decodeHtml } from '../utils/html.js'
 import CardTitleEdit from './CardTitleEdit.vue'
 import CardNotes from './CardNotes.vue'
 import TableMiniature from './TableMiniature.vue'
@@ -145,21 +147,6 @@ function getChildProgress(node) {
     total: tasks.length,
     percent: Math.round((completed / tasks.length) * 100)
   }
-}
-
-// Get person initials for avatar
-function getInitials(name) {
-  if (!name) return '?'
-  const parts = name.trim().split(/\s+/)
-  if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
-  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
-}
-
-function decodeHtml(html) {
-  if (!html) return ''
-  const txt = document.createElement('textarea')
-  txt.innerHTML = html
-  return txt.value
 }
 
 function nestedGridStyle(count, depth) {

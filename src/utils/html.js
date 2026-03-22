@@ -18,3 +18,17 @@ export function decodeHtmlEntities(text) {
     .replace(/&gt;/g, '>')
     .replace(/&nbsp;/g, ' ')
 }
+
+/**
+ * Decode HTML using DOM API (handles all entities automatically)
+ * Browser-only implementation.
+ *
+ * @param {string} html - HTML string with entities
+ * @returns {string} - Decoded text
+ */
+export function decodeHtml(html) {
+  if (!html) return ''
+  const txt = document.createElement('textarea')
+  txt.innerHTML = html
+  return txt.value
+}
