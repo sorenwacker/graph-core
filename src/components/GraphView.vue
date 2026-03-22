@@ -191,7 +191,7 @@ async function initGraph() {
     { selector: 'node', style: { 'background-color': 'transparent', 'background-opacity': 0, 'border-width': 0, 'label': '', 'width': 180, 'height': 80, 'shape': 'rectangle', 'overlay-opacity': 0 } },
     { selector: 'node[?isParent]', style: { 'width': 200, 'height': 100 } },
     { selector: 'node[?isPerson]', style: { 'width': 120, 'height': 40, 'shape': 'round-rectangle' } },
-    { selector: 'node:selected', style: { 'border-width': 3, 'border-color': '#4a9eff', 'border-style': 'solid' } },
+    { selector: 'node:selected', style: { 'border-width': 0 } },
     { selector: 'edge', style: { 'width': 2, 'line-color': '#999', 'target-arrow-color': '#999', 'target-arrow-shape': 'triangle', 'curve-style': 'bezier', 'arrow-scale': 1.2 } },
     { selector: 'edge:selected', style: { 'width': 3, 'line-color': '#f39c12', 'target-arrow-color': '#f39c12' } },
     { selector: 'edge[isLink]', style: { 'line-style': 'dashed', 'line-color': '#9b59b6', 'target-arrow-color': '#9b59b6', 'target-arrow-shape': 'none', 'opacity': 0.7 } }
