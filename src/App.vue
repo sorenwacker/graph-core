@@ -1200,13 +1200,6 @@ useAppLifecycle({
   justify-content: space-between;
 }
 
-
-.error {
-  color: #e07d7d;
-  padding: var(--spacing-lg);
-  text-align: center;
-}
-
 /* Transition animations */
 .content-body {
   transition: opacity 0.15s ease, transform 0.15s ease;
