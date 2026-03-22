@@ -64,10 +64,20 @@ export function useRefresh({
     }
   }
 
+  /**
+   * Refresh after a child node was updated (e.g., completed)
+   * Updates graph view and sidebar tree
+   */
+  function refreshAfterChildUpdate() {
+    graphViewRef.value?.updateGraph()
+    loadSidebarTree()
+  }
+
   return {
     refreshAfterChange,
     refreshAfterDelete,
     refreshGraphAfterStructureChange,
-    refreshDetailPanelLinks
+    refreshDetailPanelLinks,
+    refreshAfterChildUpdate
   }
 }

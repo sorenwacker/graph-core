@@ -626,19 +626,13 @@ async function addChildFromDetail(payload) {
   detailPanelRef.value?.loadChildren()
 }
 
-function onChildUpdated() {
-  // Refresh graph to reflect completed state changes
-  viewRendererRef.value?.updateGraph()
-  // Refresh sidebar tree
-  loadSidebarTree()
-}
-
 // Refresh operations via composable
 const {
   refreshAfterChange,
   refreshAfterDelete,
   refreshGraphAfterStructureChange,
-  refreshDetailPanelLinks
+  refreshDetailPanelLinks,
+  refreshAfterChildUpdate
 } = useRefresh({
   api,
   loadChildren,
@@ -1096,7 +1090,7 @@ useAppLifecycle({
           @close="closeDetail"
           @open-link-search="openLinkSearch"
           @add-child="addChildFromDetail"
-          @child-updated="onChildUpdated"
+          @child-updated="refreshAfterChildUpdate"
           @detach="handleDetach"
           @ai-improve-notes="handleAIImproveNotes"
         />
