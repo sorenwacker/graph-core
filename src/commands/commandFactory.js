@@ -41,7 +41,7 @@ export function fromJSON(json) {
 
   // Each command's constructor takes a single options object
   // The toJSON() output matches the constructor parameters
-  const { type, ...params } = json
+  const { type: _type, ...params } = json
   return new CommandClass(params)
 }
 
