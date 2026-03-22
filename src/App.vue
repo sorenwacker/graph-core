@@ -394,17 +394,10 @@ const navigation = useNavigation({
     selectNode(node, { fullscreen: true })
     return true // prevent entering the container
   },
-  onSelectNode: (node) => selectNode(node),
-  onSidebarSync: (rootChildren) => {
-    sidebarTree.value = rootChildren
-  },
-  onTransitionStart: (direction) => {
-    transitionDirection.value = direction
-    transitioning.value = true
-  },
-  onTransitionEnd: () => {
-    transitioning.value = false
-  },
+  onSelectNode: selectNode,
+  onSidebarSync: (rootChildren) => { sidebarTree.value = rootChildren },
+  onTransitionStart: (dir) => { transitionDirection.value = dir; transitioning.value = true },
+  onTransitionEnd: () => { transitioning.value = false },
   onNotFound: async () => {
     currentContainerId.value = null
     localStorage.removeItem('graphcore-containerId')
