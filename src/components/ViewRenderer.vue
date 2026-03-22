@@ -27,7 +27,7 @@ const props = defineProps({
   currentContainerId: { type: [Number, String], default: null },
   currentContainer: { type: Object, default: null },
   // Display options
-  colorMap: { type: Map, default: () => new Map() },
+  colorMap: { type: Object, default: () => ({}) },
   hoverPreviewEnabled: { type: Boolean, default: true },
   showDetail: { type: Boolean, default: false },
   // Graph-specific
