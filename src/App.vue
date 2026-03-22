@@ -1,7 +1,8 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { api } from './services/api.js'
 import { handleExternalLinkClick } from './utils/markdown.js'
+import { useAppLifecycle } from './composables/useAppLifecycle.js'
 import { useNodeTooltip } from './composables/useNodeTooltip.js'
 import { useDetachedWindow } from './composables/useDetachedWindow.js'
 import { useSelection } from './composables/useSelection.js'
@@ -149,7 +150,15 @@ const {
 async function selectTag(tag) {
   try {
     const results = await api.getNodesByTag(tag, currentWorkspace.value)
-    const resultsWithBreadcrumbs = await fetchBreadcrumbsForResults(results)
+    // Add breadcrumbs to each result
+    const resultsWithBreadcrumbs = await Promise.all(
+      results.map(async (result) => {
+        try {
+          const ancestors = await api.getAncestors(result.id)
+          return { ...result, breadcrumb: ancestors.map(a => a.title).join(' / ') }
+        } catch { return { ...result, breadcrumb: '' } }
+      })
+    )
     searchResults.value = resultsWithBreadcrumbs
     searchQuery.value = `#${tag}`
     showSearch.value = true
@@ -510,7 +519,7 @@ const {
     // Select the node to show its details
     selectNode(node)
   },
-  onFetchBreadcrumbs: fetchBreadcrumbsForResults
+  getAncestors: (nodeId) => api.getAncestors(nodeId)
 })
 
 // Wrap search input to pass current workspace
@@ -596,14 +605,7 @@ async function selectChildById(nodeId, options = {}) {
   }
 }
 
-async function openNodeFullscreen(nodeId) {
-  try {
-    const node = await api.getNode(nodeId)
-    selectNode(node, { fullscreen: true })
-  } catch (err) {
-    handleError(err, { context: 'Opening node fullscreen' })
-  }
-}
+const openNodeFullscreen = (nodeId) => selectChildById(nodeId, { fullscreen: true })
 
 // Graph operations via composable (saveNodePosition, insertBetween)
 // Note: initialized after refreshAfterChange is defined
@@ -740,25 +742,6 @@ async function handleDetach(node) {
   await openDetachedWindow(node.id, node.title)
 }
 
-async function fetchBreadcrumbsForResults(results) {
-  // Fetch ancestors for each result in parallel to build breadcrumbs
-  const resultsWithBreadcrumbs = await Promise.all(
-    results.map(async (result) => {
-      try {
-        const ancestors = await api.getAncestors(result.id)
-        // Build breadcrumb string from ancestors (root to parent)
-        const breadcrumb = ancestors
-          .map(a => a.title)
-          .join(' / ')
-        return { ...result, breadcrumb }
-      } catch {
-        return { ...result, breadcrumb: '' }
-      }
-    })
-  )
-  return resultsWithBreadcrumbs
-}
-
 // Context menu - using composable
 const {
   contextMenu,
@@ -839,8 +822,6 @@ function handleCreate(payload) {
   showAddNodeModal(currentContainerId.value)
 }
 
-let resizeObserver = null
-
 // Keyboard shortcuts via composable
 const { handleKeydown } = useKeyboardShortcuts({
   actions: {
@@ -872,70 +853,6 @@ const { handleKeydown } = useKeyboardShortcuts({
   }
 })
 
-onMounted(async () => {
-  // Load available workspaces first
-  await loadWorkspaces()
-
-  // Restore last container or start at root
-  const initialContainerId = savedContainerId.value ? parseInt(savedContainerId.value, 10) : null
-  try {
-    await loadChildren(initialContainerId)
-  } catch {
-    // If saved container no longer exists, fall back to root
-    console.warn('Saved container not found, loading root')
-    await loadChildren(null)
-  }
-
-  // Restore expanded state from localStorage
-  loadExpandedState()
-
-  // Load recent items, favorites, and tags for sidebar
-  await Promise.all([loadRecentItems(), loadFavorites(), loadTags()])
-
-  // Track container dimensions for responsive grid
-  const updateDimensions = () => {
-    const el = document.querySelector('.content-body')
-    if (el) {
-      containerWidth.value = el.clientWidth
-      containerHeight.value = el.clientHeight
-    }
-  }
-
-  updateDimensions()
-  window.addEventListener('resize', updateDimensions)
-  window.addEventListener('keydown', handleKeydown)
-  window.addEventListener('open-link-search', handleOpenLinkSearchEvent)
-  document.addEventListener('click', handleExternalLinkClick, true)
-  resizeObserver = new ResizeObserver(updateDimensions)
-  const contentBody = document.querySelector('.content-body')
-  if (contentBody) resizeObserver.observe(contentBody)
-
-  // Listen for updates from detached windows
-  onDetachedMessage(async (data) => {
-    if (data.type === 'node-updated' && data.node) {
-      await refreshAfterChange({ recent: false })
-      loadFavorites()
-      if (selectedNode.value?.id === data.node.id) selectedNode.value = { ...data.node }
-    } else if (data.type === 'node-deleted' && data.nodeId) {
-      if (selectedNode.value?.id === data.nodeId) clearSelectionAfterDelete()
-      await refreshAfterChange({ recent: false })
-    }
-  })
-
-  // Listen for menu events from Electron
-  if (window.electronAPI) {
-    window.electronAPI.onMenuUndo(() => undo())
-    window.electronAPI.onMenuRedo(() => redo())
-    window.electronAPI.onOpenSettings(() => { showSettings.value = true })
-
-    // Autosave before app quits
-    window.electronAPI.onBeforeQuit(() => {
-      saveInlineNotes()
-      detailPanelRef.value?.saveChanges()
-    })
-  }
-})
-
 // Handle custom open-link-search event from GraphView context menu
 function handleOpenLinkSearchEvent(e) {
   const nodeId = e.detail?.nodeId
@@ -944,11 +861,31 @@ function handleOpenLinkSearchEvent(e) {
   }
 }
 
-onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeydown)
-  window.removeEventListener('open-link-search', handleOpenLinkSearchEvent)
-  document.removeEventListener('click', handleExternalLinkClick, true)
-  resizeObserver?.disconnect()
+// App lifecycle management (initialization, event listeners, cleanup)
+useAppLifecycle({
+  loadWorkspaces,
+  loadChildren,
+  loadExpandedState,
+  loadRecentItems,
+  loadFavorites,
+  loadTags,
+  savedContainerId,
+  currentContainerId,
+  containerWidth,
+  containerHeight,
+  handleKeydown,
+  handleExternalLinkClick,
+  handleOpenLinkSearchEvent,
+  onDetachedMessage,
+  refreshAfterChange,
+  loadFavoritesAfterSync: loadFavorites,
+  clearSelectionAfterDelete,
+  selectedNode,
+  saveInlineNotes,
+  detailPanelRef,
+  undo,
+  redo,
+  showSettings
 })
 </script>
 

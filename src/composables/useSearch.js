@@ -10,10 +10,10 @@ const SEARCH_PAGE_SIZE = 50
  * @param {Object} options
  * @param {Function} options.onSearch - Called to perform search: onSearch(query, mode, workspaceId, paginationOptions) => results[]
  * @param {Function} options.onSelect - Called when a result is selected: onSelect(node, mode, linkSourceId)
- * @param {Function} options.onFetchBreadcrumbs - Called to fetch breadcrumbs for results: onFetchBreadcrumbs(results) => resultsWithBreadcrumbs[]
+ * @param {Function} options.getAncestors - Called to fetch ancestors for a node: getAncestors(nodeId) => ancestors[]
  * @param {Object} options.selectedNode - Ref to the currently selected node (for link mode)
  */
-export function useSearch({ onSearch, onSelect, onFetchBreadcrumbs, selectedNode } = {}) {
+export function useSearch({ onSearch, onSelect, getAncestors, selectedNode } = {}) {
   const { handleError } = useErrorHandler()
 
   const searchQuery = ref('')
@@ -112,10 +112,20 @@ export function useSearch({ onSearch, onSelect, onFetchBreadcrumbs, selectedNode
         // Check if there are more results
         hasMoreResults.value = results.length === SEARCH_PAGE_SIZE
 
-        // Fetch breadcrumbs if callback provided
+        // Fetch breadcrumbs for each result if getAncestors is provided
         let processedResults = results
-        if (onFetchBreadcrumbs && results.length > 0) {
-          processedResults = await onFetchBreadcrumbs(results)
+        if (getAncestors && results.length > 0) {
+          processedResults = await Promise.all(
+            results.map(async (result) => {
+              try {
+                const ancestors = await getAncestors(result.id)
+                const breadcrumb = ancestors.map(a => a.title).join(' / ')
+                return { ...result, breadcrumb }
+              } catch {
+                return { ...result, breadcrumb: '' }
+              }
+            })
+          )
         }
 
         if (loadMore) {
