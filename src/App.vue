@@ -2,7 +2,6 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { api } from './services/api.js'
 import { handleExternalLinkClick } from './utils/markdown.js'
-import { scrollToNode } from './utils/dom.js'
 import { useNodeTooltip } from './composables/useNodeTooltip.js'
 import { useDetachedWindow } from './composables/useDetachedWindow.js'
 import { useSelection } from './composables/useSelection.js'
@@ -22,28 +21,19 @@ import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts.js'
 import { useTreeExpand } from './composables/useTreeExpand.js'
 import { useCardsLayout } from './composables/useCardsLayout.js'
 import { useNavigation } from './composables/useNavigation.js'
-import {
-  ReorderCommand,
-  OllamaImproveNotesCommand
-} from './commands/index.js'
-import { SIDEBAR_HIDE_DELAY_MS } from './utils/uiConstants.js'
+import { useGraphOperations } from './composables/useGraphOperations.js'
+import { useRefresh } from './composables/useRefresh.js'
+import { ReorderCommand, OllamaImproveNotesCommand } from './commands/index.js'
 import DetailPanel from './components/DetailPanel.vue'
-import GraphView from './components/GraphView.vue'
-import TableView from './components/TableView.vue'
-import TimelineView from './components/TimelineView.vue'
-import CalendarView from './components/CalendarView.vue'
-import PersonsView from './components/PersonsView.vue'
-import TasksView from './components/TasksView.vue'
+import ViewRenderer from './components/ViewRenderer.vue'
 import NodeContextMenu from './components/NodeContextMenu.vue'
 import AddNodeModal from './components/AddNodeModal.vue'
 import ToastContainer from './components/ToastContainer.vue'
-import CardsView from './components/CardsView.vue'
 import AppSidebar from './components/AppSidebar.vue'
 import WorkspaceSelector from './components/WorkspaceSelector.vue'
 import AddNodeBar from './components/AddNodeBar.vue'
 import Breadcrumbs from './components/Breadcrumbs.vue'
 import MainToolbar from './components/MainToolbar.vue'
-import TrashView from './components/TrashView.vue'
 import SpotlightSearch from './components/SpotlightSearch.vue'
 import { showToast } from './composables/useToast.js'
 import { handleError } from './composables/useErrorHandler.js'
@@ -267,8 +257,7 @@ watch(showDetail, (isOpen) => {
 })
 
 // Component refs
-const graphViewRef = ref(null)
-const tasksViewRef = ref(null)
+const viewRendererRef = ref(null)
 const detailPanelRef = ref(null)
 const addChildParentId = ref(null) // Parent ID when adding via card + button
 
@@ -661,39 +650,9 @@ async function handleReorder({ nodeId, targetId, position }) {
   }
 }
 
-// Helper to save node position for graph view
-// viewId parameter allows saving to a specific view (e.g., the parent's view when adding children)
-function saveNodePosition(nodeId, x, y, viewId = null) {
-  const targetViewId = viewId ?? currentContainerId.value ?? 'root'
-  const ws = currentWorkspace.value || 'work'
-  const posKey = `graph-positions-${ws}-${targetViewId}`
-  const positions = JSON.parse(localStorage.getItem(posKey) || '{}')
-
-  // If position provided, use it
-  if (x !== undefined && y !== undefined) {
-    positions[nodeId] = { x, y }
-  } else {
-    // Auto-generate position near existing nodes
-    const existingPositions = Object.values(positions)
-    if (existingPositions.length > 0) {
-      // Find center of existing nodes
-      const centerX = existingPositions.reduce((sum, p) => sum + p.x, 0) / existingPositions.length
-      const centerY = existingPositions.reduce((sum, p) => sum + p.y, 0) / existingPositions.length
-      // Place new node near center with some randomness
-      const angle = Math.random() * Math.PI * 2
-      const distance = 50 + Math.random() * 50
-      positions[nodeId] = {
-        x: centerX + Math.cos(angle) * distance,
-        y: centerY + Math.sin(angle) * distance
-      }
-    } else {
-      // No existing positions, use default center
-      positions[nodeId] = { x: 400 + Math.random() * 50, y: 300 + Math.random() * 50 }
-    }
-  }
-
-  localStorage.setItem(posKey, JSON.stringify(positions))
-}
+// Graph operations via composable (saveNodePosition, insertBetween)
+// Note: initialized after refreshAfterChange is defined
+let graphOps = null
 
 async function createNode() {
   if (!newNodeTitle.value.trim()) return
@@ -732,37 +691,39 @@ async function addChildFromDetail(payload) {
 
 function onChildUpdated() {
   // Refresh graph to reflect completed state changes
-  graphViewRef.value?.updateGraph()
+  viewRendererRef.value?.updateGraph()
   // Refresh sidebar tree
   loadSidebarTree()
 }
 
-// Consolidated refresh after data changes
-async function refreshAfterChange({ silent = true, sidebar = true, recent = true } = {}) {
-  await loadChildren(currentContainerId.value, { silent })
-  if (sidebar) await loadSidebarTree()
-  if (recent) loadRecentItems()
-}
+// Refresh operations via composable
+const {
+  refreshAfterChange,
+  refreshAfterDelete,
+  refreshGraphAfterStructureChange,
+  refreshDetailPanelLinks
+} = useRefresh({
+  api,
+  loadChildren,
+  loadSidebarTree,
+  loadRecentItems,
+  currentContainerId,
+  selectedNode,
+  graphViewRef: viewRendererRef,
+  detailPanelRef
+})
 
-// Single place for graph refresh after structure changes (links or parent-child)
-async function refreshGraphAfterStructureChange(reloadData = false) {
-  if (reloadData) {
-    await loadChildren(currentContainerId.value, { silent: true })
-    await nextTick()
-  } else if (graphViewRef.value?.updateGraph) {
-    await graphViewRef.value.updateGraph()
-  }
-}
+// Initialize graph operations now that refreshAfterChange is defined
+graphOps = useGraphOperations({
+  api,
+  currentContainerId,
+  currentWorkspace,
+  expandedIds,
+  getWorkspaceIdForNode,
+  refreshAfterChange
+})
 
-// Refresh detail panel if it's showing one of the linked nodes
-async function refreshDetailPanelLinks(sourceId, targetId) {
-  if (selectedNode.value?.id === sourceId || selectedNode.value?.id === targetId) {
-    selectedNode.value = await api.getNode(selectedNode.value.id)
-    detailPanelRef.value?.loadLinkedNodes()
-    detailPanelRef.value?.loadLinkedOrganizations()
-    detailPanelRef.value?.loadLinkedMembers()
-  }
-}
+const { saveNodePosition, insertBetween } = graphOps
 
 async function moveNode({ nodeId, oldParentId, newParentId }) {
   const success = await nodeOps.moveNode({ nodeId, oldParentId, newParentId })
@@ -799,38 +760,6 @@ async function moveMultipleNodes({ nodeIds, newParentId }) {
   }
 }
 
-async function insertBetween({ parentId, childId, title, type, isLink }) {
-  try {
-    const nodeType = type || 'task'
-    if (isLink) {
-      // For link edges: remove the link, create new node, link both to new node
-      await api.unlinkNodes(parentId, childId)
-      const newNode = await api.createNode({
-        title,
-        type: nodeType,
-        parent_id: currentContainerId.value,
-        workspace_id: getWorkspaceIdForNode(nodeType)
-      })
-      await api.linkNodes(parentId, newNode.id)
-      await api.linkNodes(newNode.id, childId)
-    } else {
-      // For parent-child edges: create new node as child of parent
-      const newNode = await api.createNode({
-        title,
-        type: nodeType,
-        parent_id: parentId,
-        workspace_id: getWorkspaceIdForNode(nodeType)
-      })
-      // Move the original child to be under the new node
-      await api.moveNode(childId, newNode.id)
-      expandedIds.value.add(parentId)
-      expandedIds.value.add(newNode.id)
-    }
-    await refreshAfterChange()
-  } catch (e) {
-    error.value = e.message
-  }
-}
 
 async function createNodeAtPosition({ title, type, x, y }) {
   const newNode = await nodeOps.createNode({
@@ -903,12 +832,6 @@ async function handleAIImproveNotes(payload) {
 function clearSelectionAfterDelete() {
   showDetail.value = false
   selectedNode.value = null
-}
-
-async function refreshAfterDelete() {
-  await loadChildren(currentContainerId.value, { silent: true })
-  await loadSidebarTree()
-  loadRecentItems()
 }
 
 async function deleteNode(nodeId) {
@@ -1079,13 +1002,31 @@ function showAddNodeModal(parentId = null) {
   addNodeModal.value = { visible: true, parentId }
 }
 
-function addChildToCard(parentId, e) {
+// Unified handler for add-child events from different views
+// Cards: emits (parentId, event) - opens modal
+// Graph: emits { parentId, title, type, x, y } - creates node directly
+function handleAddChild(payload, e) {
+  // Graph view passes object with title
+  if (payload && typeof payload === 'object' && payload.title) {
+    addChildNode(payload)
+    return
+  }
+  // Cards view passes (parentId, event)
   e?.stopPropagation()
   hideTooltip()
-  showAddNodeModal(parentId)
+  showAddNodeModal(payload)
 }
 
-function createNodeInCards() {
+// Unified handler for create events from different views
+// Cards: emits no args - opens modal
+// Graph: emits { title, type, x, y } - creates node at position
+function handleCreate(payload) {
+  // Graph view passes object with title
+  if (payload && typeof payload === 'object' && payload.title) {
+    createNodeAtPosition(payload)
+    return
+  }
+  // Cards view - open modal
   hideTooltip()
   showAddNodeModal(currentContainerId.value)
 }
@@ -1333,186 +1274,85 @@ onUnmounted(() => {
             'transition-back': transitionDirection === 'back'
           }"
         >
-          <!-- Loading -->
-        <div v-if="loading" class="loading">Loading...</div>
-
-        <!-- Error -->
-        <div v-else-if="error" class="error">{{ error }}</div>
-
-        <!-- Table View -->
-        <TableView
-          v-else-if="viewMode === 'tree'"
-          :nodes="sortedChildren"
-          :selected-id="selectedNode?.id"
-          :selected-ids="selectedIds"
-          :expanded-ids="expandedIds"
-          :hide-completed="hideCompleted"
-          :hide-sensitive="hideSensitive"
-          :show-detail="showDetail"
-          :current-parent-id="currentContainerId"
-          :current-container="currentContainer"
-          :color-map="inheritedColorMap"
-          :hover-preview-enabled="hoverPreviewEnabled"
-          @hover="hoverSelectNode"
-          @select="selectNode"
-          @select-multiple="handleMultiSelect"
-          @enter="enterContainer"
-          @toggle-complete="toggleComplete"
-          @toggle-expand="toggleExpand"
-          @expand-all="expandAll"
-          @collapse-all="collapseAll"
-          @delete="deleteNode"
-          @move="moveNode"
-          @move-multiple="moveMultipleNodes"
-          @reorder="handleReorder"
-          @go-parent="goToParent"
-          @open-fullscreen="openNodeFullscreen"
-          @context-menu="handleViewContextMenu"
-        />
-
-        <!-- Cards View -->
-        <CardsView
-          v-else-if="viewMode === 'cards'"
-          :nodes="filteredChildren"
-          :selected-id="selectedNode?.id"
-          :selected-ids="[...selectedIds]"
-          :hide-completed="hideCompleted"
-          :current-container-id="currentContainerId"
-          :color-map="inheritedColorMap"
-          :card-size-class="cardSizeClass"
-          :grid-style="cardsGridStyle"
-          :editing-card-id="editingCardId"
-          :editing-title="editingTitle"
-          :inline-notes-id="inlineNotesId"
-          :inline-notes-text="inlineNotesText"
-          :drag-over-node-id="dropTarget?.id"
-          :drag-position="dropPosition"
-          @select="selectNode"
-          @select-multiple="handleMultiSelect"
-          @enter="enterContainer"
-          @toggle-complete="toggleComplete"
-          @delete="deleteNode"
-          @add-child="addChildToCard"
-          @create="createNodeInCards"
-          @context-menu="(e, node) => showContextMenu(e, node)"
-          @show-tooltip="showCardTooltip"
-          @hide-tooltip="hideTooltip"
-          @drag-start="onCardDragStart"
-          @drag-end="onCardDragEnd"
-          @drag-over="onCardDragOver"
-          @drag-leave="onCardDragLeave"
-          @drop="onCardDrop"
-          @start-edit="startEditing"
-          @save-edit="saveEditing"
-          @cancel-edit="cancelEditing"
-          @start-notes="startInlineNotes"
-          @save-notes="saveInlineNotes"
-          @cancel-notes="cancelInlineNotes"
-          @update:editing-title="editingTitle = $event"
-          @update:inline-notes-text="inlineNotesText = $event"
-        />
-
-        <!-- Graph View -->
-        <GraphView
-          v-else-if="viewMode === 'graph'"
-          ref="graphViewRef"
-          :nodes="sortedChildren"
-          :parent="currentContainer"
-          :selected-id="selectedNode?.id"
-          :selected-ids="[...selectedIds]"
-          :detail-threshold="graphDetailThreshold"
-          :max-depth="effectiveGraphMaxDepth"
-          :hide-completed="hideCompleted"
-          :hide-sensitive="hideSensitive"
-          :workspace="currentWorkspace"
-          :workspaces="workspaces"
-          :show-detail="showDetail"
-          :fullscreen-detail-open="fullscreenDetail"
-          :hover-preview-enabled="hoverPreviewEnabled"
-          :sort-alphabetically="sortAlphabetically"
-          @select="selectNode"
-          @select-multiple="handleMultiSelect"
-          @enter="enterContainer"
-          @move="moveNode"
-          @link="linkNodesFromGraph"
-          @unlink="unlinkNodesFromGraph"
-          @add-child="addChildNode"
-          @insert-between="insertBetween"
-          @update="updateNode"
-          @create="createNodeAtPosition"
-          @delete="deleteNode"
-          @delete-multiple="deleteMultipleNodes"
-          @wrap-with-parent="wrapWithParent"
-          @open-fullscreen="openNodeFullscreen"
-          @context-menu="handleViewContextMenu"
-          @go-parent="goToParent"
-          @go-first-child="goToFirstChild"
-          @go-prev-sibling="goToPrevSibling"
-          @go-next-sibling="goToNextSibling"
-        />
-
-        <!-- Timeline View -->
-        <TimelineView
-          v-else-if="viewMode === 'timeline'"
-          :nodes="sortedChildren"
-          :selected-id="selectedNode?.id"
-          :hide-completed="hideCompleted"
-          :color-map="inheritedColorMap"
-          @select="selectNode"
-          @enter="enterContainer"
-          @show-tooltip="showCardTooltip"
-          @hide-tooltip="hideTooltip"
-          @context-menu="handleViewContextMenu"
-          @update="updateNode"
-        />
-
-        <!-- Calendar View -->
-        <CalendarView
-          v-else-if="viewMode === 'calendar'"
-          :nodes="sortedChildren"
-          :selected-id="selectedNode?.id"
-          :hide-completed="hideCompleted"
-          :color-map="inheritedColorMap"
-          @select="selectNode"
-          @enter="enterContainer"
-          @show-tooltip="showCardTooltip"
-          @hide-tooltip="hideTooltip"
-          @context-menu="handleViewContextMenu"
-          @update="updateNode"
-        />
-
-        <!-- Persons View -->
-        <PersonsView
-          v-else-if="viewMode === 'persons'"
-          :selected-id="selectedNode?.id"
-          :hide-completed="hideCompleted"
-          :workspace-id="currentWorkspace"
-          @select="selectNode"
-          @delete="deleteNode"
-          @context-menu="handleViewContextMenu"
-        />
-
-        <!-- Tasks View -->
-        <TasksView
-          v-else-if="viewMode === 'tasks'"
-          ref="tasksViewRef"
-          :workspace-id="currentWorkspace"
-          :hide-sensitive="hideSensitive"
-          :container-id="currentContainerId"
-          :container-title="currentContainer?.title"
-          @navigate="navigateToNode"
-          @toggle-complete="toggleComplete"
-        />
-
-        <!-- Trash View -->
-        <TrashView
-          v-else-if="viewMode === 'trash'"
-          :items="trashedItems"
-          @empty-all="emptyAllTrash"
-          @restore="restoreFromTrash"
-          @delete="permanentlyDelete"
-        />
-
+          <!-- View Renderer - handles all view modes -->
+          <ViewRenderer
+            ref="viewRendererRef"
+            :view-mode="viewMode"
+            :loading="loading"
+            :error="error"
+            :sorted-children="sortedChildren"
+            :filtered-children="filteredChildren"
+            :selected-node="selectedNode"
+            :selected-ids="selectedIds"
+            :expanded-ids="expandedIds"
+            :hide-completed="hideCompleted"
+            :hide-sensitive="hideSensitive"
+            :current-container-id="currentContainerId"
+            :current-container="currentContainer"
+            :color-map="inheritedColorMap"
+            :hover-preview-enabled="hoverPreviewEnabled"
+            :show-detail="showDetail"
+            :graph-detail-threshold="graphDetailThreshold"
+            :effective-graph-max-depth="effectiveGraphMaxDepth"
+            :fullscreen-detail="fullscreenDetail"
+            :sort-alphabetically="sortAlphabetically"
+            :workspace="currentWorkspace"
+            :workspaces="workspaces"
+            :card-size-class="cardSizeClass"
+            :cards-grid-style="cardsGridStyle"
+            :editing-card-id="editingCardId"
+            :editing-title="editingTitle"
+            :inline-notes-id="inlineNotesId"
+            :inline-notes-text="inlineNotesText"
+            :drop-target="dropTarget"
+            :drop-position="dropPosition"
+            :container-title="currentContainer?.title"
+            :trashed-items="trashedItems"
+            @hover="hoverSelectNode"
+            @select="selectNode"
+            @select-multiple="handleMultiSelect"
+            @enter="enterContainer"
+            @toggle-complete="toggleComplete"
+            @toggle-expand="toggleExpand"
+            @expand-all="expandAll"
+            @collapse-all="collapseAll"
+            @delete="deleteNode"
+            @move="moveNode"
+            @move-multiple="moveMultipleNodes"
+            @reorder="handleReorder"
+            @go-parent="goToParent"
+            @open-fullscreen="openNodeFullscreen"
+            @context-menu="handleViewContextMenu"
+            @add-child="handleAddChild"
+            @create="handleCreate"
+            @show-tooltip="showCardTooltip"
+            @hide-tooltip="hideTooltip"
+            @drag-start="onCardDragStart"
+            @drag-end="onCardDragEnd"
+            @drag-over="onCardDragOver"
+            @drag-leave="onCardDragLeave"
+            @drop="onCardDrop"
+            @start-edit="startEditing"
+            @save-edit="saveEditing"
+            @cancel-edit="cancelEditing"
+            @start-notes="startInlineNotes"
+            @save-notes="saveInlineNotes"
+            @cancel-notes="cancelInlineNotes"
+            @update:editing-title="editingTitle = $event"
+            @update:inline-notes-text="inlineNotesText = $event"
+            @link="linkNodesFromGraph"
+            @unlink="unlinkNodesFromGraph"
+            @insert-between="insertBetween"
+            @update="updateNode"
+            @delete-multiple="deleteMultipleNodes"
+            @wrap-with-parent="wrapWithParent"
+            @go-first-child="goToFirstChild"
+            @go-prev-sibling="goToPrevSibling"
+            @go-next-sibling="goToNextSibling"
+            @navigate="navigateToNode"
+            @empty-all="emptyAllTrash"
+            @restore="restoreFromTrash"
+          />
         </div>
         </div>
         <!-- Detail Panel (inside content-wrapper) -->
