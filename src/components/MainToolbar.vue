@@ -51,7 +51,7 @@ onUnmounted(() => {
   tippyInstances = []
 })
 
-const props = defineProps({
+defineProps({
   viewMode: { type: String, required: true },
   sortAlphabetically: { type: Boolean, default: false },
   hideCompleted: { type: Boolean, default: false },
