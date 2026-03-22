@@ -24,7 +24,6 @@ import { useNavigation } from './composables/useNavigation.js'
 import { useGraphOperations } from './composables/useGraphOperations.js'
 import { useRefresh } from './composables/useRefresh.js'
 import { useNodeActionsUI } from './composables/useNodeActionsUI.js'
-import { ReorderCommand } from './commands/index.js'
 import DetailPanel from './components/DetailPanel.vue'
 import ViewRenderer from './components/ViewRenderer.vue'
 import NodeContextMenu from './components/NodeContextMenu.vue'
@@ -606,51 +605,6 @@ async function openNodeFullscreen(nodeId) {
   }
 }
 
-async function handleReorder({ nodeId, targetId, position }) {
-  try {
-    // Find original position for undo - look at current siblings
-    const node = await api.getNode(nodeId)
-    const siblings = node.parent_id
-      ? (await api.getChildren(node.parent_id)).filter(n => n.id !== nodeId)
-      : children.value.filter(n => n.id !== nodeId)
-
-    // Find where this node currently sits among siblings by sort_order
-    const currentNode = children.value.find(n => n.id === nodeId) ||
-                        (await api.getNode(nodeId))
-    const sortedSiblings = [...siblings].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
-
-    // Find the sibling that comes just before this node's current position
-    let prevSibling = null
-    for (const sib of sortedSiblings) {
-      if ((sib.sort_order || 0) < (currentNode.sort_order || 0)) {
-        prevSibling = sib
-      } else {
-        break
-      }
-    }
-
-    // Store undo info
-    const oldTargetId = prevSibling ? prevSibling.id : (sortedSiblings[0]?.id || null)
-    const oldPosition = prevSibling ? 'after' : 'before'
-
-    await api.reorderNode(nodeId, targetId, position)
-
-    if (oldTargetId) {
-      pushCommand(new ReorderCommand({
-        nodeId,
-        oldTargetId,
-        oldPosition,
-        newTargetId: targetId,
-        newPosition: position
-      }))
-    }
-
-    await refreshAfterChange()
-  } catch (e) {
-    error.value = e.message
-  }
-}
-
 // Graph operations via composable (saveNodePosition, insertBetween)
 // Note: initialized after refreshAfterChange is defined
 let graphOps = null
@@ -731,6 +685,7 @@ const {
   clearSelectionAfterDelete,
   deleteNode,
   deleteMultipleNodes,
+  deleteSelectedNodes,
   wrapWithParent,
   moveNode,
   moveMultipleNodes,
@@ -739,7 +694,9 @@ const {
   toggleFavorite,
   linkNodesFromGraph,
   unlinkNodesFromGraph,
-  handleAIImproveNotes
+  handleAIImproveNotes,
+  handleReorder,
+  clearSelection
 } = useNodeActionsUI({
   api,
   nodeOps,
@@ -750,9 +707,11 @@ const {
   showDetail,
   currentContainerId,
   breadcrumbs,
+  children,
   expandedIds,
   flatChildren,
   viewRendererRef,
+  error,
   enterContainer,
   navigateBack,
   refreshAfterChange,
@@ -904,30 +863,14 @@ const { handleKeydown } = useKeyboardShortcuts({
     undo,
     redo,
     showAddNodeModal,
-    deleteSelectedNodes: async () => {
-      if (selectedIds.value.size === 0) return
-      const idsToDelete = [...selectedIds.value]
-      const result = await nodeOps.deleteMultipleNodes(idsToDelete)
-      if (result.success) {
-        selectedIds.value = new Set()
-        selectedNode.value = null
-        showDetail.value = false
-        await loadChildren(currentContainerId.value, { silent: true })
-        await loadSidebarTree()
-        loadRecentItems()
-      }
-    },
+    deleteSelectedNodes,
     deleteNode,
     goToParent,
     goToFirstChild,
     goToPrevSibling,
     goToNextSibling,
     toggleDetailPanel,
-    clearSelection: () => {
-      selectedIds.value = new Set()
-      selectedNode.value = null
-      showDetail.value = false
-    },
+    clearSelection,
     selectAll: () => {
       selectedIds.value = new Set(flatChildren.value.map(n => n.id))
     }
