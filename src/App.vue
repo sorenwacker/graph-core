@@ -45,7 +45,6 @@ let currentContainerId = ref(null)
 let currentContainer = ref(null)
 let breadcrumbs = ref([])
 let children = ref([])
-let navigationHistory = ref([])
 
 // UI state - managed by useSettings composable
 const {
@@ -141,7 +140,6 @@ const {
   invalidateSidebarCache,
   clearRecent,
   restoreFromTrash,
-  permanentlyDelete,
   emptyAllTrash,
   moveToRoot,
   deleteOrphanedNode
@@ -433,7 +431,6 @@ currentContainerId = navigation.currentContainerId
 currentContainer = navigation.currentContainer
 breadcrumbs = navigation.breadcrumbs
 children = navigation.children
-navigationHistory = navigation.navigationHistory
 
 // Export navigation methods and loading state
 const {
