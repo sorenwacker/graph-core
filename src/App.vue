@@ -212,10 +212,10 @@ const {
   restoreSnapshot,
   reloadDatabase
 } = useSnapshots({
-  onListBackups: () => api.listBackups(),
-  onCreateBackup: (suffix) => api.backup(suffix),
-  onRestoreBackup: (path) => api.restoreBackup(path),
-  onReload: () => api.reload(),
+  onListBackups: api.listBackups,
+  onCreateBackup: api.backup,
+  onRestoreBackup: api.restoreBackup,
+  onReload: api.reload,
   onAfterRestore: async () => {
     await loadChildren(null)
     await loadSidebarTree()
@@ -227,9 +227,7 @@ const {
     await loadChildren(currentContainerId.value)
     await loadSidebarTree()
     loadRecentItems()
-    if (selectedNode.value?.id) {
-      selectedNode.value = await api.getNode(selectedNode.value.id)
-    }
+    if (selectedNode.value?.id) selectedNode.value = await api.getNode(selectedNode.value.id)
   }
 })
 
