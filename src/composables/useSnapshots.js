@@ -62,6 +62,7 @@ export function useSnapshots({
       }
     } catch (e) {
       handleError(e, { context: 'Creating snapshot' })
+      showMessage('Failed to create snapshot')
     }
   }
 
@@ -81,6 +82,7 @@ export function useSnapshots({
       }
     } catch (e) {
       handleError(e, { context: 'Restoring snapshot' })
+      showMessage('Failed to restore snapshot')
     }
   }
 
@@ -96,6 +98,7 @@ export function useSnapshots({
       }
     } catch (e) {
       handleError(e, { context: 'Reloading database' })
+      showMessage('Failed to reload database')
     }
   }
 
