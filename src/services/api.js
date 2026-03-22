@@ -363,7 +363,7 @@ const webApi = {
         }
       }
       return { success: true }
-    } catch (_error) {
+    } catch {
       return {
         success: false,
         error: 'Ollama is not running. Start with: ollama serve'
@@ -425,7 +425,7 @@ const webApi = {
         return { success: false, error: `API error: ${response.status}` }
       }
       return { success: true }
-    } catch (_error) {
+    } catch {
       return { success: false, error: 'Cannot connect to API endpoint' }
     }
   },
