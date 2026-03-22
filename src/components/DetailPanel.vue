@@ -2,7 +2,6 @@
 import { ref, watch, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 import MentionDropdown from './MentionDropdown.vue'
-import TagInput from './TagInput.vue'
 import NotesEditor from './NotesEditor.vue'
 import NotesAIToolbar from './NotesAIToolbar.vue'
 import NodeSpreadsheet from './NodeSpreadsheet.vue'
@@ -11,8 +10,6 @@ import OrganizationDetailForm from './detail/OrganizationDetailForm.vue'
 import ChildrenSection from './detail/ChildrenSection.vue'
 import MetadataGridSection from './detail/MetadataGridSection.vue'
 import { api } from '../services/api'
-import { nodeTypes, getTypeIcon, personIconSvg } from '../utils/constants.js'
-import { getInitials, formatDate, getDueStatus } from '../utils/formatting.js'
 import { useMentions } from '../composables/useMentions.js'
 import { useNodeTable } from '../composables/useNodeTable.js'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
@@ -40,14 +37,6 @@ const isElectron = typeof window !== 'undefined' && !!window.electronAPI?.openDe
 const editedNode = ref({})
 const children = ref([])
 const loadingChildren = ref(false)
-const newTaskTitle = ref('')
-
-// Filter children based on hideCompleted setting
-const filteredChildren = computed(() => {
-  if (!props.hideCompleted) return children.value
-  return children.value.filter(child => !child.completed)
-})
-
 // Links state
 const linkedNodes = ref([])
 
@@ -65,7 +54,6 @@ const metadataCollapsed = ref(false)
 const {
   table: nodeTable,
   cells: tableCells,
-  loading: tableLoading,
   hasTable,
   loadTable,
   createTable,
@@ -75,15 +63,6 @@ const {
   saveCellStyle
 } = useNodeTable()
 
-
-// Expanded children and their grandchildren
-const expandedChildren = ref(new Set())
-const grandchildren = ref({}) // childId -> grandchildren array
-
-// Drag state for reordering
-const draggedChild = ref(null)
-const dropTarget = ref(null)
-const dropPosition = ref(null) // 'before' or 'after'
 
 // Split view preview ref
 const splitPreview = ref(null)
@@ -103,13 +82,9 @@ const {
   mentionPosition,
   filteredPersons,
   selectedMentionIndex,
-  handleInput: handleMentionInput,
-  handleKeydown: handleMentionKeydown,
-  selectMention,
-  hideMentions: _hideMentions,
-  refreshPersons: _refreshPersons
+  selectMention
 } = useMentions({
-  onMentionInserted: async (_personId, _nodeId) => {
+  onMentionInserted: async () => {
     // Refresh linked nodes after auto-linking
     await loadLinkedNodes()
   },
@@ -119,11 +94,6 @@ const {
 // Error handling
 const { handleError } = useErrorHandler()
 
-function _onNotesInput(e) {
-  editedNode.value.notes = e.target.value
-  handleMentionInput(e, props.node?.id)
-}
-
 function onCodeMirrorNotesUpdate(newValue) {
   editedNode.value.notes = newValue
   // Debounced autosave after 500ms of inactivity
@@ -131,17 +101,6 @@ function onCodeMirrorNotesUpdate(newValue) {
   notesAutosaveTimeout = setTimeout(() => {
     saveChanges()
   }, 500)
-}
-
-function _onNotesKeydown(e) {
-  const handled = handleMentionKeydown(
-    e,
-    editedNode.value.notes,
-    (newVal) => { editedNode.value.notes = newVal },
-    props.node?.id
-  )
-  // If mention handler handled it, don't propagate
-  if (handled) return
 }
 
 function onMentionSelect(index) {
@@ -203,9 +162,6 @@ watch(() => props.node, async (newNode) => {
     notesCollapsed.value = false
     // Set tab based on whether notes exist
     activeTab.value = newNode.notes?.trim() ? 'preview' : 'edit'
-    // Reset expanded children
-    expandedChildren.value = new Set()
-    grandchildren.value = {}
     // Reset links
     linkedNodes.value = []
     // Reset sensitive preview unlock
@@ -273,13 +229,6 @@ async function removeLink(targetNode) {
 
 const isPerson = computed(() => editedNode.value.type === 'person')
 const isOrganization = computed(() => editedNode.value.type === 'organization')
-
-const completedChildrenCount = computed(() => {
-  return children.value.filter(c => c.completed).length
-})
-
-const formattedCreatedDate = computed(() => formatDate(editedNode.value?.created_at))
-const formattedUpdatedDate = computed(() => formatDate(editedNode.value?.updated_at))
 
 function saveChanges() {
   // Clear any pending autosave
@@ -378,25 +327,6 @@ async function toggleChildComplete(child) {
   }
 }
 
-async function _toggleChildExpand(child) {
-  if (expandedChildren.value.has(child.id)) {
-    expandedChildren.value.delete(child.id)
-    expandedChildren.value = new Set(expandedChildren.value) // trigger reactivity
-  } else {
-    expandedChildren.value.add(child.id)
-    expandedChildren.value = new Set(expandedChildren.value) // trigger reactivity
-    // Load grandchildren if not already loaded
-    if (!grandchildren.value[child.id]) {
-      try {
-        grandchildren.value[child.id] = await api.getChildren(child.id)
-      } catch (err) {
-        handleError(err, { context: 'Loading grandchildren', silent: true })
-        grandchildren.value[child.id] = []
-      }
-    }
-  }
-}
-
 function selectChild(child) {
   emit('select-child', child.id)
 }
@@ -414,84 +344,9 @@ function autoResizeTitle(e) {
   el.style.height = el.scrollHeight + 'px'
 }
 
-function setImportance(level) {
-  editedNode.value.importance = level
-  saveChanges()
-}
-
-function clearDate(field) {
-  editedNode.value[field] = null
-  saveChanges()
-}
-
-function updateDate(field, value) {
-  editedNode.value[field] = value || null
-  saveChanges()
-}
-
 function updateTags(newTags) {
   editedNode.value.tags = newTags
   saveChanges()
-}
-
-
-function addTask() {
-  const title = newTaskTitle.value.trim()
-  if (!title) return
-  emit('add-child', { parentId: props.node.id, title, type: 'task' })
-  newTaskTitle.value = ''
-}
-
-// Drag and drop for reordering
-function onDragStart(e, child) {
-  draggedChild.value = child
-  e.dataTransfer.effectAllowed = 'move'
-  e.dataTransfer.setData('text/plain', child.id)
-}
-
-function onDragOver(e, child) {
-  if (!draggedChild.value || draggedChild.value.id === child.id) return
-  e.preventDefault()
-  e.dataTransfer.dropEffect = 'move'
-
-  // Determine drop position based on mouse position
-  const rect = e.currentTarget.getBoundingClientRect()
-  const midY = rect.top + rect.height / 2
-  dropPosition.value = e.clientY < midY ? 'before' : 'after'
-  dropTarget.value = child
-}
-
-function onDragLeave(e) {
-  // Only clear if leaving the item entirely
-  if (!e.currentTarget.contains(e.relatedTarget)) {
-    if (dropTarget.value?.id === e.currentTarget.dataset.childId) {
-      dropTarget.value = null
-      dropPosition.value = null
-    }
-  }
-}
-
-async function onDrop(e, child) {
-  e.preventDefault()
-  if (!draggedChild.value || draggedChild.value.id === child.id) return
-
-  try {
-    await api.reorderNode(draggedChild.value.id, child.id, dropPosition.value)
-    await loadChildren()
-    emit('child-updated', draggedChild.value.id)
-  } catch (err) {
-    handleError(err, { context: 'Reordering children' })
-  }
-
-  draggedChild.value = null
-  dropTarget.value = null
-  dropPosition.value = null
-}
-
-function onDragEnd() {
-  draggedChild.value = null
-  dropTarget.value = null
-  dropPosition.value = null
 }
 
 // Handler for ChildrenSection reorder event

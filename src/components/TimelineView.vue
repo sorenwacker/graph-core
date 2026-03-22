@@ -711,7 +711,7 @@ function handleDragMove(e) {
   const currentX = e.clientX - rect.left + container.scrollLeft
   const deltaX = currentX - dragState.value.startX
 
-  const { node, type, startPos, endPos } = dragState.value
+  const { type, startPos, endPos } = dragState.value
 
   if (type === 'move') {
     // Move both start and end
