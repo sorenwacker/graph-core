@@ -715,11 +715,7 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
-:global(.node-person.selected),
-:global(.node-person[data-selected="true"]) {
-  outline: 2px solid var(--accent-color, #4a9eff);
-  outline-offset: 2px;
-}
+/* Person selection handled by cytoscape */
 
 :global(.person-name) {
   font-size: 12px;
@@ -752,12 +748,7 @@
   filter: brightness(1.1);
 }
 
-/* Selected node - fitted outline */
-:global(.node-html.selected),
-:global(.node-html[data-selected="true"]) {
-  outline: 2px solid var(--accent-color, #4a9eff);
-  outline-offset: 2px;
-}
+/* Selected node styling handled by cytoscape */
 
 /* When in box-select mode (Cmd held), allow clicks through to cytoscape canvas */
 .graph-container.box-select-mode :global(.node-html),
