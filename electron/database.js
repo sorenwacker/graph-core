@@ -4,6 +4,15 @@ const path = require('path')
 
 let SQL = null // Will be initialized once
 
+// Shared field list for node CRUD operations
+const NODE_FIELDS = [
+  'type', 'title', 'parent_id', 'notes', 'completed', 'color', 'sort_order',
+  'importance', 'start_date', 'end_date', 'due_date', 'location', 'email', 'phone',
+  'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive',
+  'category_id', 'status_id', 'tags', 'workspace_id', 'graph_layout', 'show_root_node',
+  'show_external_links', 'show_links', 'graph_max_depth', 'graph_type_filter'
+]
+
 class Database {
   constructor(dbPath) {
     this.dbPath = dbPath
@@ -342,7 +351,9 @@ class Database {
         this.backup('-pre-workspace-migration')
         console.log('Created backup before workspace migration')
         console.log('Added workspace_id column to nodes table')
-      }}
+      }},
+      { table: 'nodes', column: 'graph_max_depth', def: 'INTEGER DEFAULT NULL' },
+      { table: 'nodes', column: 'graph_type_filter', def: 'TEXT DEFAULT NULL' }
     ]
 
     for (const { table, column, def, onAdd } of columnMigrations) {
@@ -436,13 +447,23 @@ class Database {
         tags = []
       }
     }
+    // Parse graph_type_filter JSON
+    let graph_type_filter = null
+    if (row.graph_type_filter) {
+      try {
+        graph_type_filter = JSON.parse(row.graph_type_filter)
+      } catch {
+        graph_type_filter = null
+      }
+    }
     return {
       ...row,
       completed: Boolean(row.completed),
       favorite: Boolean(row.favorite),
       has_table: Boolean(row.has_table),
       notes_sensitive: Boolean(row.notes_sensitive),
-      tags
+      tags,
+      graph_type_filter
     }
   }
 
@@ -692,11 +713,7 @@ class Database {
   }
 
   createNode(data) {
-    const fields = ['type', 'title', 'parent_id', 'notes', 'completed', 'color', 'sort_order',
-      'importance', 'start_date', 'end_date', 'due_date', 'location', 'email', 'phone',
-      'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive', 'category_id', 'status_id', 'tags', 'workspace_id', 'graph_layout', 'show_root_node', 'show_external_links', 'show_links']
-
-    const presentFields = fields.filter(f => data[f] !== undefined)
+    const presentFields = NODE_FIELDS.filter(f => data[f] !== undefined)
     const values = presentFields.map(f => {
       // Serialize tags array to JSON string
       if (f === 'tags' && Array.isArray(data[f])) {
@@ -727,14 +744,10 @@ class Database {
   }
 
   updateNode(id, data) {
-    const fields = ['type', 'title', 'parent_id', 'notes', 'completed', 'color', 'sort_order',
-      'importance', 'start_date', 'end_date', 'due_date', 'location', 'email', 'phone',
-      'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive', 'category_id', 'status_id', 'tags', 'workspace_id', 'graph_layout', 'show_root_node', 'show_external_links', 'show_links']
-
     const updates = []
     const values = []
 
-    for (const field of fields) {
+    for (const field of NODE_FIELDS) {
       if (data[field] !== undefined) {
         updates.push(`${field} = ?`)
         // Serialize tags array to JSON string
