@@ -44,13 +44,16 @@ export function loadNodePositions(key) {
 
 /**
  * Save node positions to localStorage with validation.
+ * Merges with existing positions to preserve positions of filtered-out nodes.
  * @param {Object} cy - Cytoscape instance
  * @param {string} key - Storage key
  */
 export function saveNodePositions(cy, key) {
   if (!cy) return
   const MAX_POS = 50000
-  const positions = {}
+  // Load existing positions first to preserve positions of hidden/filtered nodes
+  const existingPositions = loadNodePositions(key)
+  const positions = { ...existingPositions }
   cy.nodes().forEach(node => {
     const pos = node.position()
     // Only save valid positions
