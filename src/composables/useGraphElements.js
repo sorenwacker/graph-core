@@ -214,9 +214,21 @@ export function buildElements(options) {
         nodeData: node
       }
     }
-    // Apply saved position if available
+    // Apply saved position if available, otherwise compute position near parent
     if (savedPos) {
       element.position = { x: savedPos.x, y: savedPos.y }
+    } else {
+      // Try to position near parent if parent has a position
+      const parentId = node.parent_id
+      const parentPos = parentId ? savedPositions[String(parentId)] : null
+      if (parentPos) {
+        const angle = Math.random() * Math.PI * 2
+        const distance = 80 + Math.random() * 40
+        element.position = {
+          x: parentPos.x + Math.cos(angle) * distance,
+          y: parentPos.y + Math.sin(angle) * distance
+        }
+      }
     }
     elements.push(element)
   })
@@ -315,6 +327,14 @@ export async function fetchLinkedNodes(options) {
     }
   })
 
+  // Build a map of element positions for nodes already in the graph
+  const elementPositions = {}
+  elements.forEach(el => {
+    if (!el.data.source && el.position) {
+      elementPositions[el.data.id] = el.position
+    }
+  })
+
   // Fetch each linked node and add it to the graph (without parents)
   for (const [nodeId, linkedInternalIds] of externalToInternal) {
     try {
@@ -323,12 +343,12 @@ export async function fetchLinkedNodes(options) {
         // Skip completed nodes if hideCompleted is enabled
         if (hideCompleted && node.completed) continue
 
-        let position = savedPositions[node.id]
+        let position = savedPositions[String(node.id)]
 
         // If no saved position, place near the nodes it's linked to
         if (!position) {
           const linkedPositions = linkedInternalIds
-            .map(id => savedPositions[id])
+            .map(id => savedPositions[String(id)] || elementPositions[String(id)])
             .filter(pos => pos)
 
           if (linkedPositions.length > 0) {
