@@ -140,6 +140,8 @@ export function buildElements(options) {
   }
 
   const elements = []
+  // Track positions of elements we've built (for sibling positioning)
+  const builtPositions = {}
 
   // Add nodes
   allNodes.forEach((node) => {
@@ -214,21 +216,58 @@ export function buildElements(options) {
         nodeData: node
       }
     }
-    // Apply saved position if available, otherwise compute position near parent
+    // Apply saved position if available, otherwise compute position near parent/siblings
     if (savedPos) {
       element.position = { x: savedPos.x, y: savedPos.y }
     } else {
-      // Try to position near parent if parent has a position
-      const parentId = node.parent_id
-      const parentPos = parentId ? savedPositions[String(parentId)] : null
-      if (parentPos) {
+      // Strategy 1: Try parent's saved position
+      const nodeParentId = node.parent_id
+      let referencePos = nodeParentId ? savedPositions[String(nodeParentId)] : null
+
+      // Strategy 2: Try parent's built position (if parent was just added)
+      if (!referencePos && nodeParentId) {
+        referencePos = builtPositions[String(nodeParentId)]
+      }
+
+      // Strategy 3: Try the container node's position (parentNode param)
+      if (!referencePos && parentNode) {
+        referencePos = savedPositions[String(parentNode.id)] || builtPositions[String(parentNode.id)]
+      }
+
+      // Strategy 4: Try any sibling's position (same parent)
+      if (!referencePos && nodeParentId) {
+        for (const [id, pos] of Object.entries(builtPositions)) {
+          const siblingNode = allNodes.find(n => String(n.id) === id)
+          if (siblingNode && siblingNode.parent_id === nodeParentId) {
+            referencePos = pos
+            break
+          }
+        }
+      }
+
+      // Strategy 5: Use center of all existing positions
+      if (!referencePos) {
+        const allPos = [...Object.values(savedPositions), ...Object.values(builtPositions)]
+        if (allPos.length > 0) {
+          const centerX = allPos.reduce((sum, p) => sum + p.x, 0) / allPos.length
+          const centerY = allPos.reduce((sum, p) => sum + p.y, 0) / allPos.length
+          referencePos = { x: centerX, y: centerY }
+        }
+      }
+
+      if (referencePos) {
         const angle = Math.random() * Math.PI * 2
         const distance = 80 + Math.random() * 40
         element.position = {
-          x: parentPos.x + Math.cos(angle) * distance,
-          y: parentPos.y + Math.sin(angle) * distance
+          x: referencePos.x + Math.cos(angle) * distance,
+          y: referencePos.y + Math.sin(angle) * distance
         }
       }
+    }
+
+    // Track this element's position for siblings
+    if (element.position) {
+      builtPositions[String(node.id)] = element.position
     }
     elements.push(element)
   })
