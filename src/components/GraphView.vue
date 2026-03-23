@@ -156,9 +156,9 @@ watch(() => props.parent?.id, (n, o) => {
   }
 }, { immediate: true })
 
-watch(showExternalLinks, () => { if (cy) { cy.destroy(); cy = null }; initGraph() })
-watch(showRootNode, () => { if (cy) { cy.destroy(); cy = null }; initGraph() })
-watch(visibleTypes, () => { if (cy) { cy.destroy(); cy = null }; initGraph() }, { deep: true })
+watch(showExternalLinks, () => { if (cy) { _savePos(); cy.destroy(); cy = null }; initGraph() })
+watch(showRootNode, () => { if (cy) { _savePos(); cy.destroy(); cy = null }; initGraph() })
+watch(visibleTypes, () => { if (cy) { _savePos(); cy.destroy(); cy = null }; initGraph() }, { deep: true })
 watch(radialSettings, () => { if (relaxLocked.value) layout.restartContinuousRelax() }, { deep: true })
 watch(() => props.showDetail, (o) => { if (o) forceHideTooltip() })
 
