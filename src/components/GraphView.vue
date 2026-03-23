@@ -96,10 +96,12 @@ if (typeof document !== 'undefined') {
 }
 
 // Graph settings
-const { layoutMode: _layoutMode, relaxLocked, fitLocked, showExternalLinks: _showExternalLinks, showRootNode: _showRootNode, visibleTypes, radialSettings } = useGraphSettings()
+const { layoutMode: _layoutMode, relaxLocked, fitLocked, showExternalLinks: _showExternalLinks, showRootNode: _showRootNode, visibleTypes: _visibleTypes, radialSettings } = useGraphSettings()
 const layoutMode = ref(props.parent?.graph_layout || _layoutMode.value)
 const showRootNode = ref(props.parent?.show_root_node != null ? Boolean(props.parent.show_root_node) : _showRootNode.value)
 const showExternalLinks = ref(props.parent?.show_external_links != null ? Boolean(props.parent.show_external_links) : _showExternalLinks.value)
+const maxDepth = ref(props.parent?.graph_max_depth ?? props.maxDepth)
+const visibleTypes = ref(Array.isArray(props.parent?.graph_type_filter) ? [...props.parent.graph_type_filter] : [..._visibleTypes.value])
 const showTypeFilter = ref(false), showHotkeyHelp = ref(false), showLayoutSettings = ref(false)
 
 const { handleError } = useErrorHandler()
@@ -136,15 +138,21 @@ const debouncedUpdateGraph = debounce(() => updateGraph(), 50)
 watch(layoutMode, (m) => { _layoutMode.value = m; if (props.parent?.id) api.updateNode(props.parent.id, { graph_layout: m }).catch(() => {}) })
 watch(showRootNode, (v) => { _showRootNode.value = v; if (props.parent?.id) api.updateNode(props.parent.id, { show_root_node: v ? 1 : 0 }).catch(() => {}) })
 watch(showExternalLinks, (v) => { _showExternalLinks.value = v; if (props.parent?.id) api.updateNode(props.parent.id, { show_external_links: v ? 1 : 0 }).catch(() => {}) })
+watch(maxDepth, (v) => { if (props.parent?.id) api.updateNode(props.parent.id, { graph_max_depth: v }).catch(() => {}) })
+watch(visibleTypes, (v) => { _visibleTypes.value = v; if (props.parent?.id) api.updateNode(props.parent.id, { graph_type_filter: JSON.stringify(v) }).catch(() => {}) }, { deep: true })
 
 watch(() => props.parent?.id, (n, o) => {
-  const expected = [props.parent?.graph_layout || _layoutMode.value, props.parent?.show_root_node != null ? Boolean(props.parent.show_root_node) : _showRootNode.value, props.parent?.show_external_links != null ? Boolean(props.parent.show_external_links) : _showExternalLinks.value]
-  if (o === undefined && layoutMode.value === expected[0] && showRootNode.value === expected[1] && showExternalLinks.value === expected[2]) { lastKnownParentId = n; return }
+  const expectedMaxDepth = props.parent?.graph_max_depth ?? props.maxDepth
+  const expectedVisibleTypes = Array.isArray(props.parent?.graph_type_filter) ? props.parent.graph_type_filter : _visibleTypes.value
+  const expected = [props.parent?.graph_layout || _layoutMode.value, props.parent?.show_root_node != null ? Boolean(props.parent.show_root_node) : _showRootNode.value, props.parent?.show_external_links != null ? Boolean(props.parent.show_external_links) : _showExternalLinks.value, expectedMaxDepth, expectedVisibleTypes]
+  if (o === undefined && layoutMode.value === expected[0] && showRootNode.value === expected[1] && showExternalLinks.value === expected[2] && maxDepth.value === expected[3] && JSON.stringify(visibleTypes.value) === JSON.stringify(expected[4])) { lastKnownParentId = n; return }
   if (n !== lastKnownParentId) {
     lastKnownParentId = n
     layoutMode.value = props.parent?.graph_layout || localStorage.getItem('graph-layout-mode') || 'tree'
     showRootNode.value = props.parent?.show_root_node != null ? Boolean(props.parent.show_root_node) : _showRootNode.value
     showExternalLinks.value = props.parent?.show_external_links != null ? Boolean(props.parent.show_external_links) : _showExternalLinks.value
+    maxDepth.value = props.parent?.graph_max_depth ?? props.maxDepth
+    visibleTypes.value = Array.isArray(props.parent?.graph_type_filter) ? [...props.parent.graph_type_filter] : [..._visibleTypes.value]
   }
 }, { immediate: true })
 
@@ -177,7 +185,7 @@ async function initGraph() {
   if (!container.value) return
   isInitializing = true
   const savedPos = _loadPos()
-  const elements = buildElements({ nodeList: props.nodes, parentNode: props.parent, savedPositions: savedPos, detailThreshold: props.detailThreshold, maxDepth: props.maxDepth, hideCompleted: props.hideCompleted, hideSensitive: props.hideSensitive, sortAlphabetically: props.sortAlphabetically, visibleTypes: visibleTypes.value, showRootNode: showRootNode.value, selectedIds: props.selectedIds, selectedId: props.selectedId })
+  const elements = buildElements({ nodeList: props.nodes, parentNode: props.parent, savedPositions: savedPos, detailThreshold: props.detailThreshold, maxDepth: maxDepth.value, hideCompleted: props.hideCompleted, hideSensitive: props.hideSensitive, sortAlphabetically: props.sortAlphabetically, visibleTypes: visibleTypes.value, showRootNode: showRootNode.value, selectedIds: props.selectedIds, selectedId: props.selectedId })
 
   if (showExternalLinks.value) {
     try {
@@ -222,7 +230,7 @@ async function updateGraph() {
   const existingIds = new Set()
   cy.nodes().forEach(n => { existingIds.add(n.id()); const p = n.position(); if (p.x !== 0 || p.y !== 0) savedPos[n.id()] = { x: p.x, y: p.y } })
 
-  const elements = buildElements({ nodeList: props.nodes, parentNode: props.parent, savedPositions: savedPos, detailThreshold: props.detailThreshold, maxDepth: props.maxDepth, hideCompleted: props.hideCompleted, hideSensitive: props.hideSensitive, sortAlphabetically: props.sortAlphabetically, visibleTypes: visibleTypes.value, showRootNode: showRootNode.value, selectedIds: props.selectedIds, selectedId: props.selectedId })
+  const elements = buildElements({ nodeList: props.nodes, parentNode: props.parent, savedPositions: savedPos, detailThreshold: props.detailThreshold, maxDepth: maxDepth.value, hideCompleted: props.hideCompleted, hideSensitive: props.hideSensitive, sortAlphabetically: props.sortAlphabetically, visibleTypes: visibleTypes.value, showRootNode: showRootNode.value, selectedIds: props.selectedIds, selectedId: props.selectedId })
 
   if (showExternalLinks.value) {
     try {
@@ -271,7 +279,8 @@ watch(() => props.nodes, debouncedUpdateGraph, { deep: true })
 watch(() => props.parent, debouncedUpdateGraph, { deep: true })
 watch(() => props.detailThreshold, debouncedUpdateGraph)
 watch(() => props.workspace, () => { if (cy) { cy.destroy(); cy = null }; initGraph() })
-watch(() => props.maxDepth, updateGraph)
+watch(() => props.maxDepth, (v) => { maxDepth.value = props.parent?.graph_max_depth ?? v })
+watch(maxDepth, updateGraph)
 watch(() => props.hideCompleted, updateGraph)
 watch(() => props.selectedIds, (ids) => {
   if (!cy) return; const set = new Set(ids || [])
@@ -292,7 +301,7 @@ const handleCenterEvent = (e) => { if (e.detail?.nodeId) _centerOn(e.detail.node
 const _isVisible = (id) => isNodeVisible(cy, id)
 const handleClickOutside = (e) => { if (showTypeFilter.value && !e.target.closest('.type-filter-wrapper')) showTypeFilter.value = false }
 
-defineExpose({ relaxLayout: () => layout.relaxLayout(), localRelax: (id) => layout.localRelax(id), fitView: () => layout.fitView(), saveNodePositions: _savePos, updateGraph, isNodeVisible: _isVisible })
+defineExpose({ relaxLayout: () => layout.relaxLayout(), localRelax: (id) => layout.localRelax(id), fitView: () => layout.fitView(), saveNodePositions: _savePos, updateGraph, isNodeVisible: _isVisible, maxDepth, visibleTypes })
 
 onMounted(() => {
   initGraph()
