@@ -28,6 +28,19 @@ Switching workspaces:
 - Clears current selection
 - Reloads sidebar tree
 - Updates recent items and favorites
+- Restores workspace-specific graph settings
+
+## Graph Settings
+
+Graph settings are stored per-workspace. Each workspace maintains its own:
+
+- Layout mode (tree, radial, etc.)
+- External links visibility
+- Root node visibility
+- Node type filters
+- Radial layout parameters
+
+When you toggle external links or change the layout at the root level of one workspace, these settings do not affect other workspaces.
 
 ## Workspace Behavior
 

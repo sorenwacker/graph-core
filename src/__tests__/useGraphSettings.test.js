@@ -1,17 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { nextTick } from 'vue'
+import { nextTick, ref } from 'vue'
 import { useGraphSettings } from '../composables/useGraphSettings.js'
 
 describe('useGraphSettings composable', () => {
   let settings
+  let localStorageData
 
   beforeEach(() => {
+    localStorageData = {}
     vi.stubGlobal('localStorage', {
-      getItem: vi.fn().mockReturnValue(null),
-      setItem: vi.fn(),
-      removeItem: vi.fn()
+      getItem: vi.fn((key) => localStorageData[key] ?? null),
+      setItem: vi.fn((key, value) => { localStorageData[key] = value }),
+      removeItem: vi.fn((key) => { delete localStorageData[key] })
     })
-    settings = useGraphSettings()
+    settings = useGraphSettings({ workspace: ref('work') })
   })
 
   describe('initial state', () => {
@@ -57,48 +59,88 @@ describe('useGraphSettings composable', () => {
   })
 
   describe('restore from localStorage', () => {
-    it('should restore layoutMode from localStorage', () => {
-      localStorage.getItem.mockReturnValue('radial')
-      const s = useGraphSettings()
+    it('should restore layoutMode from localStorage with workspace key', () => {
+      localStorageData['graph-layout-mode-work'] = 'radial'
+      const s = useGraphSettings({ workspace: ref('work') })
       expect(s.layoutMode.value).toBe('radial')
     })
 
-    it('should restore relaxLocked from localStorage', () => {
-      localStorage.getItem.mockImplementation((key) => {
-        if (key === 'graph-relax-locked') return 'true'
-        return null
-      })
-      const s = useGraphSettings()
+    it('should restore relaxLocked from localStorage with workspace key', () => {
+      localStorageData['graph-relax-locked-work'] = 'true'
+      const s = useGraphSettings({ workspace: ref('work') })
       expect(s.relaxLocked.value).toBe(true)
     })
 
-    it('should restore type filter from localStorage', () => {
-      localStorage.getItem.mockImplementation((key) => {
-        if (key === 'graph-type-filter') return JSON.stringify(['task', 'note'])
-        return null
-      })
-      const s = useGraphSettings()
+    it('should restore type filter from localStorage with workspace key', () => {
+      localStorageData['graph-type-filter-work'] = JSON.stringify(['task', 'note'])
+      const s = useGraphSettings({ workspace: ref('work') })
       expect(s.visibleTypes.value).toEqual(['task', 'note'])
     })
   })
 
   describe('persistence', () => {
-    it('should persist layoutMode changes', async () => {
+    it('should persist layoutMode changes with workspace key', async () => {
       settings.layoutMode.value = 'radial'
       await nextTick()
-      expect(localStorage.setItem).toHaveBeenCalledWith('graph-layout-mode', 'radial')
+      expect(localStorage.setItem).toHaveBeenCalledWith('graph-layout-mode-work', 'radial')
     })
 
-    it('should persist relaxLocked changes', async () => {
+    it('should persist relaxLocked changes with workspace key', async () => {
       settings.relaxLocked.value = true
       await nextTick()
-      expect(localStorage.setItem).toHaveBeenCalledWith('graph-relax-locked', 'true')
+      expect(localStorage.setItem).toHaveBeenCalledWith('graph-relax-locked-work', 'true')
     })
 
-    it('should persist visibleTypes changes', async () => {
+    it('should persist visibleTypes changes with workspace key', async () => {
       settings.visibleTypes.value = ['task']
       await nextTick()
-      expect(localStorage.setItem).toHaveBeenCalledWith('graph-type-filter', JSON.stringify(['task']))
+      expect(localStorage.setItem).toHaveBeenCalledWith('graph-type-filter-work', JSON.stringify(['task']))
+    })
+  })
+
+  describe('workspace isolation', () => {
+    it('should use different storage keys for different workspaces', async () => {
+      const workspace1 = ref('work')
+      const workspace2 = ref('personal')
+
+      const settings1 = useGraphSettings({ workspace: workspace1 })
+      settings1.showExternalLinks.value = false // Toggle from default true to false
+      await nextTick()
+
+      const settings2 = useGraphSettings({ workspace: workspace2 })
+      settings2.showExternalLinks.value = false
+      await nextTick()
+
+      expect(localStorage.setItem).toHaveBeenCalledWith('graph-show-external-links-work', 'false')
+      expect(localStorage.setItem).toHaveBeenCalledWith('graph-show-external-links-personal', 'false')
+    })
+
+    it('should reload settings when workspace changes', async () => {
+      const workspace = ref('work')
+      localStorageData['graph-show-external-links-work'] = 'true'
+      localStorageData['graph-show-external-links-personal'] = 'false'
+
+      const s = useGraphSettings({ workspace })
+      expect(s.showExternalLinks.value).toBe(true)
+
+      workspace.value = 'personal'
+      await nextTick()
+
+      expect(s.showExternalLinks.value).toBe(false)
+    })
+
+    it('should reload layout mode when workspace changes', async () => {
+      const workspace = ref('work')
+      localStorageData['graph-layout-mode-work'] = 'tree'
+      localStorageData['graph-layout-mode-personal'] = 'radial'
+
+      const s = useGraphSettings({ workspace })
+      expect(s.layoutMode.value).toBe('tree')
+
+      workspace.value = 'personal'
+      await nextTick()
+
+      expect(s.layoutMode.value).toBe('radial')
     })
   })
 
