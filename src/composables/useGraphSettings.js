@@ -1,4 +1,4 @@
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, watch, isRef } from 'vue'
 import { RADIAL_DEFAULTS, STORAGE_KEYS } from '../utils/uiConstants.js'
 
 /**
@@ -11,26 +11,35 @@ export const ALL_NODE_TYPES = [
 
 /**
  * Composable for managing graph display settings with localStorage persistence.
+ * Settings are stored per-workspace to ensure isolation between workspaces.
  *
+ * @param {Object} options
+ * @param {Ref<string>|string} options.workspace - Current workspace ID (ref or string)
  * @returns {Object} Graph settings state and functions
  */
-export function useGraphSettings() {
+export function useGraphSettings({ workspace } = {}) {
+  // Get workspace value (support both ref and plain string)
+  const getWorkspace = () => isRef(workspace) ? workspace.value : (workspace || 'work')
+
+  // Build workspace-specific storage key
+  const wsKey = (baseKey) => `${baseKey}-${getWorkspace()}`
+
   // Helper functions for localStorage
   function getString(key, defaultValue) {
     if (typeof localStorage === 'undefined') return defaultValue
-    return localStorage.getItem(key) || defaultValue
+    return localStorage.getItem(wsKey(key)) || defaultValue
   }
 
   function getBoolean(key, defaultValue) {
     if (typeof localStorage === 'undefined') return defaultValue
-    const stored = localStorage.getItem(key)
+    const stored = localStorage.getItem(wsKey(key))
     if (stored === null) return defaultValue
     return stored === 'true'
   }
 
   function getNumber(key, defaultValue) {
     if (typeof localStorage === 'undefined') return defaultValue
-    const stored = localStorage.getItem(key)
+    const stored = localStorage.getItem(wsKey(key))
     if (stored === null) return defaultValue
     const parsed = Number(stored)
     return isNaN(parsed) ? defaultValue : parsed
@@ -38,7 +47,7 @@ export function useGraphSettings() {
 
   function getArray(key, defaultValue) {
     if (typeof localStorage === 'undefined') return defaultValue
-    const stored = localStorage.getItem(key)
+    const stored = localStorage.getItem(wsKey(key))
     if (!stored) return defaultValue
     try {
       return JSON.parse(stored)
@@ -70,52 +79,76 @@ export function useGraphSettings() {
     iterations: getNumber(STORAGE_KEYS.GRAPH_RADIAL_ITERATIONS, RADIAL_DEFAULTS.iterations)
   })
 
+  /**
+   * Reload all settings from localStorage for current workspace
+   */
+  function reload() {
+    layoutMode.value = getString(STORAGE_KEYS.GRAPH_LAYOUT_MODE, 'tree')
+    relaxLocked.value = getBoolean(STORAGE_KEYS.GRAPH_RELAX_LOCKED, false)
+    fitLocked.value = getBoolean(STORAGE_KEYS.GRAPH_FIT_LOCKED, false)
+    showExternalLinks.value = getBoolean(STORAGE_KEYS.GRAPH_SHOW_EXTERNAL_LINKS, true)
+    showRootNode.value = getBoolean(STORAGE_KEYS.GRAPH_SHOW_ROOT_NODE, true)
+    visibleTypes.value = getArray(STORAGE_KEYS.GRAPH_TYPE_FILTER, [...ALL_NODE_TYPES])
+    radialSettings.nodeRepulsion = getNumber(STORAGE_KEYS.GRAPH_RADIAL_REPULSION, RADIAL_DEFAULTS.repulsion)
+    radialSettings.edgeLength = getNumber(STORAGE_KEYS.GRAPH_RADIAL_EDGE_LENGTH, RADIAL_DEFAULTS.edgeLength)
+    radialSettings.elasticity = getNumber(STORAGE_KEYS.GRAPH_RADIAL_ELASTICITY, RADIAL_DEFAULTS.elasticity)
+    radialSettings.gravity = getNumber(STORAGE_KEYS.GRAPH_RADIAL_GRAVITY, RADIAL_DEFAULTS.gravity)
+    radialSettings.gravityRange = getNumber(STORAGE_KEYS.GRAPH_RADIAL_GRAVITY_RANGE, RADIAL_DEFAULTS.gravityRange)
+    radialSettings.nestingFactor = getNumber(STORAGE_KEYS.GRAPH_RADIAL_NESTING, RADIAL_DEFAULTS.nestingFactor)
+    radialSettings.iterations = getNumber(STORAGE_KEYS.GRAPH_RADIAL_ITERATIONS, RADIAL_DEFAULTS.iterations)
+  }
+
+  // Watch workspace changes and reload settings
+  if (isRef(workspace)) {
+    watch(workspace, () => reload())
+  }
+
   // Persistence watchers
   watch(layoutMode, (val) => {
-    localStorage.setItem(STORAGE_KEYS.GRAPH_LAYOUT_MODE, val)
+    localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_LAYOUT_MODE), val)
   })
 
   watch(relaxLocked, (val) => {
-    localStorage.setItem(STORAGE_KEYS.GRAPH_RELAX_LOCKED, String(val))
+    localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RELAX_LOCKED), String(val))
   })
 
   watch(fitLocked, (val) => {
-    localStorage.setItem(STORAGE_KEYS.GRAPH_FIT_LOCKED, String(val))
+    localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_FIT_LOCKED), String(val))
   })
 
   watch(showExternalLinks, (val) => {
-    localStorage.setItem(STORAGE_KEYS.GRAPH_SHOW_EXTERNAL_LINKS, String(val))
+    localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_SHOW_EXTERNAL_LINKS), String(val))
   })
 
   watch(showRootNode, (val) => {
-    localStorage.setItem(STORAGE_KEYS.GRAPH_SHOW_ROOT_NODE, String(val))
+    localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_SHOW_ROOT_NODE), String(val))
   })
 
   watch(visibleTypes, (val) => {
-    localStorage.setItem(STORAGE_KEYS.GRAPH_TYPE_FILTER, JSON.stringify(val))
+    localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_TYPE_FILTER), JSON.stringify(val))
   }, { deep: true })
 
   // Watch radial settings
   watch(() => radialSettings.nodeRepulsion, (val) => {
-    localStorage.setItem(STORAGE_KEYS.GRAPH_RADIAL_REPULSION, String(val))
+    localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RADIAL_REPULSION), String(val))
   })
   watch(() => radialSettings.edgeLength, (val) => {
-    localStorage.setItem(STORAGE_KEYS.GRAPH_RADIAL_EDGE_LENGTH, String(val))
+    localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RADIAL_EDGE_LENGTH), String(val))
   })
   watch(() => radialSettings.elasticity, (val) => {
-    localStorage.setItem(STORAGE_KEYS.GRAPH_RADIAL_ELASTICITY, String(val))
+    localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RADIAL_ELASTICITY), String(val))
   })
   watch(() => radialSettings.gravity, (val) => {
-    localStorage.setItem(STORAGE_KEYS.GRAPH_RADIAL_GRAVITY, String(val))
+    localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RADIAL_GRAVITY), String(val))
   })
   watch(() => radialSettings.gravityRange, (val) => {
-    localStorage.setItem(STORAGE_KEYS.GRAPH_RADIAL_GRAVITY_RANGE, String(val))
+    localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RADIAL_GRAVITY_RANGE), String(val))
   })
   watch(() => radialSettings.nestingFactor, (val) => {
-    localStorage.setItem(STORAGE_KEYS.GRAPH_RADIAL_NESTING, String(val))
+    localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RADIAL_NESTING), String(val))
   })
   watch(() => radialSettings.iterations, (val) => {
-    localStorage.setItem(STORAGE_KEYS.GRAPH_RADIAL_ITERATIONS, String(val))
+    localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RADIAL_ITERATIONS), String(val))
   })
 
   /**
@@ -172,6 +205,7 @@ export function useGraphSettings() {
     // Methods
     toggleTypeVisibility,
     resetRadialSettings,
-    isTypeVisible
+    isTypeVisible,
+    reload
   }
 }

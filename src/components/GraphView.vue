@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, toRef, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import tippy from 'tippy.js'
 import { api } from '../services/api'
 import { useNodeTooltip } from '../composables/useNodeTooltip.js'
@@ -95,8 +95,9 @@ if (typeof document !== 'undefined') {
   })
 }
 
-// Graph settings
-const { layoutMode: _layoutMode, relaxLocked, fitLocked, showExternalLinks: _showExternalLinks, showRootNode: _showRootNode, visibleTypes: _visibleTypes, radialSettings } = useGraphSettings()
+// Graph settings - pass workspace for workspace-specific localStorage keys
+const workspaceRef = toRef(props, 'workspace')
+const { layoutMode: _layoutMode, relaxLocked, fitLocked, showExternalLinks: _showExternalLinks, showRootNode: _showRootNode, visibleTypes: _visibleTypes, radialSettings } = useGraphSettings({ workspace: workspaceRef })
 const layoutMode = ref(props.parent?.graph_layout || _layoutMode.value)
 const showRootNode = ref(props.parent?.show_root_node != null ? Boolean(props.parent.show_root_node) : _showRootNode.value)
 const showExternalLinks = ref(props.parent?.show_external_links != null ? Boolean(props.parent.show_external_links) : _showExternalLinks.value)
@@ -148,13 +149,23 @@ watch(() => props.parent?.id, (n, o) => {
   if (o === undefined && layoutMode.value === expected[0] && showRootNode.value === expected[1] && showExternalLinks.value === expected[2] && maxDepth.value === expected[3] && JSON.stringify(visibleTypes.value) === JSON.stringify(expected[4])) { lastKnownParentId = n; return }
   if (n !== lastKnownParentId) {
     lastKnownParentId = n
-    layoutMode.value = props.parent?.graph_layout || localStorage.getItem('graph-layout-mode') || 'tree'
+    layoutMode.value = props.parent?.graph_layout || _layoutMode.value
     showRootNode.value = props.parent?.show_root_node != null ? Boolean(props.parent.show_root_node) : _showRootNode.value
     showExternalLinks.value = props.parent?.show_external_links != null ? Boolean(props.parent.show_external_links) : _showExternalLinks.value
     maxDepth.value = props.parent?.graph_max_depth ?? props.maxDepth
     visibleTypes.value = Array.isArray(props.parent?.graph_type_filter) ? [...props.parent.graph_type_filter] : [..._visibleTypes.value]
   }
 }, { immediate: true })
+
+// Reset to workspace defaults when workspace changes (at root level)
+watch(() => props.workspace, () => {
+  if (!props.parent) {
+    layoutMode.value = _layoutMode.value
+    showRootNode.value = _showRootNode.value
+    showExternalLinks.value = _showExternalLinks.value
+    visibleTypes.value = [..._visibleTypes.value]
+  }
+})
 
 watch(showExternalLinks, () => { if (cy) { _savePos(); cy.destroy(); cy = null }; initGraph() })
 watch(showRootNode, () => { if (cy) { _savePos(); cy.destroy(); cy = null }; initGraph() })
