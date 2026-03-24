@@ -116,6 +116,7 @@ export function useNodeActionsUI({
       // Move current node under new parent
       await api.moveNode(nodeId, newParent.id)
       await refreshAfterChange()
+      await refreshGraphAfterStructureChange()
 
       // Refresh selected node if it was the wrapped node
       if (selectedNode.value?.id === nodeId) {
@@ -138,6 +139,7 @@ export function useNodeActionsUI({
     if (success) {
       if (newParentId) expandedIds.value.add(newParentId)
       await refreshAfterChange()
+      await refreshGraphAfterStructureChange()
     }
   }
 
@@ -149,6 +151,7 @@ export function useNodeActionsUI({
     if (success) {
       if (newParentId) expandedIds.value.add(newParentId)
       await refreshAfterChange()
+      await refreshGraphAfterStructureChange()
       selectedIds.value.clear()
     }
   }
@@ -158,7 +161,10 @@ export function useNodeActionsUI({
    */
   async function moveNodeToRoot(nodeId) {
     const success = await nodeOps.moveNodeToRoot(nodeId)
-    if (success) await refreshAfterChange()
+    if (success) {
+      await refreshAfterChange()
+      await refreshGraphAfterStructureChange()
+    }
   }
 
   /**
