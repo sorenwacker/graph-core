@@ -259,7 +259,7 @@ async function updateGraph() {
   elements.forEach(e => {
     if (e.data.source) { const k = `${e.data.source}-${e.data.target}`; newEdges.add(k); if (!existEdges.has(k)) hasEdge = true }
     else { newIds.add(e.data.id); const isNew = !existingIds.has(e.data.id), isExt = e.data.isLinkedExternal
-      if (isNew && !isExt) { hasNew = true; newNodeIds.push(e.data.id) }
+      if (isNew && !isExt) { hasNew = true; if (!e.position) newNodeIds.push(e.data.id) }
       if (isExt && !e.position) extNeedRelax.push(e.data.id)
       if (!e.position) { const nd = e.data.nodeData; e.position = findSmartPosition(e.data.id, nd?.parent_id, { ...savedPos, ...elemPos }, nd?.children?.map(c => c.id) || [], cy) }
     }
