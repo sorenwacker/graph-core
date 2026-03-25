@@ -185,13 +185,12 @@
   border: 1px solid var(--type-project-text);
   border-radius: 4px;
   pointer-events: none;
-  z-index: -1;
+  z-index: 0;
   overflow: visible;
 }
 
 .project-box-label {
   position: absolute;
-  top: 18px;
   transform: translateY(-50%);
   font-size: 0.7rem;
   font-weight: 700;
@@ -200,14 +199,15 @@
   padding: 2px 8px;
   border-radius: 3px;
   white-space: nowrap;
-  z-index: 10;
+  z-index: 100;
+  pointer-events: none;
 }
 
 .group-marker {
   position: absolute;
   width: 3px;
   background: var(--type-group-text);
-  z-index: 3;
+  z-index: 2;
   cursor: pointer;
   opacity: 0.7;
   border-radius: 2px;
@@ -234,6 +234,7 @@
   padding: 2px 6px;
   border-radius: 3px;
   white-space: nowrap;
+  z-index: 100;
   max-width: 100px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -320,7 +321,7 @@
   height: 36px;
   border-bottom: 1px solid var(--border-color);
   position: relative;
-  z-index: 2;
+  z-index: 1;
 }
 
 .timeline-row:hover {
@@ -367,7 +368,7 @@
 .row-track {
   position: relative;
   height: 100%;
-  z-index: 2;
+  z-index: 1;
 }
 
 .timeline-bar {

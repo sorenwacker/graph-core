@@ -843,12 +843,17 @@ const { dragState, handleDragStart, handleDragMove, handleDragEnd, getDragBarSty
                 :key="'project-box-' + project.id"
                 class="project-box"
                 :style="getProjectBoxStyle(project)"
-              >
-                <span
-                  class="project-box-label"
-                  :style="{ left: getProjectLabelLeft(project) + 'px' }"
-                >{{ project.title }}</span>
-              </div>
+              ></div>
+              <!-- Project box labels (rendered separately to control z-index) -->
+              <span
+                v-for="project in projectBoxes"
+                :key="'project-label-' + project.id"
+                class="project-box-label"
+                :style="{
+                  left: (project.left + getProjectLabelLeft(project)) + 'px',
+                  top: (project.top + 18) + 'px'
+                }"
+              >{{ project.title }}</span>
               <!-- Group markers (vertical bars spanning child tasks) -->
               <div
                 v-for="group in groupMarkers"
