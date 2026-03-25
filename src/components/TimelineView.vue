@@ -394,7 +394,8 @@ function getProjectLabelLeft(project) {
 function getBarStyle(node) {
   const left = getDatePosition(node.displayDate) + 'px'
   const width = getNodeWidth(node) + 'px'
-  const nodeColor = props.colorMap[node.id]
+  // Use node's own color only, not inherited from parent
+  const nodeColor = node.color && node.color !== '#0f4c75' ? node.color : null
   const typeColor = getTypeColor(node.type)
 
   if (nodeColor) {
@@ -414,6 +415,23 @@ function getBarStyle(node) {
     background: `linear-gradient(135deg, ${typeColor}55 0%, ${typeColor}33 100%)`,
     borderLeft: `3px solid ${typeColor}`
   }
+}
+
+// Project box style with custom color support
+function getProjectBoxStyle(project) {
+  const style = {
+    left: project.left + 'px',
+    width: project.width + 'px',
+    top: project.top + 'px',
+    height: project.height + 'px'
+  }
+  // Use project's own color for the box background
+  const projectColor = project.node?.color
+  if (projectColor && projectColor !== '#0f4c75') {
+    style.background = `color-mix(in srgb, ${projectColor} 40%, transparent)`
+    style.borderColor = projectColor
+  }
+  return style
 }
 
 // Today marker position
@@ -824,12 +842,7 @@ const { dragState, handleDragStart, handleDragMove, handleDragEnd, getDragBarSty
                 v-for="project in projectBoxes"
                 :key="'project-box-' + project.id"
                 class="project-box"
-                :style="{
-                  left: project.left + 'px',
-                  width: project.width + 'px',
-                  top: project.top + 'px',
-                  height: project.height + 'px'
-                }"
+                :style="getProjectBoxStyle(project)"
               >
                 <span
                   class="project-box-label"
