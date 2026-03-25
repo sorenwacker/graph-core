@@ -48,7 +48,7 @@ const showSensitivePreview = ref(false)
 const notesCollapsed = ref(false)
 const tableCollapsed = ref(true)
 const childrenCollapsed = ref(false)
-const metadataCollapsed = ref(false)
+const metadataCollapsed = ref(true)
 
 // Node table (spreadsheet) state
 const {
@@ -174,12 +174,8 @@ watch(() => props.node, async (newNode) => {
     // Set collapsed states based on content
     // Children: collapse if no children
     childrenCollapsed.value = children.value.length === 0
-    // Metadata: collapse if all fields are empty/default
-    const hasMetadata = newNode.due_date || newNode.start_date || newNode.end_date ||
-      newNode.importance || newNode.location || newNode.email || newNode.phone ||
-      newNode.website || newNode.role || newNode.organization ||
-      (newNode.tags && newNode.tags.length > 0)
-    metadataCollapsed.value = !hasMetadata
+    // Metadata: always start collapsed
+    metadataCollapsed.value = true
     // Table: collapse if no table
     tableCollapsed.value = !hasTable.value
 
