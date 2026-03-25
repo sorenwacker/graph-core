@@ -871,7 +871,7 @@ const { dragState, handleDragStart, handleDragMove, handleDragEnd, getDragBarSty
                 v-for="group in groupMarkers"
                 :key="'group-label-' + group.id"
                 class="group-label"
-                :style="{ left: (group.position + 6) + 'px', top: group.top + 'px' }"
+                :style="{ left: (group.position - zoomLevel + 6) + 'px', top: group.top + 'px' }"
               >{{ group.title }}</span>
               <div
                 v-for="node in timelineNodes"
