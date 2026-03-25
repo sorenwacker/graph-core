@@ -425,8 +425,8 @@ function getProjectBoxStyle(project) {
     top: project.top + 'px',
     height: project.height + 'px'
   }
-  // Use project's own color for the box background
-  const projectColor = project.node?.color
+  // Use project's color from colorMap or node directly
+  const projectColor = props.colorMap[project.id] || project.node?.color
   if (projectColor && projectColor !== '#0f4c75') {
     style.background = `color-mix(in srgb, ${projectColor} 40%, transparent)`
     style.borderColor = projectColor
