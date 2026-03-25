@@ -310,7 +310,7 @@ export function useGraphLayout(options = {}) {
 
     const layout = cy.layout(layoutOptions)
     layout.on('layoutstop', () => {
-      cy.fit(50)
+      cy.animate({ fit: { padding: 50 } }, { duration: 300 })
       if (savePositions) savePositions()
     })
     layout.run()
