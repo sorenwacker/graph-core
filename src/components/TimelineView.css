@@ -225,8 +225,6 @@
 
 .group-label {
   position: absolute;
-  top: 0;
-  left: 6px;
   font-size: 0.6rem;
   font-weight: 600;
   color: var(--type-group-text);
@@ -238,6 +236,7 @@
   max-width: 100px;
   overflow: hidden;
   text-overflow: ellipsis;
+  pointer-events: none;
 }
 
 .timeline-grid {

@@ -865,9 +865,14 @@ const { dragState, handleDragStart, handleDragMove, handleDragEnd, getDragBarSty
                 @mouseenter="emit('show-tooltip', $event, group.node)"
                 @mouseleave="emit('hide-tooltip')"
                 @contextmenu.prevent="handleContextMenu($event, group.node)"
-              >
-                <span class="group-label">{{ group.title }}</span>
-              </div>
+              ></div>
+              <!-- Group labels (rendered separately to control z-index) -->
+              <span
+                v-for="group in groupMarkers"
+                :key="'group-label-' + group.id"
+                class="group-label"
+                :style="{ left: (group.position + 6) + 'px', top: group.top + 'px' }"
+              >{{ group.title }}</span>
               <div
                 v-for="node in timelineNodes"
                 :key="node.id"
