@@ -687,9 +687,6 @@ onUnmounted(() => {
   document.removeEventListener('mouseup', handleLabelsDragEnd)
 })
 
-watch(() => props.nodes, () => {
-  nextTick(scrollToToday)
-})
 
 // Convert pixel position to date string
 function positionToDate(pixelX) {
