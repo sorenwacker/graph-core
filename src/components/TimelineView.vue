@@ -403,7 +403,7 @@ function getBarStyle(node) {
     return {
       left,
       width,
-      background: `linear-gradient(135deg, ${nodeColor}88 0%, ${nodeColor}55 100%)`,
+      background: `linear-gradient(135deg, ${nodeColor}cc 0%, ${nodeColor}88 100%)`,
       borderLeft: `3px solid ${typeColor}`
     }
   }
@@ -412,7 +412,7 @@ function getBarStyle(node) {
   return {
     left,
     width,
-    background: `linear-gradient(135deg, ${typeColor}55 0%, ${typeColor}33 100%)`,
+    background: `linear-gradient(135deg, ${typeColor}aa 0%, ${typeColor}77 100%)`,
     borderLeft: `3px solid ${typeColor}`
   }
 }
