@@ -176,6 +176,7 @@
 
 .rows-body {
   position: relative;
+  isolation: isolate;
 }
 
 .project-box {
