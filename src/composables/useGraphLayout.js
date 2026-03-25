@@ -289,28 +289,22 @@ export function useGraphLayout(options = {}) {
     if (!cy) return
 
     const radialSettings = getRadialSettings ? getRadialSettings() : {}
-
-    // Calculate center of current graph to use as gravity center
-    const bb = cy.nodes().boundingBox()
-    const centerX = (bb.x1 + bb.x2) / 2
-    const centerY = (bb.y1 + bb.y2) / 2
+    const spacing = Math.max(5, Math.round((radialSettings.nodeRepulsion || 4500) / 50))
+    const edgeLen = Math.max(20, Math.round(radialSettings.edgeLength || 100))
+    const gravityEffect = Math.max(0.1, 1 - ((radialSettings.gravity || 10000) / 50000))
 
     const layoutOptions = {
-      name: 'cose-bilkent',
-      animate: 'end',
-      animationDuration: 300,
+      name: 'cola',
+      animate: true,
       fit: false,
       randomize: false,
-      nodeRepulsion: radialSettings.nodeRepulsion || 4500,
-      idealEdgeLength: radialSettings.edgeLength || 100,
-      edgeElasticity: radialSettings.elasticity || 0.45,
-      gravity: (radialSettings.gravity || 10000) / 10000,
-      gravityRangeCompound: 1.5,
-      gravityRange: 3.8,
-      numIter: 2500,
-      tile: false,
-      // Use current graph center as gravity center
-      gravityCenter: { x: centerX, y: centerY }
+      nodeSpacing: Math.round(spacing * gravityEffect),
+      edgeLength: edgeLen,
+      avoidOverlap: true,
+      handleDisconnected: true,
+      convergenceThreshold: 0.01,
+      maxSimulationTime: 2000,
+      ungrabifyWhileSimulating: false
     }
 
     const layout = cy.layout(layoutOptions)
