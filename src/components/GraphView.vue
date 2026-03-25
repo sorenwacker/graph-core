@@ -100,7 +100,8 @@ const workspaceRef = toRef(props, 'workspace')
 const { layoutMode: _layoutMode, relaxLocked, fitLocked, showExternalLinks: _showExternalLinks, showRootNode: _showRootNode, visibleTypes: _visibleTypes, radialSettings } = useGraphSettings({ workspace: workspaceRef })
 const layoutMode = ref(props.parent?.graph_layout || _layoutMode.value)
 const showRootNode = ref(props.parent?.show_root_node != null ? Boolean(props.parent.show_root_node) : _showRootNode.value)
-const showExternalLinks = ref(props.parent?.show_external_links != null ? Boolean(props.parent.show_external_links) : _showExternalLinks.value)
+const getWorkspaceShowExternalLinks = () => { const ws = props.workspaces.find(w => w.id === props.workspace); return ws?.show_external_links != null ? Boolean(ws.show_external_links) : _showExternalLinks.value }
+const showExternalLinks = ref(props.parent?.show_external_links != null ? Boolean(props.parent.show_external_links) : getWorkspaceShowExternalLinks())
 const maxDepth = ref(props.parent?.graph_max_depth ?? props.maxDepth)
 const visibleTypes = ref(Array.isArray(props.parent?.graph_type_filter) ? [...props.parent.graph_type_filter] : [..._visibleTypes.value])
 const showTypeFilter = ref(false), showHotkeyHelp = ref(false), showLayoutSettings = ref(false)
@@ -138,7 +139,7 @@ const debouncedUpdateGraph = debounce(() => updateGraph(), 50)
 // Sync settings - save to workspace defaults and node-specific database
 watch(layoutMode, (m) => { _layoutMode.value = m; if (props.parent?.id) api.updateNode(props.parent.id, { graph_layout: m }).catch(e => console.error('Failed to save graph_layout:', e)) })
 watch(showRootNode, (v) => { _showRootNode.value = v; if (props.parent?.id) api.updateNode(props.parent.id, { show_root_node: v ? 1 : 0 }).catch(e => console.error('Failed to save show_root_node:', e)) })
-watch(showExternalLinks, (v) => { _showExternalLinks.value = v; if (props.parent?.id) api.updateNode(props.parent.id, { show_external_links: v ? 1 : 0 }).catch(e => console.error('Failed to save show_external_links:', e)) })
+watch(showExternalLinks, (v) => { _showExternalLinks.value = v; if (props.parent?.id) api.updateNode(props.parent.id, { show_external_links: v ? 1 : 0 }).catch(e => console.error('Failed to save show_external_links:', e)); else if (props.workspace) api.updateWorkspace(props.workspace, { show_external_links: v ? 1 : 0 }).catch(e => console.error('Failed to save show_external_links to workspace:', e)) })
 watch(maxDepth, (v) => { if (props.parent?.id) api.updateNode(props.parent.id, { graph_max_depth: v }).catch(e => console.error('Failed to save graph_max_depth:', e)) })
 watch(visibleTypes, (v) => { _visibleTypes.value = v; if (props.parent?.id) api.updateNode(props.parent.id, { graph_type_filter: JSON.stringify(v) }).catch(e => console.error('Failed to save graph_type_filter:', e)) }, { deep: true })
 
@@ -162,7 +163,7 @@ watch(() => props.workspace, () => {
   if (!props.parent) {
     layoutMode.value = _layoutMode.value
     showRootNode.value = _showRootNode.value
-    showExternalLinks.value = _showExternalLinks.value
+    showExternalLinks.value = getWorkspaceShowExternalLinks()
     visibleTypes.value = [..._visibleTypes.value]
   }
 })
