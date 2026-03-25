@@ -299,9 +299,10 @@ export function useGraphLayout(options = {}) {
       fit: false,
       randomize: false,
       nodeSpacing: Math.round(spacing * gravityEffect),
-      edgeLength: edgeLen,
+      edgeLength: Math.round(edgeLen * gravityEffect),
       avoidOverlap: true,
       handleDisconnected: true,
+      centerGraph: radialSettings.gravity > 20000,
       convergenceThreshold: 0.01,
       maxSimulationTime: 2000,
       ungrabifyWhileSimulating: false
