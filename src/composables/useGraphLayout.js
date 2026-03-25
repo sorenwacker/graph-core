@@ -304,8 +304,8 @@ export function useGraphLayout(options = {}) {
 
     const layout = cy.layout(layoutOptions)
     layout.on('layoutstop', () => {
-      // Center the graph after relax
-      cy.center()
+      // Fit and center the graph after relax
+      cy.fit(50)
       if (savePositions) savePositions()
     })
     layout.run()
