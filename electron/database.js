@@ -170,7 +170,7 @@ class Database {
    * @returns {Object} Updated workspace
    */
   updateWorkspace(id, data) {
-    const allowedFields = ['name', 'color', 'icon', 'sort_order', 'is_default']
+    const allowedFields = ['name', 'color', 'icon', 'sort_order', 'is_default', 'show_external_links']
     const updates = []
     const values = []
     for (const [key, value] of Object.entries(data)) {
@@ -353,7 +353,8 @@ class Database {
         console.log('Added workspace_id column to nodes table')
       }},
       { table: 'nodes', column: 'graph_max_depth', def: 'INTEGER DEFAULT NULL' },
-      { table: 'nodes', column: 'graph_type_filter', def: 'TEXT DEFAULT NULL' }
+      { table: 'nodes', column: 'graph_type_filter', def: 'TEXT DEFAULT NULL' },
+      { table: 'workspaces', column: 'show_external_links', def: 'INTEGER DEFAULT 1' }
     ]
 
     for (const { table, column, def, onAdd } of columnMigrations) {

@@ -228,6 +228,11 @@ export function useGraphLayout(options = {}) {
 
     const radialSettings = getRadialSettings ? getRadialSettings() : {}
 
+    // Calculate center of current graph to use as gravity center
+    const bb = cy.nodes().boundingBox()
+    const centerX = (bb.x1 + bb.x2) / 2
+    const centerY = (bb.y1 + bb.y2) / 2
+
     const layoutOptions = {
       name: 'cose-bilkent',
       animate: 'end',
@@ -238,11 +243,11 @@ export function useGraphLayout(options = {}) {
       idealEdgeLength: radialSettings.edgeLength || 100,
       edgeElasticity: radialSettings.elasticity || 0.45,
       gravity: (radialSettings.gravity || 10000) / 10000,
+      gravityRangeCompound: 1.5,
       gravityRange: 3.8,
       numIter: 2500,
-      tile: true,
-      tilingPaddingVertical: Math.max(5, 50 - (radialSettings.gravity || 10000) / 1000),
-      tilingPaddingHorizontal: Math.max(5, 50 - (radialSettings.gravity || 10000) / 1000)
+      tile: false,
+      gravityCenter: { x: centerX, y: centerY }
     }
 
     const layout = cy.layout(layoutOptions)
@@ -285,6 +290,11 @@ export function useGraphLayout(options = {}) {
 
     const radialSettings = getRadialSettings ? getRadialSettings() : {}
 
+    // Calculate center of current graph to use as gravity center
+    const bb = cy.nodes().boundingBox()
+    const centerX = (bb.x1 + bb.x2) / 2
+    const centerY = (bb.y1 + bb.y2) / 2
+
     const layoutOptions = {
       name: 'cose-bilkent',
       animate: 'end',
@@ -295,16 +305,16 @@ export function useGraphLayout(options = {}) {
       idealEdgeLength: radialSettings.edgeLength || 100,
       edgeElasticity: radialSettings.elasticity || 0.45,
       gravity: (radialSettings.gravity || 10000) / 10000,
+      gravityRangeCompound: 1.5,
       gravityRange: 3.8,
       numIter: 2500,
-      tile: true,
-      tilingPaddingVertical: Math.max(5, 50 - (radialSettings.gravity || 10000) / 1000),
-      tilingPaddingHorizontal: Math.max(5, 50 - (radialSettings.gravity || 10000) / 1000)
+      tile: false,
+      // Use current graph center as gravity center
+      gravityCenter: { x: centerX, y: centerY }
     }
 
     const layout = cy.layout(layoutOptions)
     layout.on('layoutstop', () => {
-      // Fit and center the graph after relax
       cy.fit(50)
       if (savePositions) savePositions()
     })
