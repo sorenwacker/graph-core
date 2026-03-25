@@ -428,7 +428,7 @@ function getProjectBoxStyle(project) {
   // Use project's color from colorMap or node directly
   const projectColor = props.colorMap[project.id] || project.node?.color
   if (projectColor && projectColor !== '#0f4c75') {
-    style.background = `linear-gradient(135deg, ${projectColor}33 0%, var(--bg-primary) 80%)`
+    style.background = `linear-gradient(180deg, ${projectColor}15 0%, ${projectColor}08 100%)`
     style.borderColor = projectColor
   }
   return style
