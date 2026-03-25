@@ -451,8 +451,10 @@ const groupMarkers = computed(() => {
   const rowHeight = ROW_HEIGHT
 
   const nodeRowIndex = new Map()
+  const nodeData = new Map()
   timelineNodes.value.forEach((node, idx) => {
     nodeRowIndex.set(node.id, idx)
+    nodeData.set(node.id, node)
   })
 
   function collectGroups(nodeList) {
@@ -466,17 +468,25 @@ const groupMarkers = computed(() => {
         if (childRowIndices.length > 0) {
           const minRow = Math.min(...childRowIndices)
           const maxRow = Math.max(...childRowIndices)
-          const date = node.start_date || node.due_date || node.end_date ||
-            (node.created_at ? node.created_at.split('T')[0] : null)
 
-          if (date) {
+          // Find earliest child date
+          const childDates = descendantIds
+            .filter(id => nodeData.has(id))
+            .map(id => nodeData.get(id).displayDate)
+            .filter(Boolean)
+
+          const earliestDate = childDates.length > 0
+            ? childDates.reduce((a, b) => a < b ? a : b)
+            : null
+
+          if (earliestDate) {
             result.push({
               id: node.id,
               title: node.title,
-              position: getDatePosition(date),
+              position: getDatePosition(earliestDate),
               top: minRow * rowHeight,
               height: (maxRow - minRow + 1) * rowHeight,
-              date,
+              date: earliestDate,
               node
             })
           }
@@ -871,7 +881,7 @@ const { dragState, handleDragStart, handleDragMove, handleDragEnd, getDragBarSty
                 v-for="group in groupMarkers"
                 :key="'group-label-' + group.id"
                 class="group-label"
-                :style="{ left: (group.position - zoomLevel + 6) + 'px', top: group.top + 'px' }"
+                :style="{ left: (group.position + 6) + 'px', top: group.top + 'px' }"
               >{{ group.title }}</span>
               <div
                 v-for="node in timelineNodes"
