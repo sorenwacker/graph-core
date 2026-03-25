@@ -182,7 +182,6 @@
 .project-box {
   position: absolute;
   background: color-mix(in srgb, var(--type-project-bg) 40%, transparent);
-  border: 1px solid var(--type-project-text);
   border-radius: 4px;
   pointer-events: none;
   z-index: 0;
