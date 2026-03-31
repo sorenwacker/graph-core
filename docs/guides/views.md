@@ -37,6 +37,29 @@ Shows nodes as nested cards with visual hierarchy.
 - Due date badges with urgency indicators
 - Drag and drop reordering
 
+### Card Size Classes
+
+Cards automatically receive size classes based on available space:
+
+| Class | Title Font | Notes | Features Hidden |
+|-------|-----------|-------|-----------------|
+| `card-xl` | 22px | 250px max | None |
+| `card-lg` | 18px | 180px max | None |
+| `card-md` | 16px | 150px max | None |
+| `card-sm` | 14px | Compact | Type text, tags, some contact details |
+| `card-xs` | 12px | Hidden | Drag handle, tags, notes preview |
+
+Smaller cards progressively hide less important information to maintain readability.
+
+### Grandchildren Display
+
+Cards show up to two levels of descendants:
+
+- Child nodes display as nested cards or list items
+- Grandchildren appear as a simple list within each child card
+- Grandchildren show type icons, titles, and completion checkboxes
+- Click a grandchild to select it; double-click to navigate into it
+
 **Best for:** Visual overview, dashboard-style browsing
 
 ## Graph View
@@ -172,6 +195,42 @@ Spreadsheet-like view with sortable columns.
 - Bulk selection with checkboxes
 - Direct cell editing
 
+### Tree Prefix Visualization
+
+The table displays hierarchy using Unicode box-drawing characters:
+
+```
+├─ Parent 1
+│  ├─ Child 1
+│  └─ Child 2
+└─ Parent 2
+   └─ Child 3
+```
+
+Characters used:
+- `├─` Junction for non-last children
+- `└─` Corner for last child
+- `│ ` Vertical continuation line
+
+This provides clear visual hierarchy while maintaining the spreadsheet format.
+
+### Column Resize
+
+Drag column borders to resize. Widths are persisted to browser storage:
+
+- **Storage key:** `graphcore-table-colwidths`
+- Widths survive page reloads
+- Default widths are restored if storage is cleared
+
+**Default column widths:**
+
+| Column | Width |
+|--------|-------|
+| Title | 300px |
+| Notes | 200px |
+| Due Date | 90px |
+| Type | 60px |
+
 **Best for:** Data management, bulk operations
 
 ## Timeline View
@@ -291,6 +350,8 @@ Access via the settings panel:
 
 ## See Also
 
+- [Drag and Drop](drag-drop.md)
+- [Linking Nodes](linking.md)
 - [Interactions](../reference/interactions.md)
 - [Keyboard Shortcuts](../reference/keyboard-shortcuts.md)
 - [Settings](../reference/settings.md)
