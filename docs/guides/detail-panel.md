@@ -18,6 +18,23 @@ Click the pin icon to keep the panel open when clicking elsewhere. Useful when e
 
 Click the expand icon or press `Escape` to toggle fullscreen. Provides maximum editing space.
 
+**Narrow Window Behavior:** On narrow screens (below the responsive threshold), opening the detail panel automatically enters fullscreen mode to provide adequate editing space.
+
+### Detached Window
+
+Open the detail panel in a separate window:
+
+1. Click the "Open in Window" button in the panel header (or use context menu > "Open in Window")
+2. A new browser window opens with the node's detail view
+3. Changes sync between windows via BroadcastChannel
+
+**Detached window features:**
+
+- Independent window that can be moved to another monitor
+- Real-time sync with the main window
+- Closing the main app closes detached windows
+- URL format: `?detached={nodeId}`
+
 ## Sections
 
 The detail panel contains collapsible sections:
@@ -40,6 +57,28 @@ The notes section supports full Markdown editing.
 - External links open in browser
 - Code blocks with syntax highlighting
 - Tables and lists support
+
+### Mentions
+
+Type `@` in the notes editor to mention and link to person nodes:
+
+1. Type `@` followed by a name (e.g., `@John`)
+2. A dropdown appears with matching persons (up to 10 results)
+3. Use arrow keys to navigate, Enter or Tab to select
+4. The mention is inserted and a link is automatically created
+
+**Mention format:** `@[Person Name](person:123)`
+
+**Keyboard navigation:**
+
+| Key | Action |
+|-----|--------|
+| `Arrow Down` | Next suggestion |
+| `Arrow Up` | Previous suggestion |
+| `Enter` / `Tab` | Insert selected mention |
+| `Escape` | Close dropdown |
+
+Mentions must follow a space, newline, or opening parenthesis. Maximum query length is 30 characters.
 
 **Sensitive Notes:**
 

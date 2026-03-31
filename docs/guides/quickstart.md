@@ -82,14 +82,52 @@ Star nodes for quick access:
 
 The sidebar shows your 10 most recently accessed nodes for quick navigation back to where you were working.
 
+## Deleting and Restoring Nodes
+
+### Soft Delete
+
+Deleting a node moves it to Trash rather than permanently removing it:
+
+1. Select a node
+2. Press `Cmd/Ctrl + Delete/Backspace` or right-click > Delete
+3. The node moves to Trash with a timestamp
+
+Deleted nodes are excluded from search, views, and exports. Children of deleted nodes become orphans (moved to Lost and Found).
+
+### Restoring from Trash
+
+1. Open the Trash view from the sidebar
+2. Find the deleted node (sorted by deletion date)
+3. Click "Restore" to return it to its original location
+
+### Permanent Deletion
+
+From Trash view:
+
+- Click "Delete" on individual items for permanent removal
+- Use "Empty Trash" in Settings to permanently delete all trashed items
+
+Permanent deletion cannot be undone.
+
 ## Undo and Redo
 
-All operations can be undone:
+All operations can be undone within your browser session:
 
 - **Undo**: `Cmd/Ctrl + Z`
 - **Redo**: `Cmd/Ctrl + Shift + Z` or `Cmd/Ctrl + Y`
 
 The undo/redo buttons in the toolbar show when actions are available.
+
+### Session-Based History
+
+The undo/redo stack is stored in browser sessionStorage:
+
+- History persists across page reloads within the same session
+- Closing the browser tab clears the history
+- Maximum 50 operations are retained
+- Each operation shows a description when undone/redone
+
+Operations that can be undone include: create, delete, move, reorder, link, unlink, and property changes.
 
 ## See Also
 

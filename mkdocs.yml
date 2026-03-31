@@ -54,6 +54,8 @@ nav:
   - Guides:
     - Views: guides/views.md
     - Detail Panel: guides/detail-panel.md
+    - Linking Nodes: guides/linking.md
+    - Drag and Drop: guides/drag-drop.md
     - Search: guides/search.md
     - Workspaces: guides/workspaces.md
     - AI Notes: guides/ai-notes.md

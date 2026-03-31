@@ -42,6 +42,41 @@ Settings that affect the Graph view visualization.
 | Show Type Borders | Display colored borders by node type |
 | Darken Completed | Dim completed nodes visually |
 
+### Physics Settings (Radial Layout)
+
+The radial layout uses a physics simulation. Adjust these parameters via the Graph view settings panel:
+
+| Parameter | Default | Range | Description |
+|-----------|---------|-------|-------------|
+| Node Repulsion | 5000 | 100-10000 | Force pushing nodes apart |
+| Edge Length | 100 | 20-1000 | Ideal distance between connected nodes |
+| Elasticity | 0.5 | 0.1-1.5 | Edge tension/spring stiffness |
+| Gravity | 10000 | 0-50000 | Pull toward graph center |
+| Iterations | 2500 | 1000-500000 | Simulation steps |
+
+**Tuning tips:**
+
+- Increase **Node Repulsion** for sparse layouts with more space between nodes
+- Decrease **Edge Length** for tighter clustering of connected nodes
+- Higher **Gravity** pulls nodes toward center; lower values allow spreading
+- More **Iterations** produces smoother results but takes longer to compute
+
+Settings are saved per-workspace with keys like `graph-radial-repulsion-{workspace}`.
+
+### Node Position Storage
+
+Node positions in Graph view are automatically persisted:
+
+- **Storage:** Browser localStorage
+- **Key format:** `graph-positions-{workspace}-{parentId}`
+- **Scope:** Per-workspace and per-parent context
+- **Validation:** Positions outside bounds (50000) are filtered
+
+Positions are saved after:
+- Dragging nodes
+- Layout operations (relax, reset)
+- Graph updates
+
 ## AI Settings
 
 Configure AI providers for note enhancement.
