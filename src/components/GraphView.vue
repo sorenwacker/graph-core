@@ -97,13 +97,17 @@ if (typeof document !== 'undefined') {
 
 // Graph settings - pass workspace for workspace-specific localStorage keys
 const workspaceRef = toRef(props, 'workspace')
-const { layoutMode: _layoutMode, relaxLocked, fitLocked, showExternalLinks: _showExternalLinks, showRootNode: _showRootNode, visibleTypes: _visibleTypes, radialSettings } = useGraphSettings({ workspace: workspaceRef })
+const { layoutMode: _layoutMode, relaxLocked: _relaxLocked, fitLocked: _fitLocked, showExternalLinks: _showExternalLinks, showRootNode: _showRootNode, visibleTypes: _visibleTypes, radialSettings: _radialSettings } = useGraphSettings({ workspace: workspaceRef })
 const layoutMode = ref(props.parent?.graph_layout || _layoutMode.value)
 const showRootNode = ref(props.parent?.show_root_node != null ? Boolean(props.parent.show_root_node) : _showRootNode.value)
 const getWorkspaceShowExternalLinks = () => { const ws = props.workspaces.find(w => w.id === props.workspace); return ws?.show_external_links != null ? Boolean(ws.show_external_links) : _showExternalLinks.value }
 const showExternalLinks = ref(props.parent?.show_external_links != null ? Boolean(props.parent.show_external_links) : getWorkspaceShowExternalLinks())
 const maxDepth = ref(props.parent?.graph_max_depth ?? props.maxDepth)
 const visibleTypes = ref(Array.isArray(props.parent?.graph_type_filter) ? [...props.parent.graph_type_filter] : [..._visibleTypes.value])
+// Per-node physics settings with fallback to workspace defaults
+const relaxLocked = ref(props.parent?.graph_relax_locked != null ? Boolean(props.parent.graph_relax_locked) : _relaxLocked.value)
+const fitLocked = ref(props.parent?.graph_fit_locked != null ? Boolean(props.parent.graph_fit_locked) : _fitLocked.value)
+const radialSettings = ref(props.parent?.graph_physics ? { ..._radialSettings, ...props.parent.graph_physics } : { ..._radialSettings })
 const showTypeFilter = ref(false), showHotkeyHelp = ref(false), showLayoutSettings = ref(false)
 
 const { handleError } = useErrorHandler()
@@ -127,7 +131,7 @@ const _savePos = () => saveNodePositions(cy, _getKey())
 const _clearPos = () => localStorage.removeItem(_getKey())
 
 // Layout composable
-const layout = useGraphLayout({ getCy: () => cy, getLayoutMode: () => layoutMode.value, setLayoutMode: (m) => { layoutMode.value = m }, getRadialSettings: () => radialSettings, savePositions: _savePos, clearPositions: _clearPos, relaxLocked, fitLocked })
+const layout = useGraphLayout({ getCy: () => cy, getLayoutMode: () => layoutMode.value, setLayoutMode: (m) => { layoutMode.value = m }, getRadialSettings: () => radialSettings.value, savePositions: _savePos, clearPositions: _clearPos, relaxLocked, fitLocked })
 const getLayoutOptions = () => layout.getLayoutOptions(layoutMode.value)
 
 // Events composable
@@ -142,6 +146,9 @@ watch(showRootNode, (v) => { _showRootNode.value = v; if (props.parent?.id) api.
 watch(showExternalLinks, (v) => { _showExternalLinks.value = v; if (props.parent?.id) api.updateNode(props.parent.id, { show_external_links: v ? 1 : 0 }).catch(e => console.error('Failed to save show_external_links:', e)); else if (props.workspace) api.updateWorkspace(props.workspace, { show_external_links: v ? 1 : 0 }).catch(e => console.error('Failed to save show_external_links to workspace:', e)) })
 watch(maxDepth, (v) => { if (props.parent?.id) api.updateNode(props.parent.id, { graph_max_depth: v }).catch(e => console.error('Failed to save graph_max_depth:', e)) })
 watch(visibleTypes, (v) => { _visibleTypes.value = v; if (props.parent?.id) api.updateNode(props.parent.id, { graph_type_filter: JSON.stringify(v) }).catch(e => console.error('Failed to save graph_type_filter:', e)) }, { deep: true })
+watch(relaxLocked, (v) => { _relaxLocked.value = v; if (props.parent?.id) api.updateNode(props.parent.id, { graph_relax_locked: v ? 1 : 0 }).catch(e => console.error('Failed to save graph_relax_locked:', e)) })
+watch(fitLocked, (v) => { _fitLocked.value = v; if (props.parent?.id) api.updateNode(props.parent.id, { graph_fit_locked: v ? 1 : 0 }).catch(e => console.error('Failed to save graph_fit_locked:', e)) })
+watch(radialSettings, (v) => { Object.assign(_radialSettings, v); if (props.parent?.id) api.updateNode(props.parent.id, { graph_physics: JSON.stringify(v) }).catch(e => console.error('Failed to save graph_physics:', e)) }, { deep: true })
 
 watch(() => props.parent?.id, (n, o) => {
   const expectedMaxDepth = props.parent?.graph_max_depth ?? props.maxDepth
@@ -155,6 +162,9 @@ watch(() => props.parent?.id, (n, o) => {
     showExternalLinks.value = props.parent?.show_external_links != null ? Boolean(props.parent.show_external_links) : _showExternalLinks.value
     maxDepth.value = props.parent?.graph_max_depth ?? props.maxDepth
     visibleTypes.value = Array.isArray(props.parent?.graph_type_filter) ? [...props.parent.graph_type_filter] : [..._visibleTypes.value]
+    relaxLocked.value = props.parent?.graph_relax_locked != null ? Boolean(props.parent.graph_relax_locked) : _relaxLocked.value
+    fitLocked.value = props.parent?.graph_fit_locked != null ? Boolean(props.parent.graph_fit_locked) : _fitLocked.value
+    radialSettings.value = props.parent?.graph_physics ? { ..._radialSettings, ...props.parent.graph_physics } : { ..._radialSettings }
   }
 }, { immediate: true })
 
@@ -165,6 +175,9 @@ watch(() => props.workspace, () => {
     showRootNode.value = _showRootNode.value
     showExternalLinks.value = getWorkspaceShowExternalLinks()
     visibleTypes.value = [..._visibleTypes.value]
+    relaxLocked.value = _relaxLocked.value
+    fitLocked.value = _fitLocked.value
+    radialSettings.value = { ..._radialSettings }
   }
 })
 
