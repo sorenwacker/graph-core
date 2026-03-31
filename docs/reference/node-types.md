@@ -27,7 +27,7 @@ Tasks represent actionable items with completion tracking.
 
 - Title, Notes, Tags
 - Due date, Start date, End date
-- Importance (1-4)
+- Importance (1-5)
 - Completed status
 
 **Special Behaviors:**
@@ -221,7 +221,7 @@ All node types support these fields:
 | `notes_sensitive` | Mark notes as sensitive (blurred) |
 | `tags` | Array of tag strings |
 | `color` | Custom color override |
-| `importance` | Priority level 1-4 |
+| `importance` | Priority level 1-5 |
 | `favorite` | Starred status |
 | `due_date` | Deadline |
 | `start_date` | Begin date |
@@ -236,6 +236,7 @@ All node types support these fields:
 | 2 | High |
 | 3 | Medium |
 | 4 | Low |
+| 5 | Trivial |
 
 ## Color Coding
 

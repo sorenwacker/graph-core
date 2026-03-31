@@ -78,12 +78,17 @@ These interactions work across all views:
 
 Right-click any node to access:
 
+- **View Details**: Open detail panel
+- **Open in Window**: Open in separate window (desktop only)
 - **Enter**: Navigate into the node
 - **Add Child**: Create a new child node
-- **Edit**: Open detail panel
-- **Move**: Change parent node
-- **Duplicate**: Create a copy
-- **Delete**: Remove the node
+- **Mark Complete/Incomplete**: Toggle completion status
+- **Add/Remove Favorite**: Star or unstar the node
+- **Link to...**: Create a link to another node
+- **Move to...**: Change parent node
+- **Unlink from...**: Remove existing links
+- **Move to Workspace**: Transfer to different workspace
+- **Delete**: Send to trash
 
 ## Drag and Drop
 

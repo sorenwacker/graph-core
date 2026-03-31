@@ -4,61 +4,48 @@ A hierarchical node management application built with Vue 3, Vite, and Electron.
 
 ## Features
 
-- **Multiple Views**: Tree, Cards, Graph, Table, Timeline, Calendar, Tasks, and Persons views
-- **Node Types**: Tasks, notes, topics, events, contacts, and more with distinct colors
+- **Multiple Views**: Tree, Cards, Graph, Table, Timeline, Calendar, Tasks, Persons, and Trash views
+- **Node Types**: Tasks, projects, notes, milestones, topics, events, persons, organizations, groups, and components
 - **Hierarchical Organization**: Nest nodes within nodes for structured data
+- **Cross-Links**: Create relationships between nodes beyond the tree hierarchy
 - **Detachable Windows**: Open nodes in separate windows for focused editing
-- **Workspaces**: Organize nodes into separate workspaces
-- **Search**: Spotlight-style search (Cmd+K) for quick navigation
+- **Workspaces**: Organize nodes into separate workspaces (work, personal, custom)
+- **Search**: Spotlight-style search (Cmd+K) with type filtering and multiple modes
 - **Favorites & Recents**: Quick access to frequently used nodes
 - **Keyboard Shortcuts**: Efficient navigation and editing
-- **AI Notes**: Local LLM integration via Ollama for improving, summarizing, and transforming notes
-
-## Quick Install
-
-```bash
-# Clone repository
-git clone https://github.com/sorenwacker/graph-core.git
-cd graph-core
-
-# Install dependencies
-npm install
-
-# Run in development mode
-npm run electron:dev
-```
-
-## Quick Start
-
-1. Launch the app with `npm run electron:dev`
-2. Create your first node using the input bar at the top
-3. Double-click a node to navigate into it
-4. Use Cmd+K to open spotlight search
-5. Switch between views using the toolbar
+- **AI Notes**: LLM integration via Ollama or OpenAI-compatible APIs
+- **Import/Export**: Support for Markdown, JSON, and CSV formats
+- **Undo/Redo**: Full operation history with Cmd+Z support
+- **Database Snapshots**: Backup and restore your data
 
 ## Documentation
 
 **Getting Started**
 
-- [Installation](getting-started/installation.md)
-- [Quickstart](guides/quickstart.md)
+- [Installation](getting-started/installation.md) - Setup and prerequisites
+- [Quickstart](guides/quickstart.md) - Get started in minutes
 
 **Guides**
 
-- [Views](guides/views.md)
-- [AI Notes](guides/ai-notes.md)
-- [Workspaces](guides/workspaces.md)
+- [Views](guides/views.md) - All visualization modes explained
+- [Detail Panel](guides/detail-panel.md) - Editing nodes, notes, tables, and metadata
+- [Search](guides/search.md) - Finding and navigating nodes
+- [Workspaces](guides/workspaces.md) - Organizing by context
+- [AI Notes](guides/ai-notes.md) - LLM-powered note enhancement
+- [Import and Export](guides/import-export.md) - Data portability
 
 **Reference**
 
-- [Keyboard Shortcuts](reference/keyboard-shortcuts.md)
-- [Node Types](reference/node-types.md)
-- [Interactions](reference/interactions.md)
+- [Node Types](reference/node-types.md) - All node types and their properties
+- [Keyboard Shortcuts](reference/keyboard-shortcuts.md) - Complete shortcut reference
+- [Interactions](reference/interactions.md) - Mouse and keyboard actions per view
+- [Settings](reference/settings.md) - Configuration options
+- [Accessibility](reference/accessibility.md) - Keyboard navigation and screen readers
 
 **Architecture**
 
-- [Overview](architecture/overview.md)
+- [Overview](architecture/overview.md) - System design and components
 
 **Contributing**
 
-- [Development](contributing/development.md)
+- [Development](contributing/development.md) - Developer setup and guidelines

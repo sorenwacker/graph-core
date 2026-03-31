@@ -19,15 +19,9 @@ Get up and running with Graph Core in minutes.
 
 ### Keyboard Navigation
 
-| Key | Action |
-|-----|--------|
-| `Cmd/Ctrl + K` | Open spotlight search |
-| `Cmd/Ctrl + Up` | Go to parent |
-| `Cmd/Ctrl + Down` | Go to first child |
-| `Cmd/Ctrl + Left` | Go to previous sibling |
-| `Cmd/Ctrl + Right` | Go to next sibling |
-| `Enter` | Toggle detail panel |
-| `Escape` | Close detail panel / Clear selection |
+Use `Cmd/Ctrl + K` to open spotlight search for quick navigation.
+
+For the complete list of keyboard shortcuts, see [Keyboard Shortcuts](../reference/keyboard-shortcuts.md).
 
 ## Working with Nodes
 
@@ -63,6 +57,7 @@ Use the view switcher in the toolbar:
 | Calendar | Monthly calendar view |
 | Tasks | Filtered task list |
 | Persons | Contact management |
+| Trash | Deleted items (restore or delete permanently) |
 
 ## Using Search
 
@@ -71,8 +66,34 @@ Use the view switcher in the toolbar:
 3. Use `#tag` to search by tag
 4. Press Enter to navigate to the selected result
 
+For advanced search features, see [Search Guide](search.md).
+
+## Favorites and Recents
+
+### Favorites
+
+Star nodes for quick access:
+
+1. Right-click a node and select "Add Favorite"
+2. Or click the star icon in the detail panel
+3. Access favorites from the sidebar
+
+### Recent Items
+
+The sidebar shows your 10 most recently accessed nodes for quick navigation back to where you were working.
+
+## Undo and Redo
+
+All operations can be undone:
+
+- **Undo**: `Cmd/Ctrl + Z`
+- **Redo**: `Cmd/Ctrl + Shift + Z` or `Cmd/Ctrl + Y`
+
+The undo/redo buttons in the toolbar show when actions are available.
+
 ## See Also
 
 - [Views Guide](views.md)
+- [Detail Panel](detail-panel.md)
 - [Keyboard Shortcuts](../reference/keyboard-shortcuts.md)
 - [Node Types](../reference/node-types.md)
