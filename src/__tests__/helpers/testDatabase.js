@@ -42,6 +42,14 @@ export class TestDatabase {
         tags TEXT DEFAULT '[]',
         workspace_id TEXT DEFAULT NULL,
         show_links INTEGER DEFAULT 1,
+        graph_layout TEXT DEFAULT NULL,
+        show_root_node INTEGER DEFAULT NULL,
+        show_external_links INTEGER DEFAULT NULL,
+        graph_max_depth INTEGER DEFAULT NULL,
+        graph_type_filter TEXT DEFAULT NULL,
+        graph_relax_locked INTEGER DEFAULT NULL,
+        graph_fit_locked INTEGER DEFAULT NULL,
+        graph_physics TEXT DEFAULT NULL,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         deleted_at TEXT
@@ -122,11 +130,29 @@ export class TestDatabase {
         tags = []
       }
     }
+    let graph_type_filter = null
+    if (row.graph_type_filter) {
+      try {
+        graph_type_filter = JSON.parse(row.graph_type_filter)
+      } catch {
+        graph_type_filter = null
+      }
+    }
+    let graph_physics = null
+    if (row.graph_physics) {
+      try {
+        graph_physics = JSON.parse(row.graph_physics)
+      } catch {
+        graph_physics = null
+      }
+    }
     return {
       ...row,
       completed: Boolean(row.completed),
       favorite: Boolean(row.favorite),
-      tags
+      tags,
+      graph_type_filter,
+      graph_physics
     }
   }
 
@@ -146,7 +172,15 @@ export class TestDatabase {
       'favorite',
       'tags',
       'workspace_id',
-      'show_links'
+      'show_links',
+      'graph_layout',
+      'show_root_node',
+      'show_external_links',
+      'graph_max_depth',
+      'graph_type_filter',
+      'graph_relax_locked',
+      'graph_fit_locked',
+      'graph_physics'
     ]
 
     let depth = 0
@@ -162,6 +196,12 @@ export class TestDatabase {
     const presentFields = fields.filter((f) => data[f] !== undefined)
     const values = presentFields.map((f) => {
       if (f === 'tags' && Array.isArray(data[f])) {
+        return JSON.stringify(data[f])
+      }
+      if (f === 'graph_type_filter' && Array.isArray(data[f])) {
+        return JSON.stringify(data[f])
+      }
+      if (f === 'graph_physics' && typeof data[f] === 'object') {
         return JSON.stringify(data[f])
       }
       return data[f]
@@ -196,7 +236,15 @@ export class TestDatabase {
       'favorite',
       'tags',
       'workspace_id',
-      'show_links'
+      'show_links',
+      'graph_layout',
+      'show_root_node',
+      'show_external_links',
+      'graph_max_depth',
+      'graph_type_filter',
+      'graph_relax_locked',
+      'graph_fit_locked',
+      'graph_physics'
     ]
 
     const updates = []
@@ -206,6 +254,10 @@ export class TestDatabase {
       if (data[field] !== undefined) {
         updates.push(`${field} = ?`)
         if (field === 'tags' && Array.isArray(data[field])) {
+          values.push(JSON.stringify(data[field]))
+        } else if (field === 'graph_type_filter' && Array.isArray(data[field])) {
+          values.push(JSON.stringify(data[field]))
+        } else if (field === 'graph_physics' && typeof data[field] === 'object') {
           values.push(JSON.stringify(data[field]))
         } else {
           values.push(data[field])

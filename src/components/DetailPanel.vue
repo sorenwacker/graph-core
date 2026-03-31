@@ -155,37 +155,42 @@ onUnmounted(() => {
 const personFormRef = ref(null)
 const organizationFormRef = ref(null)
 
-watch(() => props.node, async (newNode) => {
+watch(() => props.node, async (newNode, oldNode) => {
   if (newNode) {
+    const isNewNode = newNode.id !== oldNode?.id
     editedNode.value = { ...newNode }
-    // Always show notes expanded by default
-    notesCollapsed.value = false
-    // Set tab based on whether notes exist
-    activeTab.value = newNode.notes?.trim() ? 'preview' : 'edit'
-    // Reset links
-    linkedNodes.value = []
-    // Reset sensitive preview unlock
-    showSensitivePreview.value = false
-    // Reset table collapsed - will be expanded only if table exists after loading
-    tableCollapsed.value = true
 
-    await Promise.all([loadChildren(), loadLinkedNodes(), loadTable(newNode.id)])
+    // Only reset UI state when switching to a different node
+    if (isNewNode) {
+      // Always show notes expanded by default
+      notesCollapsed.value = false
+      // Set tab based on whether notes exist
+      activeTab.value = newNode.notes?.trim() ? 'preview' : 'edit'
+      // Reset links
+      linkedNodes.value = []
+      // Reset sensitive preview unlock
+      showSensitivePreview.value = false
+      // Reset table collapsed - will be expanded only if table exists after loading
+      tableCollapsed.value = true
 
-    // Set collapsed states based on content
-    // Children: collapse if no children
-    childrenCollapsed.value = children.value.length === 0
-    // Metadata: always start collapsed
-    metadataCollapsed.value = true
-    // Table: collapse if no table
-    tableCollapsed.value = !hasTable.value
+      await Promise.all([loadChildren(), loadLinkedNodes(), loadTable(newNode.id)])
 
-    // Auto-resize title for long titles
-    nextTick(() => {
-      if (titleInput.value) {
-        titleInput.value.style.height = 'auto'
-        titleInput.value.style.height = titleInput.value.scrollHeight + 'px'
-      }
-    })
+      // Set collapsed states based on content
+      // Children: collapse if no children
+      childrenCollapsed.value = children.value.length === 0
+      // Metadata: always start collapsed
+      metadataCollapsed.value = true
+      // Table: collapse if no table
+      tableCollapsed.value = !hasTable.value
+
+      // Auto-resize title for long titles
+      nextTick(() => {
+        if (titleInput.value) {
+          titleInput.value.style.height = 'auto'
+          titleInput.value.style.height = titleInput.value.scrollHeight + 'px'
+        }
+      })
+    }
   }
 }, { immediate: true })
 

@@ -10,7 +10,8 @@ const NODE_FIELDS = [
   'importance', 'start_date', 'end_date', 'due_date', 'location', 'email', 'phone',
   'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive',
   'category_id', 'status_id', 'tags', 'workspace_id', 'graph_layout', 'show_root_node',
-  'show_external_links', 'show_links', 'graph_max_depth', 'graph_type_filter'
+  'show_external_links', 'show_links', 'graph_max_depth', 'graph_type_filter',
+  'graph_relax_locked', 'graph_fit_locked', 'graph_physics'
 ]
 
 class Database {
@@ -354,6 +355,9 @@ class Database {
       }},
       { table: 'nodes', column: 'graph_max_depth', def: 'INTEGER DEFAULT NULL' },
       { table: 'nodes', column: 'graph_type_filter', def: 'TEXT DEFAULT NULL' },
+      { table: 'nodes', column: 'graph_relax_locked', def: 'INTEGER DEFAULT NULL' },
+      { table: 'nodes', column: 'graph_fit_locked', def: 'INTEGER DEFAULT NULL' },
+      { table: 'nodes', column: 'graph_physics', def: 'TEXT DEFAULT NULL' },
       { table: 'workspaces', column: 'show_external_links', def: 'INTEGER DEFAULT 1' }
     ]
 
@@ -457,6 +461,15 @@ class Database {
         graph_type_filter = null
       }
     }
+    // Parse graph_physics JSON
+    let graph_physics = null
+    if (row.graph_physics) {
+      try {
+        graph_physics = JSON.parse(row.graph_physics)
+      } catch {
+        graph_physics = null
+      }
+    }
     return {
       ...row,
       completed: Boolean(row.completed),
@@ -464,7 +477,8 @@ class Database {
       has_table: Boolean(row.has_table),
       notes_sensitive: Boolean(row.notes_sensitive),
       tags,
-      graph_type_filter
+      graph_type_filter,
+      graph_physics
     }
   }
 
