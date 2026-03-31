@@ -109,6 +109,14 @@ Attach a spreadsheet to any node.
 - Copy, cut, and paste operations
 - Multi-cell selection
 
+**Formulas:**
+
+Cells support formulas for computed values. Enter a formula by starting with `=`:
+
+- Formulas are stored separately from display values
+- The cell shows the computed result while displaying the formula when editing
+- Formula syntax follows standard spreadsheet conventions
+
 **Keyboard Shortcuts:**
 
 | Key | Action |
@@ -133,6 +141,18 @@ Displays and edits all node properties in a grid layout.
 - Organization, Role (for Person nodes)
 - Website
 - Color
+
+**Organization Autocomplete (Person nodes):**
+
+When editing a Person node, the organization field provides autocomplete:
+
+1. Type to search existing organizations in the workspace
+2. Arrow keys navigate the dropdown; Enter selects
+3. If no match exists, press Enter to create a new organization
+4. Multiple organizations can be linked to a person
+5. Click the X on an organization tag to unlink it
+
+Organizations are displayed as tags showing the full hierarchy path (e.g., "Company > Department > Team").
 
 ### Linked Items Section
 
@@ -177,4 +197,5 @@ Nodes can inherit colors from their parent. When a node has no custom color set:
 
 - [Node Types](../reference/node-types.md)
 - [Keyboard Shortcuts](../reference/keyboard-shortcuts.md)
+- [Linking Nodes](linking.md)
 - [AI Notes](ai-notes.md)
