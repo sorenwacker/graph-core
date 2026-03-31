@@ -34,7 +34,8 @@ Complete keyboard shortcut reference for Graph Core.
 |----------|--------|
 | `Click` | Select node |
 | `Shift + Click` | Multi-select (toggle) |
-| `Shift + Drag` | Lasso select (Graph view) |
+| `Shift + Drag` | Lasso/box select (Graph view) |
+| `Cmd/Ctrl + A` | Select all visible items |
 
 ## Graph View
 
@@ -42,8 +43,13 @@ Complete keyboard shortcut reference for Graph Core.
 |----------|--------|
 | `Option` (hold) | Enable link mode |
 | `Option + Drag` | Create link between nodes |
+| `Cmd/Ctrl + Click node` | Add child node |
+| `Cmd/Ctrl + Click edge` | Insert node between connected nodes |
+| `Opt/Alt + Cmd/Ctrl + Click edge` | Delete edge |
+| `Shift + Drag` | Lasso select multiple nodes |
 | `Scroll` | Zoom in/out |
 | `Drag background` | Pan view |
+| `Drag node` | Reposition (position saved) |
 
 ## Timeline View
 
@@ -70,8 +76,16 @@ Complete keyboard shortcut reference for Graph Core.
 | `Enter` | Edit cell |
 | `Arrow keys` | Navigate cells |
 
+## Drag Modifiers
+
+| Shortcut | Action |
+|----------|--------|
+| `Shift + Drag` | Reorder only (disable nesting) |
+| `Option + Drag` | Create link (Graph view) |
+
 ## See Also
 
 - [Quickstart](../guides/quickstart.md)
 - [Views Guide](../guides/views.md)
+- [Drag and Drop](../guides/drag-drop.md)
 - [Interactions](interactions.md)

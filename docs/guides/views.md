@@ -49,27 +49,56 @@ Force-directed graph visualization using Cytoscape.js.
 |--------|-------------|
 | Tree | Vertical hierarchical layout (top to bottom) |
 | Horizontal | Left-to-right hierarchical layout |
-| Radial | Circular layout with customizable sectors |
+| Radial | Circular layout with physics simulation |
 | Grid | Grid-based positioning |
 | Circle | Nodes arranged in a circle |
 
 Change layouts using the layout selector in the Graph toolbar.
 
+### Physics Settings
+
+The radial layout uses a physics simulation (cose-bilkent algorithm) with configurable parameters. Access these via the settings panel in Graph view:
+
+| Parameter | Default | Range | Description |
+|-----------|---------|-------|-------------|
+| Node Repulsion | 5000 | 100-10000 | Force pushing nodes apart |
+| Edge Length | 100 | 20-1000 | Ideal distance between connected nodes |
+| Elasticity | 0.5 | 0.1-1.5 | Edge tension/stiffness |
+| Gravity | 10000 | 0-50000 | Pull toward graph center |
+| Iterations | 2500 | 1000-500000 | Simulation steps (higher = smoother) |
+
+Click "Apply" after adjusting sliders to restart the layout with new parameters. Settings are saved per-workspace.
+
 ### Graph Controls
 
-| Control | Description |
-|---------|-------------|
-| Relax Layout | Apply physics-based node arrangement |
-| Fit to View | Auto-zoom to fit all visible nodes |
-| Reset Layout | Randomize node positions |
-| Lock Relax | Toggle continuous physics simulation |
-| Lock Fit | Toggle auto-fit behavior |
+| Control | Single Click | Double Click |
+|---------|--------------|--------------|
+| Relax Layout | Run one physics pass | Toggle continuous mode |
+| Fit to View | Fit once | Toggle auto-fit mode |
+| Reset Layout | Randomize positions | - |
+
+**Continuous Relax Mode (Lock Relax):**
+
+When locked, the physics simulation runs continuously, keeping nodes dynamically arranged. Useful for exploring large graphs where manual positioning would be tedious.
+
+**Auto-Fit Mode (Lock Fit):**
+
+When locked, the view automatically adjusts zoom and pan every 300ms to keep all nodes visible. Useful when nodes are being added or moved frequently.
+
+### Node Position Persistence
+
+Node positions are automatically saved to browser storage:
+
+- Positions persist per-workspace and per-parent context
+- Key format: `graph-positions-{workspace}-{parentId}`
+- Invalid positions (corrupted or out of bounds) are filtered automatically
+- Positions survive page reloads within the same browser
 
 ### Display Options
 
 | Option | Description |
 |--------|-------------|
-| Show External Links | Display non-parent-child relationships |
+| Show External Links | Display non-parent-child relationships (links) |
 | Show Root Node | Toggle parent node visibility |
 | Type Filtering | Show/hide specific node types |
 | Show Type Borders | Colored borders indicating node type |
@@ -80,14 +109,48 @@ Change layouts using the layout selector in the Graph toolbar.
 |--------|--------|
 | Click node | Select |
 | Double-click node | Navigate into |
-| Drag node | Reposition |
+| Drag node | Reposition (position saved) |
 | Option+drag | Create link to another node |
 | Shift+click | Multi-select toggle |
-| Shift+drag | Lasso select multiple |
+| Shift+drag | Lasso select multiple nodes |
 | Scroll wheel | Zoom in/out |
 | Drag background | Pan view |
+| Cmd/Ctrl+click node | Add child node |
+| Cmd/Ctrl+click edge | Insert node between |
+| Opt+Cmd/Ctrl+click edge | Delete edge |
 
-**Best for:** Seeing relationships, mind mapping
+### Insert Between Nodes
+
+Insert a new node in the middle of an existing relationship:
+
+1. Hold `Cmd/Ctrl` and click on an edge
+2. Enter the new node's title in the modal
+3. The new node is inserted between the connected nodes
+
+**For parent-child edges:**
+```
+Before: Parent → Child
+After:  Parent → NewNode → Child
+```
+
+**For link edges:**
+```
+Before: NodeA ⟷ NodeB
+After:  NodeA ⟷ NewNode ⟷ NodeB
+```
+
+### Wrap with Parent
+
+Create a new parent for an existing node:
+
+1. Select a node and open its edit modal
+2. Click "Wrap with Parent" in the modal footer
+3. Enter a title for the new parent
+4. The current node becomes a child of the new parent
+
+The new parent is positioned near the child in the graph.
+
+**Best for:** Seeing relationships, mind mapping, visual organization
 
 ## Table View
 
