@@ -121,5 +121,6 @@ Error: Invalid API key
 
 ## See Also
 
-- [Quickstart](quickstart.md)
+- [Settings](../reference/settings.md)
+- [Detail Panel](detail-panel.md)
 - [Keyboard Shortcuts](../reference/keyboard-shortcuts.md)

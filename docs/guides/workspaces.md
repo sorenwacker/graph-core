@@ -86,3 +86,4 @@ Some node types are automatically assigned to workspaces:
 
 - [Quickstart](quickstart.md)
 - [Node Types](../reference/node-types.md)
+- [Settings](../reference/settings.md)

@@ -15,35 +15,9 @@ Key interface regions are marked with ARIA landmark roles:
 
 ## Keyboard Navigation
 
-Full keyboard support is available throughout the application:
+Full keyboard support is available throughout the application. All interactive elements are reachable via keyboard, and common operations have dedicated shortcuts.
 
-### Global Shortcuts
-
-| Key | Action |
-|-----|--------|
-| `Cmd+K` / `Ctrl+K` | Open search |
-| `Cmd+Z` / `Ctrl+Z` | Undo |
-| `Cmd+Shift+Z` / `Ctrl+Shift+Z` | Redo |
-| `Cmd+N` / `Ctrl+N` | New node |
-| `Escape` | Close modal/panel |
-
-### Tree Navigation
-
-| Key | Action |
-|-----|--------|
-| `Arrow Up/Down` | Move selection |
-| `Arrow Left` | Collapse node / go to parent |
-| `Arrow Right` | Expand node / go to first child |
-| `Enter` | Open detail panel |
-| `Space` | Toggle completion |
-
-### Search Navigation
-
-| Key | Action |
-|-----|--------|
-| `Arrow Up/Down` | Navigate results |
-| `Enter` | Select result |
-| `Escape` | Close search |
+For the complete keyboard shortcut reference, see [Keyboard Shortcuts](keyboard-shortcuts.md).
 
 ## Focus Management
 

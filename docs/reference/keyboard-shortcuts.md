@@ -19,12 +19,14 @@ Complete keyboard shortcut reference for Graph Core.
 
 | Shortcut | Action |
 |----------|--------|
+| `N` | Create new node |
 | `Cmd/Ctrl + Enter` | Add new child node |
 | `Cmd/Ctrl + Click` | Add child to clicked node |
 | `Opt/Alt + Cmd/Ctrl + Click` | Delete node |
 | `Cmd/Ctrl + Z` | Undo |
-| `Cmd/Ctrl + Shift + Z` | Redo |
+| `Cmd/Ctrl + Shift + Z` or `Cmd/Ctrl + Y` | Redo |
 | `Cmd/Ctrl + Delete/Backspace` | Delete selected nodes |
+| `Cmd/Ctrl + A` | Select all visible items |
 
 ## Selection
 

@@ -47,22 +47,26 @@ markdown_extensions:
       permalink: true
 
 nav:
-  - Home:
-    - Overview: index.md
-    - Architecture: architecture/overview.md
-    - Database: architecture/database.md
-    - Caching: architecture/caching.md
+  - Home: index.md
   - Getting Started:
     - Installation: getting-started/installation.md
     - Quickstart: guides/quickstart.md
   - Guides:
     - Views: guides/views.md
-    - AI Notes: guides/ai-notes.md
+    - Detail Panel: guides/detail-panel.md
+    - Search: guides/search.md
     - Workspaces: guides/workspaces.md
+    - AI Notes: guides/ai-notes.md
+    - Import and Export: guides/import-export.md
   - Reference:
-    - Keyboard Shortcuts: reference/keyboard-shortcuts.md
     - Node Types: reference/node-types.md
+    - Keyboard Shortcuts: reference/keyboard-shortcuts.md
     - Interactions: reference/interactions.md
+    - Settings: reference/settings.md
     - Accessibility: reference/accessibility.md
+  - Architecture:
+    - Overview: architecture/overview.md
+    - Database: architecture/database.md
+    - Caching: architecture/caching.md
   - Contributing:
     - Development: contributing/development.md
