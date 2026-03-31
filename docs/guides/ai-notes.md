@@ -76,6 +76,18 @@ Create your own prompts in Settings:
 3. Add a name and prompt template
 4. Use `{{selection}}` as placeholder for selected text
 
+**Example prompts:**
+
+| Name | Template |
+|------|----------|
+| Translate to German | `Translate the following to German:\n\n{{selection}}` |
+| Meeting Notes | `Format this as meeting notes with attendees, decisions, and action items:\n\n{{selection}}` |
+| Code Review | `Review this code for bugs and improvements:\n\n{{selection}}` |
+| ELI5 | `Explain this like I'm five years old:\n\n{{selection}}` |
+| Extract Dates | `Extract all dates and deadlines mentioned:\n\n{{selection}}` |
+
+Custom prompts appear in the AI action menu alongside the preset actions.
+
 ### Workflow
 
 1. Select text in a note (or entire note if nothing selected)
