@@ -1,4 +1,4 @@
-.PHONY: dev install clean stop build dist install-mac reset-db
+.PHONY: dev install clean stop build dist install-mac reset-db docs
 
 # Start Electron app in dev mode
 dev:
@@ -42,3 +42,8 @@ reset-db:
 	@sleep 3
 	rm -f "$(HOME)/Library/Application Support/graph-core/graph.db"
 	@echo "Database deleted"
+
+# Serve documentation preview
+docs:
+	@if [ ! -d .venv ]; then python3 -m venv .venv && .venv/bin/pip install mkdocs mkdocs-material pymdown-extensions; fi
+	.venv/bin/mkdocs serve
