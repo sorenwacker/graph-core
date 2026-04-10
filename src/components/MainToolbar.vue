@@ -77,6 +77,7 @@ const props = defineProps({
   graphNotesPreviewLength: { type: Number, default: 200 },
   openDetailFullscreen: { type: Boolean, default: false },
   hoverPreviewEnabled: { type: Boolean, default: true },
+  inheritColors: { type: Boolean, default: true },
   snapshotMessage: { type: String, default: '' },
   showSnapshotList: { type: Boolean, default: false },
   availableSnapshots: { type: Array, default: () => [] },
@@ -111,6 +112,7 @@ const emit = defineEmits([
   'update:graphNotesPreviewLength',
   'update:openDetailFullscreen',
   'update:hoverPreviewEnabled',
+  'update:inheritColors',
   'update:aiEnabled',
   'update:aiProvider',
   'update:ollamaEndpoint',
@@ -222,6 +224,7 @@ const emit = defineEmits([
           :graph-notes-preview-length="graphNotesPreviewLength"
           :open-detail-fullscreen="openDetailFullscreen"
           :hover-preview-enabled="hoverPreviewEnabled"
+          :inherit-colors="inheritColors"
           :snapshot-message="snapshotMessage"
           :show-snapshot-list="showSnapshotList"
           :available-snapshots="availableSnapshots"
@@ -242,6 +245,7 @@ const emit = defineEmits([
           @update:graph-notes-preview-length="emit('update:graphNotesPreviewLength', $event)"
           @update:open-detail-fullscreen="emit('update:openDetailFullscreen', $event)"
           @update:hover-preview-enabled="emit('update:hoverPreviewEnabled', $event)"
+          @update:inherit-colors="emit('update:inheritColors', $event)"
           @update:ai-enabled="emit('update:aiEnabled', $event)"
           @update:ai-provider="emit('update:aiProvider', $event)"
           @update:ollama-endpoint="emit('update:ollamaEndpoint', $event)"

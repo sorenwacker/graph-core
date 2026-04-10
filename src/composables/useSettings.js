@@ -78,6 +78,7 @@ export function useSettings() {
     // Detail panel settings
     openDetailFullscreen: persistedRef('graphcore-openDetailFullscreen', false, { type: 'boolean' }),
     hoverPreviewEnabled: persistedRef('graphcore-hoverPreview', true, { type: 'boolean' }),
+    inheritColors: persistedRef('graphcore-inheritColors', true, { type: 'boolean' }),
 
     // Sidebar settings
     sidebarPinned: persistedRef('graphcore-sidebarPinned', false, { type: 'boolean' }),

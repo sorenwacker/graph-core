@@ -98,20 +98,23 @@ export function filterByType(nodeList, types) {
  * @param {Array} nodeList - Array of nodes to process
  * @param {string|null} inheritedColor - Color inherited from parent
  * @param {Object} colorMap - Map accumulator (used internally)
+ * @param {boolean} shouldInherit - Whether to inherit colors from parents (default true)
  * @returns {Object} Map of nodeId -> effective color
  */
-export function buildInheritedColorMap(nodeList, inheritedColor = null, colorMap = {}) {
+export function buildInheritedColorMap(nodeList, inheritedColor = null, colorMap = {}, shouldInherit = true) {
   if (!nodeList) return colorMap
   for (const node of nodeList) {
     if (!node || !node.id) continue
-    // Node's effective color: own color if set, otherwise inherited
+    // Node's effective color: own color if set, otherwise inherited (if enabled)
     const hasOwnColor = node.color && node.color !== '#0f4c75'
-    const effectiveColor = hasOwnColor ? node.color : inheritedColor
+    const effectiveColor = shouldInherit
+      ? (hasOwnColor ? node.color : inheritedColor)
+      : (hasOwnColor ? node.color : null)
     colorMap[node.id] = effectiveColor
 
-    // Pass effective color to children
+    // Pass effective color to children (only if inheritance is enabled)
     if (node.children?.length) {
-      buildInheritedColorMap(node.children, effectiveColor, colorMap)
+      buildInheritedColorMap(node.children, shouldInherit ? effectiveColor : null, colorMap, shouldInherit)
     }
   }
   return colorMap

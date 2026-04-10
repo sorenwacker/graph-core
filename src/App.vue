@@ -57,6 +57,7 @@ const {
   graphNotesPreviewLength,
   openDetailFullscreen,
   hoverPreviewEnabled,
+  inheritColors,
   sidebarPinned,
   // AI settings
   aiProvider,
@@ -201,7 +202,8 @@ const {
   containerWidth,
   containerHeight,
   breadcrumbs,
-  currentContainer
+  currentContainer,
+  inheritColors
 })
 
 // Snapshot/backup management (callbacks reference functions defined below via closure)
@@ -712,6 +714,7 @@ useAppLifecycle({
             v-model:graph-notes-preview-length="graphNotesPreviewLength"
             v-model:open-detail-fullscreen="openDetailFullscreen"
             v-model:hover-preview-enabled="hoverPreviewEnabled"
+            v-model:inherit-colors="inheritColors"
             v-model:ai-enabled="aiEnabled"
             v-model:ai-provider="aiProvider"
             v-model:ollama-endpoint="ollamaEndpoint"
@@ -792,6 +795,7 @@ useAppLifecycle({
             :graph-detail-threshold="graphDetailThreshold"
             :effective-graph-max-depth="effectiveGraphMaxDepth"
             :graph-notes-preview-length="graphNotesPreviewLength"
+            :inherit-colors="inheritColors"
             :fullscreen-detail="fullscreenDetail"
             :sort-alphabetically="sortAlphabetically"
             :workspace="currentWorkspace"

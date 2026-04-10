@@ -1,4 +1,5 @@
 import { computed } from 'vue'
+import { buildInheritedColorMap } from './useNodeFiltering.js'
 
 const DEFAULT_NODE_COLOR = '#0f4c75'
 
@@ -14,6 +15,7 @@ const DEFAULT_NODE_COLOR = '#0f4c75'
  * @param {Ref<number>} options.containerHeight - Container height in pixels
  * @param {Ref<Array>} options.breadcrumbs - Breadcrumb path for color inheritance
  * @param {Ref<Object>} options.currentContainer - Current container node
+ * @param {Ref<boolean>} options.inheritColors - Whether to inherit colors from parent nodes
  * @returns {Object} Layout computeds and functions
  */
 export function useCardsLayout({
@@ -23,7 +25,8 @@ export function useCardsLayout({
   containerWidth,
   containerHeight,
   breadcrumbs,
-  currentContainer
+  currentContainer,
+  inheritColors
 }) {
   /**
    * Recursively filter children, removing completed nodes when hideCompleted is true
@@ -113,39 +116,40 @@ export function useCardsLayout({
 
   /**
    * Build inherited color map for cards (parent color flows to children)
+   * Uses shared buildInheritedColorMap from useNodeFiltering
    */
   const inheritedColorMap = computed(() => {
-    const colorMap = {}
-    function buildMap(nodeList, inheritedColor = null) {
-      if (!nodeList) return
-      for (const node of nodeList) {
-        if (!node || !node.id) continue
-        const hasOwnColor = node.color && node.color !== DEFAULT_NODE_COLOR
-        const effectiveColor = hasOwnColor ? node.color : inheritedColor
-        colorMap[node.id] = effectiveColor
-        if (node.children?.length) {
-          buildMap(node.children, effectiveColor)
-        }
-      }
-    }
+    const shouldInherit = inheritColors?.value !== false
+
     // Find inherited color from ancestors (breadcrumbs)
     let ancestorColor = null
-    if (breadcrumbs?.value) {
+    if (shouldInherit && breadcrumbs?.value) {
       for (const ancestor of breadcrumbs.value) {
         if (ancestor && ancestor.color && ancestor.color !== DEFAULT_NODE_COLOR) {
           ancestorColor = ancestor.color
         }
       }
     }
-    // Start with container's own color, or inherited from ancestors
-    const containerColor = currentContainer?.value?.color && currentContainer.value.color !== DEFAULT_NODE_COLOR
+
+    // Container's own color, or inherited from ancestors
+    const containerHasOwnColor = currentContainer?.value?.color && currentContainer.value.color !== DEFAULT_NODE_COLOR
+    const containerColor = containerHasOwnColor
       ? currentContainer.value.color
-      : ancestorColor
-    // Add container itself to the map with its inherited color
+      : (shouldInherit ? ancestorColor : null)
+
+    // Build color map using shared function
+    const colorMap = buildInheritedColorMap(
+      children.value,
+      shouldInherit ? containerColor : null,
+      {},
+      shouldInherit
+    )
+
+    // Add container itself to the map
     if (currentContainer?.value?.id) {
       colorMap[currentContainer.value.id] = containerColor
     }
-    buildMap(children.value, containerColor)
+
     return colorMap
   })
 
