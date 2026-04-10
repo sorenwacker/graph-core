@@ -382,7 +382,13 @@ function handleCanvasClick(e) {
             <button class="child-add-btn" @click.stop="emit('add-child', child.id, $event)" title="Add child">+</button>
             <button class="child-delete-btn" @click.stop="emit('delete', child.id)" title="Delete">x</button>
           </div>
-          <div v-if="child.notes && !child.notes_sensitive" class="child-card-notes">{{ decodeHtml(child.notes) }}</div>
+          <CardNotes
+            v-if="child.notes && !child.notes_sensitive"
+            :notes="child.notes"
+            :sensitive="child.notes_sensitive"
+            size="child"
+            class="child-card-notes"
+          />
 
           <!-- Grandchildren -->
           <div v-if="child.children?.length" class="grandchild-list" @click.stop>
