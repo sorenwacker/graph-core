@@ -54,7 +54,8 @@ export function buildElements(options) {
     showRootNode = true,
     selectedIds = [],
     selectedId = null,
-    ancestorColor = null
+    ancestorColor = null,
+    inheritColors = true
   } = options
 
   // Filter out null entries from the start
@@ -86,11 +87,14 @@ export function buildElements(options) {
 
   // Build inherited color map - parent colors flow to children
   // Use parent's own color if set, otherwise use ancestor color from the app-level color map
-  const parentColor = parentNode?.color && parentNode.color !== '#0f4c75' ? parentNode.color : ancestorColor
-  const inheritedColorMap = buildInheritedColorMap(filteredList, parentColor)
+  const parentColor = inheritColors
+    ? (parentNode?.color && parentNode.color !== '#0f4c75' ? parentNode.color : ancestorColor)
+    : (parentNode?.color && parentNode.color !== '#0f4c75' ? parentNode.color : null)
+  const inheritedColorMap = buildInheritedColorMap(filteredList, parentColor, {}, inheritColors)
   // Also add parent to the map if included
   if (includeParent && parentNode) {
-    inheritedColorMap[parentNode.id] = parentColor
+    const parentOwnColor = parentNode.color && parentNode.color !== '#0f4c75' ? parentNode.color : null
+    inheritedColorMap[parentNode.id] = inheritColors ? parentColor : parentOwnColor
   }
 
   const elements = []

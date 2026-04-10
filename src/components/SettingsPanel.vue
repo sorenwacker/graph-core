@@ -22,6 +22,7 @@ const props = defineProps({
   graphNotesPreviewLength: { type: Number, default: 200 },
   openDetailFullscreen: { type: Boolean, required: true },
   hoverPreviewEnabled: { type: Boolean, required: true },
+  inheritColors: { type: Boolean, default: true },
   snapshotMessage: { type: String, default: '' },
   showSnapshotList: { type: Boolean, default: false },
   availableSnapshots: { type: Array, default: () => [] },
@@ -52,6 +53,7 @@ const emit = defineEmits([
   'update:graphNotesPreviewLength',
   'update:openDetailFullscreen',
   'update:hoverPreviewEnabled',
+  'update:inheritColors',
   // AI settings
   'update:aiEnabled',
   'update:aiProvider',
@@ -463,6 +465,17 @@ onMounted(() => {
               Hover preview
             </label>
             <span class="settings-hint">Show preview tooltip when hovering over nodes</span>
+          </div>
+          <div class="settings-item">
+            <label>
+              <input
+                type="checkbox"
+                :checked="inheritColors"
+                @change="emit('update:inheritColors', $event.target.checked)"
+              />
+              Inherit colors
+            </label>
+            <span class="settings-hint">Child nodes inherit colors from parent nodes</span>
           </div>
         </section>
 

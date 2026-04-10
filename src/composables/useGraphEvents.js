@@ -34,7 +34,6 @@ export function useGraphEvents(options = {}) {
     savePositions
   } = options
 
-  let lastBackgroundClickTime = 0
   let backgroundClickPending = false
   let dragStartPos = null
   let highlightedNode = null
@@ -45,8 +44,18 @@ export function useGraphEvents(options = {}) {
     const container = getContainer()
     if (!cy || !container) return
 
-    // Node tap handlers
+    // Node tap handlers - skip if click was on HTML label (DOM handlers will handle it)
     cy.on('tap', 'node', (e) => {
+      // Check if click was on an HTML label using screen coordinates
+      const clientX = e.originalEvent?.clientX
+      const clientY = e.originalEvent?.clientY
+      if (clientX !== undefined && clientY !== undefined) {
+        const elementAtPoint = document.elementFromPoint(clientX, clientY)
+        if (elementAtPoint?.closest?.('.node-html')) {
+          return // Let DOM events handle it
+        }
+      }
+
       const node = e.target.data('nodeData')
       if (!node) return
       const hasCmd = e.originalEvent.metaKey || e.originalEvent.ctrlKey
@@ -65,6 +74,16 @@ export function useGraphEvents(options = {}) {
     })
 
     cy.on('dbltap', 'node', (e) => {
+      // Check if click was on an HTML label using screen coordinates
+      const clientX = e.originalEvent?.clientX
+      const clientY = e.originalEvent?.clientY
+      if (clientX !== undefined && clientY !== undefined) {
+        const elementAtPoint = document.elementFromPoint(clientX, clientY)
+        if (elementAtPoint?.closest?.('.node-html')) {
+          return // Let DOM events handle it
+        }
+      }
+
       const node = e.target.data('nodeData')
       if (node) {
         hideEditModal()
@@ -72,35 +91,35 @@ export function useGraphEvents(options = {}) {
       }
     })
 
-    // Background tap
+    // Background tap - ignore if click was on HTML label (handled by DOM events)
     cy.on('tap', (e) => {
       if (e.target === cy) {
-        const now = Date.now()
-        const timeSinceLastClick = now - lastBackgroundClickTime
-        lastBackgroundClickTime = now
+        // Check if click was on an HTML label using screen coordinates
+        const clientX = e.originalEvent?.clientX
+        const clientY = e.originalEvent?.clientY
+        if (clientX !== undefined && clientY !== undefined) {
+          const elementAtPoint = document.elementFromPoint(clientX, clientY)
+          if (elementAtPoint?.closest?.('.node-html')) {
+            return // Let DOM event handlers deal with this
+          }
+        }
 
+        // Cmd/Ctrl+click on background: add new node
         if (e.originalEvent.metaKey || e.originalEvent.ctrlKey) {
           const pos = e.position
           showAddNodeModal(null, { x: pos.x, y: pos.y })
           return
         }
 
-        if (timeSinceLastClick < 350) {
-          backgroundClickPending = false
-          const pos = e.position
-          const parent = getParent()
-          const parentId = parent?.id || null
-          showAddNodeModal(parentId, { x: pos.x, y: pos.y })
-        } else {
-          backgroundClickPending = true
-          setTimeout(() => {
-            if (backgroundClickPending) {
-              backgroundClickPending = false
-              hideEditModal()
-              emit('select', null)
-            }
-          }, 350)
-        }
+        // Regular click on background: deselect after delay (to ignore if part of drag)
+        backgroundClickPending = true
+        setTimeout(() => {
+          if (backgroundClickPending) {
+            backgroundClickPending = false
+            hideEditModal()
+            emit('select', null)
+          }
+        }, 200)
       }
     })
 
@@ -169,7 +188,10 @@ export function useGraphEvents(options = {}) {
 
     cy.on('mouseout', 'node', () => { hideTooltip() })
 
-    // HTML label click handling
+    // HTML label click handling - delay to detect double-click
+    let htmlClickPending = null
+    let htmlClickTimer = null
+
     container.addEventListener('click', (e) => {
       const htmlLabel = e.target.closest('.node-html')
       if (!htmlLabel) return
@@ -185,19 +207,35 @@ export function useGraphEvents(options = {}) {
       e.preventDefault()
       e.stopPropagation()
 
+      // Immediate actions for modifier keys
       if (hasCmd && hasAlt) {
         emit('delete', nodeData.id)
+        return
       } else if (hasCmd) {
         const pos = cyNode.position()
         showAddNodeModal(nodeData.id, { x: pos.x + 50, y: pos.y + 80 })
+        return
       } else if (e.shiftKey) {
         emit('select-multiple', { node: nodeData, add: true })
-      } else {
-        emit('select', nodeData)
+        return
       }
+
+      // Delay regular select to check for double-click
+      if (htmlClickTimer) clearTimeout(htmlClickTimer)
+      htmlClickPending = nodeData
+      htmlClickTimer = setTimeout(() => {
+        if (htmlClickPending) {
+          emit('select', htmlClickPending)
+          htmlClickPending = null
+        }
+      }, 200)
     })
 
     container.addEventListener('dblclick', (e) => {
+      // Cancel pending click
+      if (htmlClickTimer) clearTimeout(htmlClickTimer)
+      htmlClickPending = null
+
       const htmlLabel = e.target.closest('.node-html')
       if (!htmlLabel) return
       const nodeId = htmlLabel.dataset.nodeId

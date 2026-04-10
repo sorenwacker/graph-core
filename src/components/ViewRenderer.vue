@@ -34,6 +34,7 @@ const props = defineProps({
   graphDetailThreshold: { type: Number, default: 50 },
   effectiveGraphMaxDepth: { type: Number, default: 3 },
   graphNotesPreviewLength: { type: Number, default: 200 },
+  inheritColors: { type: Boolean, default: true },
   fullscreenDetail: { type: Boolean, default: false },
   sortAlphabetically: { type: Boolean, default: false },
   workspace: { type: String, default: null },
@@ -191,6 +192,7 @@ defineExpose({
     :sort-alphabetically="sortAlphabetically"
     :notes-preview-length="graphNotesPreviewLength"
     :ancestor-color="colorMap[currentContainer?.id] || null"
+    :inherit-colors="inheritColors"
     @select="emit('select', $event)"
     @select-multiple="emit('select-multiple', $event)"
     @enter="emit('enter', $event)"
