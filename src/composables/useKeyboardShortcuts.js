@@ -231,6 +231,32 @@ export function useKeyboardShortcuts({ actions, state }) {
       }
       return
     }
+
+    // Arrow keys - list navigation in table/tree view (without modifiers)
+    if ((viewMode.value === 'tree' || viewMode.value === 'table') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      // Use flatChildren for table which includes expanded hierarchy
+      const nodes = flatChildren?.value || filteredChildren?.value || []
+      if (nodes.length === 0) return
+
+      const currentId = selectedNode.value?.id
+      const currentIndex = currentId ? nodes.findIndex(n => n.id === currentId) : -1
+
+      let nextIndex = currentIndex
+      if (e.key === 'ArrowUp') {
+        nextIndex = currentIndex > 0 ? currentIndex - 1 : currentIndex
+      } else if (e.key === 'ArrowDown') {
+        nextIndex = currentIndex < nodes.length - 1 ? currentIndex + 1 : currentIndex
+      }
+
+      if (nextIndex !== currentIndex && nextIndex >= 0) {
+        e.preventDefault()
+        const nextNode = nodes[nextIndex]
+        if (nextNode && actions.selectNode) {
+          actions.selectNode(nextNode)
+        }
+      }
+      return
+    }
   }
 
   function setup() {
