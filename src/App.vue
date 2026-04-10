@@ -614,7 +614,8 @@ const { handleKeydown } = useKeyboardShortcuts({
     goToNextSibling,
     toggleDetailPanel,
     clearSelection,
-    selectAll
+    selectAll,
+    selectNode
   },
   state: {
     viewMode,
@@ -624,7 +625,8 @@ const { handleKeydown } = useKeyboardShortcuts({
     fullscreenDetail,
     detailPinned,
     showDetail,
-    flatChildren
+    flatChildren,
+    filteredChildren
   }
 })
 

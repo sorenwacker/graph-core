@@ -28,7 +28,10 @@ export function useKeyboardShortcuts({ actions, state }) {
     selectedIds,
     currentContainerId,
     fullscreenDetail,
-    detailPinned
+    detailPinned,
+    showDetail,
+    flatChildren,
+    filteredChildren
   } = state
 
   function isEditableElement(target) {
@@ -141,6 +144,32 @@ export function useKeyboardShortcuts({ actions, state }) {
     if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
       e.preventDefault()
       selectAll()
+      return
+    }
+
+    // Tab / Shift+Tab - select next/previous visible node (when not in detail panel)
+    if (e.key === 'Tab' && !showDetail?.value) {
+      // Use filteredChildren (respects hideCompleted) for visible top-level nodes
+      const nodes = filteredChildren?.value || []
+      if (nodes.length === 0) return
+
+      e.preventDefault()
+      const currentId = selectedNode.value?.id
+      const currentIndex = currentId ? nodes.findIndex(n => n.id === currentId) : -1
+
+      let nextIndex
+      if (e.shiftKey) {
+        // Shift+Tab - previous node
+        nextIndex = currentIndex <= 0 ? nodes.length - 1 : currentIndex - 1
+      } else {
+        // Tab - next node
+        nextIndex = currentIndex >= nodes.length - 1 ? 0 : currentIndex + 1
+      }
+
+      const nextNode = nodes[nextIndex]
+      if (nextNode && actions.selectNode) {
+        actions.selectNode(nextNode)
+      }
       return
     }
   }
