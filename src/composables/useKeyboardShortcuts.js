@@ -41,6 +41,15 @@ export function useKeyboardShortcuts({ actions, state }) {
            target.isContentEditable
   }
 
+  function isTextInput(target) {
+    if (target.tagName === 'TEXTAREA' || target.isContentEditable) return true
+    if (target.tagName === 'INPUT') {
+      const type = target.type?.toLowerCase()
+      return !['checkbox', 'radio', 'button', 'submit', 'reset'].includes(type)
+    }
+    return false
+  }
+
   function handleKeydown(e) {
     // Cmd/Ctrl+K - open spotlight search (works anywhere)
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -75,6 +84,14 @@ export function useKeyboardShortcuts({ actions, state }) {
         showAddNodeModal(parentId)
         return
       }
+    }
+
+    // Enter - toggle detail panel (works in table view even when checkbox is focused)
+    // Only block if in a text input where user might be typing
+    if (e.key === 'Enter' && !isTextInput(e.target)) {
+      e.preventDefault()
+      toggleDetailPanel()
+      return
     }
 
     // Don't trigger other shortcuts if typing in an editable element
@@ -122,13 +139,6 @@ export function useKeyboardShortcuts({ actions, state }) {
       } else if (!detailPinned.value) {
         clearSelection()
       }
-      return
-    }
-
-    // Enter - toggle detail panel
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      toggleDetailPanel()
       return
     }
 

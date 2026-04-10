@@ -192,6 +192,7 @@ export function useSelection({
 
   /**
    * Toggle detail panel visibility (for Enter key shortcut)
+   * Opens in fullscreen if the node has no children
    */
   function toggleDetailPanel() {
     if (showDetail?.value) {
@@ -199,6 +200,11 @@ export function useSelection({
       if (fullscreenDetail) fullscreenDetail.value = false
     } else if (selectedNode.value) {
       showDetail.value = true
+      // Open fullscreen if node has no children
+      const hasChildren = selectedNode.value.children?.length > 0
+      if (!hasChildren && fullscreenDetail) {
+        fullscreenDetail.value = true
+      }
     }
   }
 
