@@ -141,6 +141,10 @@ export function useCardsLayout({
     const containerColor = currentContainer?.value?.color && currentContainer.value.color !== DEFAULT_NODE_COLOR
       ? currentContainer.value.color
       : ancestorColor
+    // Add container itself to the map with its inherited color
+    if (currentContainer?.value?.id) {
+      colorMap[currentContainer.value.id] = containerColor
+    }
     buildMap(children.value, containerColor)
     return colorMap
   })

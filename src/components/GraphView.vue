@@ -74,7 +74,8 @@ const props = defineProps({
   fullscreenDetailOpen: { type: Boolean, default: false },
   hoverPreviewEnabled: { type: Boolean, default: true },
   sortAlphabetically: { type: Boolean, default: false },
-  notesPreviewLength: { type: Number, default: 200 }
+  notesPreviewLength: { type: Number, default: 200 },
+  ancestorColor: { type: String, default: null }
 })
 
 const emit = defineEmits(['select', 'select-multiple', 'enter', 'move', 'add-child', 'insert-between', 'update', 'create', 'delete', 'delete-multiple', 'wrap-with-parent', 'open-fullscreen', 'link', 'unlink', 'context-menu', 'toggle-complete', 'toggle-favorite', 'open-link-search', 'go-parent', 'go-first-child', 'go-prev-sibling', 'go-next-sibling'])
@@ -218,7 +219,7 @@ async function initGraph() {
   if (!container.value) return
   isInitializing = true
   const savedPos = _loadPos()
-  const elements = buildElements({ nodeList: props.nodes, parentNode: props.parent, savedPositions: savedPos, detailThreshold: props.detailThreshold, maxDepth: maxDepth.value, hideCompleted: props.hideCompleted, hideSensitive: props.hideSensitive, sortAlphabetically: props.sortAlphabetically, visibleTypes: visibleTypes.value, showRootNode: showRootNode.value, selectedIds: props.selectedIds, selectedId: props.selectedId })
+  const elements = buildElements({ nodeList: props.nodes, parentNode: props.parent, savedPositions: savedPos, detailThreshold: props.detailThreshold, maxDepth: maxDepth.value, hideCompleted: props.hideCompleted, hideSensitive: props.hideSensitive, sortAlphabetically: props.sortAlphabetically, visibleTypes: visibleTypes.value, showRootNode: showRootNode.value, selectedIds: props.selectedIds, selectedId: props.selectedId, ancestorColor: props.ancestorColor })
 
   if (showExternalLinks.value) {
     try {
@@ -264,7 +265,7 @@ async function updateGraph() {
   const existingIds = new Set()
   cy.nodes().forEach(n => { existingIds.add(n.id()); const p = n.position(); if (p.x !== 0 || p.y !== 0) savedPos[n.id()] = { x: p.x, y: p.y } })
 
-  const elements = buildElements({ nodeList: props.nodes, parentNode: props.parent, savedPositions: savedPos, detailThreshold: props.detailThreshold, maxDepth: maxDepth.value, hideCompleted: props.hideCompleted, hideSensitive: props.hideSensitive, sortAlphabetically: props.sortAlphabetically, visibleTypes: visibleTypes.value, showRootNode: showRootNode.value, selectedIds: props.selectedIds, selectedId: props.selectedId })
+  const elements = buildElements({ nodeList: props.nodes, parentNode: props.parent, savedPositions: savedPos, detailThreshold: props.detailThreshold, maxDepth: maxDepth.value, hideCompleted: props.hideCompleted, hideSensitive: props.hideSensitive, sortAlphabetically: props.sortAlphabetically, visibleTypes: visibleTypes.value, showRootNode: showRootNode.value, selectedIds: props.selectedIds, selectedId: props.selectedId, ancestorColor: props.ancestorColor })
 
   if (showExternalLinks.value) {
     try {
@@ -313,6 +314,7 @@ watch(() => props.nodes, debouncedUpdateGraph, { deep: true })
 watch(() => props.parent, debouncedUpdateGraph, { deep: true })
 watch(() => props.detailThreshold, debouncedUpdateGraph)
 watch(() => props.notesPreviewLength, debouncedUpdateGraph)
+watch(() => props.ancestorColor, debouncedUpdateGraph)
 watch(() => props.workspace, () => { if (cy) { cy.destroy(); cy = null }; initGraph() })
 watch(() => props.maxDepth, (v) => { maxDepth.value = props.parent?.graph_max_depth ?? v })
 watch(maxDepth, updateGraph)
