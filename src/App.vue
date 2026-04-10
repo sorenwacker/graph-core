@@ -325,6 +325,7 @@ const {
   fullscreenDetail,
   openDetailFullscreen,
   flatChildren,
+  currentContainer,
   getNode: (nodeId) => api.getNode(nodeId),
   onError: handleError
 })

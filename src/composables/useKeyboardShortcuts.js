@@ -87,10 +87,11 @@ export function useKeyboardShortcuts({ actions, state }) {
     }
 
     // Enter - toggle detail panel (works in table view even when checkbox is focused)
+    // Shift+Enter opens in detached mode (side panel, no auto-fullscreen)
     // Only block if in a text input where user might be typing
     if (e.key === 'Enter' && !isTextInput(e.target)) {
       e.preventDefault()
-      toggleDetailPanel()
+      toggleDetailPanel({ detached: e.shiftKey })
       return
     }
 

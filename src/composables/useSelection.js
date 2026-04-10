@@ -10,6 +10,7 @@ import { NARROW_WINDOW_THRESHOLD } from '../utils/uiConstants.js'
  * @param {Ref<boolean>} options.fullscreenDetail - Ref controlling fullscreen detail mode
  * @param {Ref<boolean>} options.openDetailFullscreen - Ref for fullscreen preference setting
  * @param {ComputedRef<Array>} options.flatChildren - Computed ref of flattened children for range selection
+ * @param {Ref<Object>} options.currentContainer - Ref to current container node (for Enter when nothing selected)
  * @param {Function} options.getNode - Function to fetch a node by ID (optional, for selectChildById)
  * @param {Function} options.onError - Error handler function (optional)
  * @returns {Object} Selection state and functions
@@ -19,6 +20,7 @@ export function useSelection({
   fullscreenDetail,
   openDetailFullscreen,
   flatChildren,
+  currentContainer,
   getNode,
   onError
 } = {}) {
@@ -192,18 +194,32 @@ export function useSelection({
 
   /**
    * Toggle detail panel visibility (for Enter key shortcut)
-   * Opens in fullscreen if the node has no children
+   * Opens in fullscreen if the node has no children (unless detached mode)
+   * @param {Object} options - Options
+   * @param {boolean} options.detached - If true, open in side panel (non-fullscreen)
    */
-  function toggleDetailPanel() {
+  function toggleDetailPanel(options = {}) {
+    const { detached = false } = options
+
     if (showDetail?.value) {
       showDetail.value = false
       if (fullscreenDetail) fullscreenDetail.value = false
-    } else if (selectedNode.value) {
-      showDetail.value = true
-      // Open fullscreen if node has no children
-      const hasChildren = selectedNode.value.children?.length > 0
-      if (!hasChildren && fullscreenDetail) {
-        fullscreenDetail.value = true
+    } else {
+      // If nothing selected, select the current container
+      const nodeToShow = selectedNode.value || currentContainer?.value
+      if (nodeToShow) {
+        if (!selectedNode.value) {
+          selectedNode.value = nodeToShow
+          selectedIds.value = new Set([nodeToShow.id])
+        }
+        showDetail.value = true
+        // Open fullscreen if node has no children (unless detached mode)
+        if (!detached && fullscreenDetail) {
+          const hasChildren = nodeToShow.children?.length > 0
+          if (!hasChildren) {
+            fullscreenDetail.value = true
+          }
+        }
       }
     }
   }
