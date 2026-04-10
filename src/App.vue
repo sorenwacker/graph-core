@@ -194,6 +194,7 @@ const {
   flatChildren,
   cardSizeClass,
   cardsGridStyle,
+  gridColumns,
   inheritedColorMap
 } = useCardsLayout({
   children,
@@ -628,7 +629,8 @@ const { handleKeydown } = useKeyboardShortcuts({
     detailPinned,
     showDetail,
     flatChildren,
-    filteredChildren
+    filteredChildren,
+    gridColumns
   }
 })
 

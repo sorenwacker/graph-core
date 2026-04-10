@@ -75,18 +75,11 @@ export function useCardsLayout({
   })
 
   /**
-   * Compute optimal grid layout for cards
-   * Tries to make cards as square as possible
+   * Calculate optimal number of columns for the grid
    */
-  const cardsGridStyle = computed(() => {
-    const count = filteredChildren.value.length
-    if (count === 0) return {}
-
-    const w = containerWidth.value
-    const h = containerHeight.value
+  function calculateGridColumns(count, w, h) {
+    if (count === 0) return 1
     const gap = 10
-
-    // Find optimal columns by minimizing difference from square cards
     let bestCols = 1
     let bestScore = Infinity
 
@@ -94,20 +87,42 @@ export function useCardsLayout({
       const rows = Math.ceil(count / cols)
       const cardWidth = (w - gap * (cols - 1)) / cols
       const cardHeight = (h - gap * (rows - 1)) / rows
-      // Score: how far from square (1:1 ratio). Lower is better.
       const ratio = cardWidth / cardHeight
-      const score = Math.abs(Math.log(ratio)) // log(1) = 0 for perfect square
+      const score = Math.abs(Math.log(ratio))
       if (score < bestScore) {
         bestScore = score
         bestCols = cols
       }
     }
+    return bestCols
+  }
 
-    const rows = Math.ceil(count / bestCols)
+  /**
+   * Number of columns in the current grid layout
+   */
+  const gridColumns = computed(() => {
+    return calculateGridColumns(
+      filteredChildren.value.length,
+      containerWidth.value,
+      containerHeight.value
+    )
+  })
+
+  /**
+   * Compute optimal grid layout for cards
+   * Tries to make cards as square as possible
+   */
+  const cardsGridStyle = computed(() => {
+    const count = filteredChildren.value.length
+    if (count === 0) return {}
+
+    const cols = gridColumns.value
+    const rows = Math.ceil(count / cols)
+    const gap = 10
 
     return {
       display: 'grid',
-      gridTemplateColumns: `repeat(${bestCols}, 1fr)`,
+      gridTemplateColumns: `repeat(${cols}, 1fr)`,
       gridTemplateRows: `repeat(${rows}, 1fr)`,
       gap: `${gap}px`,
       height: '100%'
@@ -186,6 +201,7 @@ export function useCardsLayout({
     flatChildren,
     cardSizeClass,
     cardsGridStyle,
+    gridColumns,
     filterChildrenRecursive,
     inheritedColorMap,
     getNodeColor

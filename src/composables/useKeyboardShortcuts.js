@@ -32,7 +32,8 @@ export function useKeyboardShortcuts({ actions, state }) {
     detailPinned,
     showDetail,
     flatChildren,
-    filteredChildren
+    filteredChildren,
+    gridColumns
   } = state
 
   function isEditableElement(target) {
@@ -189,6 +190,36 @@ export function useKeyboardShortcuts({ actions, state }) {
       const nextNode = nodes[nextIndex]
       if (nextNode && actions.selectNode) {
         actions.selectNode(nextNode)
+      }
+      return
+    }
+
+    // Arrow keys - grid navigation in cards view (without modifiers)
+    if (viewMode.value === 'cards' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      const nodes = filteredChildren?.value || []
+      if (nodes.length === 0) return
+
+      const currentId = selectedNode.value?.id
+      const currentIndex = currentId ? nodes.findIndex(n => n.id === currentId) : -1
+      const cols = gridColumns?.value || 1
+
+      let nextIndex = currentIndex
+      if (e.key === 'ArrowLeft') {
+        nextIndex = currentIndex > 0 ? currentIndex - 1 : currentIndex
+      } else if (e.key === 'ArrowRight') {
+        nextIndex = currentIndex < nodes.length - 1 ? currentIndex + 1 : currentIndex
+      } else if (e.key === 'ArrowUp') {
+        nextIndex = currentIndex >= cols ? currentIndex - cols : currentIndex
+      } else if (e.key === 'ArrowDown') {
+        nextIndex = currentIndex + cols < nodes.length ? currentIndex + cols : currentIndex
+      }
+
+      if (nextIndex !== currentIndex && nextIndex >= 0) {
+        e.preventDefault()
+        const nextNode = nodes[nextIndex]
+        if (nextNode && actions.selectNode) {
+          actions.selectNode(nextNode)
+        }
       }
       return
     }
