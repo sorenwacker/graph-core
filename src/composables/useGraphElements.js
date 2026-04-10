@@ -12,32 +12,6 @@ import {
 } from './useNodeFiltering.js'
 
 /**
- * Strip markdown syntax and clean up text for display.
- * @param {string} text - Markdown text to clean
- * @param {number} maxLen - Maximum length
- * @returns {string} Cleaned text
- */
-export function cleanMarkdown(text, maxLen = 150) {
-  if (!text) return ''
-  let result = text.substring(0, maxLen)
-  if (text.length > maxLen) result += '...'
-
-  // Remove markdown syntax
-  result = result.replace(/\*\*(.+?)\*\*/g, '$1')  // **bold**
-  result = result.replace(/\*(.+?)\*/g, '$1')      // *italic*
-  result = result.replace(/_(.+?)_/g, '$1')        // _italic_
-  result = result.replace(/`(.+?)`/g, '$1')        // `code`
-  result = result.replace(/^#+\s*/gm, '')          // # headers
-  result = result.replace(/^[-*]\s+/gm, '- ')      // bullet points
-  result = result.replace(/\[(.+?)\]\(.+?\)/g, '$1') // links
-
-  // Decode HTML entities for plain text display
-  result = decodeHtmlEntities(result)
-
-  return result.trim()
-}
-
-/**
  * Darken a hex color by reducing RGB values.
  * @param {string} hex - Hex color string
  * @returns {string} Darkened hex color
@@ -47,28 +21,6 @@ export function darkenColor(hex) {
   const g = Math.max(0, parseInt(hex.slice(3, 5), 16) - 30)
   const b = Math.max(0, parseInt(hex.slice(5, 7), 16) - 30)
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
-}
-
-/**
- * Format a date string compactly for display.
- * @param {string} dateStr - Date string to format
- * @returns {string} Formatted date
- */
-export function formatDate(dateStr) {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diff = Math.floor((date - now) / (1000 * 60 * 60 * 24))
-
-  const month = date.toLocaleString('en', { month: 'short' })
-  const day = date.getDate()
-
-  if (diff < -1) return `${Math.abs(diff)}d ago`
-  if (diff === -1) return 'Yesterday'
-  if (diff === 0) return 'Today'
-  if (diff === 1) return 'Tomorrow'
-  if (diff <= 7) return `in ${diff}d`
-  return `${month} ${day}`
 }
 
 /**
@@ -157,33 +109,8 @@ export function buildElements(options) {
     const hasChildren = node.children?.length > 0
     const isCompleted = node.completed
 
-    // Build clean label - title only when many nodes, add meta for fewer nodes
-    let label = decodeHtmlEntities(node.title)
-
-    // Only show meta and notes when not too crowded
-    if (totalNodes <= detailThreshold) {
-      // Compact meta line - only due date and importance
-      const meta = []
-      if (node.due_date) meta.push(formatDate(node.due_date))
-      if (node.importance) meta.push(`P${node.importance}`)
-
-      if (meta.length > 0) {
-        label += '\n' + meta.join(' . ')
-      }
-
-      // Notes preview (adaptive) - cleaner separator
-      const isSensitive = node.notes_sensitive || hideSensitive
-      if (isSensitive && node.notes) {
-        label += '\n\n'
-      } else if (totalNodes <= 5 && node.notes) {
-        label += '\n\n' + cleanMarkdown(node.notes, 200)
-      } else if (totalNodes <= 10 && node.notes) {
-        label += '\n\n' + cleanMarkdown(node.notes, 80)
-      } else if (totalNodes <= 15 && node.notes) {
-        const preview = cleanMarkdown(node.notes, 30)
-        if (preview) label += '\n' + preview
-      }
-    }
+    // Label is just the title - HTML rendering handles the rest
+    const label = decodeHtmlEntities(node.title)
 
     // Build tooltip HTML using shared utility
     const tooltip = buildTooltipHTML(node, {
@@ -443,8 +370,6 @@ export function useGraphElements(options = {}) {
     buildElements: (buildOptions) => buildElements({ ...options, ...buildOptions }),
     addLinkEdges,
     fetchLinkedNodes: (fetchOptions) => fetchLinkedNodes({ ...options, ...fetchOptions }),
-    cleanMarkdown,
-    darkenColor,
-    formatDate
+    darkenColor
   }
 }

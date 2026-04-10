@@ -74,6 +74,7 @@ const props = defineProps({
   graphDetailThreshold: { type: Number, default: 0 },
   graphMaxDepth: { type: Number, default: 0 },
   graphRootMaxDepth: { type: Number, default: 1 },
+  graphNotesPreviewLength: { type: Number, default: 200 },
   openDetailFullscreen: { type: Boolean, default: false },
   hoverPreviewEnabled: { type: Boolean, default: true },
   snapshotMessage: { type: String, default: '' },
@@ -107,6 +108,7 @@ const emit = defineEmits([
   'update:graphDetailThreshold',
   'update:graphMaxDepth',
   'update:graphRootMaxDepth',
+  'update:graphNotesPreviewLength',
   'update:openDetailFullscreen',
   'update:hoverPreviewEnabled',
   'update:aiEnabled',
@@ -217,6 +219,7 @@ const emit = defineEmits([
           :graph-detail-threshold="graphDetailThreshold"
           :graph-max-depth="graphMaxDepth"
           :graph-root-max-depth="graphRootMaxDepth"
+          :graph-notes-preview-length="graphNotesPreviewLength"
           :open-detail-fullscreen="openDetailFullscreen"
           :hover-preview-enabled="hoverPreviewEnabled"
           :snapshot-message="snapshotMessage"
@@ -236,6 +239,7 @@ const emit = defineEmits([
           @update:graph-detail-threshold="emit('update:graphDetailThreshold', $event)"
           @update:graph-max-depth="emit('update:graphMaxDepth', $event)"
           @update:graph-root-max-depth="emit('update:graphRootMaxDepth', $event)"
+          @update:graph-notes-preview-length="emit('update:graphNotesPreviewLength', $event)"
           @update:open-detail-fullscreen="emit('update:openDetailFullscreen', $event)"
           @update:hover-preview-enabled="emit('update:hoverPreviewEnabled', $event)"
           @update:ai-enabled="emit('update:aiEnabled', $event)"

@@ -49,5 +49,6 @@ export const STORAGE_KEYS = {
   GRAPH_RADIAL_GRAVITY: 'graph-radial-gravity',
   GRAPH_RADIAL_GRAVITY_RANGE: 'graph-radial-gravity-range',
   GRAPH_RADIAL_NESTING: 'graph-radial-nesting',
-  GRAPH_RADIAL_ITERATIONS: 'graph-radial-iterations'
+  GRAPH_RADIAL_ITERATIONS: 'graph-radial-iterations',
+  GRAPH_NOTES_PREVIEW_LENGTH: 'graph-notes-preview-length'
 }

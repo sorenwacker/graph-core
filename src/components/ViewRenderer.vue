@@ -33,6 +33,7 @@ const props = defineProps({
   // Graph-specific
   graphDetailThreshold: { type: Number, default: 50 },
   effectiveGraphMaxDepth: { type: Number, default: 3 },
+  graphNotesPreviewLength: { type: Number, default: 200 },
   fullscreenDetail: { type: Boolean, default: false },
   sortAlphabetically: { type: Boolean, default: false },
   workspace: { type: String, default: null },
@@ -188,6 +189,7 @@ defineExpose({
     :fullscreen-detail-open="fullscreenDetail"
     :hover-preview-enabled="hoverPreviewEnabled"
     :sort-alphabetically="sortAlphabetically"
+    :notes-preview-length="graphNotesPreviewLength"
     @select="emit('select', $event)"
     @select-multiple="emit('select-multiple', $event)"
     @enter="emit('enter', $event)"

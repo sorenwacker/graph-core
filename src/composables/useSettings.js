@@ -73,6 +73,7 @@ export function useSettings() {
     graphDetailThreshold: persistedRef('graphcore-graphDetailThreshold', 0, { type: 'number' }),
     graphMaxDepth: persistedRef('graphcore-graphMaxDepth', 0, { type: 'number' }),
     graphRootMaxDepth: persistedRef('graphcore-graphRootMaxDepth', 1, { type: 'number' }),
+    graphNotesPreviewLength: persistedRef('graphcore-graphNotesPreviewLength', 200, { type: 'number' }),
 
     // Detail panel settings
     openDetailFullscreen: persistedRef('graphcore-openDetailFullscreen', false, { type: 'boolean' }),

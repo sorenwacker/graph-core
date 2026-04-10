@@ -19,6 +19,7 @@ const props = defineProps({
   graphDetailThreshold: { type: Number, required: true },
   graphMaxDepth: { type: Number, required: true },
   graphRootMaxDepth: { type: Number, required: true },
+  graphNotesPreviewLength: { type: Number, default: 200 },
   openDetailFullscreen: { type: Boolean, required: true },
   hoverPreviewEnabled: { type: Boolean, required: true },
   snapshotMessage: { type: String, default: '' },
@@ -48,6 +49,7 @@ const emit = defineEmits([
   'update:graphDetailThreshold',
   'update:graphMaxDepth',
   'update:graphRootMaxDepth',
+  'update:graphNotesPreviewLength',
   'update:openDetailFullscreen',
   'update:hoverPreviewEnabled',
   // AI settings
@@ -382,6 +384,19 @@ onMounted(() => {
               @input="emit('update:graphRootMaxDepth', Number($event.target.value))"
             />
             <span class="settings-hint">{{ graphRootMaxDepth === 0 ? 'Show all levels at root' : `Show ${graphRootMaxDepth} levels at root` }}</span>
+          </div>
+          <div class="settings-item">
+            <label>Notes preview <span class="slider-value">{{ graphNotesPreviewLength }}</span></label>
+            <input
+              type="range"
+              :value="graphNotesPreviewLength"
+              min="50"
+              max="500"
+              step="10"
+              class="settings-slider"
+              @input="emit('update:graphNotesPreviewLength', Number($event.target.value))"
+            />
+            <span class="settings-hint">Max characters shown in node notes preview</span>
           </div>
         </section>
 
