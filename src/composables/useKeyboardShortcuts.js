@@ -97,9 +97,12 @@ export function useKeyboardShortcuts({ actions, state }) {
     }
 
     // Enter - navigate into selected node (view subgraph)
+    // Shift+Enter - navigate to parent
     if (e.key === 'Enter' && !isTextInput(e.target)) {
       e.preventDefault()
-      if (selectedNode.value && enterContainer) {
+      if (e.shiftKey) {
+        goToParent()
+      } else if (selectedNode.value && enterContainer) {
         enterContainer(selectedNode.value)
       }
       return

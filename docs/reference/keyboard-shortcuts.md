@@ -40,6 +40,7 @@ Complete keyboard shortcut reference for Graph Core.
 | `Space` | Open/close detail panel (fullscreen if no children) |
 | `Shift + Space` | Open detail in side panel (no auto-fullscreen) |
 | `Enter` | Navigate into node (view subgraph) |
+| `Shift + Enter` | Navigate to parent |
 | `Shift + Click` | Range select (like Finder) |
 | `Shift + Drag` | Lasso/box select (Graph view) |
 | `Cmd/Ctrl + A` | Select all visible items |
