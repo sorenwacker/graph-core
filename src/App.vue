@@ -617,7 +617,7 @@ const { handleKeydown } = useKeyboardShortcuts({
     clearSelection,
     selectAll,
     selectNode,
-    navigateToNode
+    enterContainer
   },
   state: {
     viewMode,
