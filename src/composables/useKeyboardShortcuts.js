@@ -178,8 +178,10 @@ export function useKeyboardShortcuts({ actions, state }) {
 
     // Tab / Shift+Tab - select next/previous visible node (when not in detail panel)
     if (e.key === 'Tab' && !showDetail?.value) {
-      // Use filteredChildren (respects hideCompleted) for visible top-level nodes
-      const nodes = filteredChildren?.value || []
+      // Use flatChildren for graph view (all nodes in subgraph), filteredChildren for other views
+      const nodes = viewMode.value === 'nodes'
+        ? (flatChildren?.value || [])
+        : (filteredChildren?.value || [])
       if (nodes.length === 0) return
 
       e.preventDefault()
