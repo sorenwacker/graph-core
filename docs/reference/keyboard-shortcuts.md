@@ -7,13 +7,14 @@ Complete keyboard shortcut reference for Graph Core.
 | Shortcut | Action |
 |----------|--------|
 | `Cmd/Ctrl + K` | Open spotlight search |
-| `Cmd/Ctrl + Up` | Go to parent node |
-| `Cmd/Ctrl + Down` | Go to first child |
+| `Cmd/Ctrl + Up` | Go to parent container |
+| `Cmd/Ctrl + Down` | Go into first child |
 | `Cmd/Ctrl + Left` | Go to previous sibling |
 | `Cmd/Ctrl + Right` | Go to next sibling |
-| `Enter` | Toggle detail panel |
-| `Escape` | Close detail panel / Clear selection |
+| `Tab` | Select next visible node |
+| `Shift + Tab` | Select previous visible node |
 | `Double-click` | Enter node (view subgraph) |
+| `Escape` | Close detail panel / Clear selection |
 
 ## Node Operations
 
@@ -33,7 +34,11 @@ Complete keyboard shortcut reference for Graph Core.
 | Shortcut | Action |
 |----------|--------|
 | `Click` | Select node |
-| `Shift + Click` | Multi-select (toggle) |
+| `Tab` | Select next visible node |
+| `Shift + Tab` | Select previous visible node |
+| `Enter` | Open/close detail panel |
+| `Shift + Click` | Range select (like Finder) |
+| `Cmd/Ctrl + Click` | Toggle selection (add/remove) |
 | `Shift + Drag` | Lasso/box select (Graph view) |
 | `Cmd/Ctrl + A` | Select all visible items |
 
