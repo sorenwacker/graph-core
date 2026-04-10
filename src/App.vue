@@ -616,7 +616,8 @@ const { handleKeydown } = useKeyboardShortcuts({
     toggleDetailPanel,
     clearSelection,
     selectAll,
-    selectNode
+    selectNode,
+    navigateToNode
   },
   state: {
     viewMode,

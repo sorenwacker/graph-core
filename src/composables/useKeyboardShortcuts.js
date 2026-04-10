@@ -19,7 +19,8 @@ export function useKeyboardShortcuts({ actions, state }) {
     goToNextSibling,
     toggleDetailPanel,
     clearSelection,
-    selectAll
+    selectAll,
+    navigateToNode
   } = actions
 
   const {
@@ -86,12 +87,20 @@ export function useKeyboardShortcuts({ actions, state }) {
       }
     }
 
-    // Enter - toggle detail panel (works in table view even when checkbox is focused)
-    // Shift+Enter opens in detached mode (side panel, no auto-fullscreen)
-    // Only block if in a text input where user might be typing
-    if (e.key === 'Enter' && !isTextInput(e.target)) {
+    // Space - toggle detail panel (works in table view even when checkbox is focused)
+    // Shift+Space opens in detached mode (side panel, no auto-fullscreen)
+    if (e.key === ' ' && !isTextInput(e.target)) {
       e.preventDefault()
       toggleDetailPanel({ detached: e.shiftKey })
+      return
+    }
+
+    // Enter - navigate into selected node (view subgraph)
+    if (e.key === 'Enter' && !isTextInput(e.target)) {
+      e.preventDefault()
+      if (selectedNode.value && navigateToNode) {
+        navigateToNode(selectedNode.value)
+      }
       return
     }
 
