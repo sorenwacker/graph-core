@@ -151,30 +151,47 @@ export function useNodeOperations({
   }
 
   /**
-   * Delete multiple nodes
+   * Delete multiple nodes (including all descendants)
    */
   async function deleteMultipleNodes(nodeIds) {
     if (isProcessing.value || !nodeIds?.length) return { success: false }
     isProcessing.value = true
 
     try {
-      const deletedNodes = []
+      const allNodesToDelete = []
+      const processedIds = new Set()
+
+      // Collect all nodes and their descendants
       for (const id of nodeIds) {
+        if (processedIds.has(id)) continue
         const node = await api.getNode(id)
-        if (node) deletedNodes.push(node)
+        if (!node) continue
+
+        const descendants = await api.getDescendants(id) || []
+        allNodesToDelete.push(node)
+        processedIds.add(id)
+
+        for (const desc of descendants) {
+          if (!processedIds.has(desc.id)) {
+            allNodesToDelete.push(desc)
+            processedIds.add(desc.id)
+          }
+        }
       }
 
-      for (const id of nodeIds) {
-        await api.deleteNode(id, false)
-        if (broadcastDelete) broadcastDelete(id)
+      // Delete all nodes (children first to maintain integrity)
+      const sortedForDelete = [...allNodesToDelete].sort((a, b) => (b.depth || 0) - (a.depth || 0))
+      for (const node of sortedForDelete) {
+        await api.deleteNode(node.id, false)
+        if (broadcastDelete) broadcastDelete(node.id)
       }
 
-      if (deletedNodes.length > 0 && pushCommand) {
-        pushCommand(new DeleteMultipleCommand({ nodes: deletedNodes }))
+      if (allNodesToDelete.length > 0 && pushCommand) {
+        pushCommand(new DeleteMultipleCommand({ nodes: allNodesToDelete }))
       }
 
-      if (onSuccess) await onSuccess({ type: 'deleteMultiple', nodes: deletedNodes })
-      return { success: true, nodes: deletedNodes }
+      if (onSuccess) await onSuccess({ type: 'deleteMultiple', nodes: allNodesToDelete })
+      return { success: true, nodes: allNodesToDelete }
     } catch (e) {
       if (onError) onError(e)
       return { success: false }
