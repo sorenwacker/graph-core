@@ -717,11 +717,12 @@
 
 :global(.node-person.selected),
 :global(.node-person[data-selected="true"]) {
-  outline: 3px solid var(--accent-color, #4a9eff);
-  outline-offset: 2px;
+  outline: 4px solid #fff;
+  outline-offset: 0;
   box-shadow:
-    0 0 8px var(--accent-color, #4a9eff),
-    0 0 16px rgba(74, 158, 255, 0.4);
+    0 0 0 4px var(--accent-color, #4a9eff),
+    0 0 20px rgba(74, 158, 255, 0.8),
+    0 0 40px rgba(74, 158, 255, 0.5);
 }
 
 :global(.person-name) {
@@ -755,14 +756,17 @@
   filter: brightness(1.1);
 }
 
-/* Selected node - prominent outline with glow */
+/* Selected node - strong highlight with solid accent background */
 :global(.node-html.selected),
 :global(.node-html[data-selected="true"]) {
-  outline: 3px solid var(--accent-color, #4a9eff);
-  outline-offset: 2px;
+  background: rgba(74, 158, 255, 0.35) !important;
+  outline: 4px solid #fff;
+  outline-offset: 0;
+  border: 3px solid var(--accent-color, #4a9eff) !important;
   box-shadow:
-    0 0 8px var(--accent-color, #4a9eff),
-    0 0 16px rgba(74, 158, 255, 0.4);
+    0 0 0 4px var(--accent-color, #4a9eff),
+    0 0 20px rgba(74, 158, 255, 0.8),
+    0 0 40px rgba(74, 158, 255, 0.5);
 }
 
 /* When in box-select mode (Cmd held), allow clicks through to cytoscape canvas */

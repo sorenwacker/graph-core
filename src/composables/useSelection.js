@@ -56,25 +56,15 @@ export function useSelection({
     selectedNode.value = node
   }
 
-  // Timer for delayed detail panel opening
-  let detailOpenTimer = null
-
   /**
-   * Full select - selects a node and opens detail panel after a delay.
-   * The delay allows for double-click to navigate without opening detail.
+   * Full select - selects a node. Detail panel opens only on Enter or explicit request.
    * Auto-opens fullscreen if window is narrow (< NARROW_WINDOW_THRESHOLD).
    * @param {Object|null} node - Node to select, or null to deselect
    * @param {Object} options - Selection options
    * @param {boolean} options.fullscreen - Open in fullscreen mode
-   * @param {boolean} options.immediate - Open detail immediately (no delay)
+   * @param {boolean} options.immediate - Open detail immediately
    */
   function selectNode(node, options = {}) {
-    // Cancel any pending detail open
-    if (detailOpenTimer) {
-      clearTimeout(detailOpenTimer)
-      detailOpenTimer = null
-    }
-
     // Handle deselection when node is null
     if (!node) {
       selectedNode.value = null
@@ -88,33 +78,24 @@ export function useSelection({
     anchorNode.value = node // Set anchor for shift+click range selection
     selectedIds.value = new Set([node.id])
 
-    // Open detail panel after delay (to allow for double-click)
-    if (showDetail && !showDetail.value) {
-      if (options.immediate) {
-        showDetail.value = true
-      } else {
-        detailOpenTimer = setTimeout(() => {
-          showDetail.value = true
-          detailOpenTimer = null
-        }, 300)
-      }
+    // Only open detail panel if explicitly requested (Enter key, fullscreen, etc.)
+    if (options.immediate && showDetail) {
+      showDetail.value = true
     }
 
     // Open fullscreen if explicitly requested OR if setting is enabled OR window is narrow
     const isNarrowWindow = typeof window !== 'undefined' && window.innerWidth < NARROW_WINDOW_THRESHOLD
     if (fullscreenDetail && (options.fullscreen || openDetailFullscreen?.value || isNarrowWindow)) {
+      if (showDetail) showDetail.value = true
       fullscreenDetail.value = true
     }
   }
 
   /**
-   * Cancel pending detail panel opening (call on double-click)
+   * Cancel pending detail panel opening (no-op, kept for API compatibility)
    */
   function cancelDetailOpen() {
-    if (detailOpenTimer) {
-      clearTimeout(detailOpenTimer)
-      detailOpenTimer = null
-    }
+    // No-op - detail panel no longer auto-opens on selection
   }
 
   /**
@@ -133,14 +114,6 @@ export function useSelection({
       if (nodes && nodes.length > 0) {
         selectedNode.value = nodes[0]
         anchorNode.value = nodes[0]
-      }
-      if (showDetail) {
-        showDetail.value = true
-        // Auto-fullscreen for narrow windows
-        const isNarrowWindow = typeof window !== 'undefined' && window.innerWidth < NARROW_WINDOW_THRESHOLD
-        if (fullscreenDetail && isNarrowWindow) {
-          fullscreenDetail.value = true
-        }
       }
       return
     }
@@ -187,15 +160,6 @@ export function useSelection({
       }
       selectedNode.value = node
       // Don't update lastSelectedNode on shift+click to preserve anchor
-    }
-
-    if (showDetail) {
-      showDetail.value = true
-      // Auto-fullscreen for narrow windows
-      const isNarrowWindow = typeof window !== 'undefined' && window.innerWidth < NARROW_WINDOW_THRESHOLD
-      if (fullscreenDetail && isNarrowWindow) {
-        fullscreenDetail.value = true
-      }
     }
   }
 
