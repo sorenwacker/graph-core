@@ -840,21 +840,14 @@
 }
 
 .child-card-notes {
-  font-size: 11px;
-  color: var(--text-tertiary);
   margin-top: 4px;
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  line-height: 1.4;
-  white-space: pre-wrap;
-  word-break: break-word;
+  max-height: 60px;
 }
 
 /* Notes type child cards - show more content */
 .child-card.notes .child-card-notes {
-  -webkit-line-clamp: 6;
+  max-height: none;
   flex: 1;
 }
 
