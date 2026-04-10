@@ -618,7 +618,8 @@ const { handleKeydown } = useKeyboardShortcuts({
     clearSelection,
     selectAll,
     selectNode,
-    enterContainer
+    enterContainer,
+    openDetachedWindow: handleDetach
   },
   state: {
     viewMode,
