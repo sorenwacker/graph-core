@@ -190,6 +190,7 @@ defineExpose({
     :hover-preview-enabled="hoverPreviewEnabled"
     :sort-alphabetically="sortAlphabetically"
     :notes-preview-length="graphNotesPreviewLength"
+    :ancestor-color="colorMap[currentContainer?.id] || null"
     @select="emit('select', $event)"
     @select-multiple="emit('select-multiple', $event)"
     @enter="emit('enter', $event)"

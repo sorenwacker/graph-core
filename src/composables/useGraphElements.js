@@ -53,7 +53,8 @@ export function buildElements(options) {
     visibleTypes = [],
     showRootNode = true,
     selectedIds = [],
-    selectedId = null
+    selectedId = null,
+    ancestorColor = null
   } = options
 
   // Filter out null entries from the start
@@ -84,7 +85,8 @@ export function buildElements(options) {
   const topLevelIds = new Set(cleanNodeList.map(n => n.id))
 
   // Build inherited color map - parent colors flow to children
-  const parentColor = parentNode?.color && parentNode.color !== '#0f4c75' ? parentNode.color : null
+  // Use parent's own color if set, otherwise use ancestor color from the app-level color map
+  const parentColor = parentNode?.color && parentNode.color !== '#0f4c75' ? parentNode.color : ancestorColor
   const inheritedColorMap = buildInheritedColorMap(filteredList, parentColor)
   // Also add parent to the map if included
   if (includeParent && parentNode) {
