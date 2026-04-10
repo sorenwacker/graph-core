@@ -54,6 +54,7 @@ const {
   graphDetailThreshold,
   graphMaxDepth,
   graphRootMaxDepth,
+  graphNotesPreviewLength,
   openDetailFullscreen,
   hoverPreviewEnabled,
   sidebarPinned,
@@ -708,6 +709,7 @@ useAppLifecycle({
             v-model:graph-detail-threshold="graphDetailThreshold"
             v-model:graph-max-depth="graphMaxDepth"
             v-model:graph-root-max-depth="graphRootMaxDepth"
+            v-model:graph-notes-preview-length="graphNotesPreviewLength"
             v-model:open-detail-fullscreen="openDetailFullscreen"
             v-model:hover-preview-enabled="hoverPreviewEnabled"
             v-model:ai-enabled="aiEnabled"
@@ -789,6 +791,7 @@ useAppLifecycle({
             :show-detail="showDetail"
             :graph-detail-threshold="graphDetailThreshold"
             :effective-graph-max-depth="effectiveGraphMaxDepth"
+            :graph-notes-preview-length="graphNotesPreviewLength"
             :fullscreen-detail="fullscreenDetail"
             :sort-alphabetically="sortAlphabetically"
             :workspace="currentWorkspace"

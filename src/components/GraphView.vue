@@ -42,14 +42,21 @@ marked.use({ breaks: true, gfm: true, renderer: {
 
 function renderMarkdownHtml(text, maxLen = 500) {
   if (!text) return ''
-  if (text.length <= maxLen) return marked.parse(text)
-  let truncated = text.substring(0, maxLen)
-  const lastOpen = truncated.lastIndexOf('['), lastClose = truncated.lastIndexOf(')')
-  if (lastOpen > lastClose) {
-    const end = text.indexOf(')', lastOpen)
-    truncated = end !== -1 && end < maxLen + 300 ? text.substring(0, end + 1) : text.substring(0, lastOpen).trimEnd()
+  // Get first paragraph (split by double newline or single newline)
+  const paragraphs = text.split(/\n\n|\n/)
+  let firstPara = paragraphs[0].trim()
+
+  // Also apply character limit
+  if (firstPara.length > maxLen) {
+    firstPara = firstPara.substring(0, maxLen)
+    // Don't cut in middle of a markdown link
+    const lastOpen = firstPara.lastIndexOf('['), lastClose = firstPara.lastIndexOf(')')
+    if (lastOpen > lastClose) {
+      firstPara = firstPara.substring(0, lastOpen).trimEnd()
+    }
   }
-  return marked.parse(truncated + '...')
+
+  return marked.parse(firstPara)
 }
 
 const props = defineProps({
@@ -66,7 +73,8 @@ const props = defineProps({
   showDetail: { type: Boolean, default: false },
   fullscreenDetailOpen: { type: Boolean, default: false },
   hoverPreviewEnabled: { type: Boolean, default: true },
-  sortAlphabetically: { type: Boolean, default: false }
+  sortAlphabetically: { type: Boolean, default: false },
+  notesPreviewLength: { type: Number, default: 200 }
 })
 
 const emit = defineEmits(['select', 'select-multiple', 'enter', 'move', 'add-child', 'insert-between', 'update', 'create', 'delete', 'delete-multiple', 'wrap-with-parent', 'open-fullscreen', 'link', 'unlink', 'context-menu', 'toggle-complete', 'toggle-favorite', 'open-link-search', 'go-parent', 'go-first-child', 'go-prev-sibling', 'go-next-sibling'])
@@ -235,11 +243,12 @@ async function initGraph() {
     const n = d.nodeData; if (!n) return ''
     if (n.type === 'person') { const c = (n.color && n.color !== '#0f4c75') ? n.color : (d.customBgTint || '#6b7280'); return `<div class="node-person" data-node-id="${n.id}" data-selected="${d.isSelected}" style="background-color:${c};color:${getContrastColor(c)}"><span class="person-name">${n.title || 'Untitled'}</span></div>` }
     const bc = d.borderColor || typeConfig.task.text, bg = d.customBgTint ? `background:linear-gradient(135deg,${d.customBgTint}99 0%,${d.customBgTint}44 50%,transparent 100%),var(--bg-secondary);` : ''
-    let notes = ''; if (d.showDetails && n.notes) { notes = (n.notes_sensitive || props.hideSensitive) ? '<span style="opacity:0.5"></span>' : renderMarkdownHtml(n.notes, d.totalNodes <= 5 ? 500 : d.totalNodes <= 10 ? 300 : 150) }
+    let notes = ''; if (d.showDetails && n.notes) { notes = (n.notes_sensitive || props.hideSensitive) ? '<span style="opacity:0.5"></span>' : renderMarkdownHtml(n.notes, props.notesPreviewLength) }
     return `<div class="node-html ${n.completed ? 'completed' : ''} ${d.shouldGlow ? 'current-container' : ''} ${n.favorite ? 'favorite' : ''}" data-node-id="${n.id}" data-selected="${d.isSelected}" style="border-color:${bc};--glow-color:${bc};${bg}"><div class="node-html-title">${n.title || 'Untitled'}${n.notes && !d.showDetails ? '<span class="notes-indicator"></span>' : ''}</div>${notes ? `<div class="node-html-notes">${notes}</div>` : ''}</div>`
   }}])
 
   events.setupEvents()
+
   if (props.selectedIds?.size > 0) props.selectedIds.forEach(id => cy.$(`#${id}`).select())
   else if (props.selectedId) cy.$(`#${props.selectedId}`).select()
 
@@ -303,6 +312,7 @@ const reLayout = () => { if (cy) { _clearPos(); cy.layout(getLayoutOptions()).ru
 watch(() => props.nodes, debouncedUpdateGraph, { deep: true })
 watch(() => props.parent, debouncedUpdateGraph, { deep: true })
 watch(() => props.detailThreshold, debouncedUpdateGraph)
+watch(() => props.notesPreviewLength, debouncedUpdateGraph)
 watch(() => props.workspace, () => { if (cy) { cy.destroy(); cy = null }; initGraph() })
 watch(() => props.maxDepth, (v) => { maxDepth.value = props.parent?.graph_max_depth ?? v })
 watch(maxDepth, updateGraph)
