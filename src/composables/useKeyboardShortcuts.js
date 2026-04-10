@@ -20,7 +20,7 @@ export function useKeyboardShortcuts({ actions, state }) {
     toggleDetailPanel,
     clearSelection,
     selectAll,
-    navigateToNode
+    enterContainer
   } = actions
 
   const {
@@ -98,8 +98,8 @@ export function useKeyboardShortcuts({ actions, state }) {
     // Enter - navigate into selected node (view subgraph)
     if (e.key === 'Enter' && !isTextInput(e.target)) {
       e.preventDefault()
-      if (selectedNode.value && navigateToNode) {
-        navigateToNode(selectedNode.value)
+      if (selectedNode.value && enterContainer) {
+        enterContainer(selectedNode.value)
       }
       return
     }
