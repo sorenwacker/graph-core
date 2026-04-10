@@ -13,6 +13,7 @@ Complete keyboard shortcut reference for Graph Core.
 | `Cmd/Ctrl + Right` | Go to next sibling |
 | `Tab` | Select next visible node |
 | `Shift + Tab` | Select previous visible node |
+| `Arrow keys` | Grid navigation (Cards view) |
 | `Double-click` | Enter node (view subgraph) |
 | `Escape` | Close detail panel / Clear selection |
 
