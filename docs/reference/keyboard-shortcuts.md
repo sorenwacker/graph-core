@@ -38,7 +38,7 @@ Complete keyboard shortcut reference for Graph Core.
 | `Tab` | Select next visible node |
 | `Shift + Tab` | Select previous visible node |
 | `Space` | Open/close detail panel (fullscreen if no children) |
-| `Shift + Space` | Open detail in side panel (no auto-fullscreen) |
+| `Shift + Space` | Open in detached window |
 | `Enter` | Navigate into node (view subgraph) |
 | `Shift + Enter` | Navigate to parent |
 | `Shift + Click` | Range select (like Finder) |

@@ -20,7 +20,8 @@ export function useKeyboardShortcuts({ actions, state }) {
     toggleDetailPanel,
     clearSelection,
     selectAll,
-    enterContainer
+    enterContainer,
+    openDetachedWindow
   } = actions
 
   const {
@@ -89,10 +90,14 @@ export function useKeyboardShortcuts({ actions, state }) {
     }
 
     // Space - toggle detail panel (works in table view even when checkbox is focused)
-    // Shift+Space opens in detached mode (side panel, no auto-fullscreen)
+    // Shift+Space opens in detached window (Electron only)
     if (e.key === ' ' && !isTextInput(e.target)) {
       e.preventDefault()
-      toggleDetailPanel({ detached: e.shiftKey })
+      if (e.shiftKey && selectedNode.value && openDetachedWindow) {
+        openDetachedWindow(selectedNode.value)
+      } else {
+        toggleDetailPanel()
+      }
       return
     }
 
