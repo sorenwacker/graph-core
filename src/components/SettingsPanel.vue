@@ -89,6 +89,9 @@ const openaiModelsLoading = ref(false)
 let ollamaFetchTimeout = null
 let openaiFetchTimeout = null
 
+// Tab navigation
+const activeTab = ref('general')
+
 // Prompt management
 const showPromptEditor = ref(false)
 const showPromptList = ref(false)
@@ -344,9 +347,27 @@ onMounted(() => {
         <button class="close-btn" @click="emit('close')" title="Close settings">&times;</button>
       </div>
 
+      <div class="settings-tabs">
+        <button
+          class="settings-tab"
+          :class="{ active: activeTab === 'general' }"
+          @click="activeTab = 'general'"
+        >General</button>
+        <button
+          class="settings-tab"
+          :class="{ active: activeTab === 'ai' }"
+          @click="activeTab = 'ai'"
+        >AI</button>
+        <button
+          class="settings-tab"
+          :class="{ active: activeTab === 'data' }"
+          @click="activeTab = 'data'"
+        >Data</button>
+      </div>
+
       <div class="settings-grid">
         <!-- Graph Settings -->
-        <section class="settings-section">
+        <section v-show="activeTab === 'general'" class="settings-section">
           <h3 class="section-title">Graph</h3>
           <div class="settings-item">
             <label>Detail threshold</label>
@@ -401,7 +422,7 @@ onMounted(() => {
         </section>
 
         <!-- Display Settings -->
-        <section class="settings-section">
+        <section v-show="activeTab === 'general'" class="settings-section">
           <h3 class="section-title">Display</h3>
           <div class="settings-item">
             <label>Theme</label>
@@ -446,7 +467,7 @@ onMounted(() => {
         </section>
 
         <!-- AI Settings -->
-        <section class="settings-section">
+        <section v-show="activeTab === 'ai'" class="settings-section">
           <h3 class="section-title">AI</h3>
           <div class="settings-item">
             <label>
@@ -656,7 +677,7 @@ onMounted(() => {
         </section>
 
         <!-- AI Prompts -->
-        <section v-if="isAiEnabled" class="settings-section">
+        <section v-show="activeTab === 'ai' && isAiEnabled" class="settings-section">
           <h3 class="section-title">AI Prompts</h3>
           <div class="settings-item">
             <div class="snapshot-actions">
@@ -697,7 +718,7 @@ onMounted(() => {
         </section>
 
         <!-- Data Management -->
-        <section class="settings-section">
+        <section v-show="activeTab === 'data'" class="settings-section">
           <h3 class="section-title">Data</h3>
           <div class="settings-item">
             <label>Snapshots</label>
@@ -750,7 +771,7 @@ onMounted(() => {
         </section>
 
         <!-- Lost & Found -->
-        <section class="settings-section">
+        <section v-show="activeTab === 'data'" class="settings-section">
           <h3 class="section-title">Lost & Found</h3>
           <div class="settings-item">
             <div class="snapshot-actions">
