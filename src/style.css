@@ -1047,14 +1047,6 @@ input[type="checkbox"] {
   min-width: 0;
 }
 
-.child-card-checkbox {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  cursor: pointer;
-  accent-color: var(--accent-color);
-}
-
 .child-card-title {
   color: var(--text-primary);
   font-weight: 500;
