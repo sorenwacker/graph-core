@@ -31,7 +31,7 @@ export function useGraphEvents(options = {}) {
     showTooltip,
     hideTooltip,
     forceHideTooltip,
-    savePositions
+    savePositions,
   } = options
 
   let backgroundClickPending = false
@@ -45,7 +45,7 @@ export function useGraphEvents(options = {}) {
     if (!cy || !container) return
 
     // Node tap handlers - skip if click was on HTML label (DOM handlers will handle it)
-    cy.on('tap', 'node', (e) => {
+    cy.on('tap', 'node', e => {
       // Check if click was on an HTML label using screen coordinates
       const clientX = e.originalEvent?.clientX
       const clientY = e.originalEvent?.clientY
@@ -73,7 +73,7 @@ export function useGraphEvents(options = {}) {
       }
     })
 
-    cy.on('dbltap', 'node', (e) => {
+    cy.on('dbltap', 'node', e => {
       // Check if click was on an HTML label using screen coordinates
       const clientX = e.originalEvent?.clientX
       const clientY = e.originalEvent?.clientY
@@ -92,7 +92,7 @@ export function useGraphEvents(options = {}) {
     })
 
     // Background tap - ignore if click was on HTML label (handled by DOM events)
-    cy.on('tap', (e) => {
+    cy.on('tap', e => {
       if (e.target === cy) {
         // Check if click was on an HTML label using screen coordinates
         const clientX = e.originalEvent?.clientX
@@ -142,17 +142,21 @@ export function useGraphEvents(options = {}) {
         if (nodeIds.length > 0) {
           emit('select-multiple', { nodes, nodeIds })
         }
-        nextTick(() => { updateHtmlLabelsFromCySelection(cy) })
+        nextTick(() => {
+          updateHtmlLabelsFromCySelection(cy)
+        })
       }
     })
 
     cy.on('select unselect', 'node', () => {
       if (selectionUpdateTimer) clearTimeout(selectionUpdateTimer)
-      selectionUpdateTimer = setTimeout(() => { updateHtmlLabelsFromCySelection(cy) }, 10)
+      selectionUpdateTimer = setTimeout(() => {
+        updateHtmlLabelsFromCySelection(cy)
+      }, 10)
     })
 
     // Edge tap
-    cy.on('tap', 'edge', async (e) => {
+    cy.on('tap', 'edge', async e => {
       const edge = e.target
       const sourceId = parseInt(edge.source().id())
       const targetId = parseInt(edge.target().id())
@@ -172,7 +176,7 @@ export function useGraphEvents(options = {}) {
         } else if (hasCmd) {
           const midPos = {
             x: (edge.source().position().x + edge.target().position().x) / 2,
-            y: (edge.source().position().y + edge.target().position().y) / 2
+            y: (edge.source().position().y + edge.target().position().y) / 2,
           }
           showAddNodeModal(null, midPos, { parentId: sourceId, childId: targetId, isLink: isLinkEdge })
         }
@@ -180,19 +184,21 @@ export function useGraphEvents(options = {}) {
     })
 
     // Tooltip events
-    cy.on('mouseover', 'node', (e) => {
+    cy.on('mouseover', 'node', e => {
       const nodeData = e.target.data('nodeData')
       if (!nodeData || nodeData.notes_sensitive) return
       showTooltip(null, nodeData)
     })
 
-    cy.on('mouseout', 'node', () => { hideTooltip() })
+    cy.on('mouseout', 'node', () => {
+      hideTooltip()
+    })
 
     // HTML label click handling - delay to detect double-click
     let htmlClickPending = null
     let htmlClickTimer = null
 
-    container.addEventListener('click', (e) => {
+    container.addEventListener('click', e => {
       const htmlLabel = e.target.closest('.node-html')
       if (!htmlLabel) return
       backgroundClickPending = false
@@ -231,7 +237,7 @@ export function useGraphEvents(options = {}) {
       }, 200)
     })
 
-    container.addEventListener('dblclick', (e) => {
+    container.addEventListener('dblclick', e => {
       // Cancel pending click
       if (htmlClickTimer) clearTimeout(htmlClickTimer)
       htmlClickPending = null
@@ -251,10 +257,12 @@ export function useGraphEvents(options = {}) {
       }
     })
 
-    cy.on('drag', 'node', () => { forceHideTooltip() })
+    cy.on('drag', 'node', () => {
+      forceHideTooltip()
+    })
 
     // Context menu
-    cy.on('cxttap', 'node', (e) => {
+    cy.on('cxttap', 'node', e => {
       e.preventDefault()
       const node = e.target.data('nodeData')
       if (!node) return
@@ -264,17 +272,17 @@ export function useGraphEvents(options = {}) {
         clientX: containerRect.left + renderedPos.x,
         clientY: containerRect.top + renderedPos.y,
         preventDefault: () => {},
-        stopPropagation: () => {}
+        stopPropagation: () => {},
       }
       emit('context-menu', { event: syntheticEvent, node })
     })
 
     // Drag and drop for reparenting/linking
-    cy.on('grab', 'node', (e) => {
+    cy.on('grab', 'node', e => {
       dragStartPos = { ...e.target.position() }
     })
 
-    cy.on('drag', 'node', (e) => {
+    cy.on('drag', 'node', e => {
       const draggedNode = e.target
       const pos = draggedNode.position()
       const dropThreshold = 50
@@ -318,16 +326,16 @@ export function useGraphEvents(options = {}) {
 
         const padding = 4
         if (highlightRect && closestLabelDist < 50) {
-          dropHighlight.style.left = (highlightRect.left - containerRect.left - padding) + 'px'
-          dropHighlight.style.top = (highlightRect.top - containerRect.top - padding) + 'px'
-          dropHighlight.style.width = (highlightRect.width + padding * 2) + 'px'
-          dropHighlight.style.height = (highlightRect.height + padding * 2) + 'px'
+          dropHighlight.style.left = highlightRect.left - containerRect.left - padding + 'px'
+          dropHighlight.style.top = highlightRect.top - containerRect.top - padding + 'px'
+          dropHighlight.style.width = highlightRect.width + padding * 2 + 'px'
+          dropHighlight.style.height = highlightRect.height + padding * 2 + 'px'
         } else {
           const bb = closestNode.renderedBoundingBox()
-          dropHighlight.style.left = (bb.x1 - padding) + 'px'
-          dropHighlight.style.top = (bb.y1 - padding) + 'px'
-          dropHighlight.style.width = (bb.w + padding * 2) + 'px'
-          dropHighlight.style.height = (bb.h + padding * 2) + 'px'
+          dropHighlight.style.left = bb.x1 - padding + 'px'
+          dropHighlight.style.top = bb.y1 - padding + 'px'
+          dropHighlight.style.width = bb.w + padding * 2 + 'px'
+          dropHighlight.style.height = bb.h + padding * 2 + 'px'
         }
 
         dropHighlight.style.display = 'block'
@@ -343,7 +351,7 @@ export function useGraphEvents(options = {}) {
       }
     })
 
-    cy.on('free', 'node', (e) => {
+    cy.on('free', 'node', e => {
       const dropHighlight = getDropHighlight()
       if (highlightedNode) {
         highlightedNode.removeClass('drop-target')
@@ -419,6 +427,6 @@ export function useGraphEvents(options = {}) {
   }
 
   return {
-    setupEvents
+    setupEvents,
   }
 }

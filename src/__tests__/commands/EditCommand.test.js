@@ -6,7 +6,7 @@ describe('EditCommand', () => {
 
   beforeEach(() => {
     mockApi = {
-      updateNode: vi.fn().mockResolvedValue()
+      updateNode: vi.fn().mockResolvedValue(),
     }
   })
 
@@ -48,7 +48,7 @@ describe('EditCommand', () => {
         type: 'edit',
         nodeId: 1,
         oldValues,
-        newValues
+        newValues,
       })
     })
   })

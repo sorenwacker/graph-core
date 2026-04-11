@@ -8,7 +8,7 @@ import { useErrorHandler } from '../composables/useErrorHandler.js'
 const { handleError } = useErrorHandler()
 
 const props = defineProps({
-  content: { type: String, default: '' }
+  content: { type: String, default: '' },
 })
 
 const container = ref(null)
@@ -17,7 +17,7 @@ const renderedHtml = ref('')
 // Configure marked
 marked.setOptions({
   breaks: true,
-  gfm: true
+  gfm: true,
 })
 
 // Configure mermaid
@@ -30,8 +30,8 @@ mermaid.initialize({
     primaryBorderColor: '#3a8dba',
     lineColor: '#666',
     secondaryColor: '#2a5a2a',
-    tertiaryColor: '#1a1a2e'
-  }
+    tertiaryColor: '#1a1a2e',
+  },
 })
 
 async function renderContent() {
@@ -53,10 +53,7 @@ async function renderContent() {
 
   // Style inline #hashtags (not already in a link)
   // Matches #word or #multi-word-tag but not already inside HTML tags
-  html = html.replace(
-    /(?<!["\w])#([\w-]+)(?![^<]*>)/g,
-    '<span class="hashtag">#$1</span>'
-  )
+  html = html.replace(/(?<!["\w])#([\w-]+)(?![^<]*>)/g, '<span class="hashtag">#$1</span>')
 
   // Extract and process mermaid blocks
   const mermaidRegex = /<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g
@@ -115,9 +112,15 @@ onMounted(renderContent)
   color: var(--text-primary);
 }
 
-.markdown-content :deep(h1) { font-size: 1.5em; }
-.markdown-content :deep(h2) { font-size: 1.3em; }
-.markdown-content :deep(h3) { font-size: 1.1em; }
+.markdown-content :deep(h1) {
+  font-size: 1.5em;
+}
+.markdown-content :deep(h2) {
+  font-size: 1.3em;
+}
+.markdown-content :deep(h3) {
+  font-size: 1.1em;
+}
 
 .markdown-content :deep(p) {
   margin: 0.5em 0;

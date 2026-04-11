@@ -4,7 +4,7 @@ import { getInitials } from '../utils/formatting.js'
 defineProps({
   persons: { type: Array, default: () => [] },
   selectedIndex: { type: Number, default: 0 },
-  position: { type: Object, default: () => ({ top: 0, left: 0 }) }
+  position: { type: Object, default: () => ({ top: 0, left: 0 }) },
 })
 
 const emit = defineEmits(['select', 'hover'])
@@ -12,13 +12,8 @@ const emit = defineEmits(['select', 'hover'])
 
 <template>
   <Teleport to="body">
-    <div
-      class="mention-dropdown"
-      :style="{ top: position.top + 'px', left: position.left + 'px' }"
-    >
-      <div v-if="persons.length === 0" class="mention-empty">
-        No persons found
-      </div>
+    <div class="mention-dropdown" :style="{ top: position.top + 'px', left: position.left + 'px' }">
+      <div v-if="persons.length === 0" class="mention-empty">No persons found</div>
       <div
         v-for="(person, index) in persons"
         :key="person.id"

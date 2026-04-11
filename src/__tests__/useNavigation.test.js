@@ -12,7 +12,7 @@ describe('useNavigation composable', () => {
       getChildren: vi.fn().mockResolvedValue([]),
       getDescendants: vi.fn().mockResolvedValue([]),
       getAncestors: vi.fn().mockResolvedValue([]),
-      getRoots: vi.fn().mockResolvedValue([])
+      getRoots: vi.fn().mockResolvedValue([]),
     }
     navigation = useNavigation({ api: mockApi, workspace: ref('work') })
   })
@@ -82,9 +82,7 @@ describe('useNavigation composable', () => {
 
     it('should build breadcrumbs from ancestors', async () => {
       mockApi.getNode.mockResolvedValue({ id: 5, title: 'Container', parent_id: 1 })
-      mockApi.getAncestors.mockResolvedValue([
-        { id: 1, title: 'Root' }
-      ])
+      mockApi.getAncestors.mockResolvedValue([{ id: 1, title: 'Root' }])
 
       navigation.enterContainer({ id: 5, children: [{}] })
       await flushTimersAndPromises()
@@ -100,7 +98,7 @@ describe('useNavigation composable', () => {
       // Setup: we're at container 5, with parent 1
       navigation.breadcrumbs.value = [
         { id: 1, title: 'Root' },
-        { id: 5, title: 'Container' }
+        { id: 5, title: 'Container' },
       ]
       navigation.currentContainerId.value = 5
       mockApi.getNode.mockResolvedValue({ id: 1, title: 'Root', parent_id: null })
@@ -162,7 +160,7 @@ describe('useNavigation composable', () => {
     it('should navigate to specific breadcrumb by index', async () => {
       navigation.breadcrumbs.value = [
         { id: 1, title: 'Root' },
-        { id: 5, title: 'Container' }
+        { id: 5, title: 'Container' },
       ]
       mockApi.getNode.mockResolvedValue({ id: 1, title: 'Root', parent_id: null })
 
@@ -229,7 +227,7 @@ describe('useNavigation composable', () => {
       navigation.currentContainer.value = { id: 2, parent_id: 1 }
       mockApi.getChildren.mockResolvedValue([
         { id: 2, title: 'Current' },
-        { id: 3, title: 'Next' }
+        { id: 3, title: 'Next' },
       ])
       mockApi.getNode.mockResolvedValue({ id: 3, title: 'Next', parent_id: 1 })
 
@@ -243,7 +241,7 @@ describe('useNavigation composable', () => {
       navigation.currentContainer.value = { id: 3, parent_id: 1 }
       mockApi.getChildren.mockResolvedValue([
         { id: 2, title: 'Prev' },
-        { id: 3, title: 'Current' }
+        { id: 3, title: 'Current' },
       ])
       mockApi.getNode.mockResolvedValue({ id: 2, title: 'Prev', parent_id: 1 })
 

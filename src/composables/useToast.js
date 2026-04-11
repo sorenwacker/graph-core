@@ -49,6 +49,6 @@ export function useToast() {
   return {
     toasts,
     showToast,
-    dismissToast
+    dismissToast,
   }
 }

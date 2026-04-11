@@ -9,7 +9,7 @@ export function useAutocomplete(options = {}) {
     items = ref([]),
     maxResults = 10,
     filterFn = (item, query) => item.title?.toLowerCase().includes(query.toLowerCase()),
-    matchFn = (item, query) => item.title?.toLowerCase() === query.toLowerCase()
+    matchFn = (item, query) => item.title?.toLowerCase() === query.toLowerCase(),
   } = options
 
   const query = ref('')
@@ -21,9 +21,7 @@ export function useAutocomplete(options = {}) {
     if (!query.value) {
       return items.value.slice(0, maxResults)
     }
-    return items.value
-      .filter(item => filterFn(item, query.value))
-      .slice(0, maxResults)
+    return items.value.filter(item => filterFn(item, query.value)).slice(0, maxResults)
   })
 
   // Check if query exactly matches an existing item
@@ -90,6 +88,6 @@ export function useAutocomplete(options = {}) {
     handleKeydown,
     handleInput,
     reset,
-    select
+    select,
   }
 }

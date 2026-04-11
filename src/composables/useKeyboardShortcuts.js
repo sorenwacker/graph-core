@@ -21,7 +21,7 @@ export function useKeyboardShortcuts({ actions, state }) {
     clearSelection,
     selectAll,
     enterContainer,
-    openDetachedWindow
+    openDetachedWindow,
   } = actions
 
   const {
@@ -34,14 +34,16 @@ export function useKeyboardShortcuts({ actions, state }) {
     showDetail,
     flatChildren,
     filteredChildren,
-    gridColumns
+    gridColumns,
   } = state
 
   function isEditableElement(target) {
-    return target.tagName === 'INPUT' ||
-           target.tagName === 'TEXTAREA' ||
-           target.tagName === 'SELECT' ||
-           target.isContentEditable
+    return (
+      target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.tagName === 'SELECT' ||
+      target.isContentEditable
+    )
   }
 
   function isTextInput(target) {
@@ -179,9 +181,7 @@ export function useKeyboardShortcuts({ actions, state }) {
     // Tab / Shift+Tab - select next/previous visible node (when not in detail panel)
     if (e.key === 'Tab' && !showDetail?.value) {
       // Use flatChildren for graph view (all nodes in subgraph), filteredChildren for other views
-      const nodes = viewMode.value === 'nodes'
-        ? (flatChildren?.value || [])
-        : (filteredChildren?.value || [])
+      const nodes = viewMode.value === 'nodes' ? flatChildren?.value || [] : filteredChildren?.value || []
       if (nodes.length === 0) return
 
       e.preventDefault()
@@ -275,6 +275,6 @@ export function useKeyboardShortcuts({ actions, state }) {
   return {
     handleKeydown,
     setup,
-    cleanup
+    cleanup,
   }
 }

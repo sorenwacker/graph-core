@@ -10,7 +10,7 @@ export function useGraphOperations({
   currentWorkspace,
   expandedIds,
   getWorkspaceIdForNode,
-  refreshAfterChange
+  refreshAfterChange,
 }) {
   const error = ref(null)
 
@@ -39,7 +39,7 @@ export function useGraphOperations({
         const distance = 50 + Math.random() * 50
         positions[nodeId] = {
           x: centerX + Math.cos(angle) * distance,
-          y: centerY + Math.sin(angle) * distance
+          y: centerY + Math.sin(angle) * distance,
         }
       } else {
         positions[nodeId] = { x: 400 + Math.random() * 50, y: 300 + Math.random() * 50 }
@@ -68,7 +68,7 @@ export function useGraphOperations({
           title,
           type: nodeType,
           parent_id: currentContainerId.value,
-          workspace_id: getWorkspaceIdForNode(nodeType)
+          workspace_id: getWorkspaceIdForNode(nodeType),
         })
         await api.linkNodes(parentId, newNode.id)
         await api.linkNodes(newNode.id, childId)
@@ -78,7 +78,7 @@ export function useGraphOperations({
           title,
           type: nodeType,
           parent_id: parentId,
-          workspace_id: getWorkspaceIdForNode(nodeType)
+          workspace_id: getWorkspaceIdForNode(nodeType),
         })
         // Move the original child to be under the new node
         await api.moveNode(childId, newNode.id)
@@ -94,6 +94,6 @@ export function useGraphOperations({
   return {
     error,
     saveNodePosition,
-    insertBetween
+    insertBetween,
   }
 }

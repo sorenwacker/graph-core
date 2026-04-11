@@ -20,7 +20,7 @@ describe('useSnapshots composable', () => {
       onReload,
       onAfterRestore,
       onAfterReload,
-      confirm: confirmFn
+      confirm: confirmFn,
     })
   })
 
@@ -47,7 +47,7 @@ describe('useSnapshots composable', () => {
     it('should load snapshots from callback', async () => {
       const backups = [
         { path: '/backup1.db', date: '2024-01-01' },
-        { path: '/backup2.db', date: '2024-01-02' }
+        { path: '/backup2.db', date: '2024-01-02' },
       ]
       onListBackups.mockResolvedValue(backups)
 
@@ -170,7 +170,7 @@ describe('useSnapshots composable', () => {
 
     it('should use default confirm if not provided', async () => {
       const s = useSnapshots({
-        onRestoreBackup: vi.fn().mockResolvedValue()
+        onRestoreBackup: vi.fn().mockResolvedValue(),
       })
       // Default confirm would use window.confirm which we can't test easily
       // Just verify it doesn't throw

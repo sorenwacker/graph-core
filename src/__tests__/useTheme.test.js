@@ -3,15 +3,21 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 // Mock localStorage before importing useTheme
 const localStorageMock = {
   store: {},
-  getItem: vi.fn((key) => localStorageMock.store[key] || null),
-  setItem: vi.fn((key, value) => { localStorageMock.store[key] = value }),
-  removeItem: vi.fn((key) => { delete localStorageMock.store[key] }),
-  clear: vi.fn(() => { localStorageMock.store = {} })
+  getItem: vi.fn(key => localStorageMock.store[key] || null),
+  setItem: vi.fn((key, value) => {
+    localStorageMock.store[key] = value
+  }),
+  removeItem: vi.fn(key => {
+    delete localStorageMock.store[key]
+  }),
+  clear: vi.fn(() => {
+    localStorageMock.store = {}
+  }),
 }
 
 Object.defineProperty(global, 'localStorage', {
   value: localStorageMock,
-  writable: true
+  writable: true,
 })
 
 // Mock matchMedia
@@ -20,12 +26,12 @@ const mockMatchMedia = vi.fn().mockImplementation(query => ({
   matches: query === '(prefers-color-scheme: dark)',
   media: query,
   addEventListener: vi.fn((event, listener) => mockMatchMediaListeners.push(listener)),
-  removeEventListener: vi.fn()
+  removeEventListener: vi.fn(),
 }))
 
 Object.defineProperty(window, 'matchMedia', {
   value: mockMatchMedia,
-  writable: true
+  writable: true,
 })
 
 // Now import the module

@@ -8,8 +8,8 @@ const { handleError } = useErrorHandler()
 const props = defineProps({
   workspaceId: { type: String, default: 'work' },
   hideSensitive: { type: Boolean, default: false },
-  containerId: { type: Number, default: null },  // Current subgraph root
-  containerTitle: { type: String, default: null }
+  containerId: { type: Number, default: null }, // Current subgraph root
+  containerTitle: { type: String, default: null },
 })
 
 const emit = defineEmits(['select', 'navigate', 'toggle-complete'])
@@ -26,7 +26,7 @@ async function loadTasks() {
   try {
     const params = {
       workspaceId: props.workspaceId,
-      completed: showCompleted.value ? undefined : false
+      completed: showCompleted.value ? undefined : false,
     }
     if (filterImportance.value > 0) {
       params.importance = filterImportance.value
@@ -49,7 +49,7 @@ async function loadTasks() {
         // Get all tasks and filter to those in the subtree
         const allParams = {
           workspaceId: props.workspaceId,
-          completed: showCompleted.value ? undefined : false
+          completed: showCompleted.value ? undefined : false,
         }
         if (filterImportance.value > 0) {
           allParams.importance = filterImportance.value
@@ -86,7 +86,7 @@ async function loadTasks() {
 
     // Load parent paths for each task
     const tasksWithPaths = await Promise.all(
-      (items || []).filter(Boolean).map(async (task) => {
+      (items || []).filter(Boolean).map(async task => {
         let path = []
         let isDirectChild = false
         try {
@@ -288,7 +288,9 @@ defineExpose({ loadTasks })
 <template>
   <div class="tasks-view">
     <div class="tasks-header">
-      <h2>Tasks<span v-if="containerTitle" class="container-scope"> in {{ containerTitle }}</span></h2>
+      <h2>
+        Tasks<span v-if="containerTitle" class="container-scope"> in {{ containerTitle }}</span>
+      </h2>
       <div class="tasks-filters">
         <label class="filter-checkbox">
           <input type="checkbox" v-model="showCompleted" />
@@ -306,9 +308,7 @@ defineExpose({ loadTasks })
 
     <div v-if="loading" class="loading">Loading tasks...</div>
 
-    <div v-else-if="sortedTasks.length === 0" class="empty-state">
-      No tasks found
-    </div>
+    <div v-else-if="sortedTasks.length === 0" class="empty-state">No tasks found</div>
 
     <table v-else class="tasks-table">
       <thead>
@@ -316,18 +316,12 @@ defineExpose({ loadTasks })
           <th class="col-checkbox sortable" @click="toggleSort('completed')">
             {{ getSortIcon('completed') }}
           </th>
-          <th class="col-title sortable" @click="toggleSort('title')">
-            Task{{ getSortIcon('title') }}
-          </th>
+          <th class="col-title sortable" @click="toggleSort('title')">Task{{ getSortIcon('title') }}</th>
           <th class="col-project sortable" @click="toggleSort('project')">
             Project / Path{{ getSortIcon('project') }}
           </th>
-          <th class="col-created sortable" @click="toggleSort('created_at')">
-            Created{{ getSortIcon('created_at') }}
-          </th>
-          <th class="col-due sortable" @click="toggleSort('due_date')">
-            Due{{ getSortIcon('due_date') }}
-          </th>
+          <th class="col-created sortable" @click="toggleSort('created_at')">Created{{ getSortIcon('created_at') }}</th>
+          <th class="col-due sortable" @click="toggleSort('due_date')">Due{{ getSortIcon('due_date') }}</th>
           <th class="col-importance sortable" @click="toggleSort('importance')">
             Priority{{ getSortIcon('importance') }}
           </th>
@@ -341,16 +335,12 @@ defineExpose({ loadTasks })
           :class="{
             completed: task.completed,
             overdue: !task.completed && isOverdue(task.due_date),
-            'due-soon': !task.completed && !isOverdue(task.due_date) && isDueSoon(task.due_date)
+            'due-soon': !task.completed && !isOverdue(task.due_date) && isDueSoon(task.due_date),
           }"
           @click="onTaskClick(task)"
         >
           <td class="col-checkbox">
-            <input
-              type="checkbox"
-              :checked="task.completed"
-              @click="onCheckboxClick(task, $event)"
-            />
+            <input type="checkbox" :checked="task.completed" @click="onCheckboxClick(task, $event)" />
           </td>
           <td class="col-title">
             <span class="task-title">{{ task.title }}</span>
@@ -437,7 +427,8 @@ defineExpose({ loadTasks })
   font-size: 0.9rem;
 }
 
-.loading, .empty-state {
+.loading,
+.empty-state {
   color: var(--text-secondary);
   text-align: center;
   padding: 40px;
@@ -570,7 +561,8 @@ defineExpose({ loadTasks })
   font-style: italic;
 }
 
-.col-created, .col-due {
+.col-created,
+.col-due {
   width: 12%;
   color: var(--text-secondary);
   font-size: 0.9rem;
@@ -590,10 +582,19 @@ defineExpose({ loadTasks })
   font-size: 0.85rem;
 }
 
-.importance-low { color: var(--text-secondary); }
-.importance-medium { color: var(--accent-color); }
-.importance-high { color: var(--warning-color); }
-.importance-critical { color: var(--error-color); font-weight: 600; }
+.importance-low {
+  color: var(--text-secondary);
+}
+.importance-medium {
+  color: var(--accent-color);
+}
+.importance-high {
+  color: var(--warning-color);
+}
+.importance-critical {
+  color: var(--error-color);
+  font-weight: 600;
+}
 
 .tasks-footer {
   margin-top: 16px;

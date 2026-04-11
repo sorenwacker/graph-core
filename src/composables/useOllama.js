@@ -7,7 +7,7 @@ import { useSettings } from './useSettings.js'
  */
 export const AI_PROVIDERS = {
   OLLAMA: 'ollama',
-  OPENAI: 'openai'
+  OPENAI: 'openai',
 }
 
 /**
@@ -17,43 +17,43 @@ const defaultPrompts = [
   {
     id: 'improve',
     label: 'Improve',
-    prompt: `You are editing personal notes. Improve clarity and flow while keeping the same meaning and length. Preserve all facts, names, dates, and technical terms exactly. Output only the improved text, nothing else.`
+    prompt: `You are editing personal notes. Improve clarity and flow while keeping the same meaning and length. Preserve all facts, names, dates, and technical terms exactly. Output only the improved text, nothing else.`,
   },
   {
     id: 'summarize',
     label: 'Summarize',
-    prompt: `Summarize these notes into key points. Keep names, dates, and important details. Use 2-4 sentences maximum. Output only the summary, nothing else.`
+    prompt: `Summarize these notes into key points. Keep names, dates, and important details. Use 2-4 sentences maximum. Output only the summary, nothing else.`,
   },
   {
     id: 'expand',
     label: 'Expand',
-    prompt: `Expand these notes with relevant details, context, or examples. Stay on topic and match the existing style. Output only the expanded text, nothing else.`
+    prompt: `Expand these notes with relevant details, context, or examples. Stay on topic and match the existing style. Output only the expanded text, nothing else.`,
   },
   {
     id: 'fix-grammar',
     label: 'Fix Grammar',
-    prompt: `Fix only spelling and grammar errors. Do not change wording, style, or meaning. Keep all original formatting. Output only the corrected text, nothing else.`
+    prompt: `Fix only spelling and grammar errors. Do not change wording, style, or meaning. Keep all original formatting. Output only the corrected text, nothing else.`,
   },
   {
     id: 'simplify',
     label: 'Simplify',
-    prompt: `Rewrite in plain language using short sentences and common words. Keep all key information. Output only the simplified text, nothing else.`
+    prompt: `Rewrite in plain language using short sentences and common words. Keep all key information. Output only the simplified text, nothing else.`,
   },
   {
     id: 'bullet-points',
     label: 'Bullet Points',
-    prompt: `Convert to a markdown bullet list using - for each point. Group related items. Keep all information. Output only the bullet points, nothing else.`
+    prompt: `Convert to a markdown bullet list using - for each point. Group related items. Keep all information. Output only the bullet points, nothing else.`,
   },
   {
     id: 'action-items',
     label: 'Action Items',
-    prompt: `Extract tasks and action items as a markdown checklist. Use - [ ] format. Include who, what, and when if mentioned. If no action items exist, output "No action items found." Output only the checklist, nothing else.`
+    prompt: `Extract tasks and action items as a markdown checklist. Use - [ ] format. Include who, what, and when if mentioned. If no action items exist, output "No action items found." Output only the checklist, nothing else.`,
   },
   {
     id: 'continue',
     label: 'Continue',
-    prompt: `Continue writing in the same style and topic. Add 1-2 relevant paragraphs. Output the original text followed by your continuation, nothing else.`
-  }
+    prompt: `Continue writing in the same style and topic. Add 1-2 relevant paragraphs. Output the original text followed by your continuation, nothing else.`,
+  },
 ]
 
 /**
@@ -64,11 +64,19 @@ const defaultPrompts = [
  */
 export function useOllama() {
   const {
-    aiProvider, aiEnabled, aiCustomPrompts,
-    ollamaEndpoint, ollamaModel, ollamaContextSize,
-    openaiEndpoint, openaiApiKey, openaiModel, openaiSkipSslVerification,
+    aiProvider,
+    aiEnabled,
+    aiCustomPrompts,
+    ollamaEndpoint,
+    ollamaModel,
+    ollamaContextSize,
+    openaiEndpoint,
+    openaiApiKey,
+    openaiModel,
+    openaiSkipSslVerification,
     // Legacy settings for backwards compatibility
-    ollamaEnabled, ollamaCustomPrompts
+    ollamaEnabled,
+    ollamaCustomPrompts,
   } = useSettings()
 
   // Use new settings if available, fall back to legacy
@@ -105,13 +113,11 @@ export function useOllama() {
     // Start with defaults that aren't deleted or overridden
     const result = defaultPrompts
       .filter(p => !deletedIds.has(p.id))
-      .map(p => customById.has(p.id) ? customById.get(p.id) : p)
+      .map(p => (customById.has(p.id) ? customById.get(p.id) : p))
 
     // Add custom prompts that aren't overriding defaults
     const defaultIds = new Set(defaultPrompts.map(p => p.id))
-    custom
-      .filter(p => !p._deleted && !defaultIds.has(p.id))
-      .forEach(p => result.push(p))
+    custom.filter(p => !p._deleted && !defaultIds.has(p.id)).forEach(p => result.push(p))
 
     return result
   })
@@ -212,7 +218,7 @@ export function useOllama() {
           model: openaiModel.value,
           endpoint: openaiEndpoint.value,
           apiKey: openaiApiKey.value,
-          skipSslVerification: openaiSkipSslVerification.value
+          skipSslVerification: openaiSkipSslVerification.value,
         })
       } else {
         // Default: Ollama
@@ -221,7 +227,7 @@ export function useOllama() {
           content: originalContent,
           model: ollamaModel.value,
           endpoint: ollamaEndpoint.value,
-          contextSize: ollamaContextSize.value
+          contextSize: ollamaContextSize.value,
         })
       }
 
@@ -281,6 +287,6 @@ export function useOllama() {
     deletePrompt,
     resetPrompt,
     isPromptModified,
-    isDefaultPrompt
+    isDefaultPrompt,
   }
 }

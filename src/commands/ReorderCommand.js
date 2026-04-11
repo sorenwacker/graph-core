@@ -28,7 +28,7 @@ export class ReorderCommand extends Command {
       oldTargetId: this.oldTargetId,
       oldPosition: this.oldPosition,
       newTargetId: this.newTargetId,
-      newPosition: this.newPosition
+      newPosition: this.newPosition,
     }
   }
 

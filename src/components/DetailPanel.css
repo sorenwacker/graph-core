@@ -481,7 +481,9 @@
   padding: 1px 4px 1px 1px;
   border-radius: 4px;
   cursor: grab;
-  transition: background 0.15s, border 0.1s;
+  transition:
+    background 0.15s,
+    border 0.1s;
   position: relative;
   border: 2px solid transparent;
 }
@@ -522,7 +524,7 @@
   flex-shrink: 0;
 }
 
-.child-color-dot input[type="checkbox"] {
+.child-color-dot input[type='checkbox'] {
   width: 12px;
   height: 12px;
   margin: 0;
@@ -612,16 +614,39 @@
   color: var(--text-secondary);
 }
 
-.link-type.project { color: var(--type-project-text); }
-.link-type.task { color: var(--type-task-text); }
-.link-type.note { color: var(--type-note-text); }
-.link-type.milestone { color: var(--type-milestone-text); }
-.link-type.group { color: var(--type-group-text); }
-.link-type.event { color: var(--type-event-text); }
-.link-type.topic { color: var(--type-topic-text); }
-.link-type.person { color: var(--type-person-text); display: inline-flex; align-items: center; }
-.link-type.person :deep(svg) { width: 10px; height: 10px; }
-.link-type.organization { color: var(--type-organization-text); }
+.link-type.project {
+  color: var(--type-project-text);
+}
+.link-type.task {
+  color: var(--type-task-text);
+}
+.link-type.note {
+  color: var(--type-note-text);
+}
+.link-type.milestone {
+  color: var(--type-milestone-text);
+}
+.link-type.group {
+  color: var(--type-group-text);
+}
+.link-type.event {
+  color: var(--type-event-text);
+}
+.link-type.topic {
+  color: var(--type-topic-text);
+}
+.link-type.person {
+  color: var(--type-person-text);
+  display: inline-flex;
+  align-items: center;
+}
+.link-type.person :deep(svg) {
+  width: 10px;
+  height: 10px;
+}
+.link-type.organization {
+  color: var(--type-organization-text);
+}
 
 .child-expand-btn {
   width: 18px;
@@ -676,16 +701,39 @@
   color: var(--text-secondary);
 }
 
-.gc-type.project { color: var(--type-project-text); }
-.gc-type.task { color: var(--type-task-text); }
-.gc-type.note { color: var(--type-note-text); }
-.gc-type.milestone { color: var(--type-milestone-text); }
-.gc-type.group { color: var(--type-group-text); }
-.gc-type.event { color: var(--type-event-text); }
-.gc-type.topic { color: var(--type-topic-text); }
-.gc-type.person { color: var(--type-person-text); display: inline-flex; align-items: center; }
-.gc-type.person :deep(svg) { width: 10px; height: 10px; }
-.gc-type.organization { color: var(--type-organization-text); }
+.gc-type.project {
+  color: var(--type-project-text);
+}
+.gc-type.task {
+  color: var(--type-task-text);
+}
+.gc-type.note {
+  color: var(--type-note-text);
+}
+.gc-type.milestone {
+  color: var(--type-milestone-text);
+}
+.gc-type.group {
+  color: var(--type-group-text);
+}
+.gc-type.event {
+  color: var(--type-event-text);
+}
+.gc-type.topic {
+  color: var(--type-topic-text);
+}
+.gc-type.person {
+  color: var(--type-person-text);
+  display: inline-flex;
+  align-items: center;
+}
+.gc-type.person :deep(svg) {
+  width: 10px;
+  height: 10px;
+}
+.gc-type.organization {
+  color: var(--type-organization-text);
+}
 
 .gc-title {
   flex: 1;
@@ -695,7 +743,8 @@
   color: var(--text-secondary);
 }
 
-.loading, .empty-message {
+.loading,
+.empty-message {
   font-size: 12px;
   color: var(--text-tertiary);
   padding: 8px 0;
@@ -926,11 +975,11 @@
 }
 
 .meta-item select,
-.meta-item input[type="date"],
-.meta-item input[type="text"],
-.meta-item input[type="email"],
-.meta-item input[type="tel"],
-.meta-item input[type="url"] {
+.meta-item input[type='date'],
+.meta-item input[type='text'],
+.meta-item input[type='email'],
+.meta-item input[type='tel'],
+.meta-item input[type='url'] {
   padding: 3px 6px;
   border: 1px solid var(--border-color);
   border-radius: 3px;
@@ -940,17 +989,17 @@
 }
 
 /* Make date picker icons visible on dark background */
-.meta-item input[type="date"] {
+.meta-item input[type='date'] {
   color-scheme: dark;
 }
 
-.meta-item input[type="date"]::-webkit-calendar-picker-indicator {
+.meta-item input[type='date']::-webkit-calendar-picker-indicator {
   filter: invert(0.7) sepia(1) saturate(0) brightness(1);
   opacity: 0.6;
   cursor: pointer;
 }
 
-.meta-item input[type="color"] {
+.meta-item input[type='color'] {
   width: 24px;
   height: 20px;
   padding: 0;
@@ -1287,4 +1336,3 @@ textarea::selection {
   font-weight: 500;
   border-top: 1px solid var(--border-color);
 }
-

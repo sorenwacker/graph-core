@@ -8,7 +8,7 @@ import OllamaDiffPreview from './OllamaDiffPreview.vue'
 const props = defineProps({
   notes: { type: String, default: '' },
   nodeId: { type: [Number, String], required: true },
-  getSelection: { type: Function, default: null }
+  getSelection: { type: Function, default: null },
 })
 
 const emit = defineEmits(['apply-improvement'])
@@ -41,7 +41,7 @@ function updateDropdownPosition() {
     position: 'fixed',
     top: `${rect.bottom + 4}px`,
     left: `${rect.left}px`,
-    zIndex: 9999
+    zIndex: 9999,
   }
 }
 
@@ -98,7 +98,7 @@ function handleAcceptImprovement(finalContent) {
     newNotes: finalContent,
     prompt: usedPrompt.value,
     selectionRange: selectionRange.value, // { from, to } if selection-only improvement
-    fullNotes: props.notes || '' // Pass full notes for correct selection splicing
+    fullNotes: props.notes || '', // Pass full notes for correct selection splicing
   })
 }
 
@@ -121,15 +121,31 @@ function handleRejectImprovement() {
         :disabled="isGenerating"
         title="AI actions"
       >
-        <svg v-if="!isGenerating" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-          <path d="M2 17l10 5 10-5"/>
-          <path d="M2 12l10 5 10-5"/>
+        <svg
+          v-if="!isGenerating"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M12 2L2 7l10 5 10-5-10-5z" />
+          <path d="M2 17l10 5 10-5" />
+          <path d="M2 12l10 5 10-5" />
         </svg>
         <span v-else class="spinner"></span>
         <span>{{ isGenerating ? 'Running...' : 'AI' }}</span>
-        <svg class="chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M6 9l6 6 6-6"/>
+        <svg
+          class="chevron"
+          width="10"
+          height="10"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M6 9l6 6 6-6" />
         </svg>
       </button>
 
@@ -218,8 +234,13 @@ function handleRejectImprovement() {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }
 
 .ai-btn:disabled {

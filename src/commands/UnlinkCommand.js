@@ -22,7 +22,7 @@ export class UnlinkCommand extends Command {
     return {
       type: this.type,
       sourceId: this.sourceId,
-      targetId: this.targetId
+      targetId: this.targetId,
     }
   }
 

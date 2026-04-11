@@ -21,7 +21,7 @@ describe('API Module', () => {
       // Mock fetch to return array with nulls
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve([{ id: 1 }, null, { id: 2 }, undefined, { id: 3 }])
+        json: () => Promise.resolve([{ id: 1 }, null, { id: 2 }, undefined, { id: 3 }]),
       })
 
       // In web mode, the API doesn't filter nulls - only electronApi does
@@ -34,7 +34,7 @@ describe('API Module', () => {
     it('should return non-arrays unchanged', async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve({ id: 1, title: 'Test' })
+        json: () => Promise.resolve({ id: 1, title: 'Test' }),
       })
 
       const { api } = await import('../services/api.js')
@@ -54,7 +54,7 @@ describe('API Module', () => {
 
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve([])
+        json: () => Promise.resolve([]),
       })
 
       const module = await import('../services/api.js')
@@ -80,7 +80,7 @@ describe('API Module', () => {
       it('getNode should call correct endpoint', async () => {
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ id: 123, title: 'Test' })
+          json: () => Promise.resolve({ id: 123, title: 'Test' }),
         })
         await api.getNode(123)
         expect(fetch).toHaveBeenCalledWith('/api/nodes/123', expect.any(Object))
@@ -89,50 +89,50 @@ describe('API Module', () => {
       it('createNode should POST with data', async () => {
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ id: 1, title: 'New Node' })
+          json: () => Promise.resolve({ id: 1, title: 'New Node' }),
         })
         await api.createNode({ title: 'New Node', type: 'task' })
         expect(fetch).toHaveBeenCalledWith('/api/nodes', {
           headers: { 'Content-Type': 'application/json' },
           method: 'POST',
-          body: JSON.stringify({ title: 'New Node', type: 'task' })
+          body: JSON.stringify({ title: 'New Node', type: 'task' }),
         })
       })
 
       it('updateNode should PATCH with data', async () => {
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ id: 1, title: 'Updated' })
+          json: () => Promise.resolve({ id: 1, title: 'Updated' }),
         })
         await api.updateNode(1, { title: 'Updated' })
         expect(fetch).toHaveBeenCalledWith('/api/nodes/1', {
           headers: { 'Content-Type': 'application/json' },
           method: 'PATCH',
-          body: JSON.stringify({ title: 'Updated' })
+          body: JSON.stringify({ title: 'Updated' }),
         })
       })
 
       it('deleteNode should DELETE', async () => {
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ success: true })
+          json: () => Promise.resolve({ success: true }),
         })
         await api.deleteNode(1)
         expect(fetch).toHaveBeenCalledWith('/api/nodes/1?hard=false', {
           headers: { 'Content-Type': 'application/json' },
-          method: 'DELETE'
+          method: 'DELETE',
         })
       })
 
       it('deleteNode with hard=true should include hard param', async () => {
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ success: true })
+          json: () => Promise.resolve({ success: true }),
         })
         await api.deleteNode(1, true)
         expect(fetch).toHaveBeenCalledWith('/api/nodes/1?hard=true', {
           headers: { 'Content-Type': 'application/json' },
-          method: 'DELETE'
+          method: 'DELETE',
         })
       })
     })
@@ -176,13 +176,13 @@ describe('API Module', () => {
       it('moveNode should POST to move endpoint', async () => {
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ success: true })
+          json: () => Promise.resolve({ success: true }),
         })
         await api.moveNode(1, 2)
         expect(fetch).toHaveBeenCalledWith('/api/nodes/1/move', {
           headers: { 'Content-Type': 'application/json' },
           method: 'POST',
-          body: JSON.stringify({ new_parent_id: 2 })
+          body: JSON.stringify({ new_parent_id: 2 }),
         })
       })
     })
@@ -191,24 +191,24 @@ describe('API Module', () => {
       it('linkNodes should POST', async () => {
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ success: true })
+          json: () => Promise.resolve({ success: true }),
         })
         await api.linkNodes(1, 2)
         expect(fetch).toHaveBeenCalledWith('/api/nodes/1/link/2', {
           headers: { 'Content-Type': 'application/json' },
-          method: 'POST'
+          method: 'POST',
         })
       })
 
       it('unlinkNodes should DELETE', async () => {
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ success: true })
+          json: () => Promise.resolve({ success: true }),
         })
         await api.unlinkNodes(1, 2)
         expect(fetch).toHaveBeenCalledWith('/api/nodes/1/link/2', {
           headers: { 'Content-Type': 'application/json' },
-          method: 'DELETE'
+          method: 'DELETE',
         })
       })
 
@@ -254,24 +254,24 @@ describe('API Module', () => {
       it('restoreNode should POST', async () => {
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ success: true })
+          json: () => Promise.resolve({ success: true }),
         })
         await api.restoreNode(1)
         expect(fetch).toHaveBeenCalledWith('/api/nodes/1/restore', {
           headers: { 'Content-Type': 'application/json' },
-          method: 'POST'
+          method: 'POST',
         })
       })
 
       it('emptyTrash should DELETE', async () => {
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ success: true })
+          json: () => Promise.resolve({ success: true }),
         })
         await api.emptyTrash()
         expect(fetch).toHaveBeenCalledWith('/api/trash', {
           headers: { 'Content-Type': 'application/json' },
-          method: 'DELETE'
+          method: 'DELETE',
         })
       })
     })
@@ -280,7 +280,7 @@ describe('API Module', () => {
       it('should throw on non-ok response', async () => {
         global.fetch.mockResolvedValueOnce({
           ok: false,
-          status: 404
+          status: 404,
         })
         await expect(api.getNode(999)).rejects.toThrow('API error: 404')
       })
@@ -300,13 +300,13 @@ describe('API Module', () => {
       it('createWorkspace should POST with data', async () => {
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ id: 'new', name: 'New Workspace' })
+          json: () => Promise.resolve({ id: 'new', name: 'New Workspace' }),
         })
         await api.createWorkspace({ name: 'New Workspace', color: '#ff0000' })
         expect(fetch).toHaveBeenCalledWith('/api/workspaces', {
           headers: { 'Content-Type': 'application/json' },
           method: 'POST',
-          body: JSON.stringify({ name: 'New Workspace', color: '#ff0000' })
+          body: JSON.stringify({ name: 'New Workspace', color: '#ff0000' }),
         })
       })
     })

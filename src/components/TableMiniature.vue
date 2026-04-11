@@ -8,7 +8,7 @@ const { handleError } = useErrorHandler()
 const props = defineProps({
   nodeId: { type: Number, required: true },
   maxRows: { type: Number, default: 3 },
-  maxCols: { type: Number, default: 4 }
+  maxCols: { type: Number, default: 4 },
 })
 
 const tableData = ref(null)
@@ -31,9 +31,7 @@ onMounted(async () => {
 })
 
 function getCellValue(rowIndex, colIndex) {
-  const cell = cells.value.find(
-    c => c.row_index === rowIndex && c.col_index === colIndex
-  )
+  const cell = cells.value.find(c => c.row_index === rowIndex && c.col_index === colIndex)
   return cell?.value || cell?.computed_value || ''
 }
 
@@ -64,11 +62,7 @@ function getColumnName(index) {
         <div v-if="(tableData.column_definitions?.length || 4) > maxCols" class="mini-cell mini-more">...</div>
       </div>
       <!-- Data rows -->
-      <div
-        v-for="row in Math.min(tableData.row_count || 5, maxRows)"
-        :key="'r' + row"
-        class="mini-row"
-      >
+      <div v-for="row in Math.min(tableData.row_count || 5, maxRows)" :key="'r' + row" class="mini-row">
         <div
           v-for="col in Math.min(tableData.column_definitions?.length || 4, maxCols)"
           :key="'c' + row + '-' + col"

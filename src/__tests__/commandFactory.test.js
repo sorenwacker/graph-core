@@ -11,7 +11,7 @@ import {
   CompleteCommand,
   LinkCommand,
   UnlinkCommand,
-  ReorderCommand
+  ReorderCommand,
 } from '../commands/index.js'
 
 describe('commandFactory', () => {
@@ -34,7 +34,7 @@ describe('commandFactory', () => {
         nodeId: 1,
         nodeData: { title: 'Test' },
         parentId: 5,
-        linkedToId: null
+        linkedToId: null,
       }
       const cmd = fromJSON(json)
       expect(cmd).toBeInstanceOf(CreateCommand)
@@ -46,7 +46,7 @@ describe('commandFactory', () => {
     it('should deserialize DeleteCommand', () => {
       const json = {
         type: 'delete',
-        nodeData: { id: 1, title: 'Test', parent_id: 5 }
+        nodeData: { id: 1, title: 'Test', parent_id: 5 },
       }
       const cmd = fromJSON(json)
       expect(cmd).toBeInstanceOf(DeleteCommand)
@@ -58,8 +58,8 @@ describe('commandFactory', () => {
         type: 'delete-multiple',
         nodes: [
           { id: 1, parent_id: 5 },
-          { id: 2, parent_id: 5 }
-        ]
+          { id: 2, parent_id: 5 },
+        ],
       }
       const cmd = fromJSON(json)
       expect(cmd).toBeInstanceOf(DeleteMultipleCommand)
@@ -71,7 +71,7 @@ describe('commandFactory', () => {
         type: 'edit',
         nodeId: 1,
         oldValues: { title: 'Old' },
-        newValues: { title: 'New' }
+        newValues: { title: 'New' },
       }
       const cmd = fromJSON(json)
       expect(cmd).toBeInstanceOf(EditCommand)
@@ -84,7 +84,7 @@ describe('commandFactory', () => {
         type: 'move',
         nodeId: 1,
         oldParentId: 5,
-        newParentId: 10
+        newParentId: 10,
       }
       const cmd = fromJSON(json)
       expect(cmd).toBeInstanceOf(MoveCommand)
@@ -97,7 +97,7 @@ describe('commandFactory', () => {
         type: 'complete',
         nodeId: 1,
         oldCompleted: false,
-        newCompleted: true
+        newCompleted: true,
       }
       const cmd = fromJSON(json)
       expect(cmd).toBeInstanceOf(CompleteCommand)
@@ -109,7 +109,7 @@ describe('commandFactory', () => {
       const json = {
         type: 'link',
         sourceId: 1,
-        targetId: 2
+        targetId: 2,
       }
       const cmd = fromJSON(json)
       expect(cmd).toBeInstanceOf(LinkCommand)
@@ -121,7 +121,7 @@ describe('commandFactory', () => {
       const json = {
         type: 'unlink',
         sourceId: 1,
-        targetId: 2
+        targetId: 2,
       }
       const cmd = fromJSON(json)
       expect(cmd).toBeInstanceOf(UnlinkCommand)
@@ -134,7 +134,7 @@ describe('commandFactory', () => {
         oldTargetId: 2,
         oldPosition: 'before',
         newTargetId: 3,
-        newPosition: 'after'
+        newPosition: 'after',
       }
       const cmd = fromJSON(json)
       expect(cmd).toBeInstanceOf(ReorderCommand)
@@ -153,13 +153,13 @@ describe('commandFactory', () => {
         new EditCommand({
           nodeId: 1,
           oldValues: { title: 'A' },
-          newValues: { title: 'B' }
+          newValues: { title: 'B' },
         }),
         new MoveCommand({
           nodeId: 2,
           oldParentId: 5,
-          newParentId: 10
-        })
+          newParentId: 10,
+        }),
       ]
 
       const serialized = serializeStack(commands)
@@ -182,7 +182,7 @@ describe('commandFactory', () => {
         { type: 'edit', nodeId: 1, oldValues: {}, newValues: {} },
         { type: 'invalid' },
         null,
-        { type: 'move', nodeId: 2, oldParentId: 5, newParentId: 10 }
+        { type: 'move', nodeId: 2, oldParentId: 5, newParentId: 10 },
       ]
 
       const commands = deserializeStack(jsonArray)
@@ -200,18 +200,18 @@ describe('commandFactory', () => {
           nodeId: 1,
           nodeData: { title: 'Task', type: 'task', notes: 'Details' },
           parentId: 5,
-          linkedToId: 10
+          linkedToId: 10,
         }),
         new EditCommand({
           nodeId: 1,
           oldValues: { title: 'Task' },
-          newValues: { title: 'Updated Task' }
+          newValues: { title: 'Updated Task' },
         }),
         new CompleteCommand({
           nodeId: 1,
           oldCompleted: false,
-          newCompleted: true
-        })
+          newCompleted: true,
+        }),
       ]
 
       const serialized = serializeStack(original)

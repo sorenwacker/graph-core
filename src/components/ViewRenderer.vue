@@ -51,29 +51,60 @@ const props = defineProps({
   // Tasks-specific
   containerTitle: { type: String, default: '' },
   // Trash-specific
-  trashedItems: { type: Array, default: () => [] }
+  trashedItems: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits([
   // Common events
-  'select', 'select-multiple', 'enter', 'toggle-complete', 'delete',
-  'context-menu', 'update', 'go-parent',
+  'select',
+  'select-multiple',
+  'enter',
+  'toggle-complete',
+  'delete',
+  'context-menu',
+  'update',
+  'go-parent',
   // TableView events
-  'hover', 'toggle-expand', 'expand-all', 'collapse-all', 'move',
-  'move-multiple', 'reorder', 'open-fullscreen',
+  'hover',
+  'toggle-expand',
+  'expand-all',
+  'collapse-all',
+  'move',
+  'move-multiple',
+  'reorder',
+  'open-fullscreen',
   // CardsView events
-  'add-child', 'create', 'show-tooltip', 'hide-tooltip',
-  'drag-start', 'drag-end', 'drag-over', 'drag-leave', 'drop',
-  'start-edit', 'save-edit', 'cancel-edit',
-  'start-notes', 'save-notes', 'cancel-notes',
-  'update:editing-title', 'update:inline-notes-text',
+  'add-child',
+  'create',
+  'show-tooltip',
+  'hide-tooltip',
+  'drag-start',
+  'drag-end',
+  'drag-over',
+  'drag-leave',
+  'drop',
+  'start-edit',
+  'save-edit',
+  'cancel-edit',
+  'start-notes',
+  'save-notes',
+  'cancel-notes',
+  'update:editing-title',
+  'update:inline-notes-text',
   // GraphView events
-  'link', 'unlink', 'insert-between', 'wrap-with-parent',
-  'delete-multiple', 'go-first-child', 'go-prev-sibling', 'go-next-sibling',
+  'link',
+  'unlink',
+  'insert-between',
+  'wrap-with-parent',
+  'delete-multiple',
+  'go-first-child',
+  'go-prev-sibling',
+  'go-next-sibling',
   // TasksView events
   'navigate',
   // TrashView events
-  'empty-all', 'restore'
+  'empty-all',
+  'restore',
 ])
 
 // Component refs exposed to parent
@@ -88,7 +119,7 @@ defineExpose({
   tasksViewRef,
   // Expose methods that parent might need
   updateGraph: () => graphViewRef.value?.updateGraph(),
-  loadTasks: () => tasksViewRef.value?.loadTasks()
+  loadTasks: () => tasksViewRef.value?.loadTasks(),
 })
 </script>
 

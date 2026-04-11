@@ -24,7 +24,7 @@ export class DeleteCommand extends Command {
   toJSON() {
     return {
       type: this.type,
-      nodeData: this.nodeData
+      nodeData: this.nodeData,
     }
   }
 

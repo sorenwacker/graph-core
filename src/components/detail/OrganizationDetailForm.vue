@@ -14,7 +14,7 @@ const props = defineProps({
   editedNode: { type: Object, required: true },
   linkedNodes: { type: Array, default: () => [] },
   activeTab: { type: String, default: 'edit' },
-  currentWorkspace: { type: String, default: 'work' }
+  currentWorkspace: { type: String, default: 'work' },
 })
 
 const emit = defineEmits([
@@ -24,7 +24,7 @@ const emit = defineEmits([
   'select-child',
   'open-link-search',
   'ai-improve-notes',
-  'remove-link'
+  'remove-link',
 ])
 
 const { handleError } = useErrorHandler()
@@ -42,7 +42,7 @@ const {
   exactMatch: exactMemberMatch,
   handleKeydown: memberAutocompleteKeydown,
   handleInput: handleMemberInput,
-  reset: resetMemberAutocomplete
+  reset: resetMemberAutocomplete,
 } = useAutocomplete({ items: allPersons })
 
 // Notes section ref
@@ -99,7 +99,7 @@ async function createAndLinkMember() {
     const newPerson = await api.createNode({
       title: memberQuery.value.trim(),
       type: 'person',
-      workspace_id: props.currentWorkspace
+      workspace_id: props.currentWorkspace,
     })
     allPersons.value.push(newPerson)
     await linkMember(newPerson)
@@ -112,7 +112,7 @@ function handleMemberKeydown(e) {
   memberAutocompleteKeydown(e, {
     onSelect: linkMember,
     onCreate: () => createAndLinkMember(),
-    linkedItems: linkedMembers.value
+    linkedItems: linkedMembers.value,
   })
 }
 
@@ -145,18 +145,26 @@ function onShowLinksUpdate(value) {
 }
 
 // Watch for node changes to reload data
-watch(() => props.editedNode?.id, async (newId) => {
-  if (newId) {
-    resetMemberAutocomplete()
-    await loadAllPersons()
-    await loadLinkedMembers()
-  }
-}, { immediate: true })
+watch(
+  () => props.editedNode?.id,
+  async newId => {
+    if (newId) {
+      resetMemberAutocomplete()
+      await loadAllPersons()
+      await loadLinkedMembers()
+    }
+  },
+  { immediate: true }
+)
 
 // Watch for linkedNodes changes to update members
-watch(() => props.linkedNodes, () => {
-  loadLinkedMembers()
-}, { deep: true })
+watch(
+  () => props.linkedNodes,
+  () => {
+    loadLinkedMembers()
+  },
+  { deep: true }
+)
 
 function getNotesSelection() {
   return notesSectionRef.value?.getSelection() || { text: '', from: 0, to: 0 }
@@ -171,7 +179,9 @@ defineExpose({ loadLinkedMembers, getNotesSelection })
     <div class="org-header-row">
       <div class="org-icon-large" :style="{ backgroundColor: editedNode.color || '#e67e22' }">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/>
+          <path
+            d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"
+          />
         </svg>
       </div>
       <div class="org-quick-info">
@@ -204,7 +214,7 @@ defineExpose({ loadLinkedMembers, getNotesSelection })
           @input="handleMemberInput"
           @keydown="handleMemberKeydown"
           @focus="showMemberDropdown = true"
-          @blur="setTimeout(() => showMemberDropdown = false, 200)"
+          @blur="setTimeout(() => (showMemberDropdown = false), 200)"
         />
         <div v-if="showMemberDropdown && (filteredMembers.length > 0 || memberQuery.trim())" class="member-dropdown">
           <div
@@ -248,24 +258,13 @@ defineExpose({ loadLinkedMembers, getNotesSelection })
     </div>
 
     <!-- Color picker -->
-    <ColorPickerSection
-      :color="editedNode.color"
-      default-color="#e67e22"
-      @update:color="onColorUpdate"
-    />
+    <ColorPickerSection :color="editedNode.color" default-color="#e67e22" @update:color="onColorUpdate" />
 
     <!-- Tags -->
-    <TagsSection
-      :tags="editedNode.tags || []"
-      @update:tags="onTagsUpdate"
-    />
+    <TagsSection :tags="editedNode.tags || []" @update:tags="onTagsUpdate" />
 
     <!-- System info -->
-    <MetaInfoSection
-      :id="editedNode.id"
-      :created-at="editedNode.created_at"
-      :updated-at="editedNode.updated_at"
-    />
+    <MetaInfoSection :id="editedNode.id" :created-at="editedNode.created_at" :updated-at="editedNode.updated_at" />
 
     <!-- Links section - at bottom like metadata -->
     <LinkedItemsSection

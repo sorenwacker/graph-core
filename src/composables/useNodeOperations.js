@@ -7,7 +7,7 @@ import {
   EditCommand,
   CompleteCommand,
   LinkCommand,
-  UnlinkCommand
+  UnlinkCommand,
 } from '../commands/index.js'
 import { pickNodeFields, NODE_UPDATE_FIELDS } from '../utils/nodeFields.js'
 
@@ -32,7 +32,7 @@ export function useNodeOperations({
   onSuccess,
   onError,
   broadcastUpdate,
-  broadcastDelete
+  broadcastDelete,
 } = {}) {
   const isProcessing = ref(false)
 
@@ -52,7 +52,7 @@ export function useNodeOperations({
         parent_id: parentId,
         workspace_id: getWorkspaceIdForNode?.(nodeType),
         // Auto-set start_date for tasks and projects
-        ...(nodeType === 'task' || nodeType === 'project' ? { start_date: today } : {})
+        ...(nodeType === 'task' || nodeType === 'project' ? { start_date: today } : {}),
       }
 
       const newNode = await api.createNode(nodeData)
@@ -120,7 +120,7 @@ export function useNodeOperations({
       const node = await api.getNode(nodeId)
       if (!node) return { success: false }
 
-      const descendants = await api.getDescendants(nodeId) || []
+      const descendants = (await api.getDescendants(nodeId)) || []
       const allNodesToDelete = [node, ...descendants]
 
       // Delete all nodes (descendants first, then the root)
@@ -167,7 +167,7 @@ export function useNodeOperations({
         const node = await api.getNode(id)
         if (!node) continue
 
-        const descendants = await api.getDescendants(id) || []
+        const descendants = (await api.getDescendants(id)) || []
         allNodesToDelete.push(node)
         processedIds.add(id)
 
@@ -370,6 +370,6 @@ export function useNodeOperations({
 
     // Utilities
     pickNodeFields,
-    NODE_UPDATE_FIELDS
+    NODE_UPDATE_FIELDS,
   }
 }

@@ -14,7 +14,7 @@ const props = defineProps({
   editedNode: { type: Object, required: true },
   linkedNodes: { type: Array, default: () => [] },
   activeTab: { type: String, default: 'edit' },
-  currentWorkspace: { type: String, default: 'work' }
+  currentWorkspace: { type: String, default: 'work' },
 })
 
 const emit = defineEmits([
@@ -24,7 +24,7 @@ const emit = defineEmits([
   'select-child',
   'open-link-search',
   'ai-improve-notes',
-  'remove-link'
+  'remove-link',
 ])
 
 const { handleError } = useErrorHandler()
@@ -42,7 +42,7 @@ const {
   exactMatch: exactOrgMatch,
   handleKeydown: orgAutocompleteKeydown,
   handleInput: handleOrgInput,
-  reset: resetOrgAutocomplete
+  reset: resetOrgAutocomplete,
 } = useAutocomplete({ items: organizations })
 
 // Notes section ref
@@ -115,9 +115,9 @@ async function loadLinkedOrganizations() {
 
     // Add paths
     const orgsWithPaths = await Promise.all(
-      leafOrgs.map(async (org) => ({
+      leafOrgs.map(async org => ({
         ...org,
-        path: await getOrgPath(org)
+        path: await getOrgPath(org),
       }))
     )
     linkedOrganizations.value = orgsWithPaths
@@ -154,7 +154,7 @@ async function createAndLinkOrganization() {
     const newOrg = await api.createNode({
       title: orgQuery.value.trim(),
       type: 'organization',
-      workspace_id: props.currentWorkspace
+      workspace_id: props.currentWorkspace,
     })
     organizations.value.push(newOrg)
     await linkOrganization(newOrg)
@@ -167,7 +167,7 @@ function handleOrgKeydown(e) {
   orgAutocompleteKeydown(e, {
     onSelect: linkOrganization,
     onCreate: () => createAndLinkOrganization(),
-    linkedItems: linkedOrganizations.value
+    linkedItems: linkedOrganizations.value,
   })
 }
 
@@ -200,18 +200,26 @@ function onShowLinksUpdate(value) {
 }
 
 // Watch for node changes to reload data
-watch(() => props.editedNode?.id, async (newId) => {
-  if (newId) {
-    resetOrgAutocomplete()
-    await loadOrganizations()
-    await loadLinkedOrganizations()
-  }
-}, { immediate: true })
+watch(
+  () => props.editedNode?.id,
+  async newId => {
+    if (newId) {
+      resetOrgAutocomplete()
+      await loadOrganizations()
+      await loadLinkedOrganizations()
+    }
+  },
+  { immediate: true }
+)
 
 // Watch for linkedNodes changes to update organizations
-watch(() => props.linkedNodes, () => {
-  loadLinkedOrganizations()
-}, { deep: true })
+watch(
+  () => props.linkedNodes,
+  () => {
+    loadLinkedOrganizations()
+  },
+  { deep: true }
+)
 
 function getNotesSelection() {
   return notesSectionRef.value?.getSelection() || { text: '', from: 0, to: 0 }
@@ -230,7 +238,11 @@ defineExpose({ loadLinkedOrganizations, getNotesSelection })
       <div class="person-quick-info">
         <div v-if="editedNode.role" class="person-role-display">{{ editedNode.role }}</div>
         <div v-if="linkedOrganizations.length || editedNode.organization" class="person-orgs-display">
-          {{ linkedOrganizations.length ? linkedOrganizations.map(o => o.path || o.title).join(', ') : editedNode.organization }}
+          {{
+            linkedOrganizations.length
+              ? linkedOrganizations.map(o => o.path || o.title).join(', ')
+              : editedNode.organization
+          }}
         </div>
       </div>
     </div>
@@ -262,11 +274,7 @@ defineExpose({ loadLinkedOrganizations, getNotesSelection })
       <div v-if="linkedOrganizations.length > 0" class="form-field full-width">
         <label>Organizations</label>
         <div class="org-tags">
-          <div
-            v-for="org in linkedOrganizations"
-            :key="org.id"
-            class="org-tag"
-          >
+          <div v-for="org in linkedOrganizations" :key="org.id" class="org-tag">
             <span class="org-path">{{ org.path || org.title }}</span>
             <button class="org-remove" @click="unlinkOrganization(org)" title="Remove">&times;</button>
           </div>
@@ -278,7 +286,7 @@ defineExpose({ loadLinkedOrganizations, getNotesSelection })
             @input="handleOrgInput"
             @keydown="handleOrgKeydown"
             @focus="showOrgDropdown = true"
-            @blur="setTimeout(() => showOrgDropdown = false, 200)"
+            @blur="setTimeout(() => (showOrgDropdown = false), 200)"
           />
           <div v-if="showOrgDropdown && (filteredOrganizations.length > 0 || orgQuery.trim())" class="org-dropdown">
             <div
@@ -342,11 +350,7 @@ defineExpose({ loadLinkedOrganizations, getNotesSelection })
     </div>
 
     <!-- Color picker -->
-    <ColorPickerSection
-      :color="editedNode.color"
-      default-color="#3498db"
-      @update:color="onColorUpdate"
-    />
+    <ColorPickerSection :color="editedNode.color" default-color="#3498db" @update:color="onColorUpdate" />
 
     <!-- Links section -->
     <LinkedItemsSection
@@ -360,17 +364,10 @@ defineExpose({ loadLinkedOrganizations, getNotesSelection })
     />
 
     <!-- Tags -->
-    <TagsSection
-      :tags="editedNode.tags || []"
-      @update:tags="onTagsUpdate"
-    />
+    <TagsSection :tags="editedNode.tags || []" @update:tags="onTagsUpdate" />
 
     <!-- System info -->
-    <MetaInfoSection
-      :id="editedNode.id"
-      :created-at="editedNode.created_at"
-      :updated-at="editedNode.updated_at"
-    />
+    <MetaInfoSection :id="editedNode.id" :created-at="editedNode.created_at" :updated-at="editedNode.updated_at" />
   </div>
 </template>
 

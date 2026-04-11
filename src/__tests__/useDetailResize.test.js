@@ -9,12 +9,14 @@ describe('useDetailResize composable', () => {
   beforeEach(() => {
     mockLocalStorage = {}
     vi.stubGlobal('localStorage', {
-      getItem: vi.fn((key) => mockLocalStorage[key] || null),
-      setItem: vi.fn((key, value) => { mockLocalStorage[key] = value })
+      getItem: vi.fn(key => mockLocalStorage[key] || null),
+      setItem: vi.fn((key, value) => {
+        mockLocalStorage[key] = value
+      }),
     })
 
     vi.stubGlobal('window', {
-      innerWidth: 1200
+      innerWidth: 1200,
     })
 
     addEventListenerSpy = vi.spyOn(document, 'addEventListener')

@@ -24,7 +24,7 @@ export class CompleteCommand extends Command {
       type: this.type,
       nodeId: this.nodeId,
       oldCompleted: this.oldCompleted,
-      newCompleted: this.newCompleted
+      newCompleted: this.newCompleted,
     }
   }
 

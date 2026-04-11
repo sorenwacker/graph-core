@@ -120,9 +120,7 @@ export function useNodeTable() {
    * @returns {Object} The cell object
    */
   function findOrCreateCell(rowIndex, colIndex) {
-    let cell = cells.value.find(
-      c => c.row_index === rowIndex && c.col_index === colIndex
-    )
+    let cell = cells.value.find(c => c.row_index === rowIndex && c.col_index === colIndex)
     if (!cell) {
       cell = { row_index: rowIndex, col_index: colIndex }
       cells.value.push(cell)
@@ -141,7 +139,7 @@ export function useNodeTable() {
   async function saveCell(nodeId, rowIndex, colIndex, value, isFormula = false) {
     const cellData = {
       row_index: rowIndex,
-      col_index: colIndex
+      col_index: colIndex,
     }
 
     if (isFormula) {
@@ -180,7 +178,7 @@ export function useNodeTable() {
     const cellData = {
       row_index: rowIndex,
       col_index: colIndex,
-      style: JSON.stringify(style)
+      style: JSON.stringify(style),
     }
 
     // Preserve existing value and formula
@@ -255,7 +253,7 @@ export function useNodeTable() {
         id: `col${colIndex}`,
         name: colName,
         type: 'text',
-        width: 100
+        width: 100,
       })
     }
 
@@ -297,6 +295,6 @@ export function useNodeTable() {
     clearAllCells,
     addRows,
     addColumns,
-    getColumnName
+    getColumnName,
   }
 }

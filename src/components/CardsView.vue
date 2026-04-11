@@ -20,7 +20,7 @@ const props = defineProps({
   inlineNotesId: Number,
   inlineNotesText: String,
   dragOverNodeId: Number,
-  dragPosition: String
+  dragPosition: String,
 })
 
 const emit = defineEmits([
@@ -46,7 +46,7 @@ const emit = defineEmits([
   'save-notes',
   'cancel-notes',
   'update:editingTitle',
-  'update:inlineNotesText'
+  'update:inlineNotesText',
 ])
 
 function isCardSelected(nodeId) {
@@ -59,9 +59,13 @@ function getNodeColor(node) {
 
 function getCardDropClass(node) {
   if (props.dragOverNodeId !== node.id) return ''
-  return props.dragPosition === 'before' ? 'drop-before' :
-         props.dragPosition === 'after' ? 'drop-after' :
-         props.dragPosition === 'inside' ? 'drop-inside' : ''
+  return props.dragPosition === 'before'
+    ? 'drop-before'
+    : props.dragPosition === 'after'
+      ? 'drop-after'
+      : props.dragPosition === 'inside'
+        ? 'drop-inside'
+        : ''
 }
 
 function handleCardClick(e, node) {
@@ -176,7 +180,7 @@ function getChildProgress(node) {
   return {
     completed,
     total: tasks.length,
-    percent: Math.round((completed / tasks.length) * 100)
+    percent: Math.round((completed / tasks.length) * 100),
   }
 }
 
@@ -230,7 +234,11 @@ function handleCanvasClick(e) {
       :key="node.id"
       class="node-card"
       :class="[cardSizeClass, `type-${node.type}`, { selected: isCardSelected(node.id) }, getCardDropClass(node)]"
-      :style="getNodeColor(node) ? { background: `linear-gradient(135deg, ${getNodeColor(node)}55 0%, var(--bg-primary) 80%)` } : {}"
+      :style="
+        getNodeColor(node)
+          ? { background: `linear-gradient(135deg, ${getNodeColor(node)}55 0%, var(--bg-primary) 80%)` }
+          : {}
+      "
       :draggable="editingCardId !== node.id && inlineNotesId !== node.id"
       @click="handleCardClick($event, node)"
       @dblclick="emit('enter', node)"
@@ -250,13 +258,27 @@ function handleCanvasClick(e) {
         <span class="node-card-type" :class="node.type" :title="'Type: ' + node.type">
           {{ cardSizeClass === 'card-xs' ? node.type[0].toUpperCase() : node.type.toUpperCase() }}
         </span>
-        <span v-if="node.importance" class="card-importance" :class="'imp-' + node.importance" :title="getImportanceLabel(node.importance)">
+        <span
+          v-if="node.importance"
+          class="card-importance"
+          :class="'imp-' + node.importance"
+          :title="getImportanceLabel(node.importance)"
+        >
           {{ cardSizeClass === 'card-xs' ? node.importance : getImportanceLabel(node.importance) }}
         </span>
-        <span v-if="node.children?.length && cardSizeClass !== 'card-xs'" class="node-card-children" :title="node.children.length + ' children'">
+        <span
+          v-if="node.children?.length && cardSizeClass !== 'card-xs'"
+          class="node-card-children"
+          :title="node.children.length + ' children'"
+        >
           {{ node.children.length }}
         </span>
-        <span v-if="node.due_date && cardSizeClass !== 'card-xs'" class="card-due-date" :class="getDueDateClass(node)" :title="node.due_date">
+        <span
+          v-if="node.due_date && cardSizeClass !== 'card-xs'"
+          class="card-due-date"
+          :class="getDueDateClass(node)"
+          :title="node.due_date"
+        >
           {{ formatDueDate(node) }}
         </span>
         <button class="card-add-btn" @click.stop="emit('add-child', node.id, $event)" title="Add child item">+</button>
@@ -334,8 +356,12 @@ function handleCanvasClick(e) {
           </div>
           <div v-if="node.website" class="person-contact website">
             <span class="contact-icon">W</span>
-            <a :href="node.website.startsWith('http') ? node.website : 'https://' + node.website"
-               target="_blank" @click.stop title="Open website">
+            <a
+              :href="node.website.startsWith('http') ? node.website : 'https://' + node.website"
+              target="_blank"
+              @click.stop
+              title="Open website"
+            >
               {{ node.website.replace(/^https?:\/\//, '').replace(/\/$/, '') }}
             </a>
           </div>
@@ -362,13 +388,17 @@ function handleCanvasClick(e) {
       />
 
       <!-- Metadata - xl/lg only (start/end dates, location) -->
-      <div v-if="(cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg') && (node.start_date || node.end_date || node.location)" class="node-card-meta">
+      <div
+        v-if="
+          (cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg') &&
+          (node.start_date || node.end_date || node.location)
+        "
+        class="node-card-meta"
+      >
         <span v-if="node.start_date" class="meta-item start">
           <span class="meta-icon">S</span>{{ node.start_date }}
         </span>
-        <span v-if="node.end_date" class="meta-item end">
-          <span class="meta-icon">E</span>{{ node.end_date }}
-        </span>
+        <span v-if="node.end_date" class="meta-item end"> <span class="meta-icon">E</span>{{ node.end_date }} </span>
         <span v-if="node.location && node.type !== 'person'" class="meta-item location">
           <span class="meta-icon">⌖</span>{{ node.location }}
         </span>
@@ -386,8 +416,17 @@ function handleCanvasClick(e) {
           v-for="child in node.children"
           :key="child.id"
           class="child-card"
-          :class="[child.type, getNestedCardSize(node.children.length, cardSizeClass), { selected: isCardSelected(child.id) }, getCardDropClass(child)]"
-          :style="getNodeColor(child) ? { background: `linear-gradient(135deg, ${getNodeColor(child)}55 0%, var(--bg-secondary) 80%)` } : {}"
+          :class="[
+            child.type,
+            getNestedCardSize(node.children.length, cardSizeClass),
+            { selected: isCardSelected(child.id) },
+            getCardDropClass(child),
+          ]"
+          :style="
+            getNodeColor(child)
+              ? { background: `linear-gradient(135deg, ${getNodeColor(child)}55 0%, var(--bg-secondary) 80%)` }
+              : {}
+          "
           :draggable="editingCardId !== child.id && inlineNotesId !== child.id"
           @click.stop="handleChildCardClick($event, child)"
           @dblclick.stop="emit('enter', child)"
@@ -458,10 +497,20 @@ function handleCanvasClick(e) {
       </div>
 
       <!-- Footer metadata for smaller cards (header has less space) -->
-      <div v-if="(cardSizeClass === 'card-md' || cardSizeClass === 'card-sm' || cardSizeClass === 'card-xs') && (node.importance || node.children?.length || getDateCountdown(node))" class="node-card-footer">
-        <span v-if="node.importance" class="card-importance" :class="'imp-' + node.importance">{{ node.importance }}</span>
+      <div
+        v-if="
+          (cardSizeClass === 'card-md' || cardSizeClass === 'card-sm' || cardSizeClass === 'card-xs') &&
+          (node.importance || node.children?.length || getDateCountdown(node))
+        "
+        class="node-card-footer"
+      >
+        <span v-if="node.importance" class="card-importance" :class="'imp-' + node.importance">{{
+          node.importance
+        }}</span>
         <span v-if="node.children?.length" class="node-card-children">{{ node.children.length }}</span>
-        <span v-if="getDateCountdown(node)" class="date-countdown" :class="getDateCountdown(node).type">{{ getDateCountdown(node).text }}</span>
+        <span v-if="getDateCountdown(node)" class="date-countdown" :class="getDateCountdown(node).type">{{
+          getDateCountdown(node).text
+        }}</span>
       </div>
 
       <!-- Tags at bottom -->

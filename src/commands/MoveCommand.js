@@ -24,7 +24,7 @@ export class MoveCommand extends Command {
       type: this.type,
       nodeId: this.nodeId,
       oldParentId: this.oldParentId,
-      newParentId: this.newParentId
+      newParentId: this.newParentId,
     }
   }
 

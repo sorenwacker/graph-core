@@ -23,7 +23,7 @@ export function useTimelineDrag({
   zoomLevel,
   emit,
   getBarStyle,
-  minBarWidth = 20
+  minBarWidth = 20,
 }) {
   // Drag state for timeline bars
   const dragState = ref(null) // { node, type: 'move' | 'resize-start' | 'resize-end', startX, ... }
@@ -51,7 +51,7 @@ export function useTimelineDrag({
       originalStart: node.displayDate,
       originalEnd: node.endDisplayDate,
       startPos: getDatePosition(node.displayDate),
-      endPos: getDatePosition(node.endDisplayDate)
+      endPos: getDatePosition(node.endDisplayDate),
     }
 
     // Select the node being dragged
@@ -155,6 +155,6 @@ export function useTimelineDrag({
     handleDragStart,
     handleDragMove,
     handleDragEnd,
-    getDragBarStyle
+    getDragBarStyle,
   }
 }

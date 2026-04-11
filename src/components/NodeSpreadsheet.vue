@@ -7,7 +7,7 @@ import {
   cutSelection as clipboardCut,
   deleteSelectedCells as clipboardDelete,
   fillSelectionWithValue as clipboardFill,
-  pasteSelection as clipboardPaste
+  pasteSelection as clipboardPaste,
 } from '../composables/useSpreadsheetClipboard.js'
 
 // ============================================================================
@@ -108,10 +108,13 @@ const columnInputPos = ref({ x: 0, y: 0 })
 const columnInput = ref(null)
 
 // Auto-focus column input
-watch(editingColumn, (val) => {
-  if (val !== null) nextTick(() => { columnInput.value?.focus(); columnInput.value?.select() })
+watch(editingColumn, val => {
+  if (val !== null)
+    nextTick(() => {
+      columnInput.value?.focus()
+      columnInput.value?.select()
+    })
 })
-
 
 // ============================================================================
 // Computed Properties
@@ -123,7 +126,7 @@ const selectionBounds = computed(() => {
     minRow: Math.min(selectionStart.value.row, selectionEnd.value.row),
     maxRow: Math.max(selectionStart.value.row, selectionEnd.value.row),
     minCol: Math.min(selectionStart.value.col, selectionEnd.value.col),
-    maxCol: Math.max(selectionStart.value.col, selectionEnd.value.col)
+    maxCol: Math.max(selectionStart.value.col, selectionEnd.value.col),
   }
 })
 
@@ -184,7 +187,7 @@ function cellStyleCallback(params) {
   return {
     fontWeight: style.bold ? '700' : 'normal',
     fontStyle: style.italic ? 'italic' : 'normal',
-    color: style.color || null
+    color: style.color || null,
   }
 }
 
@@ -207,22 +210,19 @@ const rowIndexCol = {
   lockPosition: 'left',
   cellClass: 'row-index-cell',
   headerClass: 'row-index-header',
-  valueGetter: (params) => params.node.rowIndex + 1
+  valueGetter: params => params.node.rowIndex + 1,
 }
 
 // Get columns list
 const columns = computed(() => {
-  return props.tableData?.column_definitions || [
-    { name: 'A' }, { name: 'B' }, { name: 'C' }, { name: 'D' }
-  ]
+  return props.tableData?.column_definitions || [{ name: 'A' }, { name: 'B' }, { name: 'C' }, { name: 'D' }]
 })
 
 // Check if cell is selected
 function isCellSelected(row, col) {
   const bounds = selectionBounds.value
   if (!bounds) return false
-  return row >= bounds.minRow && row <= bounds.maxRow &&
-         col >= bounds.minCol && col <= bounds.maxCol
+  return row >= bounds.minRow && row <= bounds.maxRow && col >= bounds.minCol && col <= bounds.maxCol
 }
 
 // Column definitions
@@ -235,8 +235,8 @@ const columnDefs = computed(() => {
     context: { colIndex: idx },
     cellStyle: cellStyleCallback,
     cellClassRules: {
-      'cell-selected': (params) => isCellSelected(params.node.rowIndex, idx)
-    }
+      'cell-selected': params => isCellSelected(params.node.rowIndex, idx),
+    },
   }))
 
   return [rowIndexCol, ...dataCols]
@@ -265,9 +265,8 @@ const defaultColDef = {
   sortable: false,
   suppressMovable: true,
   flex: 1,
-  minWidth: 80
+  minWidth: 80,
 }
-
 
 // ============================================================================
 // Event Handlers
@@ -378,8 +377,7 @@ function getColumnIndexFromHeader(event) {
     for (const cell of headerCells || []) {
       const rect = cell.getBoundingClientRect()
       const colId = cell.getAttribute('col-id')
-      if (colId && colId !== '_rowIndex' &&
-          event.clientX >= rect.left && event.clientX <= rect.right) {
+      if (colId && colId !== '_rowIndex' && event.clientX >= rect.left && event.clientX <= rect.right) {
         return columns.value.findIndex(c => c.name === colId)
       }
     }
@@ -484,7 +482,7 @@ function applyStyleToSelection(styleUpdater) {
       emit('style-change', {
         row: r,
         col: c,
-        style: styleUpdater(currentStyle)
+        style: styleUpdater(currentStyle),
       })
     }
   }
@@ -517,7 +515,7 @@ function getClipboardOptions() {
     columns: columns.value,
     rowData: rowData.value,
     gridApi: gridApi.value,
-    emit
+    emit,
   }
 }
 
@@ -551,8 +549,7 @@ const shortcuts = {
 }
 
 function handleKeyDown(event) {
-  if (!gridWrapper.value?.contains(document.activeElement) &&
-      document.activeElement !== document.body) {
+  if (!gridWrapper.value?.contains(document.activeElement) && document.activeElement !== document.body) {
     return
   }
 
@@ -629,7 +626,7 @@ function onCellValueChanged(params) {
       row: rowIndex,
       col: colIndex,
       value: valueStr,
-      isFormula: isFormula
+      isFormula: isFormula,
     })
   }, 300)
 }
@@ -650,7 +647,7 @@ function addColumn() {
       { id: 'col1', name: 'B', type: 'text', width: 100 },
       { id: 'col2', name: 'C', type: 'text', width: 100 },
       { id: 'col3', name: 'D', type: 'text', width: 100 },
-      { id: 'col4', name: 'E', type: 'text', width: 100 }
+      { id: 'col4', name: 'E', type: 'text', width: 100 },
     ]
     emit('structure-change', { type: 'column_definitions', value: defaultCols })
     return
@@ -660,7 +657,7 @@ function addColumn() {
     id: col.id,
     name: col.name,
     type: col.type || 'text',
-    width: col.width || 100
+    width: col.width || 100,
   }))
   const newColName = getColumnName(plainCols.length)
   const newCols = [...plainCols, { id: `col${plainCols.length}`, name: newColName, type: 'text', width: 100 }]
@@ -736,9 +733,7 @@ function saveColumnRename() {
   const currentCols = props.tableData?.column_definitions || []
 
   // Check for duplicate names (excluding current column)
-  const isDuplicate = currentCols.some((col, idx) =>
-    idx !== editingColumn.value && col.name === newName
-  )
+  const isDuplicate = currentCols.some((col, idx) => idx !== editingColumn.value && col.name === newName)
 
   if (isDuplicate) {
     // Append number to make unique
@@ -758,7 +753,7 @@ function saveColumnRename() {
     id: col.id,
     name: idx === editingColumn.value ? finalName : col.name,
     type: col.type || 'text',
-    width: col.width || 100
+    width: col.width || 100,
   }))
 
   emit('structure-change', { type: 'column_definitions', value: updatedCols })
@@ -819,7 +814,7 @@ function deleteColumn() {
       id: col.id,
       name: col.name,
       type: col.type || 'text',
-      width: col.width || 100
+      width: col.width || 100,
     }))
 
   emit('structure-change', { type: 'column_definitions', value: updatedCols })
@@ -853,9 +848,7 @@ onUnmounted(() => {
 <template>
   <div class="node-spreadsheet" tabindex="0">
     <div v-if="!tableData" class="no-table">
-      <button class="create-table-btn" @click="createTable">
-        + Add Table
-      </button>
+      <button class="create-table-btn" @click="createTable">+ Add Table</button>
     </div>
     <div v-else class="spreadsheet-container">
       <div class="spreadsheet-toolbar">
@@ -863,24 +856,16 @@ onUnmounted(() => {
         <div class="toolbar-actions">
           <template v-if="selectionBounds">
             <span class="selection-info">
-              {{ selectionBounds.maxRow - selectionBounds.minRow + 1 }}x{{ selectionBounds.maxCol - selectionBounds.minCol + 1 }}
+              {{ selectionBounds.maxRow - selectionBounds.minRow + 1 }}x{{
+                selectionBounds.maxCol - selectionBounds.minCol + 1
+              }}
             </span>
-            <button class="toolbar-btn" @click="copySelection" title="Copy (Cmd+C)">
-              Copy
-            </button>
-            <button class="toolbar-btn" @click="pasteSelection" title="Paste (Cmd+V)">
-              Paste
-            </button>
+            <button class="toolbar-btn" @click="copySelection" title="Copy (Cmd+C)">Copy</button>
+            <button class="toolbar-btn" @click="pasteSelection" title="Paste (Cmd+V)">Paste</button>
           </template>
-          <button class="toolbar-btn" @click="addRow" title="Add row">
-            + Row
-          </button>
-          <button class="toolbar-btn" @click="addColumn" title="Add column">
-            + Col
-          </button>
-          <button class="toolbar-btn delete-btn" @click="deleteTable" title="Delete table">
-            Delete
-          </button>
+          <button class="toolbar-btn" @click="addRow" title="Add row">+ Row</button>
+          <button class="toolbar-btn" @click="addColumn" title="Add column">+ Col</button>
+          <button class="toolbar-btn delete-btn" @click="deleteTable" title="Delete table">Delete</button>
         </div>
       </div>
       <div
@@ -919,18 +904,12 @@ onUnmounted(() => {
         :style="{ left: contextMenuPos.x + 'px', top: contextMenuPos.y + 'px' }"
         @click.stop
       >
-        <button
-          class="ctx-btn"
-          :class="{ active: selectionHasStyle('bold') }"
-          @click="toggleBold"
-          title="Bold"
-        ><strong>B</strong></button>
-        <button
-          class="ctx-btn"
-          :class="{ active: selectionHasStyle('italic') }"
-          @click="toggleItalic"
-          title="Italic"
-        ><em>I</em></button>
+        <button class="ctx-btn" :class="{ active: selectionHasStyle('bold') }" @click="toggleBold" title="Bold">
+          <strong>B</strong>
+        </button>
+        <button class="ctx-btn" :class="{ active: selectionHasStyle('italic') }" @click="toggleItalic" title="Italic">
+          <em>I</em>
+        </button>
         <span class="ctx-divider"></span>
         <button
           v-for="color in COLOR_OPTIONS"
@@ -952,7 +931,7 @@ onUnmounted(() => {
         :style="{
           left: columnInputPos.x + 'px',
           top: columnInputPos.y + 'px',
-          width: columnInputPos.width + 'px'
+          width: columnInputPos.width + 'px',
         }"
         @keydown="handleColumnInputKeydown"
         @blur="saveColumnRename"

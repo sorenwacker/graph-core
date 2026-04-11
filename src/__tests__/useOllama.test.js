@@ -10,8 +10,8 @@ vi.mock('../services/api.js', () => ({
     ollamaListModels: vi.fn(),
     openaiGenerate: vi.fn(),
     openaiTestConnection: vi.fn(),
-    openaiListModels: vi.fn()
-  }
+    openaiListModels: vi.fn(),
+  },
 }))
 
 // Mock useSettings
@@ -32,8 +32,8 @@ vi.mock('../composables/useSettings.js', () => ({
     openaiModel: ref('gpt-4o-mini'),
     // Legacy
     ollamaEnabled: ref(true),
-    ollamaCustomPrompts: ref([])
-  })
+    ollamaCustomPrompts: ref([]),
+  }),
 }))
 
 import { api } from '../services/api.js'
@@ -158,9 +158,12 @@ describe('useOllama', () => {
   describe('improveNotes()', () => {
     it('should set isGenerating to true while generating', async () => {
       let resolveGenerate
-      api.ollamaGenerate.mockImplementation(() => new Promise(resolve => {
-        resolveGenerate = resolve
-      }))
+      api.ollamaGenerate.mockImplementation(
+        () =>
+          new Promise(resolve => {
+            resolveGenerate = resolve
+          })
+      )
 
       const { isGenerating, improveNotes } = useOllama()
 
@@ -197,7 +200,7 @@ describe('useOllama', () => {
         content: 'Original content',
         model: 'llama3.2',
         endpoint: 'http://localhost:11434',
-        contextSize: 32768
+        contextSize: 32768,
       })
     })
 
@@ -261,7 +264,7 @@ describe('useOllama', () => {
     it('should return error result from api', async () => {
       api.ollamaTestConnection.mockResolvedValueOnce({
         success: false,
-        error: 'Connection refused'
+        error: 'Connection refused',
       })
 
       const { testConnection } = useOllama()
@@ -270,7 +273,7 @@ describe('useOllama', () => {
 
       expect(result).toEqual({
         success: false,
-        error: 'Connection refused'
+        error: 'Connection refused',
       })
     })
   })

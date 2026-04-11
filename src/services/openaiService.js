@@ -49,7 +49,7 @@ export const openaiService = {
 
     const messages = [
       { role: 'system', content: prompt },
-      { role: 'user', content: content }
+      { role: 'user', content: content },
     ]
 
     try {
@@ -57,13 +57,13 @@ export const openaiService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
+          Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
           model,
           messages,
-          stream: false
-        })
+          stream: false,
+        }),
       })
 
       if (!response.ok) {
@@ -91,8 +91,8 @@ export const openaiService = {
     try {
       const response = await fetch(`${endpoint}/models`, {
         headers: {
-          'Authorization': `Bearer ${apiKey}`
-        }
+          Authorization: `Bearer ${apiKey}`,
+        },
       })
 
       if (!response.ok) {
@@ -101,7 +101,7 @@ export const openaiService = {
         }
         return {
           success: false,
-          error: `API error: ${response.status} ${response.statusText}`
+          error: `API error: ${response.status} ${response.statusText}`,
         }
       }
 
@@ -111,12 +111,12 @@ export const openaiService = {
       if (error.message === 'Failed to fetch' || error.code === 'ECONNREFUSED') {
         return {
           success: false,
-          error: 'Cannot connect to API endpoint'
+          error: 'Cannot connect to API endpoint',
         }
       }
       return {
         success: false,
-        error: error.message
+        error: error.message,
       }
     }
   },
@@ -135,8 +135,8 @@ export const openaiService = {
     try {
       const response = await fetch(`${endpoint}/models`, {
         headers: {
-          'Authorization': `Bearer ${apiKey}`
-        }
+          Authorization: `Bearer ${apiKey}`,
+        },
       })
 
       if (!response.ok) {
@@ -148,5 +148,5 @@ export const openaiService = {
     } catch (error) {
       handleConnectionError(error)
     }
-  }
+  },
 }

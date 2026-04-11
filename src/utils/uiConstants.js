@@ -20,7 +20,7 @@ export const RADIAL_DEFAULTS = {
   gravity: 10000,
   gravityRange: 3.8,
   nestingFactor: 0.1,
-  iterations: 2500
+  iterations: 2500,
 }
 
 // localStorage keys (centralized to prevent typos)
@@ -50,5 +50,5 @@ export const STORAGE_KEYS = {
   GRAPH_RADIAL_GRAVITY_RANGE: 'graph-radial-gravity-range',
   GRAPH_RADIAL_NESTING: 'graph-radial-nesting',
   GRAPH_RADIAL_ITERATIONS: 'graph-radial-iterations',
-  GRAPH_NOTES_PREVIEW_LENGTH: 'graph-notes-preview-length'
+  GRAPH_NOTES_PREVIEW_LENGTH: 'graph-notes-preview-length',
 }

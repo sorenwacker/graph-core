@@ -14,7 +14,7 @@ defineProps({
   sidebarTree: { type: Array, default: () => [] },
   favoriteItems: { type: Array, default: () => [] },
   allTags: { type: Array, default: () => [] },
-  expandedIds: { type: Set, default: () => new Set() }
+  expandedIds: { type: Set, default: () => new Set() },
 })
 
 const emit = defineEmits([
@@ -25,7 +25,7 @@ const emit = defineEmits([
   'select-tag',
   'navigate-root',
   'mouseenter',
-  'mouseleave'
+  'mouseleave',
 ])
 
 // Local collapse state - persisted to localStorage
@@ -34,9 +34,9 @@ const favoritesCollapsed = ref(localStorage.getItem('sidebar-favorites-collapsed
 const tagsCollapsed = ref(localStorage.getItem('sidebar-tags-collapsed') === 'true')
 
 // Persist collapse state changes
-watch(treeCollapsed, (val) => localStorage.setItem('sidebar-tree-collapsed', String(val)))
-watch(favoritesCollapsed, (val) => localStorage.setItem('sidebar-favorites-collapsed', String(val)))
-watch(tagsCollapsed, (val) => localStorage.setItem('sidebar-tags-collapsed', String(val)))
+watch(treeCollapsed, val => localStorage.setItem('sidebar-tree-collapsed', String(val)))
+watch(favoritesCollapsed, val => localStorage.setItem('sidebar-favorites-collapsed', String(val)))
+watch(tagsCollapsed, val => localStorage.setItem('sidebar-tags-collapsed', String(val)))
 </script>
 
 <template>
@@ -67,11 +67,7 @@ watch(tagsCollapsed, (val) => localStorage.setItem('sidebar-tags-collapsed', Str
 
     <!-- Root (sticky, does not scroll) -->
     <div class="sidebar-section sidebar-root-section">
-      <div
-        class="sidebar-item"
-        :class="{ active: currentContainerId === null }"
-        @click="emit('navigate-root')"
-      >
+      <div class="sidebar-item" :class="{ active: currentContainerId === null }" @click="emit('navigate-root')">
         <span class="icon">~</span>
         <span class="label">Root</span>
       </div>

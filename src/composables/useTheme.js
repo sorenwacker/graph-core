@@ -114,7 +114,7 @@ export function useTheme() {
     // Utility
     isDark: () => resolvedTheme.value === 'dark',
     isLight: () => resolvedTheme.value === 'light',
-    isSystemPreference: () => currentTheme.value === 'system'
+    isSystemPreference: () => currentTheme.value === 'system',
   }
 }
 

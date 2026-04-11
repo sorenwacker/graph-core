@@ -22,7 +22,7 @@ export function useSelection({
   flatChildren,
   currentContainer,
   getNode,
-  onError
+  onError,
 } = {}) {
   // Core selection state
   const selectedNode = ref(null)
@@ -127,9 +127,7 @@ export function useSelection({
         newSet.delete(node.id)
         // If we removed the anchor, set new anchor to remaining selection
         if (anchorNode.value?.id === node.id) {
-          anchorNode.value = newSet.size > 0
-            ? flatChildren?.value?.find(n => newSet.has(n.id))
-            : null
+          anchorNode.value = newSet.size > 0 ? flatChildren?.value?.find(n => newSet.has(n.id)) : null
         }
       } else {
         newSet.add(node.id)
@@ -279,6 +277,6 @@ export function useSelection({
     toggleDetailPanel,
     selectChildById,
     openNodeFullscreen,
-    selectAll
+    selectAll,
   }
 }

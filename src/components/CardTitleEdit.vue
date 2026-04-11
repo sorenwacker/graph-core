@@ -13,13 +13,9 @@
     @dragstart.prevent.stop
     placeholder="Title"
   />
-  <span
-    v-else
-    class="card-title"
-    :class="[sizeClass, { completed }]"
-    @click.stop
-    @dblclick.stop="$emit('startEdit')"
-  >{{ title }}</span>
+  <span v-else class="card-title" :class="[sizeClass, { completed }]" @click.stop @dblclick.stop="$emit('startEdit')">{{
+    title
+  }}</span>
 </template>
 
 <script setup>
@@ -30,7 +26,7 @@ const props = defineProps({
   modelValue: { type: String, default: '' },
   isEditing: { type: Boolean, default: false },
   completed: { type: Boolean, default: false },
-  size: { type: String, default: 'normal' } // 'normal', 'child', 'grandchild'
+  size: { type: String, default: 'normal' }, // 'normal', 'child', 'grandchild'
 })
 
 const emit = defineEmits(['update:modelValue', 'startEdit', 'save', 'cancel'])
@@ -38,11 +34,13 @@ const emit = defineEmits(['update:modelValue', 'startEdit', 'save', 'cancel'])
 const inputRef = ref(null)
 
 const sizeClass = computed(() => {
-  return {
-    normal: 'size-normal',
-    child: 'size-child',
-    grandchild: 'size-grandchild'
-  }[props.size] || 'size-normal'
+  return (
+    {
+      normal: 'size-normal',
+      child: 'size-child',
+      grandchild: 'size-grandchild',
+    }[props.size] || 'size-normal'
+  )
 })
 
 function handleKeydown(e) {
@@ -56,14 +54,17 @@ function handleKeydown(e) {
 }
 
 // Auto-focus and select when editing starts
-watch(() => props.isEditing, (editing) => {
-  if (editing) {
-    nextTick(() => {
-      inputRef.value?.focus()
-      inputRef.value?.select()
-    })
+watch(
+  () => props.isEditing,
+  editing => {
+    if (editing) {
+      nextTick(() => {
+        inputRef.value?.focus()
+        inputRef.value?.select()
+      })
+    }
   }
-})
+)
 </script>
 
 <style scoped>

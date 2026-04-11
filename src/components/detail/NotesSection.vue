@@ -10,7 +10,7 @@ defineProps({
   activeTab: { type: String, default: 'edit' },
   showSensitive: { type: Boolean, default: false },
   notesSensitive: { type: Boolean, default: false },
-  cssClass: { type: String, default: '' }
+  cssClass: { type: String, default: '' },
 })
 
 const emit = defineEmits(['update:notes', 'update:activeTab', 'blur', 'ai-improve'])
@@ -49,16 +49,15 @@ defineExpose({ getSelection, notesEditorRef, notesEditorSplitRef })
   <div class="notes-header">
     <label>Notes</label>
     <div class="notes-header-actions">
-      <NotesAIToolbar
-        :notes="notes"
-        :node-id="nodeId"
-        :get-selection="getSelection"
-        @apply-improvement="onAIImprove"
-      />
+      <NotesAIToolbar :notes="notes" :node-id="nodeId" :get-selection="getSelection" @apply-improvement="onAIImprove" />
       <div class="tab-buttons">
         <button :class="{ active: activeTab === 'edit' }" @click="onTabChange('edit')" title="Edit notes">Edit</button>
-        <button :class="{ active: activeTab === 'preview' }" @click="onTabChange('preview')" title="Preview markdown">Preview</button>
-        <button :class="{ active: activeTab === 'split' }" @click="onTabChange('split')" title="Side-by-side view">Split</button>
+        <button :class="{ active: activeTab === 'preview' }" @click="onTabChange('preview')" title="Preview markdown">
+          Preview
+        </button>
+        <button :class="{ active: activeTab === 'split' }" @click="onTabChange('split')" title="Side-by-side view">
+          Split
+        </button>
       </div>
     </div>
   </div>

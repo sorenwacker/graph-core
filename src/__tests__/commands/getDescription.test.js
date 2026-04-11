@@ -8,7 +8,7 @@ import {
   CompleteCommand,
   LinkCommand,
   UnlinkCommand,
-  ReorderCommand
+  ReorderCommand,
 } from '../../commands/index.js'
 
 describe('Command getDescription', () => {
@@ -17,7 +17,7 @@ describe('Command getDescription', () => {
       const cmd = new CreateCommand({
         nodeId: 1,
         nodeData: { title: 'New Task' },
-        parentId: null
+        parentId: null,
       })
       expect(cmd.getDescription()).toBe('Create "New Task"')
     })
@@ -26,7 +26,7 @@ describe('Command getDescription', () => {
       const cmd = new CreateCommand({
         nodeId: 1,
         nodeData: {},
-        parentId: null
+        parentId: null,
       })
       expect(cmd.getDescription()).toBe('Create "item"')
     })
@@ -35,7 +35,7 @@ describe('Command getDescription', () => {
   describe('DeleteCommand', () => {
     it('should include node title', () => {
       const cmd = new DeleteCommand({
-        nodeData: { id: 1, title: 'Deleted Item' }
+        nodeData: { id: 1, title: 'Deleted Item' },
       })
       expect(cmd.getDescription()).toBe('Delete "Deleted Item"')
     })
@@ -44,7 +44,7 @@ describe('Command getDescription', () => {
   describe('DeleteMultipleCommand', () => {
     it('should include count', () => {
       const cmd = new DeleteMultipleCommand({
-        nodes: [{ id: 1 }, { id: 2 }, { id: 3 }]
+        nodes: [{ id: 1 }, { id: 2 }, { id: 3 }],
       })
       expect(cmd.getDescription()).toBe('Delete 3 items')
     })
@@ -55,7 +55,7 @@ describe('Command getDescription', () => {
       const cmd = new EditCommand({
         nodeId: 1,
         oldValues: { title: 'Old' },
-        newValues: { title: 'New' }
+        newValues: { title: 'New' },
       })
       expect(cmd.getDescription()).toBe('Edit title')
     })
@@ -64,7 +64,7 @@ describe('Command getDescription', () => {
       const cmd = new EditCommand({
         nodeId: 1,
         oldValues: { title: 'Old', notes: '' },
-        newValues: { title: 'New', notes: 'Added' }
+        newValues: { title: 'New', notes: 'Added' },
       })
       expect(cmd.getDescription()).toBe('Edit')
     })
@@ -73,7 +73,7 @@ describe('Command getDescription', () => {
       const cmd = new EditCommand({
         nodeId: 1,
         oldValues: { tags: [] },
-        newValues: { tags: ['bug'] }
+        newValues: { tags: ['bug'] },
       })
       expect(cmd.getDescription()).toBe('Edit tags')
     })
@@ -84,7 +84,7 @@ describe('Command getDescription', () => {
       const cmd = new MoveCommand({
         nodeId: 1,
         oldParentId: 5,
-        newParentId: 10
+        newParentId: 10,
       })
       expect(cmd.getDescription()).toBe('Move')
     })
@@ -95,7 +95,7 @@ describe('Command getDescription', () => {
       const cmd = new CompleteCommand({
         nodeId: 1,
         oldCompleted: false,
-        newCompleted: true
+        newCompleted: true,
       })
       expect(cmd.getDescription()).toBe('Complete')
     })
@@ -104,7 +104,7 @@ describe('Command getDescription', () => {
       const cmd = new CompleteCommand({
         nodeId: 1,
         oldCompleted: true,
-        newCompleted: false
+        newCompleted: false,
       })
       expect(cmd.getDescription()).toBe('Uncomplete')
     })
@@ -131,7 +131,7 @@ describe('Command getDescription', () => {
         oldTargetId: 2,
         oldPosition: 'before',
         newTargetId: 3,
-        newPosition: 'after'
+        newPosition: 'after',
       })
       expect(cmd.getDescription()).toBe('Reorder')
     })

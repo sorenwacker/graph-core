@@ -244,7 +244,7 @@ td {
   padding: 0 12px;
 }
 
-.col-check input[type="checkbox"] {
+.col-check input[type='checkbox'] {
   appearance: none;
   -webkit-appearance: none;
   width: 16px;
@@ -264,12 +264,12 @@ td {
   padding: 0;
 }
 
-.col-check input[type="checkbox"]:checked {
+.col-check input[type='checkbox']:checked {
   background: var(--accent-color);
   border-color: var(--accent-color);
 }
 
-.col-check input[type="checkbox"]:checked::after {
+.col-check input[type='checkbox']:checked::after {
   content: '✓';
   position: absolute;
   top: 50%;
@@ -423,16 +423,46 @@ td.col-title {
   flex-shrink: 0;
 }
 
-.type-badge.project { background: var(--type-project-bg); color: var(--type-project-text); }
-.type-badge.task { background: var(--type-task-bg); color: var(--type-task-text); }
-.type-badge.note { background: var(--type-note-bg); color: var(--type-note-text); }
-.type-badge.milestone { background: var(--type-milestone-bg); color: var(--type-milestone-text); }
-.type-badge.group { background: var(--type-group-bg); color: var(--type-group-text); }
-.type-badge.event { background: var(--type-event-bg); color: var(--type-event-text); }
-.type-badge.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
-.type-badge.person { background: var(--type-person-bg); color: var(--type-person-text); }
-.type-badge.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
-.type-badge.component { background: var(--type-component-bg); color: var(--type-component-text); }
+.type-badge.project {
+  background: var(--type-project-bg);
+  color: var(--type-project-text);
+}
+.type-badge.task {
+  background: var(--type-task-bg);
+  color: var(--type-task-text);
+}
+.type-badge.note {
+  background: var(--type-note-bg);
+  color: var(--type-note-text);
+}
+.type-badge.milestone {
+  background: var(--type-milestone-bg);
+  color: var(--type-milestone-text);
+}
+.type-badge.group {
+  background: var(--type-group-bg);
+  color: var(--type-group-text);
+}
+.type-badge.event {
+  background: var(--type-event-bg);
+  color: var(--type-event-text);
+}
+.type-badge.topic {
+  background: var(--type-topic-bg);
+  color: var(--type-topic-text);
+}
+.type-badge.person {
+  background: var(--type-person-bg);
+  color: var(--type-person-text);
+}
+.type-badge.organization {
+  background: var(--type-organization-bg);
+  color: var(--type-organization-text);
+}
+.type-badge.component {
+  background: var(--type-component-bg);
+  color: var(--type-component-text);
+}
 
 /* SVG icons in type badges */
 .type-badge :deep(svg) {

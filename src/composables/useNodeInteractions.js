@@ -1,4 +1,9 @@
-import { handleNodeClick, handleNodeHover, handleNodeDoubleClick, shouldShowTooltip } from '../utils/nodeInteractions.js'
+import {
+  handleNodeClick,
+  handleNodeHover,
+  handleNodeDoubleClick,
+  shouldShowTooltip,
+} from '../utils/nodeInteractions.js'
 
 /**
  * Composable for node interactions
@@ -25,7 +30,7 @@ export function useNodeInteractions(options = {}) {
     onDelete,
     getShowDetail = () => false,
     showTooltip,
-    hideTooltip
+    hideTooltip,
   } = options
 
   const hoverCallbacks = { onHover }
@@ -69,6 +74,6 @@ export function useNodeInteractions(options = {}) {
     handleHover,
     handleLeave,
     handleClick,
-    handleDoubleClick
+    handleDoubleClick,
   }
 }

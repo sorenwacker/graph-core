@@ -55,7 +55,7 @@ export function centerOnNode(cy, nodeId) {
       center: { eles: node },
       zoom: 1.5,
       duration: 400,
-      easing: 'ease-out'
+      easing: 'ease-out',
     })
     // Flash highlight effect
     node.addClass('search-highlight')
@@ -108,8 +108,7 @@ export function useGraphSelection(options = {}) {
     const currentSelected = new Set()
     cy.$(':selected').forEach(n => currentSelected.add(parseInt(n.id())))
 
-    const sameSelection = currentSelected.size === newIdSet.size &&
-      [...currentSelected].every(id => newIdSet.has(id))
+    const sameSelection = currentSelected.size === newIdSet.size && [...currentSelected].every(id => newIdSet.has(id))
 
     if (!sameSelection) {
       cy.nodes().unselect()
@@ -184,6 +183,6 @@ export function useGraphSelection(options = {}) {
     updateHtmlLabelSelectionFromIds,
     updateHtmlLabelsFromCySelection: updateFromCySelection,
     centerOnNode: center,
-    isNodeVisible: checkVisible
+    isNodeVisible: checkVisible,
   }
 }

@@ -14,11 +14,10 @@ export function useDetailResize({
   storageKey = 'graphcore-detailWidth',
   defaultWidth = 400,
   minWidth = 300,
-  maxWidthPercent = 0.9
+  maxWidthPercent = 0.9,
 } = {}) {
-  const storedWidth = typeof localStorage !== 'undefined'
-    ? parseInt(localStorage.getItem(storageKey)) || defaultWidth
-    : defaultWidth
+  const storedWidth =
+    typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem(storageKey)) || defaultWidth : defaultWidth
 
   const detailWidth = ref(storedWidth)
   const isResizing = ref(false)
@@ -68,6 +67,6 @@ export function useDetailResize({
     // Methods
     onResizeStart,
     setWidth,
-    cleanup
+    cleanup,
   }
 }

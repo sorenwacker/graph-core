@@ -6,7 +6,7 @@ const props = defineProps({
   linkedNodes: { type: Array, default: () => [] },
   showLinks: { type: Number, default: 1 },
   excludeType: { type: String, default: null }, // e.g., 'organization' or 'person'
-  addButtonText: { type: String, default: '+ Link to project/task' }
+  addButtonText: { type: String, default: '+ Link to project/task' },
 })
 
 const emit = defineEmits(['update:showLinks', 'select', 'remove', 'add'])
@@ -45,12 +45,7 @@ function onAdd() {
         <button class="toggle-links-btn" @click.stop="hideLinks" title="Hide links section">-</button>
       </label>
       <div class="links-list">
-        <span
-          v-for="linked in filteredLinks"
-          :key="linked.id"
-          class="link-chip"
-          @click="onSelect(linked)"
-        >
+        <span v-for="linked in filteredLinks" :key="linked.id" class="link-chip" @click="onSelect(linked)">
           <span class="link-type" :class="linked.type" v-html="getTypeIcon(linked.type)"></span>
           {{ linked.title }}
           <button class="remove-link-btn" @click.stop="onRemove(linked)" title="Remove link">x</button>

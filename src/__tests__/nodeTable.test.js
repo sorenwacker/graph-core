@@ -11,7 +11,7 @@ describe('Node Table Feature', () => {
 
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve({})
+        json: () => Promise.resolve({}),
       })
 
       const module = await import('../services/api.js')
@@ -27,7 +27,7 @@ describe('Node Table Feature', () => {
       it('should call correct endpoint with node ID', async () => {
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ id: 1, node_id: 123, name: 'Table' })
+          json: () => Promise.resolve({ id: 1, node_id: 123, name: 'Table' }),
         })
         const result = await api.getNodeTable(123)
         expect(fetch).toHaveBeenCalledWith('/api/nodes/123/table', expect.any(Object))
@@ -37,7 +37,7 @@ describe('Node Table Feature', () => {
       it('should return null when no table exists', async () => {
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve(null)
+          json: () => Promise.resolve(null),
         })
         const result = await api.getNodeTable(999)
         expect(result).toBeNull()
@@ -48,13 +48,13 @@ describe('Node Table Feature', () => {
       it('should POST to create table', async () => {
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ id: 1, node_id: 123, name: 'My Table' })
+          json: () => Promise.resolve({ id: 1, node_id: 123, name: 'My Table' }),
         })
         const result = await api.createNodeTable(123, { name: 'My Table' })
         expect(fetch).toHaveBeenCalledWith('/api/nodes/123/table', {
           headers: { 'Content-Type': 'application/json' },
           method: 'POST',
-          body: JSON.stringify({ name: 'My Table' })
+          body: JSON.stringify({ name: 'My Table' }),
         })
         expect(result.name).toBe('My Table')
       })
@@ -62,15 +62,16 @@ describe('Node Table Feature', () => {
       it('should create table with default column definitions', async () => {
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            id: 1,
-            node_id: 123,
-            column_definitions: [
-              { id: 'col1', name: 'A', type: 'text', width: 100 },
-              { id: 'col2', name: 'B', type: 'text', width: 100 }
-            ],
-            row_count: 5
-          })
+          json: () =>
+            Promise.resolve({
+              id: 1,
+              node_id: 123,
+              column_definitions: [
+                { id: 'col1', name: 'A', type: 'text', width: 100 },
+                { id: 'col2', name: 'B', type: 'text', width: 100 },
+              ],
+              row_count: 5,
+            }),
         })
         const result = await api.createNodeTable(123, {})
         expect(result.column_definitions).toBeDefined()
@@ -82,23 +83,21 @@ describe('Node Table Feature', () => {
       it('should PATCH to update table', async () => {
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ id: 1, name: 'Updated Name' })
+          json: () => Promise.resolve({ id: 1, name: 'Updated Name' }),
         })
         await api.updateNodeTable(123, { name: 'Updated Name' })
         expect(fetch).toHaveBeenCalledWith('/api/nodes/123/table', {
           headers: { 'Content-Type': 'application/json' },
           method: 'PATCH',
-          body: JSON.stringify({ name: 'Updated Name' })
+          body: JSON.stringify({ name: 'Updated Name' }),
         })
       })
 
       it('should update column definitions', async () => {
-        const newCols = [
-          { id: 'col1', name: 'Column A', type: 'text', width: 150 }
-        ]
+        const newCols = [{ id: 'col1', name: 'Column A', type: 'text', width: 150 }]
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ id: 1, column_definitions: newCols })
+          json: () => Promise.resolve({ id: 1, column_definitions: newCols }),
         })
         const result = await api.updateNodeTable(123, { column_definitions: newCols })
         expect(result.column_definitions).toEqual(newCols)
@@ -109,12 +108,12 @@ describe('Node Table Feature', () => {
       it('should DELETE table', async () => {
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ success: true })
+          json: () => Promise.resolve({ success: true }),
         })
         const result = await api.deleteNodeTable(123)
         expect(fetch).toHaveBeenCalledWith('/api/nodes/123/table', {
           headers: { 'Content-Type': 'application/json' },
-          method: 'DELETE'
+          method: 'DELETE',
         })
         expect(result.success).toBe(true)
       })
@@ -124,11 +123,11 @@ describe('Node Table Feature', () => {
       it('should call correct endpoint', async () => {
         const mockCells = [
           { row_index: 0, col_index: 0, value: 'A1' },
-          { row_index: 0, col_index: 1, value: 'B1' }
+          { row_index: 0, col_index: 1, value: 'B1' },
         ]
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve(mockCells)
+          json: () => Promise.resolve(mockCells),
         })
         const result = await api.getTableCells(123)
         expect(fetch).toHaveBeenCalledWith('/api/nodes/123/table/cells', expect.any(Object))
@@ -138,35 +137,31 @@ describe('Node Table Feature', () => {
 
     describe('setCells', () => {
       it('should POST cells to update', async () => {
-        const cells = [
-          { row_index: 0, col_index: 0, value: 'Updated' }
-        ]
+        const cells = [{ row_index: 0, col_index: 0, value: 'Updated' }]
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ success: true, updated: 1 })
+          json: () => Promise.resolve({ success: true, updated: 1 }),
         })
         const result = await api.setCells(123, cells)
         expect(fetch).toHaveBeenCalledWith('/api/nodes/123/table/cells', {
           headers: { 'Content-Type': 'application/json' },
           method: 'POST',
-          body: JSON.stringify({ cells })
+          body: JSON.stringify({ cells }),
         })
         expect(result.success).toBe(true)
       })
 
       it('should handle formula cells', async () => {
-        const cells = [
-          { row_index: 2, col_index: 0, formula: '=SUM(A1:A2)', computed_value: '10' }
-        ]
+        const cells = [{ row_index: 2, col_index: 0, formula: '=SUM(A1:A2)', computed_value: '10' }]
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ success: true, updated: 1 })
+          json: () => Promise.resolve({ success: true, updated: 1 }),
         })
         await api.setCells(123, cells)
         expect(fetch).toHaveBeenCalledWith('/api/nodes/123/table/cells', {
           headers: { 'Content-Type': 'application/json' },
           method: 'POST',
-          body: JSON.stringify({ cells })
+          body: JSON.stringify({ cells }),
         })
       })
     })
@@ -175,12 +170,12 @@ describe('Node Table Feature', () => {
       it('should DELETE to clear all cells', async () => {
         global.fetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ success: true, cleared: 10 })
+          json: () => Promise.resolve({ success: true, cleared: 10 }),
         })
         const result = await api.clearCells(123)
         expect(fetch).toHaveBeenCalledWith('/api/nodes/123/table/cells', {
           headers: { 'Content-Type': 'application/json' },
-          method: 'DELETE'
+          method: 'DELETE',
         })
         expect(result.success).toBe(true)
       })
@@ -201,7 +196,7 @@ describe('Node Table Feature', () => {
         deleteNodeTable: vi.fn().mockResolvedValue({ success: true }),
         getTableCells: vi.fn().mockResolvedValue([]),
         setCells: vi.fn().mockResolvedValue({ success: true }),
-        clearCells: vi.fn().mockResolvedValue({ success: true })
+        clearCells: vi.fn().mockResolvedValue({ success: true }),
       }
 
       const module = await import('../services/api.js')
@@ -265,8 +260,8 @@ describe('Node Table Feature', () => {
           deleteNodeTable: vi.fn(),
           getTableCells: vi.fn(),
           setCells: vi.fn(),
-          clearCells: vi.fn()
-        }
+          clearCells: vi.fn(),
+        },
       }))
 
       const apiModule = await import('../services/api.js')
@@ -333,9 +328,7 @@ describe('Node Table Feature', () => {
       const { saveCell } = useNodeTable()
       await saveCell(123, 0, 0, 'New Value')
 
-      expect(api.setCells).toHaveBeenCalledWith(123, [
-        { row_index: 0, col_index: 0, value: 'New Value' }
-      ])
+      expect(api.setCells).toHaveBeenCalledWith(123, [{ row_index: 0, col_index: 0, value: 'New Value' }])
     })
 
     it('saveCell should handle formula cells', async () => {
@@ -344,9 +337,7 @@ describe('Node Table Feature', () => {
       const { saveCell } = useNodeTable()
       await saveCell(123, 2, 0, '=SUM(A1:A2)', true)
 
-      expect(api.setCells).toHaveBeenCalledWith(123, [
-        { row_index: 2, col_index: 0, formula: '=SUM(A1:A2)' }
-      ])
+      expect(api.setCells).toHaveBeenCalledWith(123, [{ row_index: 2, col_index: 0, formula: '=SUM(A1:A2)' }])
     })
 
     it('deleteTable should remove table', async () => {
@@ -383,7 +374,7 @@ describe('Node Table Feature', () => {
         { row_index: 0, col_index: 0, value: 'A1' },
         { row_index: 0, col_index: 1, value: 'B1' },
         { row_index: 1, col_index: 0, value: 'A2' },
-        { row_index: 1, col_index: 1, value: 'B2' }
+        { row_index: 1, col_index: 1, value: 'B2' },
       ]
 
       api.getNodeTable.mockResolvedValue({ id: 1, node_id: 123, row_count: 2 })

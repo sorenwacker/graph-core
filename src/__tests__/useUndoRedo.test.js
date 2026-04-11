@@ -14,7 +14,7 @@ describe('useUndoRedo composable', () => {
       restoreNode: vi.fn().mockResolvedValue({ id: 1, parent_id: 2 }),
       linkNodes: vi.fn().mockResolvedValue(),
       unlinkNodes: vi.fn().mockResolvedValue(),
-      reorderNode: vi.fn().mockResolvedValue()
+      reorderNode: vi.fn().mockResolvedValue(),
     }
     // Disable persistence in most tests
     undoRedo = useUndoRedo({ api: mockApi, persist: false })
@@ -117,7 +117,7 @@ describe('useUndoRedo composable', () => {
     it('should restore command to stack on failure', async () => {
       const mockCommand = {
         undo: vi.fn().mockRejectedValue(new Error('fail')),
-        execute: vi.fn()
+        execute: vi.fn(),
       }
       undoRedo.pushCommand(mockCommand)
       await undoRedo.undo()
@@ -130,7 +130,7 @@ describe('useUndoRedo composable', () => {
       const ur = useUndoRedo({ api: mockApi, onError })
       const mockCommand = {
         undo: vi.fn().mockRejectedValue(new Error('fail')),
-        execute: vi.fn()
+        execute: vi.fn(),
       }
       ur.pushCommand(mockCommand)
       await ur.undo()
@@ -175,7 +175,7 @@ describe('useUndoRedo composable', () => {
     it('should restore command to redo stack on failure', async () => {
       const mockCommand = {
         undo: vi.fn().mockResolvedValue(),
-        execute: vi.fn().mockRejectedValue(new Error('fail'))
+        execute: vi.fn().mockRejectedValue(new Error('fail')),
       }
       undoRedo.pushCommand(mockCommand)
       await undoRedo.undo()
@@ -230,10 +230,14 @@ describe('useUndoRedo composable', () => {
       Object.defineProperty(window, 'sessionStorage', {
         value: {
           getItem: vi.fn(key => mockStorage[key] ?? null),
-          setItem: vi.fn((key, value) => { mockStorage[key] = value }),
-          removeItem: vi.fn(key => { delete mockStorage[key] })
+          setItem: vi.fn((key, value) => {
+            mockStorage[key] = value
+          }),
+          removeItem: vi.fn(key => {
+            delete mockStorage[key]
+          }),
         },
-        writable: true
+        writable: true,
       })
     })
 
@@ -246,7 +250,7 @@ describe('useUndoRedo composable', () => {
       const cmd = new EditCommand({
         nodeId: 1,
         oldValues: { title: 'Old' },
-        newValues: { title: 'New' }
+        newValues: { title: 'New' },
       })
 
       ur.pushCommand(cmd)
@@ -262,12 +266,14 @@ describe('useUndoRedo composable', () => {
     })
 
     it('should restore undo stack from sessionStorage on init', () => {
-      const storedCommands = [{
-        type: 'edit',
-        nodeId: 1,
-        oldValues: { title: 'Old' },
-        newValues: { title: 'New' }
-      }]
+      const storedCommands = [
+        {
+          type: 'edit',
+          nodeId: 1,
+          oldValues: { title: 'Old' },
+          newValues: { title: 'New' },
+        },
+      ]
       mockStorage['graphcore-undoStack'] = JSON.stringify(storedCommands)
 
       const ur = useUndoRedo({ api: mockApi, persist: true })
@@ -278,12 +284,14 @@ describe('useUndoRedo composable', () => {
     })
 
     it('should restore redo stack from sessionStorage on init', () => {
-      const storedCommands = [{
-        type: 'move',
-        nodeId: 2,
-        oldParentId: 5,
-        newParentId: 10
-      }]
+      const storedCommands = [
+        {
+          type: 'move',
+          nodeId: 2,
+          oldParentId: 5,
+          newParentId: 10,
+        },
+      ]
       mockStorage['graphcore-redoStack'] = JSON.stringify(storedCommands)
 
       const ur = useUndoRedo({ api: mockApi, persist: true })
@@ -294,11 +302,13 @@ describe('useUndoRedo composable', () => {
 
     it('should not persist when persist option is false', async () => {
       const ur = useUndoRedo({ api: mockApi, persist: false })
-      ur.pushCommand(new EditCommand({
-        nodeId: 1,
-        oldValues: {},
-        newValues: {}
-      }))
+      ur.pushCommand(
+        new EditCommand({
+          nodeId: 1,
+          oldValues: {},
+          newValues: {},
+        })
+      )
 
       // Wait a tick
       await new Promise(r => setTimeout(r, 10))
@@ -317,7 +327,9 @@ describe('useUndoRedo composable', () => {
 
     it('should clear storage when stacks are cleared', async () => {
       mockStorage['graphcore-undoStack'] = JSON.stringify([{ type: 'edit', nodeId: 1, oldValues: {}, newValues: {} }])
-      mockStorage['graphcore-redoStack'] = JSON.stringify([{ type: 'move', nodeId: 2, oldParentId: 5, newParentId: 10 }])
+      mockStorage['graphcore-redoStack'] = JSON.stringify([
+        { type: 'move', nodeId: 2, oldParentId: 5, newParentId: 10 },
+      ])
 
       const ur = useUndoRedo({ api: mockApi, persist: true })
       ur.clear()

@@ -3,7 +3,7 @@ import { nodeTypes } from '../utils/constants.js'
 
 defineProps({
   nodeType: { type: String, required: true },
-  nodeTitle: { type: String, required: true }
+  nodeTitle: { type: String, required: true },
 })
 
 const emit = defineEmits(['update:nodeType', 'update:nodeTitle', 'create'])
@@ -15,11 +15,7 @@ function formatType(t) {
 
 <template>
   <div class="add-node-bar">
-    <select
-      :value="nodeType"
-      class="type-select"
-      @change="emit('update:nodeType', $event.target.value)"
-    >
+    <select :value="nodeType" class="type-select" @change="emit('update:nodeType', $event.target.value)">
       <option v-for="t in nodeTypes" :key="t" :value="t">{{ formatType(t) }}</option>
     </select>
     <input

@@ -17,7 +17,16 @@ const SEARCH_PAGE_SIZE = 50
  * @param {Object} options.selectedNode - Ref to the currently selected node (for link mode)
  * @param {Function} options.getWorkspace - Function that returns current workspace ID
  */
-export function useSearch({ onSearch, onSelect, onLink, onMove, onNavigate, getAncestors, selectedNode, getWorkspace } = {}) {
+export function useSearch({
+  onSearch,
+  onSelect,
+  onLink,
+  onMove,
+  onNavigate,
+  getAncestors,
+  selectedNode,
+  getWorkspace,
+} = {}) {
   const { handleError } = useErrorHandler()
 
   const searchQuery = ref('')
@@ -108,7 +117,7 @@ export function useSearch({ onSearch, onSelect, onLink, onMove, onNavigate, getA
 
         const paginationOptions = {
           limit: SEARCH_PAGE_SIZE,
-          offset: searchOffset.value
+          offset: searchOffset.value,
         }
 
         const results = await onSearch(searchQuery.value, searchMode.value, workspaceId, paginationOptions)
@@ -120,7 +129,7 @@ export function useSearch({ onSearch, onSelect, onLink, onMove, onNavigate, getA
         let processedResults = results
         if (getAncestors && results.length > 0) {
           processedResults = await Promise.all(
-            results.map(async (result) => {
+            results.map(async result => {
               try {
                 const ancestors = await getAncestors(result.id)
                 const breadcrumb = ancestors.map(a => a.title).join(' / ')
@@ -171,9 +180,8 @@ export function useSearch({ onSearch, onSelect, onLink, onMove, onNavigate, getA
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       if (searchResults.value.length > 0) {
-        selectedResultIndex.value = selectedResultIndex.value === 0
-          ? searchResults.value.length - 1
-          : selectedResultIndex.value - 1
+        selectedResultIndex.value =
+          selectedResultIndex.value === 0 ? searchResults.value.length - 1 : selectedResultIndex.value - 1
       }
     } else if (e.key === 'Enter' && searchResults.value.length > 0) {
       e.preventDefault()
@@ -235,6 +243,6 @@ export function useSearch({ onSearch, onSelect, onLink, onMove, onNavigate, getA
     handleSearchKeydown,
     goToSearchResult,
     isResultSelected,
-    loadMoreResults
+    loadMoreResults,
   }
 }

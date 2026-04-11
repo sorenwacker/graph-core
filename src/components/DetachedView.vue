@@ -9,17 +9,13 @@ import DetailPanel from './DetailPanel.vue'
 const { handleError } = useErrorHandler()
 
 const props = defineProps({
-  nodeId: { type: Number, required: true }
+  nodeId: { type: Number, required: true },
 })
 
 // Initialize theme for detached window
 useTheme()
 
-const {
-  broadcastNodeUpdate,
-  broadcastNodeDelete,
-  onMessage
-} = useDetachedWindow()
+const { broadcastNodeUpdate, broadcastNodeDelete, onMessage } = useDetachedWindow()
 
 const currentNode = ref(null)
 const navigationHistory = ref([]) // Stack for back navigation
@@ -74,7 +70,7 @@ async function handleUpdate(updatedNode) {
       phone: updatedNode.phone,
       organization: updatedNode.organization,
       role: updatedNode.role,
-      website: updatedNode.website
+      website: updatedNode.website,
     }
     await api.updateNode(updatedNode.id, newValues)
     currentNode.value = { ...updatedNode }
@@ -111,9 +107,8 @@ async function handleAIImproveNotes(payload) {
   let finalNewNotes
   if (selectionRange) {
     // Selection-based improvement: replace only the selected portion
-    finalNewNotes = currentFullNotes.slice(0, selectionRange.from) +
-                    newNotes +
-                    currentFullNotes.slice(selectionRange.to)
+    finalNewNotes =
+      currentFullNotes.slice(0, selectionRange.from) + newNotes + currentFullNotes.slice(selectionRange.to)
   } else {
     // Full notes improvement
     finalNewNotes = newNotes
@@ -156,7 +151,7 @@ async function wrapWithParent(node) {
       title: 'New Parent',
       type: 'group',
       parent_id: node.parent_id,
-      workspace_id: node.workspace_id
+      workspace_id: node.workspace_id,
     }
     const newParent = await api.createNode(parentData)
 
@@ -189,7 +184,7 @@ async function addChild(parentNode) {
       title: 'New Task',
       type: 'task',
       parent_id: parentNode.id,
-      workspace_id: parentNode.workspace_id
+      workspace_id: parentNode.workspace_id,
     }
     const newChild = await api.createNode(childData)
     broadcastNodeUpdate(newChild)
@@ -213,7 +208,7 @@ onMounted(() => {
   loadNode(props.nodeId)
   loadWorkspaces()
 
-  onMessage((data) => {
+  onMessage(data => {
     if (data.type === 'node-updated' && data.node) {
       // Update if this is our current node
       if (data.node.id === currentNode.value?.id) {
@@ -228,11 +223,15 @@ onMounted(() => {
 })
 
 // Update document title when node changes
-watch(() => currentNode.value?.title, (newTitle) => {
-  if (newTitle) {
-    document.title = newTitle
-  }
-}, { immediate: true })
+watch(
+  () => currentNode.value?.title,
+  newTitle => {
+    if (newTitle) {
+      document.title = newTitle
+    }
+  },
+  { immediate: true }
+)
 </script>
 
 <template>
@@ -248,9 +247,7 @@ watch(() => currentNode.value?.title, (newTitle) => {
     </div>
 
     <!-- Loading state -->
-    <div v-if="loading" class="detached-loading">
-      Loading...
-    </div>
+    <div v-if="loading" class="detached-loading">Loading...</div>
 
     <!-- Error state -->
     <div v-else-if="error" class="detached-error">

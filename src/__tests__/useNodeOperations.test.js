@@ -15,7 +15,7 @@ describe('useNodeOperations composable', () => {
       updateNode: vi.fn(),
       deleteNode: vi.fn(),
       getDescendants: vi.fn(),
-      moveNode: vi.fn()
+      moveNode: vi.fn(),
     }
     mockPushCommand = vi.fn()
     mockOnSuccess = vi.fn()
@@ -24,11 +24,11 @@ describe('useNodeOperations composable', () => {
     ops = useNodeOperations({
       api: mockApi,
       pushCommand: mockPushCommand,
-      getWorkspaceIdForNode: (type) => type === 'person' ? 'people' : 'work',
+      getWorkspaceIdForNode: type => (type === 'person' ? 'people' : 'work'),
       onSuccess: mockOnSuccess,
       onError: mockOnError,
       broadcastUpdate: vi.fn(),
-      broadcastDelete: vi.fn()
+      broadcastDelete: vi.fn(),
     })
   })
 
@@ -45,7 +45,7 @@ describe('useNodeOperations composable', () => {
         type: 'task',
         parent_id: null,
         workspace_id: 'work',
-        start_date: expect.any(String)
+        start_date: expect.any(String),
       })
       expect(mockPushCommand).toHaveBeenCalled()
       expect(mockOnSuccess).toHaveBeenCalledWith({ type: 'create', node: newNode, x: undefined, y: undefined })
@@ -66,9 +66,7 @@ describe('useNodeOperations composable', () => {
 
       await ops.createNode({ title: 'John', type: 'person', parentId: null })
 
-      expect(mockApi.createNode).toHaveBeenCalledWith(
-        expect.objectContaining({ workspace_id: 'people' })
-      )
+      expect(mockApi.createNode).toHaveBeenCalledWith(expect.objectContaining({ workspace_id: 'people' }))
     })
   })
 
@@ -172,10 +170,13 @@ describe('useNodeOperations composable', () => {
 
       await ops.toggleComplete(node)
 
-      expect(mockApi.updateNode).toHaveBeenCalledWith(1, expect.objectContaining({
-        completed: true,
-        end_date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)
-      }))
+      expect(mockApi.updateNode).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          completed: true,
+          end_date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        })
+      )
     })
   })
 
@@ -198,7 +199,7 @@ describe('useNodeOperations composable', () => {
         title: 'Test',
         type: 'task',
         notes: 'Some notes',
-        extraField: 'ignored'
+        extraField: 'ignored',
       }
 
       const result = ops.pickNodeFields(node)
@@ -214,7 +215,7 @@ describe('useNodeOperations composable', () => {
         id: 1,
         title: 'Person',
         type: 'person',
-        tags: ['developer', 'mentor']
+        tags: ['developer', 'mentor'],
       }
 
       const result = ops.pickNodeFields(node)

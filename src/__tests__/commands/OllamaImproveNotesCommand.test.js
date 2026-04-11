@@ -6,7 +6,7 @@ describe('OllamaImproveNotesCommand', () => {
 
   beforeEach(() => {
     mockApi = {
-      updateNode: vi.fn().mockResolvedValue()
+      updateNode: vi.fn().mockResolvedValue(),
     }
   })
 
@@ -14,7 +14,7 @@ describe('OllamaImproveNotesCommand', () => {
     nodeId: 1,
     oldNotes: 'Original notes content',
     newNotes: 'Improved notes content',
-    prompt: 'Improve'
+    prompt: 'Improve',
   }
 
   it('should have type "ollama-improve-notes"', () => {
@@ -54,7 +54,7 @@ describe('OllamaImproveNotesCommand', () => {
         nodeId: 1,
         oldNotes: 'Original notes content',
         newNotes: 'Improved notes content',
-        prompt: 'Improve'
+        prompt: 'Improve',
       })
     })
 
@@ -63,14 +63,14 @@ describe('OllamaImproveNotesCommand', () => {
         nodeId: 2,
         oldNotes: '',
         newNotes: 'New content',
-        prompt: 'Generate'
+        prompt: 'Generate',
       })
       expect(cmd.toJSON()).toEqual({
         type: 'ollama-improve-notes',
         nodeId: 2,
         oldNotes: '',
         newNotes: 'New content',
-        prompt: 'Generate'
+        prompt: 'Generate',
       })
     })
   })
@@ -84,7 +84,7 @@ describe('OllamaImproveNotesCommand', () => {
     it('should handle short custom prompt', () => {
       const cmd = new OllamaImproveNotesCommand({
         ...options,
-        prompt: 'Short'
+        prompt: 'Short',
       })
       expect(cmd.getDescription()).toBe('AI Short notes')
     })
@@ -92,7 +92,7 @@ describe('OllamaImproveNotesCommand', () => {
     it('should truncate long prompts', () => {
       const cmd = new OllamaImproveNotesCommand({
         ...options,
-        prompt: 'This is a very long prompt that should be truncated'
+        prompt: 'This is a very long prompt that should be truncated',
       })
       const description = cmd.getDescription()
       expect(description.length).toBeLessThanOrEqual(30)

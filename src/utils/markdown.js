@@ -8,8 +8,8 @@ marked.use({
     link({ href, title, text }) {
       const titleAttr = title ? ` title="${title}"` : ''
       return `<a href="${href}"${titleAttr} class="external-link" rel="noopener">${text}</a>`
-    }
-  }
+    },
+  },
 })
 
 // Global click handler for external links - opens in system browser

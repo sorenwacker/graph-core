@@ -21,7 +21,7 @@ describe('nodeFields', () => {
         title: 'Test',
         type: 'task',
         parent_id: 5,
-        secret: 'should not appear'
+        secret: 'should not appear',
       }
 
       const result = pickNodeFields(node, ['title', 'type'])
@@ -36,7 +36,7 @@ describe('nodeFields', () => {
       const node = reactive({
         title: 'Reactive Node',
         type: 'note',
-        completed: false
+        completed: false,
       })
 
       const result = pickNodeFields(node, ['title', 'type', 'completed'])
@@ -77,7 +77,7 @@ describe('nodeFields', () => {
       const node = {
         title: 'Test',
         notes: null,
-        due_date: undefined
+        due_date: undefined,
       }
 
       const result = pickNodeFields(node, ['title', 'notes', 'due_date'])

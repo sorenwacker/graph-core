@@ -10,10 +10,14 @@ describe('useSettings composable', () => {
     Object.defineProperty(window, 'localStorage', {
       value: {
         getItem: vi.fn(key => mockStorage[key] ?? null),
-        setItem: vi.fn((key, value) => { mockStorage[key] = value }),
-        removeItem: vi.fn(key => { delete mockStorage[key] })
+        setItem: vi.fn((key, value) => {
+          mockStorage[key] = value
+        }),
+        removeItem: vi.fn(key => {
+          delete mockStorage[key]
+        }),
       },
-      writable: true
+      writable: true,
     })
   })
 

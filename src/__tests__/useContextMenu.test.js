@@ -16,7 +16,7 @@ describe('useContextMenu composable', () => {
       onUnlink: vi.fn(),
       onMoveToWorkspace: vi.fn(),
       onDelete: vi.fn(),
-      onRefreshSelectedNode: vi.fn()
+      onRefreshSelectedNode: vi.fn(),
     }
     menu = useContextMenu(callbacks)
   })
@@ -48,7 +48,7 @@ describe('useContextMenu composable', () => {
         preventDefault: vi.fn(),
         stopPropagation: vi.fn(),
         clientX: 100,
-        clientY: 200
+        clientY: 200,
       }
 
       await menu.showContextMenu(e, node)
@@ -62,7 +62,10 @@ describe('useContextMenu composable', () => {
     })
 
     it('should load linked nodes', async () => {
-      const links = [{ id: 2, title: 'Link 1' }, { id: 3, title: 'Link 2' }]
+      const links = [
+        { id: 2, title: 'Link 1' },
+        { id: 3, title: 'Link 2' },
+      ]
       callbacks.onLoadLinks.mockResolvedValue(links)
       const node = { id: 1 }
       const e = { preventDefault: vi.fn(), stopPropagation: vi.fn(), clientX: 0, clientY: 0 }

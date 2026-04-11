@@ -38,9 +38,7 @@ export function useMentions(options = {}) {
       filteredPersons.value = persons.value.slice(0, 10)
     } else {
       const q = query.toLowerCase()
-      filteredPersons.value = persons.value
-        .filter(p => p.title?.toLowerCase().includes(q))
-        .slice(0, 10)
+      filteredPersons.value = persons.value.filter(p => p.title?.toLowerCase().includes(q)).slice(0, 10)
     }
     selectedMentionIndex.value = 0
   }
@@ -68,7 +66,7 @@ export function useMentions(options = {}) {
 
     return {
       top: Math.min(top, window.innerHeight - 200),
-      left: Math.min(left, window.innerWidth - 250)
+      left: Math.min(left, window.innerWidth - 250),
     }
   }
 
@@ -113,10 +111,7 @@ export function useMentions(options = {}) {
 
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      selectedMentionIndex.value = Math.min(
-        selectedMentionIndex.value + 1,
-        filteredPersons.value.length - 1
-      )
+      selectedMentionIndex.value = Math.min(selectedMentionIndex.value + 1, filteredPersons.value.length - 1)
       return true
     }
 
@@ -196,7 +191,9 @@ export function useMentions(options = {}) {
     handleInput,
     handleKeydown,
     selectMention,
-    hideMentions: () => { showMentions.value = false },
-    refreshPersons: loadPersons
+    hideMentions: () => {
+      showMentions.value = false
+    },
+    refreshPersons: loadPersons,
   }
 }

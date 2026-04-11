@@ -35,12 +35,12 @@ describe('useCardDrag composable', () => {
         target: {
           tagName: 'DIV',
           closest: () => null,
-          classList: { add: vi.fn() }
+          classList: { add: vi.fn() },
         },
         dataTransfer: {
           effectAllowed: '',
-          setData: vi.fn()
-        }
+          setData: vi.fn(),
+        },
       }
 
       drag.onDragStart(e, node)
@@ -56,9 +56,9 @@ describe('useCardDrag composable', () => {
       const e = {
         target: {
           tagName: 'INPUT',
-          closest: () => null
+          closest: () => null,
         },
-        preventDefault: vi.fn()
+        preventDefault: vi.fn(),
       }
 
       drag.onDragStart(e, node)
@@ -72,9 +72,9 @@ describe('useCardDrag composable', () => {
       const e = {
         target: {
           tagName: 'TEXTAREA',
-          closest: () => null
+          closest: () => null,
         },
-        preventDefault: vi.fn()
+        preventDefault: vi.fn(),
       }
 
       drag.onDragStart(e, node)
@@ -88,9 +88,9 @@ describe('useCardDrag composable', () => {
       const e = {
         target: {
           tagName: 'DIV',
-          closest: (selector) => selector === 'input, textarea' ? document.createElement('input') : null
+          closest: selector => (selector === 'input, textarea' ? document.createElement('input') : null),
         },
-        preventDefault: vi.fn()
+        preventDefault: vi.fn(),
       }
 
       drag.onDragStart(e, node)
@@ -105,12 +105,12 @@ describe('useCardDrag composable', () => {
         target: {
           tagName: 'DIV',
           closest: () => null,
-          classList: { add: vi.fn() }
+          classList: { add: vi.fn() },
         },
         dataTransfer: {
           effectAllowed: '',
-          setData: vi.fn()
-        }
+          setData: vi.fn(),
+        },
       }
 
       drag.onDragStart(e, node)
@@ -128,8 +128,8 @@ describe('useCardDrag composable', () => {
 
       const e = {
         target: {
-          classList: { remove: vi.fn() }
-        }
+          classList: { remove: vi.fn() },
+        },
       }
 
       drag.onDragEnd(e)
@@ -171,8 +171,8 @@ describe('useCardDrag composable', () => {
         clientX: 100,
         shiftKey: false,
         currentTarget: {
-          getBoundingClientRect: () => ({ left: 0, width: 1000 })
-        }
+          getBoundingClientRect: () => ({ left: 0, width: 1000 }),
+        },
       }
 
       drag.onDragOver(e, { id: 2 })
@@ -188,8 +188,8 @@ describe('useCardDrag composable', () => {
         clientX: 800,
         shiftKey: false,
         currentTarget: {
-          getBoundingClientRect: () => ({ left: 0, width: 1000 })
-        }
+          getBoundingClientRect: () => ({ left: 0, width: 1000 }),
+        },
       }
 
       drag.onDragOver(e, { id: 2 })
@@ -204,8 +204,8 @@ describe('useCardDrag composable', () => {
         clientX: 500,
         shiftKey: false,
         currentTarget: {
-          getBoundingClientRect: () => ({ left: 0, width: 1000 })
-        }
+          getBoundingClientRect: () => ({ left: 0, width: 1000 }),
+        },
       }
 
       drag.onDragOver(e, { id: 2 })
@@ -220,8 +220,8 @@ describe('useCardDrag composable', () => {
         clientX: 500, // Middle - would normally be 'inside'
         shiftKey: true,
         currentTarget: {
-          getBoundingClientRect: () => ({ left: 0, width: 1000 })
-        }
+          getBoundingClientRect: () => ({ left: 0, width: 1000 }),
+        },
       }
 
       drag.onDragOver(e, { id: 2 })
@@ -236,8 +236,8 @@ describe('useCardDrag composable', () => {
         clientX: 400, // Left of center
         shiftKey: true,
         currentTarget: {
-          getBoundingClientRect: () => ({ left: 0, width: 1000 })
-        }
+          getBoundingClientRect: () => ({ left: 0, width: 1000 }),
+        },
       }
 
       drag.onDragOver(e, { id: 2 })
@@ -253,7 +253,7 @@ describe('useCardDrag composable', () => {
 
       const e = {
         currentTarget: { contains: () => false },
-        relatedTarget: null
+        relatedTarget: null,
       }
 
       drag.onDragLeave(e)
@@ -269,7 +269,7 @@ describe('useCardDrag composable', () => {
 
       const e = {
         currentTarget: { contains: () => true },
-        relatedTarget: document.createElement('div')
+        relatedTarget: document.createElement('div'),
       }
 
       drag.onDragLeave(e)
@@ -371,7 +371,7 @@ describe('useCardDrag composable', () => {
       expect(drag.getDropClass({ id: 1 })).toEqual({
         'drop-before': true,
         'drop-after': false,
-        'drop-inside': false
+        'drop-inside': false,
       })
     })
 
@@ -382,7 +382,7 @@ describe('useCardDrag composable', () => {
       expect(drag.getDropClass({ id: 1 })).toEqual({
         'drop-before': false,
         'drop-after': true,
-        'drop-inside': false
+        'drop-inside': false,
       })
     })
 
@@ -393,7 +393,7 @@ describe('useCardDrag composable', () => {
       expect(drag.getDropClass({ id: 1 })).toEqual({
         'drop-before': false,
         'drop-after': false,
-        'drop-inside': true
+        'drop-inside': true,
       })
     })
   })

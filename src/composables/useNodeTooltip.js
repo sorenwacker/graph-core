@@ -55,7 +55,7 @@ export function useNodeTooltip(options = {}) {
 
       const content = buildTooltipHTML(node, {
         showCheckbox: node.type === 'task',
-        hideSensitive: getHideSensitive()
+        hideSensitive: getHideSensitive(),
       })
 
       // Use dynamic position reference based on cursor location
@@ -68,13 +68,13 @@ export function useNodeTooltip(options = {}) {
         content,
         showOnCreate: true,
         hideOnClick: false,
-        onHidden: (instance) => {
+        onHidden: instance => {
           instance.destroy()
           if (activeTooltip === instance) {
             activeTooltip = null
           }
         },
-        onShown: (instance) => {
+        onShown: instance => {
           // Hide tooltip when mouse enters it
           instance.popper.addEventListener('mouseenter', () => {
             if (!instance.state.isDestroyed) {
@@ -85,7 +85,7 @@ export function useNodeTooltip(options = {}) {
           // Attach checkbox listener
           const checkbox = instance.popper.querySelector('input[type="checkbox"][data-node-id]')
           if (checkbox && onToggleComplete) {
-            checkbox.addEventListener('change', (evt) => {
+            checkbox.addEventListener('change', evt => {
               const nodeId = parseInt(evt.target.dataset.nodeId)
               onToggleComplete(nodeId)
               if (!instance.state.isDestroyed) {
@@ -96,7 +96,7 @@ export function useNodeTooltip(options = {}) {
           // Attach open detail button listener
           const openBtn = instance.popper.querySelector('.tt-open-detail[data-node-id]')
           if (openBtn && onOpenDetail) {
-            openBtn.addEventListener('click', (evt) => {
+            openBtn.addEventListener('click', evt => {
               const nodeId = parseInt(evt.target.dataset.nodeId)
               onOpenDetail(nodeId)
               if (!instance.state.isDestroyed) {
@@ -104,7 +104,7 @@ export function useNodeTooltip(options = {}) {
               }
             })
           }
-        }
+        },
       })
     }, TOOLTIP_DELAY)
   }
@@ -163,6 +163,6 @@ export function useNodeTooltip(options = {}) {
     showTooltip,
     hideTooltip,
     forceHide,
-    cleanup
+    cleanup,
   }
 }

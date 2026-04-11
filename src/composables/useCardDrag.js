@@ -98,7 +98,7 @@ export function useCardDrag({ onMove, onReorder } = {}) {
     return {
       'drop-before': dropPosition.value === 'before',
       'drop-after': dropPosition.value === 'after',
-      'drop-inside': dropPosition.value === 'inside'
+      'drop-inside': dropPosition.value === 'inside',
     }
   }
 
@@ -119,6 +119,6 @@ export function useCardDrag({ onMove, onReorder } = {}) {
     onDragLeave,
     onDrop,
     getDropClass,
-    isDragging
+    isDragging,
   }
 }

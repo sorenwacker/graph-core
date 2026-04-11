@@ -31,7 +31,7 @@ export function useContextMenu({
   onUnlink,
   onMoveToWorkspace,
   onDelete,
-  onRefreshSelectedNode
+  onRefreshSelectedNode,
 } = {}) {
   const { handleError } = useErrorHandler()
 
@@ -40,7 +40,7 @@ export function useContextMenu({
     x: 0,
     y: 0,
     node: null,
-    linkedNodes: []
+    linkedNodes: [],
   })
 
   async function showContextMenu(e, node) {
@@ -62,7 +62,7 @@ export function useContextMenu({
       x: e.clientX,
       y: e.clientY,
       node: node,
-      linkedNodes: links || []
+      linkedNodes: links || [],
     }
   }
 
@@ -182,6 +182,6 @@ export function useContextMenu({
     isVisible,
     getNode,
     getPosition,
-    getLinkedNodes
+    getLinkedNodes,
   }
 }
