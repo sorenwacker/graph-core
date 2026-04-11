@@ -93,6 +93,10 @@ function getColumnName(index) {
   overflow: hidden;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-subtle);
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .mini-loading {
@@ -105,6 +109,9 @@ function getColumnName(index) {
 .mini-grid {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .mini-row {

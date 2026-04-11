@@ -357,8 +357,8 @@ function handleCanvasClick(e) {
       <TableMiniature
         v-if="node.has_table"
         :node-id="node.id"
-        :max-rows="cardSizeClass === 'card-xl' ? 8 : cardSizeClass === 'card-lg' ? 6 : 4"
-        :max-cols="cardSizeClass === 'card-xl' ? 6 : cardSizeClass === 'card-lg' ? 5 : 4"
+        :max-rows="99"
+        :max-cols="cardSizeClass === 'card-xl' ? 8 : cardSizeClass === 'card-lg' ? 6 : 5"
       />
 
       <!-- Metadata - xl/lg only (start/end dates) -->
