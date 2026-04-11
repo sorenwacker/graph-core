@@ -259,9 +259,6 @@ function handleCanvasClick(e) {
         <span v-if="node.due_date && cardSizeClass !== 'card-xs'" class="card-due-date" :class="getDueDateClass(node)" :title="node.due_date">
           {{ formatDueDate(node) }}
         </span>
-        <span v-if="node.end_date && cardSizeClass !== 'card-xs'" class="card-end-date" :title="node.end_date">
-          ends {{ node.end_date }}
-        </span>
         <button class="card-add-btn" @click.stop="emit('add-child', node.id, $event)" title="Add child item">+</button>
         <button class="card-delete-btn" @click.stop="emit('delete', node.id)" title="Delete">x</button>
       </div>
@@ -364,10 +361,13 @@ function handleCanvasClick(e) {
         :max-cols="cardSizeClass === 'card-xl' ? 5 : cardSizeClass === 'card-lg' ? 4 : 3"
       />
 
-      <!-- Metadata - xl/lg only (start date) -->
-      <div v-if="(cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg') && node.start_date" class="node-card-meta">
-        <span class="meta-item start">
+      <!-- Metadata - xl/lg only (start/end dates) -->
+      <div v-if="(cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg') && (node.start_date || node.end_date)" class="node-card-meta">
+        <span v-if="node.start_date" class="meta-item start">
           <span class="meta-icon">S</span>{{ node.start_date }}
+        </span>
+        <span v-if="node.end_date" class="meta-item end">
+          <span class="meta-icon">E</span>{{ node.end_date }}
         </span>
       </div>
 
