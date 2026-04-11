@@ -39,9 +39,47 @@ jobs:
       - name: Verify build
         run: npm run build
 
-  # Only build releases after tests pass
-  release:
+  # Validate release type - full releases require existing prerelease
+  validate:
     needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      is_prerelease: ${{ steps.check.outputs.is_prerelease }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine release type
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+
+          # Check if this is a prerelease tag (contains -alpha, -beta, -rc, etc.)
+          if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-.+ ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            echo "This is a PRE-RELEASE: $TAG"
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+            echo "This is a FULL RELEASE: $TAG"
+
+            # Check if a prerelease exists for this version
+            PRERELEASES=$(gh release list --limit 100 | grep -E "^v${VERSION}-(alpha|beta|rc)" || true)
+
+            if [ -z "$PRERELEASES" ]; then
+              echo "::error::No pre-release found for version $VERSION. Create a pre-release first (e.g., v${VERSION}-beta.1)"
+              exit 1
+            else
+              echo "Found pre-releases for this version:"
+              echo "$PRERELEASES"
+            fi
+          fi
+
+  # Build release artifacts after validation
+  build:
+    needs: validate
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -67,3 +105,22 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
+
+  # Mark release as prerelease or full release
+  finalize:
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark release type
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+
+          if [ "${{ needs.validate.outputs.is_prerelease }}" = "true" ]; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease
+            echo "Marked $TAG as pre-release"
+          else
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease=false
+            echo "Marked $TAG as full release"
+          fi
