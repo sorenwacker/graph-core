@@ -129,7 +129,9 @@
       "target": [
         "AppImage",
         "deb"
-      ]
+      ],
+      "icon": "resources/icon-512.png",
+      "category": "Office"
     }
   },
   "overrides": {
