@@ -154,9 +154,25 @@ function nestedGridStyle(count) {
   return { gridTemplateColumns: `repeat(${cols}, 1fr)` }
 }
 
-function getNestedCardSize(count) {
-  if (count <= 2) return 'child-lg'
-  if (count <= 4) return 'child-md'
+function getNestedCardSize(count, parentSize) {
+  // Larger parent cards can support larger child cards
+  const isLargeParent = parentSize === 'card-xl' || parentSize === 'card-lg'
+  const isMediumParent = parentSize === 'card-md'
+
+  if (isLargeParent) {
+    if (count <= 4) return 'child-lg'
+    if (count <= 8) return 'child-md'
+    return 'child-sm'
+  }
+
+  if (isMediumParent) {
+    if (count <= 2) return 'child-lg'
+    if (count <= 6) return 'child-md'
+    return 'child-sm'
+  }
+
+  // Small parent cards
+  if (count <= 2) return 'child-md'
   return 'child-sm'
 }
 
@@ -345,7 +361,7 @@ function handleCanvasClick(e) {
           v-for="child in node.children"
           :key="child.id"
           class="child-card"
-          :class="[child.type, getNestedCardSize(node.children.length, 1), { selected: isCardSelected(child.id) }, getCardDropClass(child)]"
+          :class="[child.type, getNestedCardSize(node.children.length, cardSizeClass), { selected: isCardSelected(child.id) }, getCardDropClass(child)]"
           :style="getNodeColor(child) ? { background: `linear-gradient(135deg, ${getNodeColor(child)}55 0%, var(--bg-secondary) 80%)` } : {}"
           :draggable="editingCardId !== child.id && inlineNotesId !== child.id"
           @click.stop="handleChildCardClick($event, child)"
@@ -368,6 +384,7 @@ function handleCanvasClick(e) {
               @click.stop
               @change.stop="emit('toggle-complete', child)"
             />
+            <span class="child-card-type" :class="child.type">{{ child.type[0].toUpperCase() }}</span>
             <CardTitleEdit
               :title="child.title"
               :model-value="editingTitle"

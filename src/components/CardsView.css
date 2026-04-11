@@ -855,6 +855,26 @@
   accent-color: var(--accent-color);
 }
 
+.child-card-type {
+  font-size: 8px;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+/* Child card type colors - inherit from node-card-type */
+.child-card-type.task { background: var(--type-task-bg); color: var(--type-task-text); }
+.child-card-type.project { background: var(--type-project-bg); color: var(--type-project-text); }
+.child-card-type.goal { background: var(--type-goal-bg); color: var(--type-goal-text); }
+.child-card-type.note, .child-card-type.notes { background: var(--type-note-bg); color: var(--type-note-text); }
+.child-card-type.person { background: var(--type-person-bg); color: var(--type-person-text); }
+.child-card-type.organization, .child-card-type.org { background: var(--type-org-bg); color: var(--type-org-text); }
+.child-card-type.area { background: var(--type-area-bg); color: var(--type-area-text); }
+.child-card-type.resource { background: var(--type-resource-bg); color: var(--type-resource-text); }
+.child-card-type.event { background: var(--type-event-bg); color: var(--type-event-text); }
+
 .child-add-btn {
   margin-left: auto;
   width: 16px;
