@@ -906,35 +906,19 @@
 
 .child-card-notes {
   margin-top: 4px;
-  overflow: hidden;
   overflow-y: auto;
   flex: 1 1 0;
   min-height: 0;
 }
 
-/* Small child cards - compact single line notes */
+/* Small child cards - compact notes */
 .child-card.child-sm .child-card-notes {
-  max-height: 1.4em;
   margin-top: 2px;
+}
+
+.child-card.child-sm .child-card-notes :deep(.card-notes-display) {
   font-size: 9px;
   line-height: 1.4;
-}
-
-/* Medium child cards - limited notes */
-.child-card.child-md .child-card-notes {
-  max-height: 40px;
-}
-
-/* Large child cards - more notes space */
-.child-card.child-lg .child-card-notes {
-  max-height: none;
-}
-
-/* Notes type child cards - always show full content */
-.child-card.notes .child-card-notes {
-  display: block;
-  max-height: none;
-  flex: 1;
 }
 
 .grandchild-notes {
