@@ -1056,13 +1056,11 @@ input[type="checkbox"] {
 }
 
 .child-card-title {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   color: var(--text-primary);
   font-weight: 500;
   flex: 1;
   min-width: 0;
+  word-break: break-word;
 }
 
 .child-card-title.completed {
@@ -1095,9 +1093,10 @@ input[type="checkbox"] {
   opacity: 0.8;
 }
 
-/* Hide notes in small child cards */
+/* Compact notes in small child cards */
 .child-card.child-sm .child-card-notes {
-  display: none;
+  font-size: 9px;
+  line-height: 1.3;
 }
 
 .child-card-notes-area {
@@ -1258,8 +1257,9 @@ input[type="checkbox"] {
 
 /* Compact grandchildren in small child cards */
 .child-card.child-sm .grandchild-list {
-  max-height: 2em;
-  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .child-card.child-sm .grandchild-item {
