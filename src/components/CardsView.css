@@ -911,9 +911,12 @@
   min-height: 0;
 }
 
-/* Hide notes on small child cards */
+/* Small child cards - compact single line notes */
 .child-card.child-sm .child-card-notes {
-  display: none;
+  max-height: 1.4em;
+  margin-top: 2px;
+  font-size: 9px;
+  line-height: 1.4;
 }
 
 /* Medium child cards - limited notes */
