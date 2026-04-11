@@ -1,6 +1,6 @@
 <script setup>
 defineProps({
-  items: { type: Array, default: () => [] }
+  items: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['empty-all', 'restore', 'delete'])
@@ -12,9 +12,7 @@ const emit = defineEmits(['empty-all', 'restore', 'delete'])
       <h2>Trash ({{ items.length }} items)</h2>
       <button v-if="items.length > 0" class="danger" @click="emit('empty-all')">Empty Trash</button>
     </div>
-    <div v-if="items.length === 0" class="trash-empty">
-      Trash is empty
-    </div>
+    <div v-if="items.length === 0" class="trash-empty">Trash is empty</div>
     <table v-else class="trash-table">
       <thead>
         <tr>

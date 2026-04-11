@@ -38,7 +38,7 @@ export function useNavigation({
   onError,
   onSelectNode,
   filterByWorkspace,
-  buildChildTree: externalBuildChildTree
+  buildChildTree: externalBuildChildTree,
 } = {}) {
   const { handleError } = useErrorHandler()
 
@@ -62,15 +62,17 @@ export function useNavigation({
   function internalBuildChildTree(flatNodes, parentId, parentCompleted = false) {
     if (!flatNodes) return []
     const childNodes = flatNodes.filter(n => n && n.parent_id === parentId)
-    return childNodes.map(child => {
-      if (!child || !child.id) return null
-      const inheritedCompleted = parentCompleted || child.completed
-      return {
-        ...child,
-        inheritedCompleted: parentCompleted, // true if any ancestor is completed
-        children: internalBuildChildTree(flatNodes, child.id, inheritedCompleted)
-      }
-    }).filter(Boolean)
+    return childNodes
+      .map(child => {
+        if (!child || !child.id) return null
+        const inheritedCompleted = parentCompleted || child.completed
+        return {
+          ...child,
+          inheritedCompleted: parentCompleted, // true if any ancestor is completed
+          children: internalBuildChildTree(flatNodes, child.id, inheritedCompleted),
+        }
+      })
+      .filter(Boolean)
   }
 
   /**
@@ -79,15 +81,18 @@ export function useNavigation({
   function buildTree(directChildren, allDescendants, parentCompleted = false) {
     if (!directChildren) return []
     const buildFn = externalBuildChildTree || internalBuildChildTree
-    return directChildren.filter(Boolean).map(child => {
-      if (!child || !child.id) return null
-      const inheritedCompleted = parentCompleted || child.completed
-      return {
-        ...child,
-        inheritedCompleted: parentCompleted,
-        children: buildFn(allDescendants, child.id, inheritedCompleted)
-      }
-    }).filter(Boolean)
+    return directChildren
+      .filter(Boolean)
+      .map(child => {
+        if (!child || !child.id) return null
+        const inheritedCompleted = parentCompleted || child.completed
+        return {
+          ...child,
+          inheritedCompleted: parentCompleted,
+          children: buildFn(allDescendants, child.id, inheritedCompleted),
+        }
+      })
+      .filter(Boolean)
   }
 
   /**
@@ -134,12 +139,12 @@ export function useNavigation({
         // Fetch descendants for each root to build nested structure
         const buildFn = externalBuildChildTree || internalBuildChildTree
         const rootsWithChildren = await Promise.all(
-          filteredRoots.map(async (root) => {
+          filteredRoots.map(async root => {
             if (!root || !root.id) return null
             const descendants = await api.getDescendants(root.id)
             return {
               ...root,
-              children: buildFn(descendants, root.id)
+              children: buildFn(descendants, root.id),
             }
           })
         )
@@ -157,7 +162,7 @@ export function useNavigation({
         // Get container and its children
         const [container, containerChildren] = await Promise.all([
           api.getNode(containerId),
-          api.getChildren(containerId)
+          api.getChildren(containerId),
         ])
         currentContainer.value = container
 
@@ -310,9 +315,7 @@ export function useNavigation({
   async function goToSibling(direction) {
     if (!currentContainer.value) return
     const parentId = currentContainer.value.parent_id
-    const siblings = parentId
-      ? await api.getChildren(parentId)
-      : await api.getRoots(workspace?.value)
+    const siblings = parentId ? await api.getChildren(parentId) : await api.getRoots(workspace?.value)
     const currentIndex = siblings.findIndex(s => s.id === currentContainer.value.id)
     const targetIndex = currentIndex + direction
     if (targetIndex >= 0 && targetIndex < siblings.length) {
@@ -367,6 +370,6 @@ export function useNavigation({
     goToSibling,
     goToPrevSibling,
     goToNextSibling,
-    navigateToNode
+    navigateToNode,
   }
 }

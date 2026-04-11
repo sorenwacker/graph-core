@@ -31,12 +31,7 @@ function extractMessage(error) {
  * @param {function} options.onError - Callback to run after handling
  */
 export function handleError(error, options = {}) {
-  const {
-    context,
-    duration = 5000,
-    silent = false,
-    onError
-  } = options
+  const { context, duration = 5000, silent = false, onError } = options
 
   const message = extractMessage(error)
   const fullMessage = context ? `${context}: ${message}` : message
@@ -86,6 +81,6 @@ export function useErrorHandler() {
     handleError,
     lastError,
     clearError: clearLastError,
-    wrapAsync
+    wrapAsync,
   }
 }

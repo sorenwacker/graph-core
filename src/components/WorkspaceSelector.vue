@@ -4,7 +4,7 @@ import tippy from 'tippy.js'
 
 const props = defineProps({
   workspaces: { type: Array, required: true },
-  modelValue: { type: String, required: true }
+  modelValue: { type: String, required: true },
 })
 
 const emit = defineEmits(['update:modelValue', 'create', 'delete', 'rename'])
@@ -30,28 +30,34 @@ function initTooltips() {
   tippyInstances = []
 
   if (addBtn.value) {
-    tippyInstances.push(tippy(addBtn.value, {
-      content: 'Create new workspace',
-      placement: 'bottom',
-      delay: [200, 0],
-      theme: 'toolbar'
-    }))
+    tippyInstances.push(
+      tippy(addBtn.value, {
+        content: 'Create new workspace',
+        placement: 'bottom',
+        delay: [200, 0],
+        theme: 'toolbar',
+      })
+    )
   }
   if (settingsBtn.value) {
-    tippyInstances.push(tippy(settingsBtn.value, {
-      content: 'Workspace settings',
-      placement: 'bottom',
-      delay: [200, 0],
-      theme: 'toolbar'
-    }))
+    tippyInstances.push(
+      tippy(settingsBtn.value, {
+        content: 'Workspace settings',
+        placement: 'bottom',
+        delay: [200, 0],
+        theme: 'toolbar',
+      })
+    )
   }
   if (dropdownRef.value) {
-    tippyInstances.push(tippy(dropdownRef.value, {
-      content: 'Switch workspace',
-      placement: 'bottom',
-      delay: [200, 0],
-      theme: 'toolbar'
-    }))
+    tippyInstances.push(
+      tippy(dropdownRef.value, {
+        content: 'Switch workspace',
+        placement: 'bottom',
+        delay: [200, 0],
+        theme: 'toolbar',
+      })
+    )
   }
 }
 
@@ -133,8 +139,10 @@ function deleteWorkspace() {
       <button ref="addBtn" class="ws-btn add" @click="openNewDialog">+</button>
       <button ref="settingsBtn" class="ws-btn settings" @click="openSettings">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.08a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.08a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+          <path
+            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.08a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.08a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+          />
         </svg>
       </button>
     </template>
@@ -162,11 +170,7 @@ function deleteWorkspace() {
         @keyup.escape="closeSettings"
       />
       <button class="ws-btn save" @click="saveSettings">Save</button>
-      <button
-        v-if="workspaces.length > 1"
-        class="ws-btn delete"
-        @click="deleteWorkspace"
-      >Delete</button>
+      <button v-if="workspaces.length > 1" class="ws-btn delete" @click="deleteWorkspace">Delete</button>
       <button class="ws-btn" @click="closeSettings">X</button>
     </div>
   </div>

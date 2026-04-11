@@ -6,7 +6,7 @@ describe('CompleteCommand', () => {
 
   beforeEach(() => {
     mockApi = {
-      updateNode: vi.fn().mockResolvedValue()
+      updateNode: vi.fn().mockResolvedValue(),
     }
   })
 
@@ -45,7 +45,7 @@ describe('CompleteCommand', () => {
         type: 'complete',
         nodeId: 1,
         oldCompleted: false,
-        newCompleted: true
+        newCompleted: true,
       })
     })
   })

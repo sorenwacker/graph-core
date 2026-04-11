@@ -5,7 +5,7 @@ import { getImportanceLabel } from './constants.js'
 // Configure marked for safe rendering
 marked.setOptions({
   breaks: true,
-  gfm: true
+  gfm: true,
 })
 
 // Render markdown safely
@@ -38,11 +38,12 @@ export function buildTooltipHTML(node, options = {}) {
   const childCount = node.children?.length || 0
   const isCompleted = node.completed
   // Check if node is marked sensitive or contains sensitive keywords
-  const isSensitive = node.notes_sensitive ||
-                      node.notes?.toLowerCase().includes('password') ||
-                      node.notes?.toLowerCase().includes('secret') ||
-                      node.notes?.toLowerCase().includes('api_key') ||
-                      node.notes?.toLowerCase().includes('credential')
+  const isSensitive =
+    node.notes_sensitive ||
+    node.notes?.toLowerCase().includes('password') ||
+    node.notes?.toLowerCase().includes('secret') ||
+    node.notes?.toLowerCase().includes('api_key') ||
+    node.notes?.toLowerCase().includes('credential')
 
   let tooltip = `<div class="tt-header">`
   if (showCheckbox && node.type === 'task') {
@@ -137,5 +138,5 @@ export const tooltipOptions = {
   theme: 'graph-tooltip',
   maxWidth: 'none',
   trigger: 'manual',
-  appendTo: () => document.body
+  appendTo: () => document.body,
 }

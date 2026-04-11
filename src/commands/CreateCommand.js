@@ -15,7 +15,7 @@ export class CreateCommand extends Command {
   async execute(api) {
     const created = await api.createNode({
       ...this.nodeData,
-      parent_id: this.parentId
+      parent_id: this.parentId,
     })
     // Update nodeId in case it changed (for subsequent undos)
     this.nodeId = created.id
@@ -35,7 +35,7 @@ export class CreateCommand extends Command {
       nodeId: this.nodeId,
       nodeData: this.nodeData,
       parentId: this.parentId,
-      linkedToId: this.linkedToId
+      linkedToId: this.linkedToId,
     }
   }
 

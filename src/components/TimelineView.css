@@ -379,7 +379,10 @@
   align-items: center;
   padding: 0 4px;
   min-width: 20px;
-  transition: filter 0.15s, box-shadow 0.15s, outline 0.15s;
+  transition:
+    filter 0.15s,
+    box-shadow 0.15s,
+    outline 0.15s;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   will-change: left, width;
   backface-visibility: hidden;
@@ -488,16 +491,46 @@
   flex-shrink: 0;
 }
 
-.type-badge.project { background: var(--type-project-bg); color: var(--type-project-text); }
-.type-badge.task { background: var(--type-task-bg); color: var(--type-task-text); }
-.type-badge.note { background: var(--type-note-bg); color: var(--type-note-text); }
-.type-badge.milestone { background: var(--type-milestone-bg); color: var(--type-milestone-text); }
-.type-badge.group { background: var(--type-group-bg); color: var(--type-group-text); }
-.type-badge.event { background: var(--type-event-bg); color: var(--type-event-text); }
-.type-badge.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
-.type-badge.person { background: var(--type-person-bg); color: var(--type-person-text); }
-.type-badge.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
-.type-badge.component { background: var(--type-component-bg); color: var(--type-component-text); }
+.type-badge.project {
+  background: var(--type-project-bg);
+  color: var(--type-project-text);
+}
+.type-badge.task {
+  background: var(--type-task-bg);
+  color: var(--type-task-text);
+}
+.type-badge.note {
+  background: var(--type-note-bg);
+  color: var(--type-note-text);
+}
+.type-badge.milestone {
+  background: var(--type-milestone-bg);
+  color: var(--type-milestone-text);
+}
+.type-badge.group {
+  background: var(--type-group-bg);
+  color: var(--type-group-text);
+}
+.type-badge.event {
+  background: var(--type-event-bg);
+  color: var(--type-event-text);
+}
+.type-badge.topic {
+  background: var(--type-topic-bg);
+  color: var(--type-topic-text);
+}
+.type-badge.person {
+  background: var(--type-person-bg);
+  color: var(--type-person-text);
+}
+.type-badge.organization {
+  background: var(--type-organization-bg);
+  color: var(--type-organization-text);
+}
+.type-badge.component {
+  background: var(--type-component-bg);
+  color: var(--type-component-text);
+}
 
 /* SVG icons in type badges */
 .type-badge :deep(svg) {

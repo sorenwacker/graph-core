@@ -8,7 +8,7 @@ describe('CreateCommand', () => {
     mockApi = {
       createNode: vi.fn().mockResolvedValue({ id: 99 }),
       deleteNode: vi.fn().mockResolvedValue(),
-      unlinkNodes: vi.fn().mockResolvedValue()
+      unlinkNodes: vi.fn().mockResolvedValue(),
     }
   })
 
@@ -38,7 +38,7 @@ describe('CreateCommand', () => {
       await cmd.execute(mockApi)
       expect(mockApi.createNode).toHaveBeenCalledWith({
         ...nodeData,
-        parent_id: 2
+        parent_id: 2,
       })
     })
 
@@ -78,7 +78,7 @@ describe('CreateCommand', () => {
         nodeId: 1,
         nodeData,
         parentId: 2,
-        linkedToId: 3
+        linkedToId: 3,
       })
     })
   })

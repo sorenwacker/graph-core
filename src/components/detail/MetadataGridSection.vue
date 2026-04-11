@@ -8,7 +8,7 @@ const props = defineProps({
   editedNode: { type: Object, required: true },
   linkedNodes: { type: Array, default: () => [] },
   workspaces: { type: Array, default: () => [] },
-  collapsed: { type: Boolean, default: false }
+  collapsed: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -21,7 +21,7 @@ const emit = defineEmits([
   'remove-link',
   'add-link',
   'toggle-links-visibility',
-  'save'
+  'save',
 ])
 
 const formattedCreatedDate = computed(() => formatDate(props.editedNode?.created_at))
@@ -68,7 +68,13 @@ function clearColor() {
         <!-- Type -->
         <div class="meta-item">
           <label>Type</label>
-          <select :value="editedNode.type" @change="emit('update:field', { field: 'type', value: $event.target.value }); emit('save')">
+          <select
+            :value="editedNode.type"
+            @change="
+              emit('update:field', { field: 'type', value: $event.target.value })
+              emit('save')
+            "
+          >
             <option v-for="t in nodeTypes" :key="t" :value="t">{{ t }}</option>
           </select>
         </div>
@@ -76,10 +82,7 @@ function clearColor() {
         <!-- Workspace -->
         <div class="meta-item">
           <label>Workspace</label>
-          <select
-            :value="editedNode.workspace_id"
-            @change="emit('change-workspace', $event.target.value)"
-          >
+          <select :value="editedNode.workspace_id" @change="emit('change-workspace', $event.target.value)">
             <option v-for="ws in workspaces" :key="ws.id" :value="ws.id">{{ ws.name }}</option>
           </select>
         </div>
@@ -94,7 +97,9 @@ function clearColor() {
               class="importance-btn"
               :class="{ active: editedNode.importance === level }"
               @click="setImportance(level)"
-            >{{ level }}</button>
+            >
+              {{ level }}
+            </button>
           </div>
         </div>
 
@@ -107,14 +112,28 @@ function clearColor() {
               :value="editedNode.start_date?.split('T')[0] || ''"
               @change="updateDate('start_date', $event.target.value)"
             />
-            <button v-if="editedNode.start_date" class="clear-btn" @click="clearDate('start_date')" title="Clear">x</button>
+            <button v-if="editedNode.start_date" class="clear-btn" @click="clearDate('start_date')" title="Clear">
+              x
+            </button>
           </div>
         </div>
 
         <!-- Due Date -->
         <div class="meta-item">
-          <label :class="{ 'due-warning': getDueStatus(editedNode) === 'soon', 'due-overdue': getDueStatus(editedNode) === 'overdue' }">Due</label>
-          <div class="date-field" :class="{ 'due-warning': getDueStatus(editedNode) === 'soon', 'due-overdue': getDueStatus(editedNode) === 'overdue' }">
+          <label
+            :class="{
+              'due-warning': getDueStatus(editedNode) === 'soon',
+              'due-overdue': getDueStatus(editedNode) === 'overdue',
+            }"
+            >Due</label
+          >
+          <div
+            class="date-field"
+            :class="{
+              'due-warning': getDueStatus(editedNode) === 'soon',
+              'due-overdue': getDueStatus(editedNode) === 'overdue',
+            }"
+          >
             <input
               type="date"
               :value="editedNode.due_date?.split('T')[0] || ''"
@@ -141,17 +160,15 @@ function clearColor() {
         <div class="meta-item">
           <label>Color</label>
           <div class="color-field">
-            <input
-              type="color"
-              :value="editedNode.color || '#0f4c75'"
-              @change="updateColor($event.target.value)"
-            />
+            <input type="color" :value="editedNode.color || '#0f4c75'" @change="updateColor($event.target.value)" />
             <button
               v-if="editedNode.color && editedNode.color !== '#0f4c75'"
               class="clear-btn"
               @click="clearColor"
               title="Reset"
-            >x</button>
+            >
+              x
+            </button>
           </div>
         </div>
 
@@ -166,23 +183,38 @@ function clearColor() {
               @blur="emit('save')"
               class="location-input"
             />
-            <button class="clear-btn" @click="emit('update:field', { field: 'location', value: null }); emit('save')" title="Clear">x</button>
+            <button
+              class="clear-btn"
+              @click="
+                emit('update:field', { field: 'location', value: null })
+                emit('save')
+              "
+              title="Clear"
+            >
+              x
+            </button>
           </div>
-          <button v-else class="add-field-btn compact" @click="emit('update:field', { field: 'location', value: ' ' })" title="Add location">+Location</button>
+          <button
+            v-else
+            class="add-field-btn compact"
+            @click="emit('update:field', { field: 'location', value: ' ' })"
+            title="Add location"
+          >
+            +Location
+          </button>
 
           <div class="compact-field tags-field">
             <label>Tags</label>
-            <TagInput
-              :tags="editedNode.tags || []"
-              @update="emit('update:tags', $event)"
-            />
+            <TagInput :tags="editedNode.tags || []" @update="emit('update:tags', $event)" />
           </div>
 
           <template v-if="editedNode.show_links !== 0">
             <div v-if="linkedNodes.length" class="compact-field links-field">
               <label>
                 Links
-                <button class="toggle-links-btn" @click.stop="emit('toggle-links-visibility', 0)" title="Hide">-</button>
+                <button class="toggle-links-btn" @click.stop="emit('toggle-links-visibility', 0)" title="Hide">
+                  -
+                </button>
               </label>
               <div class="links-inline">
                 <span
@@ -201,7 +233,9 @@ function clearColor() {
             </div>
             <button v-else class="add-field-btn compact" @click="emit('add-link')" title="Add link">+Link</button>
           </template>
-          <button v-else class="add-field-btn compact" @click="emit('toggle-links-visibility', 1)" title="Show links">+Link</button>
+          <button v-else class="add-field-btn compact" @click="emit('toggle-links-visibility', 1)" title="Show links">
+            +Link
+          </button>
         </div>
 
         <!-- System info -->
@@ -284,8 +318,8 @@ function clearColor() {
 }
 
 .meta-item select,
-.meta-item input[type="text"],
-.meta-item input[type="date"] {
+.meta-item input[type='text'],
+.meta-item input[type='date'] {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
@@ -334,7 +368,7 @@ function clearColor() {
   flex: 1;
 }
 
-.color-field input[type="color"] {
+.color-field input[type='color'] {
   width: 40px;
   height: 28px;
   padding: 2px;

@@ -16,14 +16,14 @@ describe('useSelection composable', () => {
       { id: 2, title: 'Node 2' },
       { id: 3, title: 'Node 3' },
       { id: 4, title: 'Node 4' },
-      { id: 5, title: 'Node 5' }
+      { id: 5, title: 'Node 5' },
     ])
 
     selection = useSelection({
       showDetail,
       fullscreenDetail,
       openDetailFullscreen,
-      flatChildren
+      flatChildren,
     })
   })
 
@@ -307,7 +307,7 @@ describe('useSelection composable', () => {
         showDetail: ref(false),
         fullscreenDetail: ref(false),
         openDetailFullscreen: ref(false),
-        flatChildren: computed(() => [])
+        flatChildren: computed(() => []),
       })
 
       // Recreate the wrapper pattern used in App.vue

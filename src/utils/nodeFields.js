@@ -5,11 +5,33 @@ import { toRaw } from 'vue'
 
 // Node update field list - used for building old/new value objects
 export const NODE_UPDATE_FIELDS = [
-  'title', 'type', 'notes', 'notes_sensitive', 'completed', 'favorite',
-  'due_date', 'start_date', 'end_date', 'color', 'importance',
-  'location', 'email', 'phone', 'organization', 'role', 'website', 'tags',
-  'show_links', 'show_root_node', 'show_external_links', 'graph_layout',
-  'graph_max_depth', 'graph_type_filter', 'graph_relax_locked', 'graph_fit_locked', 'graph_physics'
+  'title',
+  'type',
+  'notes',
+  'notes_sensitive',
+  'completed',
+  'favorite',
+  'due_date',
+  'start_date',
+  'end_date',
+  'color',
+  'importance',
+  'location',
+  'email',
+  'phone',
+  'organization',
+  'role',
+  'website',
+  'tags',
+  'show_links',
+  'show_root_node',
+  'show_external_links',
+  'graph_layout',
+  'graph_max_depth',
+  'graph_type_filter',
+  'graph_relax_locked',
+  'graph_fit_locked',
+  'graph_physics',
 ]
 
 /**

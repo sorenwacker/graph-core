@@ -11,7 +11,7 @@ const multiCursorKeymap = [
   {
     key: 'Alt-ArrowUp',
     mac: 'Cmd-Alt-ArrowUp',
-    run: (view) => {
+    run: view => {
       const { state } = view
       const ranges = []
       for (const range of state.selection.ranges) {
@@ -26,17 +26,17 @@ const multiCursorKeymap = [
       }
       if (ranges.length > state.selection.ranges.length) {
         view.dispatch({
-          selection: EditorSelection.create(ranges.sort((a, b) => a.from - b.from))
+          selection: EditorSelection.create(ranges.sort((a, b) => a.from - b.from)),
         })
         return true
       }
       return false
-    }
+    },
   },
   {
     key: 'Alt-ArrowDown',
     mac: 'Cmd-Alt-ArrowDown',
-    run: (view) => {
+    run: view => {
       const { state } = view
       const ranges = []
       for (const range of state.selection.ranges) {
@@ -51,17 +51,17 @@ const multiCursorKeymap = [
       }
       if (ranges.length > state.selection.ranges.length) {
         view.dispatch({
-          selection: EditorSelection.create(ranges.sort((a, b) => a.from - b.from))
+          selection: EditorSelection.create(ranges.sort((a, b) => a.from - b.from)),
         })
         return true
       }
       return false
-    }
-  }
+    },
+  },
 ]
 
 const props = defineProps({
-  modelValue: { type: String, default: '' }
+  modelValue: { type: String, default: '' },
 })
 
 const emit = defineEmits(['update:modelValue', 'blur'])
@@ -69,38 +69,41 @@ const emit = defineEmits(['update:modelValue', 'blur'])
 const container = ref(null)
 let editor = null
 
-const theme = EditorView.theme({
-  '&': {
-    height: '100%',
-    fontSize: '13px'
+const theme = EditorView.theme(
+  {
+    '&': {
+      height: '100%',
+      fontSize: '13px',
+    },
+    '.cm-scroller': {
+      overflow: 'auto',
+      fontFamily: 'inherit',
+    },
+    '.cm-content': {
+      padding: '8px',
+      caretColor: '#3b82f6',
+    },
+    '.cm-line': {
+      padding: '0 4px',
+    },
+    '&.cm-focused': {
+      outline: 'none',
+    },
+    '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
+      backgroundColor: 'rgba(59, 130, 246, 0.3) !important',
+    },
+    '.cm-cursor': {
+      borderLeftColor: '#3b82f6',
+      borderLeftWidth: '2px',
+    },
+    '.cm-gutters': {
+      backgroundColor: '#1a1a1a',
+      color: '#666',
+      border: 'none',
+    },
   },
-  '.cm-scroller': {
-    overflow: 'auto',
-    fontFamily: 'inherit'
-  },
-  '.cm-content': {
-    padding: '8px',
-    caretColor: '#3b82f6'
-  },
-  '.cm-line': {
-    padding: '0 4px'
-  },
-  '&.cm-focused': {
-    outline: 'none'
-  },
-  '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
-    backgroundColor: 'rgba(59, 130, 246, 0.3) !important'
-  },
-  '.cm-cursor': {
-    borderLeftColor: '#3b82f6',
-    borderLeftWidth: '2px'
-  },
-  '.cm-gutters': {
-    backgroundColor: '#1a1a1a',
-    color: '#666',
-    border: 'none'
-  }
-}, { dark: true })
+  { dark: true }
+)
 
 function setupEditor() {
   if (!container.value) return
@@ -134,21 +137,24 @@ function setupEditor() {
           if (update.focusChanged && !update.view.hasFocus) {
             emit('blur')
           }
-        })
-      ]
-    })
+        }),
+      ],
+    }),
   })
 }
 
-watch(() => props.modelValue, (newVal) => {
-  if (!editor) return
-  const current = editor.state.doc.toString()
-  if (newVal !== current) {
-    editor.dispatch({
-      changes: { from: 0, to: editor.state.doc.length, insert: newVal || '' }
-    })
+watch(
+  () => props.modelValue,
+  newVal => {
+    if (!editor) return
+    const current = editor.state.doc.toString()
+    if (newVal !== current) {
+      editor.dispatch({
+        changes: { from: 0, to: editor.state.doc.length, insert: newVal || '' },
+      })
+    }
   }
-})
+)
 
 onMounted(() => {
   nextTick(setupEditor)
@@ -174,7 +180,7 @@ function replaceSelection(newText) {
   if (!editor) return
   const { from, to } = editor.state.selection.main
   editor.dispatch({
-    changes: { from, to, insert: newText }
+    changes: { from, to, insert: newText },
   })
 }
 

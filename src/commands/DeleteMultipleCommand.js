@@ -27,7 +27,7 @@ export class DeleteMultipleCommand extends Command {
   toJSON() {
     return {
       type: this.type,
-      nodes: this.nodes
+      nodes: this.nodes,
     }
   }
 

@@ -9,7 +9,7 @@ describe('DeleteCommand', () => {
     mockApi = {
       deleteNode: vi.fn().mockResolvedValue(),
       restoreNode: vi.fn().mockResolvedValue({ id: 1, parent_id: 2 }),
-      updateNode: vi.fn().mockResolvedValue()
+      updateNode: vi.fn().mockResolvedValue(),
     }
   })
 
@@ -60,7 +60,7 @@ describe('DeleteCommand', () => {
       const cmd = new DeleteCommand({ nodeData })
       expect(cmd.toJSON()).toEqual({
         type: 'delete',
-        nodeData
+        nodeData,
       })
     })
   })
@@ -72,16 +72,14 @@ describe('DeleteMultipleCommand', () => {
   beforeEach(() => {
     mockApi = {
       deleteNode: vi.fn().mockResolvedValue(),
-      restoreNode: vi.fn().mockImplementation(id =>
-        Promise.resolve({ id, parent_id: id === 1 ? 2 : 3 })
-      ),
-      updateNode: vi.fn().mockResolvedValue()
+      restoreNode: vi.fn().mockImplementation(id => Promise.resolve({ id, parent_id: id === 1 ? 2 : 3 })),
+      updateNode: vi.fn().mockResolvedValue(),
     }
   })
 
   const nodes = [
     { id: 1, title: 'Node 1', parent_id: 2 },
-    { id: 2, title: 'Node 2', parent_id: 3 }
+    { id: 2, title: 'Node 2', parent_id: 3 },
   ]
 
   it('should have type "delete-multiple"', () => {
@@ -114,8 +112,8 @@ describe('DeleteMultipleCommand', () => {
     })
 
     it('should restore parent_id for nodes where it changed', async () => {
-      mockApi.restoreNode.mockImplementation(id =>
-        Promise.resolve({ id, parent_id: 99 }) // Different parent for all
+      mockApi.restoreNode.mockImplementation(
+        id => Promise.resolve({ id, parent_id: 99 }) // Different parent for all
       )
       const cmd = new DeleteMultipleCommand({ nodes })
       await cmd.undo(mockApi)
@@ -129,7 +127,7 @@ describe('DeleteMultipleCommand', () => {
       const cmd = new DeleteMultipleCommand({ nodes })
       expect(cmd.toJSON()).toEqual({
         type: 'delete-multiple',
-        nodes
+        nodes,
       })
     })
   })

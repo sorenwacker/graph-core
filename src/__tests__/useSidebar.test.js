@@ -12,16 +12,16 @@ describe('useSidebar composable', () => {
     // Mock localStorage
     mockStorage = {}
     global.localStorage = {
-      getItem: vi.fn((key) => mockStorage[key] ?? null),
+      getItem: vi.fn(key => mockStorage[key] ?? null),
       setItem: vi.fn((key, value) => {
         mockStorage[key] = value
       }),
-      removeItem: vi.fn((key) => {
+      removeItem: vi.fn(key => {
         delete mockStorage[key]
       }),
       clear: vi.fn(() => {
         mockStorage = {}
-      })
+      }),
     }
 
     sidebar = useSidebar({ pinned: ref(false) })

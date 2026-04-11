@@ -24,7 +24,7 @@ export class EditCommand extends Command {
       type: this.type,
       nodeId: this.nodeId,
       oldValues: this.oldValues,
-      newValues: this.newValues
+      newValues: this.newValues,
     }
   }
 

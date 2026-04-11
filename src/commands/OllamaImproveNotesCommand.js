@@ -27,16 +27,15 @@ export class OllamaImproveNotesCommand extends Command {
       nodeId: this.nodeId,
       oldNotes: this.oldNotes,
       newNotes: this.newNotes,
-      prompt: this.prompt
+      prompt: this.prompt,
     }
   }
 
   getDescription() {
     // Truncate long prompts for display
     const maxPromptLength = 15
-    const displayPrompt = this.prompt.length > maxPromptLength
-      ? this.prompt.substring(0, maxPromptLength - 3) + '...'
-      : this.prompt
+    const displayPrompt =
+      this.prompt.length > maxPromptLength ? this.prompt.substring(0, maxPromptLength - 3) + '...' : this.prompt
     return `AI ${displayPrompt} notes`
   }
 }

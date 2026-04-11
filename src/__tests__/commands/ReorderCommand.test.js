@@ -6,7 +6,7 @@ describe('ReorderCommand', () => {
 
   beforeEach(() => {
     mockApi = {
-      reorderNode: vi.fn().mockResolvedValue()
+      reorderNode: vi.fn().mockResolvedValue(),
     }
   })
 
@@ -16,7 +16,7 @@ describe('ReorderCommand', () => {
       oldTargetId: 2,
       oldPosition: 'after',
       newTargetId: 3,
-      newPosition: 'before'
+      newPosition: 'before',
     })
     expect(cmd.type).toBe('reorder')
   })
@@ -27,7 +27,7 @@ describe('ReorderCommand', () => {
       oldTargetId: 2,
       oldPosition: 'after',
       newTargetId: 3,
-      newPosition: 'before'
+      newPosition: 'before',
     })
     expect(cmd.nodeId).toBe(1)
     expect(cmd.oldTargetId).toBe(2)
@@ -43,7 +43,7 @@ describe('ReorderCommand', () => {
         oldTargetId: 2,
         oldPosition: 'after',
         newTargetId: 3,
-        newPosition: 'before'
+        newPosition: 'before',
       })
       await cmd.execute(mockApi)
       expect(mockApi.reorderNode).toHaveBeenCalledWith(1, 3, 'before')
@@ -57,7 +57,7 @@ describe('ReorderCommand', () => {
         oldTargetId: 2,
         oldPosition: 'after',
         newTargetId: 3,
-        newPosition: 'before'
+        newPosition: 'before',
       })
       await cmd.undo(mockApi)
       expect(mockApi.reorderNode).toHaveBeenCalledWith(1, 2, 'after')
@@ -71,7 +71,7 @@ describe('ReorderCommand', () => {
         oldTargetId: 2,
         oldPosition: 'after',
         newTargetId: 3,
-        newPosition: 'before'
+        newPosition: 'before',
       })
       expect(cmd.toJSON()).toEqual({
         type: 'reorder',
@@ -79,7 +79,7 @@ describe('ReorderCommand', () => {
         oldTargetId: 2,
         oldPosition: 'after',
         newTargetId: 3,
-        newPosition: 'before'
+        newPosition: 'before',
       })
     })
   })

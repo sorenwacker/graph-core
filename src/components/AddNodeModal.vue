@@ -7,14 +7,14 @@
           <div class="modal-header">
             <div class="modal-title-row">
               <svg class="modal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 8v8M8 12h8"/>
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 8v8M8 12h8" />
               </svg>
               <h3>{{ title }}</h3>
             </div>
             <button class="close-btn" @click="$emit('close')" aria-label="Close" title="Close dialog">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 6L6 18M6 6l12 12"/>
+                <path d="M18 6L6 18M6 6l12 12" />
               </svg>
             </button>
           </div>
@@ -29,9 +29,7 @@
                 class="node-input"
                 @keydown.enter.prevent="createWithType('task')"
               />
-              <span v-if="nodeTitle.trim()" class="input-hint">
-                Press Enter for task, or select type below
-              </span>
+              <span v-if="nodeTitle.trim()" class="input-hint"> Press Enter for task, or select type below </span>
             </div>
 
             <!-- Type grid -->
@@ -52,9 +50,7 @@
           </div>
 
           <!-- Footer hint -->
-          <div class="modal-footer">
-            <kbd>Esc</kbd> to cancel
-          </div>
+          <div class="modal-footer"><kbd>Esc</kbd> to cancel</div>
         </div>
       </div>
     </Transition>
@@ -75,7 +71,7 @@ const typeIcons = {
   group: 'G',
   event: 'E',
   person: 'Pe',
-  organization: 'O'
+  organization: 'O',
 }
 
 function getTypeIcon(type) {
@@ -87,7 +83,7 @@ const props = defineProps({
   title: { type: String, default: 'Create New Node' },
   parentId: { type: [Number, String], default: null },
   position: { type: Object, default: null },
-  insertBetween: { type: Object, default: null }
+  insertBetween: { type: Object, default: null },
 })
 
 const emit = defineEmits(['close', 'create'])
@@ -103,7 +99,7 @@ function createWithType(type) {
     type,
     parentId: props.parentId,
     position: props.position,
-    insertBetween: props.insertBetween
+    insertBetween: props.insertBetween,
   })
 
   nodeTitle.value = ''
@@ -117,14 +113,17 @@ function handleKeydown(e) {
 }
 
 // Auto-focus when modal opens
-watch(() => props.visible, (visible) => {
-  if (visible) {
-    nodeTitle.value = ''
-    nextTick(() => {
-      inputRef.value?.focus()
-    })
+watch(
+  () => props.visible,
+  visible => {
+    if (visible) {
+      nodeTitle.value = ''
+      nextTick(() => {
+        inputRef.value?.focus()
+      })
+    }
   }
-})
+)
 </script>
 
 <style scoped>
@@ -160,13 +159,7 @@ watch(() => props.visible, (visible) => {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--border-color) 30%,
-    var(--border-color) 70%,
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, var(--border-color) 30%, var(--border-color) 70%, transparent);
 }
 
 /* Header */
@@ -333,27 +326,77 @@ watch(() => props.visible, (visible) => {
 }
 
 /* Type-specific colors */
-.type-btn.task .type-icon { background: var(--type-task-bg); color: var(--type-task-text); }
-.type-btn.project .type-icon { background: var(--type-project-bg); color: var(--type-project-text); }
-.type-btn.note .type-icon { background: var(--type-note-bg); color: var(--type-note-text); }
-.type-btn.milestone .type-icon { background: var(--type-milestone-bg); color: var(--type-milestone-text); }
-.type-btn.topic .type-icon { background: var(--type-topic-bg); color: var(--type-topic-text); }
-.type-btn.component .type-icon { background: var(--type-component-bg); color: var(--type-component-text); }
-.type-btn.group .type-icon { background: var(--type-group-bg); color: var(--type-group-text); }
-.type-btn.event .type-icon { background: var(--type-event-bg); color: var(--type-event-text); }
-.type-btn.person .type-icon { background: var(--type-person-bg); color: var(--type-person-text); }
-.type-btn.organization .type-icon { background: var(--type-organization-bg); color: var(--type-organization-text); }
+.type-btn.task .type-icon {
+  background: var(--type-task-bg);
+  color: var(--type-task-text);
+}
+.type-btn.project .type-icon {
+  background: var(--type-project-bg);
+  color: var(--type-project-text);
+}
+.type-btn.note .type-icon {
+  background: var(--type-note-bg);
+  color: var(--type-note-text);
+}
+.type-btn.milestone .type-icon {
+  background: var(--type-milestone-bg);
+  color: var(--type-milestone-text);
+}
+.type-btn.topic .type-icon {
+  background: var(--type-topic-bg);
+  color: var(--type-topic-text);
+}
+.type-btn.component .type-icon {
+  background: var(--type-component-bg);
+  color: var(--type-component-text);
+}
+.type-btn.group .type-icon {
+  background: var(--type-group-bg);
+  color: var(--type-group-text);
+}
+.type-btn.event .type-icon {
+  background: var(--type-event-bg);
+  color: var(--type-event-text);
+}
+.type-btn.person .type-icon {
+  background: var(--type-person-bg);
+  color: var(--type-person-text);
+}
+.type-btn.organization .type-icon {
+  background: var(--type-organization-bg);
+  color: var(--type-organization-text);
+}
 
-.type-btn.task:hover:not(.disabled) { border-color: var(--type-task-text); }
-.type-btn.project:hover:not(.disabled) { border-color: var(--type-project-text); }
-.type-btn.note:hover:not(.disabled) { border-color: var(--type-note-text); }
-.type-btn.milestone:hover:not(.disabled) { border-color: var(--type-milestone-text); }
-.type-btn.topic:hover:not(.disabled) { border-color: var(--type-topic-text); }
-.type-btn.component:hover:not(.disabled) { border-color: var(--type-component-text); }
-.type-btn.group:hover:not(.disabled) { border-color: var(--type-group-text); }
-.type-btn.event:hover:not(.disabled) { border-color: var(--type-event-text); }
-.type-btn.person:hover:not(.disabled) { border-color: var(--type-person-text); }
-.type-btn.organization:hover:not(.disabled) { border-color: var(--type-organization-text); }
+.type-btn.task:hover:not(.disabled) {
+  border-color: var(--type-task-text);
+}
+.type-btn.project:hover:not(.disabled) {
+  border-color: var(--type-project-text);
+}
+.type-btn.note:hover:not(.disabled) {
+  border-color: var(--type-note-text);
+}
+.type-btn.milestone:hover:not(.disabled) {
+  border-color: var(--type-milestone-text);
+}
+.type-btn.topic:hover:not(.disabled) {
+  border-color: var(--type-topic-text);
+}
+.type-btn.component:hover:not(.disabled) {
+  border-color: var(--type-component-text);
+}
+.type-btn.group:hover:not(.disabled) {
+  border-color: var(--type-group-text);
+}
+.type-btn.event:hover:not(.disabled) {
+  border-color: var(--type-event-text);
+}
+.type-btn.person:hover:not(.disabled) {
+  border-color: var(--type-person-text);
+}
+.type-btn.organization:hover:not(.disabled) {
+  border-color: var(--type-organization-text);
+}
 
 /* Footer */
 .modal-footer {
@@ -392,13 +435,21 @@ watch(() => props.visible, (visible) => {
 }
 
 @keyframes overlay-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes overlay-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 @keyframes modal-in {

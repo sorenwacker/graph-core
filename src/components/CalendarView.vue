@@ -6,10 +6,19 @@ const props = defineProps({
   nodes: { type: Array, default: () => [] },
   selectedId: Number,
   hideCompleted: { type: Boolean, default: false },
-  colorMap: { type: Object, default: () => ({}) }
+  colorMap: { type: Object, default: () => ({}) },
 })
 
-const emit = defineEmits(['select', 'enter', 'show-tooltip', 'hide-tooltip', 'context-menu', 'add-child', 'delete', 'update'])
+const emit = defineEmits([
+  'select',
+  'enter',
+  'show-tooltip',
+  'hide-tooltip',
+  'context-menu',
+  'add-child',
+  'delete',
+  'update',
+])
 
 // Current month being viewed
 const currentDate = ref(new Date())
@@ -66,7 +75,7 @@ const calendarDays = computed(() => {
       day: current.getDate(),
       isCurrentMonth: current.getMonth() === month,
       isToday: isSameDay(current, new Date()),
-      isWeekend: current.getDay() === 0 || current.getDay() === 6
+      isWeekend: current.getDay() === 0 || current.getDay() === 6,
     })
     current.setDate(current.getDate() + 1)
   }
@@ -75,9 +84,7 @@ const calendarDays = computed(() => {
 })
 
 function isSameDay(d1, d2) {
-  return d1.getFullYear() === d2.getFullYear() &&
-         d1.getMonth() === d2.getMonth() &&
-         d1.getDate() === d2.getDate()
+  return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate()
 }
 
 // Flatten nodes and get those with dates
@@ -95,7 +102,7 @@ const nodesWithDates = computed(() => {
         result.push({
           ...node,
           displayDate: date.split('T')[0],
-          endDate: (node.end_date || node.due_date || node.start_date)?.split('T')[0]
+          endDate: (node.end_date || node.due_date || node.start_date)?.split('T')[0],
         })
       }
 
@@ -144,13 +151,13 @@ function getItemStyle(node) {
   if (nodeColor) {
     return {
       background: `linear-gradient(135deg, ${nodeColor}dd 0%, ${nodeColor}aa 100%)`,
-      borderLeft: `3px solid ${typeColor}`
+      borderLeft: `3px solid ${typeColor}`,
     }
   }
 
   return {
     background: `linear-gradient(135deg, ${typeColor}dd 0%, ${typeColor}99 100%)`,
-    borderLeft: `3px solid ${typeColor}`
+    borderLeft: `3px solid ${typeColor}`,
   }
 }
 
@@ -242,8 +249,8 @@ function handleDragEnd() {
         class="calendar-day"
         :class="{
           'other-month': !day.isCurrentMonth,
-          'today': day.isToday,
-          'weekend': day.isWeekend
+          today: day.isToday,
+          weekend: day.isWeekend,
         }"
         @click="handleDayClick(day)"
         @dragover="handleDragOver($event, day)"
@@ -268,10 +275,7 @@ function handleDragEnd() {
           >
             <span class="item-title">{{ node.title }}</span>
           </div>
-          <div
-            v-if="getNodesForDate(day.dateStr).length > 3"
-            class="more-items"
-          >
+          <div v-if="getNodesForDate(day.dateStr).length > 3" class="more-items">
             +{{ getNodesForDate(day.dateStr).length - 3 }} more
           </div>
         </div>
@@ -430,7 +434,9 @@ function handleDragEnd() {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: filter 0.15s, transform 0.1s;
+  transition:
+    filter 0.15s,
+    transform 0.1s;
 }
 
 .calendar-item:hover {

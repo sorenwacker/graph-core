@@ -40,9 +40,8 @@ export function filterByDepth(nodeList, maxDepth, currentDepth = 1) {
   if (maxDepth === 0) return nodeList.filter(Boolean) // 0 = unlimited
   return nodeList.filter(Boolean).map(n => ({
     ...n,
-    children: currentDepth < maxDepth && n.children?.length
-      ? filterByDepth(n.children, maxDepth, currentDepth + 1)
-      : []
+    children:
+      currentDepth < maxDepth && n.children?.length ? filterByDepth(n.children, maxDepth, currentDepth + 1) : [],
   }))
 }
 
@@ -57,7 +56,7 @@ export function filterCompletedNodes(nodeList) {
     .filter(n => n && !n.completed)
     .map(n => ({
       ...n,
-      children: n.children ? filterCompletedNodes(n.children) : []
+      children: n.children ? filterCompletedNodes(n.children) : [],
     }))
 }
 
@@ -72,7 +71,7 @@ export function sortNodesRecursively(nodeList) {
     .sort((a, b) => (a.title || '').localeCompare(b.title || ''))
     .map(n => ({
       ...n,
-      children: n.children ? sortNodesRecursively(n.children) : []
+      children: n.children ? sortNodesRecursively(n.children) : [],
     }))
 }
 
@@ -88,7 +87,7 @@ export function filterByType(nodeList, types) {
     .filter(n => n && types.includes(n.type))
     .map(n => ({
       ...n,
-      children: n.children ? filterByType(n.children, types) : []
+      children: n.children ? filterByType(n.children, types) : [],
     }))
 }
 
@@ -107,9 +106,7 @@ export function buildInheritedColorMap(nodeList, inheritedColor = null, colorMap
     if (!node || !node.id) continue
     // Node's effective color: own color if set, otherwise inherited (if enabled)
     const hasOwnColor = node.color && node.color !== '#0f4c75'
-    const effectiveColor = shouldInherit
-      ? (hasOwnColor ? node.color : inheritedColor)
-      : (hasOwnColor ? node.color : null)
+    const effectiveColor = shouldInherit ? (hasOwnColor ? node.color : inheritedColor) : hasOwnColor ? node.color : null
     colorMap[node.id] = effectiveColor
 
     // Pass effective color to children (only if inheritance is enabled)
@@ -132,6 +129,6 @@ export function useNodeFiltering() {
     filterCompletedNodes,
     sortNodesRecursively,
     filterByType,
-    buildInheritedColorMap
+    buildInheritedColorMap,
   }
 }

@@ -11,21 +11,18 @@ import { describe, it, expect, vi } from 'vitest'
 describe('Null Root Handling', () => {
   // Replicate the filtering logic from App.vue loadChildren and loadSidebarTree
   function filterRoots(roots, wsFilter) {
-    return (wsFilter === null
-      ? roots
-      : roots.filter(r => r && r.type !== 'person')
-    ).filter(Boolean)
+    return (wsFilter === null ? roots : roots.filter(r => r && r.type !== 'person')).filter(Boolean)
   }
 
   async function processRoots(roots, wsFilter, getDescendants) {
     const filteredRoots = filterRoots(roots, wsFilter)
     const rootsWithChildren = await Promise.all(
-      filteredRoots.map(async (root) => {
+      filteredRoots.map(async root => {
         if (!root || !root.id) return null
         const descendants = await getDescendants(root.id)
         return {
           ...root,
-          children: descendants
+          children: descendants,
         }
       })
     )
@@ -39,7 +36,7 @@ describe('Null Root Handling', () => {
         null,
         { id: 2, type: 'note', title: 'Note 1' },
         undefined,
-        { id: 3, type: 'task', title: 'Task 2' }
+        { id: 3, type: 'task', title: 'Task 2' },
       ]
 
       const filtered = filterRoots(roots, 'work')
@@ -52,7 +49,7 @@ describe('Null Root Handling', () => {
       const roots = [
         { id: 1, type: 'task', title: 'Task 1' },
         { id: 2, type: 'person', title: 'Person 1' },
-        { id: 3, type: 'note', title: 'Note 1' }
+        { id: 3, type: 'note', title: 'Note 1' },
       ]
 
       const filtered = filterRoots(roots, 'work')
@@ -65,7 +62,7 @@ describe('Null Root Handling', () => {
       const roots = [
         { id: 1, type: 'task', title: 'Task 1' },
         { id: 2, type: 'person', title: 'Person 1' },
-        { id: 3, type: 'note', title: 'Note 1' }
+        { id: 3, type: 'note', title: 'Note 1' },
       ]
 
       const filtered = filterRoots(roots, null)
@@ -92,11 +89,7 @@ describe('Null Root Handling', () => {
 
   describe('processRoots', () => {
     it('should not crash when roots contain null entries', async () => {
-      const roots = [
-        { id: 1, type: 'task', title: 'Task 1' },
-        null,
-        { id: 2, type: 'note', title: 'Note 1' }
-      ]
+      const roots = [{ id: 1, type: 'task', title: 'Task 1' }, null, { id: 2, type: 'note', title: 'Note 1' }]
 
       const getDescendants = vi.fn().mockResolvedValue([])
 
@@ -109,8 +102,8 @@ describe('Null Root Handling', () => {
     it('should filter out roots with missing id', async () => {
       const roots = [
         { id: 1, type: 'task', title: 'Task 1' },
-        { type: 'note', title: 'Note without ID' },  // Missing id
-        { id: 3, type: 'task', title: 'Task 2' }
+        { type: 'note', title: 'Note without ID' }, // Missing id
+        { id: 3, type: 'task', title: 'Task 2' },
       ]
 
       const getDescendants = vi.fn().mockResolvedValue([])

@@ -6,7 +6,7 @@ describe('MoveCommand', () => {
 
   beforeEach(() => {
     mockApi = {
-      moveNode: vi.fn().mockResolvedValue()
+      moveNode: vi.fn().mockResolvedValue(),
     }
   })
 
@@ -45,7 +45,7 @@ describe('MoveCommand', () => {
         type: 'move',
         nodeId: 1,
         oldParentId: 2,
-        newParentId: 3
+        newParentId: 3,
       })
     })
   })

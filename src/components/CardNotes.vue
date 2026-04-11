@@ -35,7 +35,7 @@ const props = defineProps({
   modelValue: { type: String, default: '' },
   isEditing: { type: Boolean, default: false },
   sensitive: { type: Boolean, default: false },
-  size: { type: String, default: 'normal' } // 'normal', 'child', 'grandchild'
+  size: { type: String, default: 'normal' }, // 'normal', 'child', 'grandchild'
 })
 
 const emit = defineEmits(['update:modelValue', 'startEdit', 'save', 'cancel'])
@@ -45,11 +45,13 @@ const textareaRef = ref(null)
 const hasNotes = computed(() => props.notes && props.notes.trim().length > 0)
 
 const sizeClass = computed(() => {
-  return {
-    normal: 'size-normal',
-    child: 'size-child',
-    grandchild: 'size-grandchild'
-  }[props.size] || 'size-normal'
+  return (
+    {
+      normal: 'size-normal',
+      child: 'size-child',
+      grandchild: 'size-grandchild',
+    }[props.size] || 'size-normal'
+  )
 })
 
 const renderedNotes = computed(() => {
@@ -66,13 +68,16 @@ function handleKeydown(e) {
 }
 
 // Auto-focus when editing starts
-watch(() => props.isEditing, (editing) => {
-  if (editing) {
-    nextTick(() => {
-      textareaRef.value?.focus()
-    })
+watch(
+  () => props.isEditing,
+  editing => {
+    if (editing) {
+      nextTick(() => {
+        textareaRef.value?.focus()
+      })
+    }
   }
-})
+)
 </script>
 
 <style scoped>

@@ -12,8 +12,8 @@ vi.mock('../services/api.js', () => ({
     createNode: vi.fn(),
     updateNode: vi.fn(),
     deleteNode: vi.fn(),
-    moveNode: vi.fn()
-  }
+    moveNode: vi.fn(),
+  },
 }))
 
 import { api } from '../services/api.js'
@@ -53,7 +53,7 @@ describe('Nodes Store', () => {
     it('should load root nodes when containerId is null', async () => {
       const mockRoots = [
         { id: 1, title: 'Node 1' },
-        { id: 2, title: 'Node 2' }
+        { id: 2, title: 'Node 2' },
       ]
       api.getRoots.mockResolvedValue(mockRoots)
 
@@ -69,7 +69,7 @@ describe('Nodes Store', () => {
       const mockContainer = { id: 10, title: 'Container' }
       const mockDescendants = [
         { id: 11, title: 'Child 1' },
-        { id: 12, title: 'Child 2' }
+        { id: 12, title: 'Child 2' },
       ]
       const mockAncestors = [{ id: 5, title: 'Grandparent' }]
 
@@ -87,10 +87,13 @@ describe('Nodes Store', () => {
     })
 
     it('should set loading state during load', async () => {
-      api.getRoots.mockImplementation(() => new Promise(resolve => {
-        expect(store.loading).toBe(true)
-        resolve([])
-      }))
+      api.getRoots.mockImplementation(
+        () =>
+          new Promise(resolve => {
+            expect(store.loading).toBe(true)
+            resolve([])
+          })
+      )
 
       await store.loadChildren(null)
       expect(store.loading).toBe(false)
@@ -276,12 +279,8 @@ describe('Nodes Store', () => {
   describe('flatChildren', () => {
     it('should flatten nested children', () => {
       store.children = [
-        { id: 1, title: 'A', children: [
-          { id: 2, title: 'B', children: [
-            { id: 3, title: 'C' }
-          ]}
-        ]},
-        { id: 4, title: 'D' }
+        { id: 1, title: 'A', children: [{ id: 2, title: 'B', children: [{ id: 3, title: 'C' }] }] },
+        { id: 4, title: 'D' },
       ]
 
       expect(store.flatChildren.length).toBe(4)
@@ -321,7 +320,7 @@ describe('Nodes Store', () => {
       store.breadcrumbs = [
         { id: 1, title: 'Root' },
         { id: 5, title: 'Parent' },
-        { id: 10, title: 'Current' }
+        { id: 10, title: 'Current' },
       ]
       api.getNode.mockResolvedValue({ id: 5 })
       api.getDescendants.mockResolvedValue([])

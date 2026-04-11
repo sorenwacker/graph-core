@@ -4,7 +4,7 @@ import tippy from 'tippy.js'
 import { viewModes } from '../utils/viewConfig.js'
 
 defineProps({
-  modelValue: { type: String, required: true }
+  modelValue: { type: String, required: true },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -24,7 +24,7 @@ onMounted(() => {
         placement: 'bottom',
         delay: [200, 0],
         duration: [150, 100],
-        theme: 'toolbar'
+        theme: 'toolbar',
       })
       tippyInstances.push(instance)
     }
@@ -42,13 +42,12 @@ onUnmounted(() => {
     <button
       v-for="(view, index) in viewModes"
       :key="view.id"
-      :ref="el => buttonRefs[index] = el"
+      :ref="el => (buttonRefs[index] = el)"
       class="view-btn"
       :class="{ active: modelValue === view.id }"
       @click="setView(view.id)"
       v-html="view.icon"
-    >
-    </button>
+    ></button>
   </div>
 </template>
 

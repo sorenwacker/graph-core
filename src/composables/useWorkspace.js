@@ -12,12 +12,7 @@ import { useErrorHandler } from './useErrorHandler'
  * @param {string} options.defaultWorkspace - Default workspace id (default: 'work')
  * @returns {Object} Workspace state and functions
  */
-export function useWorkspace({
-  api,
-  onSwitch,
-  onWorkspaceChange,
-  defaultWorkspace = 'work'
-} = {}) {
+export function useWorkspace({ api, onSwitch, onWorkspaceChange, defaultWorkspace = 'work' } = {}) {
   const { handleError } = useErrorHandler()
 
   // Get initial workspace from localStorage or use default
@@ -96,7 +91,9 @@ export function useWorkspace({
     const roots = await api.getRoots(currentWorkspace.value)
     if (roots && roots.length > 0) {
       if (typeof alert !== 'undefined') {
-        alert(`Cannot delete workspace "${ws.name}". It still contains ${roots.length} root node(s). Move or delete them first.`)
+        alert(
+          `Cannot delete workspace "${ws.name}". It still contains ${roots.length} root node(s). Move or delete them first.`
+        )
       }
       return false
     }
@@ -154,7 +151,7 @@ export function useWorkspace({
   }
 
   // Persist workspace changes to localStorage and call change callback
-  watch(currentWorkspace, async (newWs) => {
+  watch(currentWorkspace, async newWs => {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('graphcore-workspace', newWs)
     }
@@ -177,6 +174,6 @@ export function useWorkspace({
     deleteCurrentWorkspace,
     renameWorkspace,
     switchWorkspace,
-    getWorkspaceIdForNode
+    getWorkspaceIdForNode,
   }
 }

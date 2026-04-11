@@ -15,7 +15,7 @@ export const LAYOUTS = {
     edgeSep: 30,
     ranker: 'network-simplex',
     fit: true,
-    padding: 50
+    padding: 50,
   },
 
   // Horizontal: dagre left-to-right
@@ -29,7 +29,7 @@ export const LAYOUTS = {
     nodeSep: 60,
     rankSep: 100,
     edgeSep: 20,
-    ranker: 'network-simplex'
+    ranker: 'network-simplex',
   },
 
   // Radial: cose-bilkent force-directed
@@ -46,7 +46,7 @@ export const LAYOUTS = {
     gravity: 1.0,
     gravityRange: 10,
     numIter: 2500,
-    tile: false
+    tile: false,
   },
 
   // Grid: simple grid layout
@@ -62,7 +62,7 @@ export const LAYOUTS = {
     condense: false,
     rows: undefined,
     cols: undefined,
-    sort: (a, b) => (a.data('label') || '').localeCompare(b.data('label') || '')
+    sort: (a, b) => (a.data('label') || '').localeCompare(b.data('label') || ''),
   },
 
   // Circle: nodes arranged in a circle
@@ -76,7 +76,7 @@ export const LAYOUTS = {
     avoidOverlap: true,
     nodeDimensionsIncludeLabels: true,
     concentric: () => 1,
-    levelWidth: () => 1
+    levelWidth: () => 1,
   },
 
   // Relax (single click): Dagre - clean up edge crossings
@@ -90,7 +90,7 @@ export const LAYOUTS = {
     edgeSep: 30,
     ranker: 'network-simplex',
     fit: true,
-    padding: 50
+    padding: 50,
   },
 
   // Continuous relax (double click): cola infinite
@@ -99,13 +99,13 @@ export const LAYOUTS = {
     animate: true,
     infinite: true,
     fit: false,
-    nodeSpacing: (node) => {
+    nodeSpacing: node => {
       const nodeCount = node.cy().nodes().length
       if (nodeCount > 100) return 30
       if (nodeCount > 50) return 40
       return 50
     },
-    edgeLength: (edge) => {
+    edgeLength: edge => {
       const nodeCount = edge.cy().nodes().length
       const source = edge.source()
       const target = edge.target()
@@ -126,8 +126,8 @@ export const LAYOUTS = {
     convergenceThreshold: 0.001,
     maxSimulationTime: 0,
     ungrabifyWhileSimulating: false,
-    centerGraph: false
-  }
+    centerGraph: false,
+  },
 }
 
 /**
@@ -152,7 +152,7 @@ export function useGraphLayout(options = {}) {
     savePositions,
     clearPositions,
     relaxLocked,
-    fitLocked
+    fitLocked,
   } = options
 
   // Continuous layout state
@@ -177,7 +177,7 @@ export function useGraphLayout(options = {}) {
         edgeElasticity: radialSettings.elasticity,
         gravity: scaledGravity,
         gravityRange: 10,
-        numIter: radialSettings.iterations
+        numIter: radialSettings.iterations,
       }
     }
     return LAYOUTS[layoutMode] || LAYOUTS.tree
@@ -247,7 +247,7 @@ export function useGraphLayout(options = {}) {
       gravityRange: 3.8,
       numIter: 2500,
       tile: false,
-      gravityCenter: { x: centerX, y: centerY }
+      gravityCenter: { x: centerX, y: centerY },
     }
 
     const layout = cy.layout(layoutOptions)
@@ -272,7 +272,7 @@ export function useGraphLayout(options = {}) {
       animate: 'end',
       animationDuration: 500,
       fit: true,
-      randomize: true
+      randomize: true,
     }
 
     cy.layout(opts).run()
@@ -291,7 +291,7 @@ export function useGraphLayout(options = {}) {
     const radialSettings = getRadialSettings ? getRadialSettings() : {}
     const spacing = Math.max(5, Math.round((radialSettings.nodeRepulsion || 4500) / 50))
     const edgeLen = Math.max(20, Math.round(radialSettings.edgeLength || 100))
-    const gravityEffect = Math.max(0.1, 1 - ((radialSettings.gravity || 10000) / 50000))
+    const gravityEffect = Math.max(0.1, 1 - (radialSettings.gravity || 10000) / 50000)
 
     const layoutOptions = {
       name: 'cola',
@@ -305,7 +305,7 @@ export function useGraphLayout(options = {}) {
       centerGraph: radialSettings.gravity > 20000,
       convergenceThreshold: 0.01,
       maxSimulationTime: 2000,
-      ungrabifyWhileSimulating: false
+      ungrabifyWhileSimulating: false,
     }
 
     const layout = cy.layout(layoutOptions)
@@ -333,16 +333,18 @@ export function useGraphLayout(options = {}) {
     const zoom = cy.zoom()
     const pan = cy.pan()
 
-    neighborhood.layout({
-      name: 'cola',
-      animate: true,
-      animationDuration: 200,
-      fit: false,
-      randomize: false,
-      nodeSpacing: 30,
-      edgeLength: 80,
-      maxSimulationTime: 500
-    }).run()
+    neighborhood
+      .layout({
+        name: 'cola',
+        animate: true,
+        animationDuration: 200,
+        fit: false,
+        randomize: false,
+        nodeSpacing: 30,
+        edgeLength: 80,
+        maxSimulationTime: 500,
+      })
+      .run()
 
     setTimeout(() => {
       cy.nodes().unlock()
@@ -395,7 +397,7 @@ export function useGraphLayout(options = {}) {
       nodeSpacing: 40,
       edgeLength: radialSettings.edgeLength || 80,
       maxSimulationTime: 500,
-      ungrabifyWhileSimulating: false
+      ungrabifyWhileSimulating: false,
     })
 
     layout.on('layoutstop', () => {
@@ -420,7 +422,7 @@ export function useGraphLayout(options = {}) {
     const radialSettings = getRadialSettings ? getRadialSettings() : {}
     const spacing = Math.max(5, Math.round((radialSettings.nodeRepulsion || 4500) / 50))
     const edgeLen = Math.max(20, Math.round(radialSettings.edgeLength || 100))
-    const gravityEffect = Math.max(0.1, 1 - ((radialSettings.gravity || 10000) / 50000))
+    const gravityEffect = Math.max(0.1, 1 - (radialSettings.gravity || 10000) / 50000)
 
     const layoutOptions = {
       name: 'cola',
@@ -433,7 +435,7 @@ export function useGraphLayout(options = {}) {
       handleDisconnected: true,
       centerGraph: false,
       convergenceThreshold: 0.001,
-      ungrabifyWhileSimulating: false
+      ungrabifyWhileSimulating: false,
     }
 
     continuousLayout = cy.layout(layoutOptions)
@@ -584,6 +586,6 @@ export function useGraphLayout(options = {}) {
     handleFitClick,
 
     // Cleanup
-    cleanup
+    cleanup,
   }
 }

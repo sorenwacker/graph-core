@@ -6,7 +6,7 @@ import { useErrorHandler } from '../composables/useErrorHandler.js'
 const { handleError } = useErrorHandler()
 
 const props = defineProps({
-  tags: { type: Array, default: () => [] }
+  tags: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['update'])
@@ -31,9 +31,7 @@ loadAllTags()
 const filteredSuggestions = computed(() => {
   if (!inputValue.value) return allTags.value.slice(0, 10)
   const query = inputValue.value.toLowerCase().replace(/^#/, '')
-  return allTags.value
-    .filter(tag => tag.toLowerCase().includes(query) && !props.tags.includes(tag))
-    .slice(0, 10)
+  return allTags.value.filter(tag => tag.toLowerCase().includes(query) && !props.tags.includes(tag)).slice(0, 10)
 })
 
 function addTag(tagName) {
@@ -46,7 +44,10 @@ function addTag(tagName) {
 }
 
 function removeTag(tag) {
-  emit('update', props.tags.filter(t => t !== tag))
+  emit(
+    'update',
+    props.tags.filter(t => t !== tag)
+  )
 }
 
 function handleKeydown(e) {
@@ -76,11 +77,7 @@ function selectSuggestion(tag) {
 <template>
   <div class="tag-input-container">
     <div class="tags-row">
-      <span
-        v-for="tag in tags"
-        :key="tag"
-        class="tag-chip"
-      >
+      <span v-for="tag in tags" :key="tag" class="tag-chip">
         #{{ tag }}
         <button class="remove-tag" @click="removeTag(tag)">x</button>
       </span>
@@ -93,7 +90,7 @@ function selectSuggestion(tag) {
         @input="handleInput"
         @keydown="handleKeydown"
         @focus="showSuggestions = true"
-        @blur="setTimeout(() => showSuggestions = false, 150)"
+        @blur="setTimeout(() => (showSuggestions = false), 150)"
       />
     </div>
     <div v-if="showSuggestions && filteredSuggestions.length > 0" class="tag-suggestions">

@@ -52,7 +52,7 @@ export function deleteSelectedCells({ selectionBounds, columns, gridApi, emit })
         row: r,
         col: c,
         value: '',
-        isFormula: false
+        isFormula: false,
       })
 
       // Update grid display
@@ -95,7 +95,7 @@ export function fillSelectionWithValue({ value, selectionBounds, columns, gridAp
         row: r,
         col: c,
         value: value,
-        isFormula: isFormula
+        isFormula: isFormula,
       })
 
       // Update grid display
@@ -148,7 +148,7 @@ export async function pasteSelection({ selectionBounds, columns, rowData, gridAp
           row: targetRow,
           col: targetCol,
           value: value,
-          isFormula: isFormula
+          isFormula: isFormula,
         })
 
         if (gridApi) {

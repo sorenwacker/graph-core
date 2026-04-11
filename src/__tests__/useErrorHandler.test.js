@@ -3,7 +3,7 @@ import { useErrorHandler, handleError, clearLastError } from '../composables/use
 
 // Mock useToast
 vi.mock('../composables/useToast.js', () => ({
-  showToast: vi.fn()
+  showToast: vi.fn(),
 }))
 
 import { showToast } from '../composables/useToast.js'
@@ -22,38 +22,26 @@ describe('useErrorHandler composable', () => {
     it('should show error toast with message string', () => {
       handleError('Something went wrong')
 
-      expect(showToast).toHaveBeenCalledWith(
-        'Something went wrong',
-        { type: 'error', duration: 5000 }
-      )
+      expect(showToast).toHaveBeenCalledWith('Something went wrong', { type: 'error', duration: 5000 })
     })
 
     it('should show error toast with Error object', () => {
       const error = new Error('Database connection failed')
       handleError(error)
 
-      expect(showToast).toHaveBeenCalledWith(
-        'Database connection failed',
-        { type: 'error', duration: 5000 }
-      )
+      expect(showToast).toHaveBeenCalledWith('Database connection failed', { type: 'error', duration: 5000 })
     })
 
     it('should show error toast with context prefix', () => {
       handleError('Node not found', { context: 'Loading sidebar' })
 
-      expect(showToast).toHaveBeenCalledWith(
-        'Loading sidebar: Node not found',
-        { type: 'error', duration: 5000 }
-      )
+      expect(showToast).toHaveBeenCalledWith('Loading sidebar: Node not found', { type: 'error', duration: 5000 })
     })
 
     it('should respect custom duration', () => {
       handleError('Quick error', { duration: 2000 })
 
-      expect(showToast).toHaveBeenCalledWith(
-        'Quick error',
-        { type: 'error', duration: 2000 }
-      )
+      expect(showToast).toHaveBeenCalledWith('Quick error', { type: 'error', duration: 2000 })
     })
 
     it('should call onError callback if provided', () => {
@@ -91,10 +79,7 @@ describe('useErrorHandler composable', () => {
     it('should handle objects with message property', () => {
       handleError({ message: 'API Error', code: 500 })
 
-      expect(showToast).toHaveBeenCalledWith(
-        'API Error',
-        { type: 'error', duration: 5000 }
-      )
+      expect(showToast).toHaveBeenCalledWith('API Error', { type: 'error', duration: 5000 })
     })
   })
 
@@ -133,10 +118,7 @@ describe('useErrorHandler composable', () => {
       const result = await wrapAsync(failingFn, { context: 'Test operation' })
 
       expect(result).toBeUndefined()
-      expect(showToast).toHaveBeenCalledWith(
-        'Test operation: Async failure',
-        { type: 'error', duration: 5000 }
-      )
+      expect(showToast).toHaveBeenCalledWith('Test operation: Async failure', { type: 'error', duration: 5000 })
     })
 
     it('should return result when async operation succeeds', async () => {

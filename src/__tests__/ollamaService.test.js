@@ -17,41 +17,38 @@ describe('ollamaService', () => {
     it('should format API request correctly', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ response: 'Improved text' })
+        json: () => Promise.resolve({ response: 'Improved text' }),
       })
 
       await ollamaService.generate({
         prompt: 'Improve this text',
         content: 'Original text',
         model: 'llama3.2',
-        endpoint: 'http://localhost:11434'
+        endpoint: 'http://localhost:11434',
       })
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:11434/api/generate',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'llama3.2',
-            prompt: 'Improve this text\n\n---\n\nOriginal text',
-            stream: false
-          })
-        }
-      )
+      expect(mockFetch).toHaveBeenCalledWith('http://localhost:11434/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama3.2',
+          prompt: 'Improve this text\n\n---\n\nOriginal text',
+          stream: false,
+        }),
+      })
     })
 
     it('should return generated text on success', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ response: 'Improved text here' })
+        json: () => Promise.resolve({ response: 'Improved text here' }),
       })
 
       const result = await ollamaService.generate({
         prompt: 'Improve',
         content: 'Test',
         model: 'llama3.2',
-        endpoint: 'http://localhost:11434'
+        endpoint: 'http://localhost:11434',
       })
 
       expect(result).toBe('Improved text here')
@@ -61,15 +58,17 @@ describe('ollamaService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
-        statusText: 'Internal Server Error'
+        statusText: 'Internal Server Error',
       })
 
-      await expect(ollamaService.generate({
-        prompt: 'Improve',
-        content: 'Test',
-        model: 'llama3.2',
-        endpoint: 'http://localhost:11434'
-      })).rejects.toThrow('Ollama API error: 500 Internal Server Error')
+      await expect(
+        ollamaService.generate({
+          prompt: 'Improve',
+          content: 'Test',
+          model: 'llama3.2',
+          endpoint: 'http://localhost:11434',
+        })
+      ).rejects.toThrow('Ollama API error: 500 Internal Server Error')
     })
 
     it('should throw error when model not found', async () => {
@@ -77,62 +76,63 @@ describe('ollamaService', () => {
         ok: false,
         status: 404,
         statusText: 'Not Found',
-        json: () => Promise.resolve({ error: 'model "badmodel" not found' })
+        json: () => Promise.resolve({ error: 'model "badmodel" not found' }),
       })
 
-      await expect(ollamaService.generate({
-        prompt: 'Improve',
-        content: 'Test',
-        model: 'badmodel',
-        endpoint: 'http://localhost:11434'
-      })).rejects.toThrow('Model not available. Run: ollama pull badmodel')
+      await expect(
+        ollamaService.generate({
+          prompt: 'Improve',
+          content: 'Test',
+          model: 'badmodel',
+          endpoint: 'http://localhost:11434',
+        })
+      ).rejects.toThrow('Model not available. Run: ollama pull badmodel')
     })
 
     it('should throw connection error when fetch fails', async () => {
       mockFetch.mockRejectedValueOnce(new TypeError('Failed to fetch'))
 
-      await expect(ollamaService.generate({
-        prompt: 'Improve',
-        content: 'Test',
-        model: 'llama3.2',
-        endpoint: 'http://localhost:11434'
-      })).rejects.toThrow('Ollama is not running. Start with: ollama serve')
+      await expect(
+        ollamaService.generate({
+          prompt: 'Improve',
+          content: 'Test',
+          model: 'llama3.2',
+          endpoint: 'http://localhost:11434',
+        })
+      ).rejects.toThrow('Ollama is not running. Start with: ollama serve')
     })
 
     it('should use default endpoint if not provided', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ response: 'Result' })
+        json: () => Promise.resolve({ response: 'Result' }),
       })
 
       await ollamaService.generate({
         prompt: 'Test',
         content: 'Content',
-        model: 'llama3.2'
+        model: 'llama3.2',
       })
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:11434/api/generate',
-        expect.any(Object)
-      )
+      expect(mockFetch).toHaveBeenCalledWith('http://localhost:11434/api/generate', expect.any(Object))
     })
 
     it('should use default model if not provided', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ response: 'Result' })
+        json: () => Promise.resolve({ response: 'Result' }),
       })
 
       await ollamaService.generate({
         prompt: 'Test',
         content: 'Content',
-        endpoint: 'http://localhost:11434'
+        endpoint: 'http://localhost:11434',
       })
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          body: expect.stringContaining('"model":"llama3.2"')
+          body: expect.stringContaining('"model":"llama3.2"'),
         })
       )
     })
@@ -142,7 +142,7 @@ describe('ollamaService', () => {
     it('should return true when Ollama is running', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ models: [] })
+        json: () => Promise.resolve({ models: [] }),
       })
 
       const result = await ollamaService.testConnection('http://localhost:11434')
@@ -158,7 +158,7 @@ describe('ollamaService', () => {
 
       expect(result).toEqual({
         success: false,
-        error: 'Ollama is not running. Start with: ollama serve'
+        error: 'Ollama is not running. Start with: ollama serve',
       })
     })
 
@@ -166,21 +166,21 @@ describe('ollamaService', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
-        statusText: 'Internal Server Error'
+        statusText: 'Internal Server Error',
       })
 
       const result = await ollamaService.testConnection('http://localhost:11434')
 
       expect(result).toEqual({
         success: false,
-        error: 'Ollama API error: 500 Internal Server Error'
+        error: 'Ollama API error: 500 Internal Server Error',
       })
     })
 
     it('should use default endpoint if not provided', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ models: [] })
+        json: () => Promise.resolve({ models: [] }),
       })
 
       await ollamaService.testConnection()
@@ -193,12 +193,13 @@ describe('ollamaService', () => {
     it('should return list of model names', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          models: [
-            { name: 'llama3.2:latest', size: 1234567 },
-            { name: 'mistral:latest', size: 2345678 }
-          ]
-        })
+        json: () =>
+          Promise.resolve({
+            models: [
+              { name: 'llama3.2:latest', size: 1234567 },
+              { name: 'mistral:latest', size: 2345678 },
+            ],
+          }),
       })
 
       const result = await ollamaService.listModels('http://localhost:11434')
@@ -210,7 +211,7 @@ describe('ollamaService', () => {
     it('should return empty array when no models', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ models: [] })
+        json: () => Promise.resolve({ models: [] }),
       })
 
       const result = await ollamaService.listModels('http://localhost:11434')
@@ -221,14 +222,15 @@ describe('ollamaService', () => {
     it('should throw error when connection fails', async () => {
       mockFetch.mockRejectedValueOnce(new TypeError('Failed to fetch'))
 
-      await expect(ollamaService.listModels('http://localhost:11434'))
-        .rejects.toThrow('Ollama is not running. Start with: ollama serve')
+      await expect(ollamaService.listModels('http://localhost:11434')).rejects.toThrow(
+        'Ollama is not running. Start with: ollama serve'
+      )
     })
 
     it('should use default endpoint if not provided', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ models: [] })
+        json: () => Promise.resolve({ models: [] }),
       })
 
       await ollamaService.listModels()

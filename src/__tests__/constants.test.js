@@ -11,7 +11,7 @@ import {
   getTypeColors,
   getGraphColors,
   importanceLabels,
-  getImportanceLabel
+  getImportanceLabel,
 } from '../utils/constants.js'
 
 describe('Constants Module', () => {

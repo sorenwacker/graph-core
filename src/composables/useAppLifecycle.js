@@ -33,7 +33,7 @@ export function useAppLifecycle({
   undo,
   redo,
   // Settings
-  showSettings
+  showSettings,
 }) {
   let resizeObserver = null
 
@@ -46,7 +46,7 @@ export function useAppLifecycle({
   }
 
   function setupDetachedMessageHandler() {
-    onDetachedMessage(async (data) => {
+    onDetachedMessage(async data => {
       if (data.type === 'node-updated' && data.node) {
         await refreshAfterChange({ recent: false })
         loadFavoritesAfterSync()
@@ -66,7 +66,9 @@ export function useAppLifecycle({
     if (window.electronAPI) {
       window.electronAPI.onMenuUndo(() => undo())
       window.electronAPI.onMenuRedo(() => redo())
-      window.electronAPI.onOpenSettings(() => { showSettings.value = true })
+      window.electronAPI.onOpenSettings(() => {
+        showSettings.value = true
+      })
 
       // Autosave before app quits
       window.electronAPI.onBeforeQuit(() => {
@@ -133,6 +135,6 @@ export function useAppLifecycle({
   onUnmounted(cleanupEventListeners)
 
   return {
-    updateDimensions
+    updateDimensions,
   }
 }

@@ -18,12 +18,7 @@
  * @returns {Object} Cache instance with get, set, delete, clear, etc.
  */
 export function createNodeCache(options = {}) {
-  const {
-    maxSize = 1000,
-    ttlMs = 300000,
-    onEvict = null,
-    enabled = true
-  } = options
+  const { maxSize = 1000, ttlMs = 300000, onEvict = null, enabled = true } = options
 
   // Internal storage: Map preserves insertion order for LRU
   const cache = new Map()
@@ -134,7 +129,7 @@ export function createNodeCache(options = {}) {
     cache.set(key, value)
     metadata.set(key, {
       expiresAt: now + entryTtl,
-      accessOrder: ++accessCounter
+      accessOrder: ++accessCounter,
     })
   }
 
@@ -235,7 +230,7 @@ export function createNodeCache(options = {}) {
     return {
       hits,
       misses,
-      hitRate: total === 0 ? 0 : hits / total
+      hitRate: total === 0 ? 0 : hits / total,
     }
   }
 
@@ -257,7 +252,7 @@ export function createNodeCache(options = {}) {
     invalidatePrefix,
     getOrSet,
     stats,
-    resetStats
+    resetStats,
   }
 }
 

@@ -50,14 +50,7 @@ function restoreStack(key) {
  * @param {boolean} options.persist - Whether to persist stacks to sessionStorage (default: true)
  * @returns {Object} Undo/redo state and functions
  */
-export function useUndoRedo({
-  api,
-  onSuccess,
-  onError,
-  showNotification,
-  maxStackSize = 50,
-  persist = true
-} = {}) {
+export function useUndoRedo({ api, onSuccess, onError, showNotification, maxStackSize = 50, persist = true } = {}) {
   const { handleError } = useErrorHandler()
 
   // Restore from sessionStorage if persistence enabled
@@ -70,8 +63,8 @@ export function useUndoRedo({
 
   // Persist stacks to sessionStorage when they change
   if (persist) {
-    watch(undoStack, (stack) => saveStack(UNDO_STORAGE_KEY, stack), { deep: true })
-    watch(redoStack, (stack) => saveStack(REDO_STORAGE_KEY, stack), { deep: true })
+    watch(undoStack, stack => saveStack(UNDO_STORAGE_KEY, stack), { deep: true })
+    watch(redoStack, stack => saveStack(REDO_STORAGE_KEY, stack), { deep: true })
   }
 
   /**
@@ -164,6 +157,6 @@ export function useUndoRedo({
     pushCommand,
     undo,
     redo,
-    clear
+    clear,
   }
 }

@@ -22,7 +22,7 @@ const commandRegistry = {
   link: LinkCommand,
   unlink: UnlinkCommand,
   reorder: ReorderCommand,
-  'ollama-improve-notes': OllamaImproveNotesCommand
+  'ollama-improve-notes': OllamaImproveNotesCommand,
 }
 
 /**

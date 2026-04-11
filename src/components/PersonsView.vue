@@ -12,7 +12,7 @@ const { handleError } = useErrorHandler()
 const props = defineProps({
   selectedId: Number,
   hideCompleted: { type: Boolean, default: false },
-  workspaceId: { type: String, default: 'work' }
+  workspaceId: { type: String, default: 'work' },
 })
 
 const emit = defineEmits(['select', 'update', 'delete', 'context-menu'])
@@ -72,17 +72,13 @@ const filteredOrganizations = computed(() => {
     return organizations.value.slice(0, 10)
   }
   const q = orgQuery.value.toLowerCase()
-  return organizations.value
-    .filter(o => o.title?.toLowerCase().includes(q))
-    .slice(0, 10)
+  return organizations.value.filter(o => o.title?.toLowerCase().includes(q)).slice(0, 10)
 })
 
 // Check if query matches an existing organization exactly
 const exactOrgMatch = computed(() => {
   if (!orgQuery.value) return null
-  return organizations.value.find(
-    o => o.title?.toLowerCase() === orgQuery.value.toLowerCase()
-  )
+  return organizations.value.find(o => o.title?.toLowerCase() === orgQuery.value.toLowerCase())
 })
 
 const sortedPersons = computed(() => {
@@ -220,9 +216,9 @@ async function loadLinkedOrganizations(personId) {
 
     // Add paths to leaf organizations only
     const orgsWithPaths = await Promise.all(
-      leafOrgs.map(async (org) => ({
+      leafOrgs.map(async org => ({
         ...org,
-        path: await getOrgPath(org)
+        path: await getOrgPath(org),
       }))
     )
     linkedOrganizations.value = orgsWithPaths
@@ -242,7 +238,7 @@ function showAddPerson() {
     website: '',
     notes: '',
     color: getRandomColor(),
-    type: 'person'
+    type: 'person',
   }
   linkedOrganizations.value = []
   orgQuery.value = ''
@@ -271,7 +267,7 @@ async function savePerson() {
       notes: editingPerson.value.notes || '',
       color: editingPerson.value.color || '#0f4c75',
       tags: editingPerson.value.tags || [],
-      workspace_id: props.workspaceId
+      workspace_id: props.workspaceId,
     }
 
     let personId = editingPerson.value.id
@@ -320,7 +316,7 @@ async function linkOrganization(org) {
     // For new person, just add to local list (will link after save)
     const orgWithPath = {
       ...org,
-      path: await getOrgPath(org)
+      path: await getOrgPath(org),
     }
     if (!linkedOrganizations.value.find(o => o.id === org.id)) {
       linkedOrganizations.value.push(orgWithPath)
@@ -361,7 +357,7 @@ async function createAndLinkOrganization() {
     const newOrg = await api.createNode({
       title: orgQuery.value.trim(),
       type: 'organization',
-      workspace_id: props.workspaceId
+      workspace_id: props.workspaceId,
     })
 
     // Add to organizations list
@@ -464,7 +460,10 @@ function getOrganizationsForPerson(personId) {
         @contextmenu.prevent="handleContextMenu($event, person)"
       >
         <div class="card-header">
-          <div class="person-avatar" :style="{ background: getEffectiveColor(person), color: getContrastColor(getEffectiveColor(person)) }">
+          <div
+            class="person-avatar"
+            :style="{ background: getEffectiveColor(person), color: getContrastColor(getEffectiveColor(person)) }"
+          >
             {{ getInitials(person.title) }}
           </div>
           <div class="person-info">
@@ -508,7 +507,12 @@ function getOrganizationsForPerson(personId) {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="person in sortedPersons" :key="person.id" @click="selectPerson(person)" @contextmenu.prevent="handleContextMenu($event, person)">
+          <tr
+            v-for="person in sortedPersons"
+            :key="person.id"
+            @click="selectPerson(person)"
+            @contextmenu.prevent="handleContextMenu($event, person)"
+          >
             <td class="col-color">
               <div class="color-dot" :style="{ background: getEffectiveColor(person) }"></div>
             </td>
@@ -554,11 +558,7 @@ function getOrganizationsForPerson(personId) {
               <label>Organizations</label>
               <!-- Linked organizations as tags -->
               <div class="org-tags">
-                <div
-                  v-for="org in linkedOrganizations"
-                  :key="org.id"
-                  class="org-tag"
-                >
+                <div v-for="org in linkedOrganizations" :key="org.id" class="org-tag">
                   <span class="org-path">{{ org.path || org.title }}</span>
                   <button class="org-remove" @click="unlinkOrganization(org)" title="Remove">&times;</button>
                 </div>
@@ -571,14 +571,20 @@ function getOrganizationsForPerson(personId) {
                   @input="handleOrgInput"
                   @keydown="handleOrgKeydown"
                   @focus="showOrgDropdown = true"
-                  @blur="setTimeout(() => showOrgDropdown = false, 200)"
+                  @blur="setTimeout(() => (showOrgDropdown = false), 200)"
                 />
-                <div v-if="showOrgDropdown && (filteredOrganizations.length > 0 || orgQuery.trim())" class="org-dropdown">
+                <div
+                  v-if="showOrgDropdown && (filteredOrganizations.length > 0 || orgQuery.trim())"
+                  class="org-dropdown"
+                >
                   <div
                     v-for="(org, index) in filteredOrganizations"
                     :key="org.id"
                     class="org-option"
-                    :class="{ selected: selectedOrgIndex === index, linked: linkedOrganizations.find(o => o.id === org.id) }"
+                    :class="{
+                      selected: selectedOrgIndex === index,
+                      linked: linkedOrganizations.find(o => o.id === org.id),
+                    }"
                     @mousedown.prevent="linkOrganization(org)"
                   >
                     {{ org.title }}
@@ -618,15 +624,17 @@ function getOrganizationsForPerson(personId) {
 
             <div class="form-field full-width">
               <label>Tags</label>
-              <TagInput
-                :tags="editingPerson.tags || []"
-                @update="editingPerson.tags = $event"
-              />
+              <TagInput :tags="editingPerson.tags || []" @update="editingPerson.tags = $event" />
             </div>
           </div>
 
           <div class="color-picker">
-            <label>Color <span v-if="!editingPerson.color || editingPerson.color === '#0f4c75'" class="inherit-hint">(inherits from parent)</span></label>
+            <label
+              >Color
+              <span v-if="!editingPerson.color || editingPerson.color === '#0f4c75'" class="inherit-hint"
+                >(inherits from parent)</span
+              ></label
+            >
             <div class="color-field">
               <input
                 type="color"
@@ -638,7 +646,9 @@ function getOrganizationsForPerson(personId) {
                 class="clear-btn"
                 title="Inherit from parent"
                 @click="editingPerson.color = null"
-              >x</button>
+              >
+                x
+              </button>
             </div>
           </div>
 

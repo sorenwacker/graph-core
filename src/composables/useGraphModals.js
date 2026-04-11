@@ -11,7 +11,7 @@ export function useGraphModals(options = {}) {
   const editModal = ref({
     visible: false,
     node: null,
-    editedNode: {}
+    editedNode: {},
   })
   const showNotesPreview = ref(false)
   const editTitleInput = ref(null)
@@ -23,7 +23,7 @@ export function useGraphModals(options = {}) {
     title: '',
     placeholder: '',
     value: '',
-    resolve: null
+    resolve: null,
   })
   const promptInputRef = ref(null)
 
@@ -32,7 +32,7 @@ export function useGraphModals(options = {}) {
     visible: false,
     parentId: null,
     position: null,
-    insertBetween: null
+    insertBetween: null,
   })
 
   /**
@@ -44,7 +44,7 @@ export function useGraphModals(options = {}) {
     editModal.value = {
       visible: true,
       node,
-      editedNode: { ...node }
+      editedNode: { ...node },
     }
     showNotesPreview.value = false
     nextTick(() => {
@@ -98,13 +98,13 @@ export function useGraphModals(options = {}) {
    * @returns {Promise<string|null>} User input or null if cancelled
    */
   function showPrompt(title, placeholder = '') {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       promptModal.value = {
         visible: true,
         title,
         placeholder,
         value: '',
-        resolve
+        resolve,
       }
       nextTick(() => {
         promptInputRef.value?.focus()
@@ -154,7 +154,7 @@ export function useGraphModals(options = {}) {
       visible: true,
       parentId,
       position,
-      insertBetween
+      insertBetween,
     }
   }
 
@@ -179,7 +179,7 @@ export function useGraphModals(options = {}) {
         childId: insertBetween.childId,
         title,
         type,
-        isLink: insertBetween.isLink
+        isLink: insertBetween.isLink,
       })
     } else if (parentId) {
       emit('add-child', { parentId, title, type, x: position?.x, y: position?.y })
@@ -236,6 +236,6 @@ export function useGraphModals(options = {}) {
     handleAddNodeCreate,
 
     // Utility
-    isAnyModalVisible
+    isAnyModalVisible,
   }
 }

@@ -35,10 +35,19 @@ const props = defineProps({
   nodes: { type: Array, default: () => [] },
   selectedId: Number,
   hideCompleted: { type: Boolean, default: false },
-  colorMap: { type: Object, default: () => ({}) }
+  colorMap: { type: Object, default: () => ({}) },
 })
 
-const emit = defineEmits(['select', 'enter', 'show-tooltip', 'hide-tooltip', 'context-menu', 'add-child', 'delete', 'update'])
+const emit = defineEmits([
+  'select',
+  'enter',
+  'show-tooltip',
+  'hide-tooltip',
+  'context-menu',
+  'add-child',
+  'delete',
+  'update',
+])
 
 // Context menu handler
 function handleContextMenu(e, node) {
@@ -178,7 +187,7 @@ const timelineNodes = computed(() => {
           const daysUntilDue = Math.ceil((dueDate - todayDate) / (1000 * 60 * 60 * 24))
           // Urgency: 1.0 = overdue, 0.8 = due today, scales down over 14 days
           if (daysUntilDue <= 0) dueUrgency = 1.0
-          else if (daysUntilDue <= 14) dueUrgency = 1 - (daysUntilDue / 14)
+          else if (daysUntilDue <= 14) dueUrgency = 1 - daysUntilDue / 14
           else dueUrgency = 0
         }
 
@@ -190,7 +199,7 @@ const timelineNodes = computed(() => {
             displayDate,
             endDisplayDate,
             inheritedDate: !hasOwnDate(node),
-            dueUrgency
+            dueUrgency,
           })
         }
       }
@@ -214,8 +223,8 @@ const dateRange = computed(() => {
   if (timelineNodes.value.length === 0) return { start: null, end: null, days: 0 }
 
   const dates = timelineNodes.value.flatMap(n => [n.displayDate, n.endDisplayDate].filter(Boolean))
-  const minDate = dates.reduce((a, b) => a < b ? a : b)
-  const maxDate = dates.reduce((a, b) => a > b ? a : b)
+  const minDate = dates.reduce((a, b) => (a < b ? a : b))
+  const maxDate = dates.reduce((a, b) => (a > b ? a : b))
 
   // Start from earliest date or 3 months ago, whichever is earlier
   const threeMonthsAgo = new Date()
@@ -248,7 +257,7 @@ const years = computed(() => {
   while (current <= end) {
     result.push({
       label: current.getFullYear().toString(),
-      position: getDatePosition(formatLocalDate(current))
+      position: getDatePosition(formatLocalDate(current)),
     })
     current.setFullYear(current.getFullYear() + 1)
   }
@@ -269,7 +278,7 @@ const months = computed(() => {
     const position = getDatePosition(formatLocalDate(current))
     result.push({
       label: current.toLocaleDateString('en-US', { month: 'short' }),
-      position
+      position,
     })
     current.setMonth(current.getMonth() + 1)
   }
@@ -293,7 +302,7 @@ const weeks = computed(() => {
 
   while (current <= end) {
     result.push({
-      position: getDatePosition(formatLocalDate(current))
+      position: getDatePosition(formatLocalDate(current)),
     })
     current.setDate(current.getDate() + 7)
   }
@@ -317,7 +326,7 @@ const days = computed(() => {
       label: current.getDate().toString(),
       position: getDatePosition(formatLocalDate(current)),
       isWeekend,
-      isFirst
+      isFirst,
     })
     current.setDate(current.getDate() + 1)
   }
@@ -342,7 +351,7 @@ const weekends = computed(() => {
     const saturdayPos = getDatePosition(formatLocalDate(current))
     result.push({
       position: saturdayPos,
-      width: zoom * 2 // 2 days (Sat + Sun)
+      width: zoom * 2, // 2 days (Sat + Sun)
     })
     current.setDate(current.getDate() + 7)
   }
@@ -421,7 +430,7 @@ function getBarStyle(node) {
       left,
       width,
       background: `linear-gradient(135deg, ${nodeColor}cc 0%, ${nodeColor}88 100%)`,
-      borderLeft: `3px solid ${typeColor}`
+      borderLeft: `3px solid ${typeColor}`,
     }
   }
 
@@ -430,7 +439,7 @@ function getBarStyle(node) {
     left,
     width,
     background: `linear-gradient(135deg, ${typeColor}aa 0%, ${typeColor}77 100%)`,
-    borderLeft: `3px solid ${typeColor}`
+    borderLeft: `3px solid ${typeColor}`,
   }
 }
 
@@ -440,7 +449,7 @@ function getProjectBoxStyle(project) {
     left: project.left + 'px',
     width: project.width + 'px',
     top: project.top + 'px',
-    height: project.height + 'px'
+    height: project.height + 'px',
   }
   // Use project's color from colorMap or node directly
   const projectColor = props.colorMap[project.id] || project.node?.color
@@ -478,9 +487,7 @@ const groupMarkers = computed(() => {
     for (const node of nodeList) {
       if (node.type === 'group') {
         const descendantIds = getAllDescendantIds(node)
-        const childRowIndices = descendantIds
-          .filter(id => nodeRowIndex.has(id))
-          .map(id => nodeRowIndex.get(id))
+        const childRowIndices = descendantIds.filter(id => nodeRowIndex.has(id)).map(id => nodeRowIndex.get(id))
 
         if (childRowIndices.length > 0) {
           const minRow = Math.min(...childRowIndices)
@@ -492,9 +499,7 @@ const groupMarkers = computed(() => {
             .map(id => nodeData.get(id).displayDate)
             .filter(Boolean)
 
-          const earliestDate = childDates.length > 0
-            ? childDates.reduce((a, b) => a < b ? a : b)
-            : null
+          const earliestDate = childDates.length > 0 ? childDates.reduce((a, b) => (a < b ? a : b)) : null
 
           if (earliestDate) {
             result.push({
@@ -504,7 +509,7 @@ const groupMarkers = computed(() => {
               top: minRow * rowHeight,
               height: (maxRow - minRow + 1) * rowHeight,
               date: earliestDate,
-              node
+              node,
             })
           }
         }
@@ -540,9 +545,7 @@ const projectBoxes = computed(() => {
         // Include descendants if any
         if (node.children?.length) {
           const descendantIds = getAllDescendantIds(node)
-          descendantIds
-            .filter(id => nodeRowIndex.has(id))
-            .forEach(id => childRowIndices.push(nodeRowIndex.get(id)))
+          descendantIds.filter(id => nodeRowIndex.has(id)).forEach(id => childRowIndices.push(nodeRowIndex.get(id)))
         }
 
         // Include the project itself if it's in the timeline
@@ -560,9 +563,7 @@ const projectBoxes = computed(() => {
 
           if (node.children?.length) {
             const descendantIds = getAllDescendantIds(node)
-            const descendantNodes = descendantIds
-              .filter(id => nodeData.has(id))
-              .map(id => nodeData.get(id))
+            const descendantNodes = descendantIds.filter(id => nodeData.has(id)).map(id => nodeData.get(id))
 
             descendantNodes.forEach(n => {
               if (n.displayDate) allDates.push(n.displayDate)
@@ -578,8 +579,8 @@ const projectBoxes = computed(() => {
           }
 
           if (allDates.length > 0) {
-            const minDate = allDates.reduce((a, b) => a < b ? a : b)
-            const maxDate = allDates.reduce((a, b) => a > b ? a : b)
+            const minDate = allDates.reduce((a, b) => (a < b ? a : b))
+            const maxDate = allDates.reduce((a, b) => (a > b ? a : b))
 
             result.push({
               id: node.id,
@@ -588,7 +589,7 @@ const projectBoxes = computed(() => {
               width: getDatePosition(maxDate) - getDatePosition(minDate) + zoomLevel.value,
               top: minRow * rowHeight,
               height: (maxRow - minRow + 1) * rowHeight,
-              node
+              node,
             })
           }
         }
@@ -648,7 +649,7 @@ function handlePanStart(e) {
       startX: e.clientX,
       startY: e.clientY,
       scrollLeft: container.scrollLeft,
-      scrollTop: container.scrollTop
+      scrollTop: container.scrollTop,
     }
   }
 }
@@ -704,7 +705,6 @@ onUnmounted(() => {
   document.removeEventListener('mouseup', handleLabelsDragEnd)
 })
 
-
 // Convert pixel position to date string
 function positionToDate(pixelX) {
   if (!dateRange.value.start) return null
@@ -722,7 +722,7 @@ const { dragState, handleDragStart, handleDragMove, handleDragEnd, getDragBarSty
   zoomLevel,
   emit,
   getBarStyle,
-  minBarWidth: MIN_BAR_WIDTH
+  minBarWidth: MIN_BAR_WIDTH,
 })
 </script>
 
@@ -745,7 +745,12 @@ const { dragState, handleDragStart, handleDragMove, handleDragEnd, getDragBarSty
       <!-- Scrollable timeline container -->
       <div class="timeline-scroll-container">
         <!-- Fixed row labels column -->
-        <div ref="labelsRef" class="timeline-labels" :style="{ width: labelsWidth + 'px' }" @scroll="syncScroll('labels')">
+        <div
+          ref="labelsRef"
+          class="timeline-labels"
+          :style="{ width: labelsWidth + 'px' }"
+          @scroll="syncScroll('labels')"
+        >
           <div class="label-header">Items</div>
           <div class="labels-body">
             <div
@@ -758,7 +763,7 @@ const { dragState, handleDragStart, handleDragMove, handleDragEnd, getDragBarSty
               @mouseleave="emit('hide-tooltip')"
               @contextmenu.prevent="handleContextMenu($event, node)"
             >
-              <span class="tree-indent" :style="{ width: (node.depth * 5) + 'px' }"></span>
+              <span class="tree-indent" :style="{ width: node.depth * 5 + 'px' }"></span>
               <span v-if="node.type === 'person'" class="type-badge person" v-html="personIconSvg"></span>
               <span v-else class="type-badge" :class="node.type" v-html="getTypeIcon(node.type)"></span>
               <span class="node-title">{{ node.title }}</span>
@@ -767,11 +772,7 @@ const { dragState, handleDragStart, handleDragMove, handleDragEnd, getDragBarSty
         </div>
 
         <!-- Draggable divider for resizing labels column -->
-        <div
-          class="labels-divider"
-          :class="{ dragging: labelsDragState }"
-          @mousedown="handleLabelsDragStart"
-        ></div>
+        <div class="labels-divider" :class="{ dragging: labelsDragState }" @mousedown="handleLabelsDragStart"></div>
 
         <!-- Scrollable timeline area -->
         <div ref="scrollableRef" class="timeline-scrollable" @scroll="syncScroll('timeline')">
@@ -851,11 +852,7 @@ const { dragState, handleDragStart, handleDragMove, handleDragEnd, getDragBarSty
                 :style="{ left: day.position + 'px' }"
               ></div>
               <!-- Today marker -->
-              <div
-                v-if="todayPosition !== null"
-                class="today-marker"
-                :style="{ left: todayPosition + 'px' }"
-              >
+              <div v-if="todayPosition !== null" class="today-marker" :style="{ left: todayPosition + 'px' }">
                 <span class="today-label">Today</span>
               </div>
             </div>
@@ -874,10 +871,11 @@ const { dragState, handleDragStart, handleDragMove, handleDragEnd, getDragBarSty
                 :key="'project-label-' + project.id"
                 class="project-box-label"
                 :style="{
-                  left: (project.left + getProjectLabelLeft(project)) + 'px',
-                  top: (project.top + 18) + 'px'
+                  left: project.left + getProjectLabelLeft(project) + 'px',
+                  top: project.top + 18 + 'px',
                 }"
-              >{{ project.title }}</span>
+                >{{ project.title }}</span
+              >
               <!-- Group markers (vertical bars spanning child tasks) -->
               <div
                 v-for="group in groupMarkers"
@@ -895,13 +893,10 @@ const { dragState, handleDragStart, handleDragMove, handleDragEnd, getDragBarSty
                 v-for="group in groupMarkers"
                 :key="'group-label-' + group.id"
                 class="group-label"
-                :style="{ left: (group.position + 6) + 'px', top: group.top + 'px' }"
-              >{{ group.title }}</span>
-              <div
-                v-for="node in timelineNodes"
-                :key="node.id"
-                class="timeline-row"
+                :style="{ left: group.position + 6 + 'px', top: group.top + 'px' }"
+                >{{ group.title }}</span
               >
+              <div v-for="node in timelineNodes" :key="node.id" class="timeline-row">
                 <div class="row-track">
                   <div
                     class="timeline-bar"
@@ -909,7 +904,7 @@ const { dragState, handleDragStart, handleDragMove, handleDragEnd, getDragBarSty
                       selected: selectedId === node.id,
                       completed: node.completed,
                       inherited: node.inheritedDate,
-                      dragging: dragState?.node.id === node.id
+                      dragging: dragState?.node.id === node.id,
                     }"
                     :style="getDragBarStyle(node)"
                     @click="handleNodeClick($event, node)"
@@ -924,10 +919,7 @@ const { dragState, handleDragStart, handleDragMove, handleDragEnd, getDragBarSty
                       @mousedown="handleDragStart($event, node, 'resize-start')"
                     ></div>
                     <!-- Draggable bar content -->
-                    <div
-                      class="bar-content"
-                      @mousedown="handleDragStart($event, node, 'move')"
-                    >
+                    <div class="bar-content" @mousedown="handleDragStart($event, node, 'move')">
                       <span v-if="node.type !== 'project'" class="bar-label">{{ node.title }}</span>
                     </div>
                     <!-- Right resize handle -->
@@ -942,7 +934,9 @@ const { dragState, handleDragStart, handleDragMove, handleDragEnd, getDragBarSty
                     class="due-marker"
                     :style="{ left: getDatePosition(node.due_date) + 'px', color: getDueColor(node.dueUrgency) }"
                     :title="'Due: ' + node.due_date"
-                  >&#x2717;</div>
+                  >
+                    &#x2717;
+                  </div>
                 </div>
               </div>
             </div>

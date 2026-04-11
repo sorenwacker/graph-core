@@ -217,10 +217,10 @@ describe('nodeCache', () => {
     it('should track hit and miss counts', () => {
       cache.set('key1', 'value')
 
-      cache.get('key1')  // hit
-      cache.get('key1')  // hit
-      cache.get('key2')  // miss
-      cache.get('key3')  // miss
+      cache.get('key1') // hit
+      cache.get('key1') // hit
+      cache.get('key2') // miss
+      cache.get('key3') // miss
 
       const stats = cache.stats()
 

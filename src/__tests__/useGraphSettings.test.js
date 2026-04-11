@@ -9,9 +9,13 @@ describe('useGraphSettings composable', () => {
   beforeEach(() => {
     localStorageData = {}
     vi.stubGlobal('localStorage', {
-      getItem: vi.fn((key) => localStorageData[key] ?? null),
-      setItem: vi.fn((key, value) => { localStorageData[key] = value }),
-      removeItem: vi.fn((key) => { delete localStorageData[key] })
+      getItem: vi.fn(key => localStorageData[key] ?? null),
+      setItem: vi.fn((key, value) => {
+        localStorageData[key] = value
+      }),
+      removeItem: vi.fn(key => {
+        delete localStorageData[key]
+      }),
     })
     settings = useGraphSettings({ workspace: ref('work') })
   })

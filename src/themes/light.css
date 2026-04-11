@@ -4,7 +4,7 @@
  * A light color scheme for users who prefer lighter interfaces.
  */
 
-[data-theme="light"] {
+[data-theme='light'] {
   /* Text */
   --text-primary: #1a1a1a;
   --text-secondary: #4a4a4a;
@@ -78,45 +78,45 @@
 
 /* Light theme specific overrides for elements that need more than variable changes */
 
-[data-theme="light"] a {
+[data-theme='light'] a {
   color: var(--accent-color);
 }
 
-[data-theme="light"] a:hover {
+[data-theme='light'] a:hover {
   color: var(--accent-hover);
 }
 
-[data-theme="light"] ::selection {
+[data-theme='light'] ::selection {
   background: rgba(37, 99, 235, 0.3);
   color: #1a1a1a;
 }
 
 /* Node cards need slightly different shadows in light mode */
-[data-theme="light"] .node-card {
+[data-theme='light'] .node-card {
   box-shadow:
     0 1px 3px rgba(0, 0, 0, 0.08),
     0 4px 12px rgba(0, 0, 0, 0.06);
 }
 
-[data-theme="light"] .node-card:hover {
+[data-theme='light'] .node-card:hover {
   box-shadow:
     0 4px 8px rgba(0, 0, 0, 0.1),
     0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
-[data-theme="light"] .node-card.selected {
+[data-theme='light'] .node-card.selected {
   box-shadow:
     0 0 0 1px var(--accent-color),
     0 4px 16px rgba(37, 99, 235, 0.15);
 }
 
 /* Sidebar adjustments for light theme */
-[data-theme="light"] .sidebar:not(.pinned) {
+[data-theme='light'] .sidebar:not(.pinned) {
   box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
 }
 
 /* Tooltip adjustments for light theme */
-[data-theme="light"] .tippy-box[data-theme~='graph-tooltip'] {
+[data-theme='light'] .tippy-box[data-theme~='graph-tooltip'] {
   background: linear-gradient(
     135deg,
     rgba(240, 245, 250, 0.95) 0%,
@@ -127,315 +127,315 @@
   color: #1a1a1a;
 }
 
-[data-theme="light"] .tippy-box[data-theme~='graph-tooltip'] .tt-title {
+[data-theme='light'] .tippy-box[data-theme~='graph-tooltip'] .tt-title {
   color: #1a1a1a;
   text-shadow: none;
 }
 
-[data-theme="light"] .tippy-box[data-theme~='graph-tooltip'] .tt-notes {
+[data-theme='light'] .tippy-box[data-theme~='graph-tooltip'] .tt-notes {
   color: #4a4a4a;
   background: rgba(0, 0, 0, 0.02);
 }
 
 /* Scrollbar for light theme */
-[data-theme="light"] ::-webkit-scrollbar-thumb {
+[data-theme='light'] ::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
 }
 
-[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+[data-theme='light'] ::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
 }
 
 /* Active/selected items with solid accent background need white text */
-[data-theme="light"] .sidebar-item.active,
-[data-theme="light"] .sidebar-tree-item.active,
-[data-theme="light"] .node-item.selected,
-[data-theme="light"] .tabs button.active,
-[data-theme="light"] .importance-btn.active {
+[data-theme='light'] .sidebar-item.active,
+[data-theme='light'] .sidebar-tree-item.active,
+[data-theme='light'] .node-item.selected,
+[data-theme='light'] .tabs button.active,
+[data-theme='light'] .importance-btn.active {
   color: white;
 }
 
 /* ViewSwitcher uses accent-subtle background, so use accent-color text */
-[data-theme="light"] .view-switcher button.active {
+[data-theme='light'] .view-switcher button.active {
   color: var(--accent-color);
 }
 
 /* Graph controls - active state already uses CSS variables, locked states use success color */
 
 /* Spreadsheet context buttons */
-[data-theme="light"] .ctx-btn.active {
+[data-theme='light'] .ctx-btn.active {
   background: var(--accent-subtle);
   border-color: var(--accent-color);
   color: var(--accent-color);
 }
 
 /* Node cards - fix hardcoded dark theme colors */
-[data-theme="light"] .node-card {
+[data-theme='light'] .node-card {
   border-color: var(--border-color);
 }
 
-[data-theme="light"] .node-card::before {
+[data-theme='light'] .node-card::before {
   background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.05), transparent);
 }
 
-[data-theme="light"] .node-card:hover {
+[data-theme='light'] .node-card:hover {
   border-color: var(--border-color);
 }
 
-[data-theme="light"] .node-card-title {
+[data-theme='light'] .node-card-title {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .node-card-children-grid {
+[data-theme='light'] .node-card-children-grid {
   background: rgba(0, 0, 0, 0.04);
 }
 
-[data-theme="light"] .child-card {
+[data-theme='light'] .child-card {
   background: var(--bg-elevated);
 }
 
 /* Grandchild items */
-[data-theme="light"] .grandchild-item {
+[data-theme='light'] .grandchild-item {
   background: var(--bg-tertiary);
 }
 
 /* ========================================
    TableView - override hardcoded dark colors
    ======================================== */
-[data-theme="light"] .table-container {
+[data-theme='light'] .table-container {
   background: var(--bg-primary);
 }
 
-[data-theme="light"] .table-view {
+[data-theme='light'] .table-view {
   background: var(--bg-primary);
 }
 
-[data-theme="light"] .table-view th {
+[data-theme='light'] .table-view th {
   background: var(--bg-secondary);
   color: var(--text-primary);
 }
 
-[data-theme="light"] .table-view td {
+[data-theme='light'] .table-view td {
   background: var(--bg-primary);
   color: var(--text-primary);
 }
 
-[data-theme="light"] .table-view tr:hover td {
+[data-theme='light'] .table-view tr:hover td {
   background: var(--bg-hover);
 }
 
-[data-theme="light"] .table-view tr.selected td {
+[data-theme='light'] .table-view tr.selected td {
   background: var(--accent-subtle);
 }
 
-[data-theme="light"] .table-header-row {
+[data-theme='light'] .table-header-row {
   background: var(--bg-secondary);
 }
 
-[data-theme="light"] .ghost-row {
+[data-theme='light'] .ghost-row {
   background: var(--bg-secondary);
 }
 
-[data-theme="light"] .cell-content {
+[data-theme='light'] .cell-content {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .title-cell {
+[data-theme='light'] .title-cell {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .notes-preview {
+[data-theme='light'] .notes-preview {
   color: var(--text-secondary);
 }
 
-[data-theme="light"] .pagination {
+[data-theme='light'] .pagination {
   background: var(--bg-secondary);
   color: var(--text-primary);
 }
 
-[data-theme="light"] .pagination button {
+[data-theme='light'] .pagination button {
   background: var(--bg-tertiary);
   color: var(--text-primary);
 }
 
-[data-theme="light"] .column-resize-handle {
+[data-theme='light'] .column-resize-handle {
   background: var(--border-color);
 }
 
-[data-theme="light"] .bulk-actions {
+[data-theme='light'] .bulk-actions {
   background: var(--bg-secondary);
 }
 
 /* ========================================
    TimelineView - override hardcoded colors
    ======================================== */
-[data-theme="light"] .timeline-container {
+[data-theme='light'] .timeline-container {
   background: var(--bg-primary);
 }
 
-[data-theme="light"] .year-label,
-[data-theme="light"] .month-label {
+[data-theme='light'] .year-label,
+[data-theme='light'] .month-label {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .bar-label {
+[data-theme='light'] .bar-label {
   color: var(--text-primary);
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
-[data-theme="light"] .timeline-header {
+[data-theme='light'] .timeline-header {
   background: var(--bg-secondary);
   color: var(--text-primary);
 }
 
-[data-theme="light"] .resize-handle:hover {
+[data-theme='light'] .resize-handle:hover {
   background: rgba(0, 0, 0, 0.1);
 }
 
-[data-theme="light"] .row-label {
+[data-theme='light'] .row-label {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .node-title {
+[data-theme='light'] .node-title {
   color: var(--text-primary);
 }
 
 /* ========================================
    CalendarView - override hardcoded colors
    ======================================== */
-[data-theme="light"] .calendar-container {
+[data-theme='light'] .calendar-container {
   background: var(--bg-primary);
 }
 
-[data-theme="light"] .calendar-header {
+[data-theme='light'] .calendar-header {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .calendar-day {
+[data-theme='light'] .calendar-day {
   background: var(--bg-primary);
   color: var(--text-primary);
 }
 
-[data-theme="light"] .calendar-day.other-month {
+[data-theme='light'] .calendar-day.other-month {
   background: var(--bg-secondary);
   color: var(--text-tertiary);
 }
 
-[data-theme="light"] .day-number {
+[data-theme='light'] .day-number {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .weekday-header {
+[data-theme='light'] .weekday-header {
   color: var(--text-secondary);
 }
 
 /* ========================================
    SpotlightSearch - fix bright text
    ======================================== */
-[data-theme="light"] .spotlight-overlay {
+[data-theme='light'] .spotlight-overlay {
   background: rgba(0, 0, 0, 0.3);
 }
 
-[data-theme="light"] .spotlight-container {
+[data-theme='light'] .spotlight-container {
   background: var(--bg-primary);
   border-color: var(--border-color);
 }
 
-[data-theme="light"] .spotlight-input {
+[data-theme='light'] .spotlight-input {
   background: var(--bg-primary);
   color: var(--text-primary);
 }
 
-[data-theme="light"] .spotlight-results {
+[data-theme='light'] .spotlight-results {
   background: var(--bg-primary);
 }
 
-[data-theme="light"] .result-item {
+[data-theme='light'] .result-item {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .result-item:hover,
-[data-theme="light"] .result-item.selected {
+[data-theme='light'] .result-item:hover,
+[data-theme='light'] .result-item.selected {
   background: var(--bg-hover);
 }
 
-[data-theme="light"] .result-title {
+[data-theme='light'] .result-title {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .result-path {
+[data-theme='light'] .result-path {
   color: var(--text-tertiary);
 }
 
-[data-theme="light"] .result-type {
+[data-theme='light'] .result-type {
   color: var(--text-secondary);
 }
 
-[data-theme="light"] .search-hint {
+[data-theme='light'] .search-hint {
   color: var(--text-tertiary);
 }
 
 /* ========================================
    CardsView - fix bright text
    ======================================== */
-[data-theme="light"] .cards-container {
+[data-theme='light'] .cards-container {
   background: var(--bg-primary);
 }
 
-[data-theme="light"] .card {
+[data-theme='light'] .card {
   background: var(--bg-secondary);
   border-color: var(--border-color);
 }
 
-[data-theme="light"] .card-title {
+[data-theme='light'] .card-title {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .card-notes {
+[data-theme='light'] .card-notes {
   color: var(--text-secondary);
 }
 
-[data-theme="light"] .card-meta {
+[data-theme='light'] .card-meta {
   color: var(--text-tertiary);
 }
 
-[data-theme="light"] .child-count {
+[data-theme='light'] .child-count {
   color: var(--text-secondary);
 }
 
-[data-theme="light"] .grandchild-title {
+[data-theme='light'] .grandchild-title {
   color: var(--text-primary);
 }
 
 /* ========================================
    NodeSpreadsheet - fix bright text
    ======================================== */
-[data-theme="light"] .spreadsheet-container {
+[data-theme='light'] .spreadsheet-container {
   background: var(--bg-primary);
 }
 
-[data-theme="light"] .spreadsheet-cell {
+[data-theme='light'] .spreadsheet-cell {
   color: var(--text-primary);
   background: var(--bg-primary);
 }
 
-[data-theme="light"] .spreadsheet-header {
+[data-theme='light'] .spreadsheet-header {
   background: var(--bg-secondary);
   color: var(--text-primary);
 }
 
-[data-theme="light"] .cell-input {
+[data-theme='light'] .cell-input {
   color: var(--text-primary);
   background: var(--bg-primary);
 }
 
-[data-theme="light"] .row-number {
+[data-theme='light'] .row-number {
   color: var(--text-tertiary);
   background: var(--bg-secondary);
 }
 
-[data-theme="light"] .add-row-btn,
-[data-theme="light"] .add-col-btn {
+[data-theme='light'] .add-row-btn,
+[data-theme='light'] .add-col-btn {
   color: var(--text-secondary);
   background: var(--bg-secondary);
 }
@@ -443,247 +443,247 @@
 /* ========================================
    DetailPanel - fix bright text
    ======================================== */
-[data-theme="light"] .detail-panel {
+[data-theme='light'] .detail-panel {
   background: var(--bg-primary);
 }
 
-[data-theme="light"] .panel-header {
+[data-theme='light'] .panel-header {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .panel-section-title {
+[data-theme='light'] .panel-section-title {
   color: var(--text-secondary);
 }
 
-[data-theme="light"] .detail-label {
+[data-theme='light'] .detail-label {
   color: var(--text-tertiary);
 }
 
-[data-theme="light"] .detail-value {
+[data-theme='light'] .detail-value {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .linked-node {
+[data-theme='light'] .linked-node {
   color: var(--text-primary);
   background: var(--bg-secondary);
 }
 
-[data-theme="light"] .child-item {
+[data-theme='light'] .child-item {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .notes-content {
+[data-theme='light'] .notes-content {
   color: var(--text-primary);
 }
 
 /* ========================================
    DetachedView - fix bright text
    ======================================== */
-[data-theme="light"] .detached-container {
+[data-theme='light'] .detached-container {
   background: var(--bg-primary);
 }
 
-[data-theme="light"] .detached-item {
+[data-theme='light'] .detached-item {
   background: var(--bg-secondary);
   color: var(--text-primary);
 }
 
-[data-theme="light"] .detached-title {
+[data-theme='light'] .detached-title {
   color: var(--text-primary);
 }
 
 /* ========================================
    General text color fixes
    ======================================== */
-[data-theme="light"] .meta-item {
+[data-theme='light'] .meta-item {
   color: var(--text-secondary);
 }
 
-[data-theme="light"] .toolbar-btn {
+[data-theme='light'] .toolbar-btn {
   color: var(--text-secondary);
 }
 
-[data-theme="light"] .toolbar-btn:hover {
+[data-theme='light'] .toolbar-btn:hover {
   color: var(--text-primary);
 }
 
-[data-theme="light"] input,
-[data-theme="light"] textarea,
-[data-theme="light"] select {
+[data-theme='light'] input,
+[data-theme='light'] textarea,
+[data-theme='light'] select {
   color: var(--text-primary);
   background: var(--bg-secondary);
   border-color: var(--border-color);
 }
 
-[data-theme="light"] input::placeholder,
-[data-theme="light"] textarea::placeholder {
+[data-theme='light'] input::placeholder,
+[data-theme='light'] textarea::placeholder {
   color: var(--text-tertiary);
 }
 
-[data-theme="light"] .btn,
-[data-theme="light"] button {
+[data-theme='light'] .btn,
+[data-theme='light'] button {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .icon-btn {
+[data-theme='light'] .icon-btn {
   color: var(--text-secondary);
 }
 
-[data-theme="light"] .icon-btn:hover {
+[data-theme='light'] .icon-btn:hover {
   color: var(--text-primary);
 }
 
 /* Fix modal text */
-[data-theme="light"] .modal {
+[data-theme='light'] .modal {
   background: var(--bg-primary);
   color: var(--text-primary);
 }
 
-[data-theme="light"] .modal-header {
+[data-theme='light'] .modal-header {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .modal-body {
+[data-theme='light'] .modal-body {
   color: var(--text-primary);
 }
 
 /* Fix dropdown/select text */
-[data-theme="light"] option {
+[data-theme='light'] option {
   background: var(--bg-primary);
   color: var(--text-primary);
 }
 
 /* Cytoscape node labels */
-[data-theme="light"] .node-html {
+[data-theme='light'] .node-html {
   background: var(--bg-secondary);
   color: var(--text-primary);
 }
 
-[data-theme="light"] .node-html-title {
+[data-theme='light'] .node-html-title {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .node-html-notes {
+[data-theme='light'] .node-html-notes {
   color: var(--text-secondary);
 }
 
-[data-theme="light"] .node-html-notes code {
+[data-theme='light'] .node-html-notes code {
   background: var(--bg-tertiary);
   color: var(--success-color);
 }
 
-[data-theme="light"] .node-html-notes a {
+[data-theme='light'] .node-html-notes a {
   color: var(--accent-color);
 }
 
-[data-theme="light"] .node-html-notes blockquote {
+[data-theme='light'] .node-html-notes blockquote {
   color: var(--text-secondary);
   border-color: var(--accent-color);
 }
 
-[data-theme="light"] .notes-indicator {
+[data-theme='light'] .notes-indicator {
   color: var(--text-secondary);
 }
 
-[data-theme="light"] .node-person {
+[data-theme='light'] .node-person {
   color: inherit;
 }
 
 /* ========================================
    DetailPanel form elements - light mode
    ======================================== */
-[data-theme="light"] .meta-item input[type="date"] {
+[data-theme='light'] .meta-item input[type='date'] {
   color-scheme: light;
 }
 
-[data-theme="light"] .meta-item input[type="date"]::-webkit-calendar-picker-indicator {
+[data-theme='light'] .meta-item input[type='date']::-webkit-calendar-picker-indicator {
   filter: none;
   opacity: 0.7;
 }
 
-[data-theme="light"] .meta-item select {
+[data-theme='light'] .meta-item select {
   background: var(--bg-primary);
   color: var(--text-primary);
 }
 
-[data-theme="light"] .org-dropdown,
-[data-theme="light"] .member-dropdown {
+[data-theme='light'] .org-dropdown,
+[data-theme='light'] .member-dropdown {
   background: var(--bg-primary);
   border-color: var(--border-color);
   box-shadow: var(--shadow-md);
 }
 
-[data-theme="light"] .org-option,
-[data-theme="light"] .member-option {
+[data-theme='light'] .org-option,
+[data-theme='light'] .member-option {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .org-option:hover,
-[data-theme="light"] .org-option.selected,
-[data-theme="light"] .member-option:hover,
-[data-theme="light"] .member-option.selected {
+[data-theme='light'] .org-option:hover,
+[data-theme='light'] .org-option.selected,
+[data-theme='light'] .member-option:hover,
+[data-theme='light'] .member-option.selected {
   background: var(--bg-hover);
 }
 
 /* ========================================
    SettingsPanel - light mode overrides
    ======================================== */
-[data-theme="light"] .settings-panel {
+[data-theme='light'] .settings-panel {
   background: var(--bg-primary);
   color: var(--text-primary);
 }
 
-[data-theme="light"] .settings-section {
+[data-theme='light'] .settings-section {
   background: var(--bg-secondary);
   border-color: var(--border-color);
 }
 
-[data-theme="light"] .settings-select,
-[data-theme="light"] .text-input {
+[data-theme='light'] .settings-select,
+[data-theme='light'] .text-input {
   background: var(--bg-primary);
   color: var(--text-primary);
   border-color: var(--border-color);
 }
 
-[data-theme="light"] .snapshot-btn,
-[data-theme="light"] .refresh-btn {
+[data-theme='light'] .snapshot-btn,
+[data-theme='light'] .refresh-btn {
   background: var(--bg-tertiary);
   color: var(--text-primary);
   border-color: var(--border-color);
 }
 
-[data-theme="light"] .snapshot-btn:hover,
-[data-theme="light"] .refresh-btn:hover {
+[data-theme='light'] .snapshot-btn:hover,
+[data-theme='light'] .refresh-btn:hover {
   background: var(--bg-hover);
 }
 
-[data-theme="light"] .theme-btn {
+[data-theme='light'] .theme-btn {
   background: var(--bg-tertiary);
   color: var(--text-secondary);
 }
 
-[data-theme="light"] .theme-btn:hover {
+[data-theme='light'] .theme-btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
 }
 
-[data-theme="light"] .theme-btn.active {
+[data-theme='light'] .theme-btn.active {
   background: var(--accent-subtle);
   color: var(--accent-color);
 }
 
-[data-theme="light"] .snapshot-list,
-[data-theme="light"] .prompt-list {
+[data-theme='light'] .snapshot-list,
+[data-theme='light'] .prompt-list {
   background: var(--bg-primary);
   border-color: var(--border-color);
 }
 
-[data-theme="light"] .snapshot-item,
-[data-theme="light"] .prompt-item {
+[data-theme='light'] .snapshot-item,
+[data-theme='light'] .prompt-item {
   border-color: var(--border-color);
 }
 
-[data-theme="light"] .prompt-editor {
+[data-theme='light'] .prompt-editor {
   background: var(--bg-primary);
   color: var(--text-primary);
 }
@@ -691,21 +691,21 @@
 /* ========================================
    Delete buttons - light mode
    ======================================== */
-[data-theme="light"] .delete-btn,
-[data-theme="light"] .action-btn.delete,
-[data-theme="light"] .card-delete-btn,
-[data-theme="light"] .child-delete-btn,
-[data-theme="light"] .ws-btn.delete {
+[data-theme='light'] .delete-btn,
+[data-theme='light'] .action-btn.delete,
+[data-theme='light'] .card-delete-btn,
+[data-theme='light'] .child-delete-btn,
+[data-theme='light'] .ws-btn.delete {
   color: var(--error-color);
   background: var(--error-bg);
   border-color: var(--error-border);
 }
 
-[data-theme="light"] .delete-btn:hover,
-[data-theme="light"] .action-btn.delete:hover,
-[data-theme="light"] .card-delete-btn:hover,
-[data-theme="light"] .child-delete-btn:hover,
-[data-theme="light"] .ws-btn.delete:hover {
+[data-theme='light'] .delete-btn:hover,
+[data-theme='light'] .action-btn.delete:hover,
+[data-theme='light'] .card-delete-btn:hover,
+[data-theme='light'] .child-delete-btn:hover,
+[data-theme='light'] .ws-btn.delete:hover {
   background: var(--error-hover);
   color: var(--error-color);
 }
@@ -713,41 +713,41 @@
 /* ========================================
    NodeSpreadsheet - light mode
    ======================================== */
-[data-theme="light"] .spreadsheet-wrapper {
+[data-theme='light'] .spreadsheet-wrapper {
   background: var(--bg-primary);
 }
 
-[data-theme="light"] .spreadsheet-toolbar {
+[data-theme='light'] .spreadsheet-toolbar {
   background: var(--bg-secondary);
   border-color: var(--border-color);
 }
 
-[data-theme="light"] .spreadsheet-toolbar .toolbar-btn {
+[data-theme='light'] .spreadsheet-toolbar .toolbar-btn {
   color: var(--text-secondary);
   background: var(--bg-tertiary);
   border-color: var(--border-color);
 }
 
-[data-theme="light"] .spreadsheet-toolbar .toolbar-btn:hover {
+[data-theme='light'] .spreadsheet-toolbar .toolbar-btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
 }
 
-[data-theme="light"] .spreadsheet-toolbar .toolbar-btn.active {
+[data-theme='light'] .spreadsheet-toolbar .toolbar-btn.active {
   background: var(--accent-subtle);
   color: var(--accent-color);
   border-color: var(--accent-color);
 }
 
-[data-theme="light"] .cell-editor {
+[data-theme='light'] .cell-editor {
   background: var(--bg-primary);
   color: var(--text-primary);
   border-color: var(--accent-color);
 }
 
 /* AG Grid overrides for light mode */
-[data-theme="light"] .ag-theme-quartz,
-[data-theme="light"] .ag-root-wrapper {
+[data-theme='light'] .ag-theme-quartz,
+[data-theme='light'] .ag-root-wrapper {
   --ag-background-color: var(--bg-primary);
   --ag-header-background-color: var(--bg-secondary);
   --ag-odd-row-background-color: var(--bg-secondary);
@@ -764,104 +764,104 @@
   --ag-range-selection-background-color: var(--accent-subtle);
 }
 
-[data-theme="light"] .ag-root-wrapper {
+[data-theme='light'] .ag-root-wrapper {
   background: var(--bg-primary);
 }
 
-[data-theme="light"] .ag-header {
+[data-theme='light'] .ag-header {
   background: var(--bg-secondary);
   border-bottom-color: var(--border-color);
 }
 
-[data-theme="light"] .ag-header-row {
+[data-theme='light'] .ag-header-row {
   background: var(--bg-secondary);
 }
 
-[data-theme="light"] .ag-header-cell {
+[data-theme='light'] .ag-header-cell {
   background: var(--bg-secondary);
   border-color: var(--border-color);
 }
 
-[data-theme="light"] .ag-header-cell-text {
+[data-theme='light'] .ag-header-cell-text {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .ag-cell {
+[data-theme='light'] .ag-cell {
   background: var(--bg-primary);
   color: var(--text-primary);
   border-color: var(--border-color);
 }
 
-[data-theme="light"] .ag-row {
+[data-theme='light'] .ag-row {
   background: var(--bg-primary);
   border-color: var(--border-color);
 }
 
-[data-theme="light"] .ag-row-odd {
+[data-theme='light'] .ag-row-odd {
   background: var(--bg-secondary);
 }
 
-[data-theme="light"] .ag-body {
+[data-theme='light'] .ag-body {
   background: var(--bg-primary);
 }
 
-[data-theme="light"] .ag-body-viewport {
+[data-theme='light'] .ag-body-viewport {
   background: var(--bg-primary);
 }
 
-[data-theme="light"] .row-index-header {
+[data-theme='light'] .row-index-header {
   background-color: var(--bg-secondary);
 }
 
 /* AG Grid borders - override hardcoded dark borders */
-[data-theme="light"] .ag-root-wrapper,
-[data-theme="light"] .ag-header,
-[data-theme="light"] .ag-header-row,
-[data-theme="light"] .ag-header-cell,
-[data-theme="light"] .ag-cell,
-[data-theme="light"] .ag-row {
+[data-theme='light'] .ag-root-wrapper,
+[data-theme='light'] .ag-header,
+[data-theme='light'] .ag-header-row,
+[data-theme='light'] .ag-header-cell,
+[data-theme='light'] .ag-cell,
+[data-theme='light'] .ag-row {
   border-color: var(--border-color) !important;
 }
 
-[data-theme="light"] .ag-ltr .ag-cell {
+[data-theme='light'] .ag-ltr .ag-cell {
   border-right-color: var(--border-color) !important;
 }
 
-[data-theme="light"] .ag-ltr .ag-header-cell {
+[data-theme='light'] .ag-ltr .ag-header-cell {
   border-right-color: var(--border-color) !important;
 }
 
-[data-theme="light"] .ag-row {
+[data-theme='light'] .ag-row {
   border-bottom-color: var(--border-color) !important;
 }
 
-[data-theme="light"] .ag-header-row {
+[data-theme='light'] .ag-header-row {
   border-bottom-color: var(--border-color) !important;
 }
 
-[data-theme="light"] .ag-pinned-left-header,
-[data-theme="light"] .ag-pinned-left-cols-container {
+[data-theme='light'] .ag-pinned-left-header,
+[data-theme='light'] .ag-pinned-left-cols-container {
   border-right-color: var(--border-color) !important;
 }
 
-[data-theme="light"] .ag-header-cell-resize {
+[data-theme='light'] .ag-header-cell-resize {
   background-color: var(--border-color) !important;
 }
 
-[data-theme="light"] .ag-header-cell::after,
-[data-theme="light"] .ag-header-group-cell::after {
+[data-theme='light'] .ag-header-cell::after,
+[data-theme='light'] .ag-header-group-cell::after {
   border-color: var(--border-color) !important;
 }
 
-[data-theme="light"] .ag-header-viewport {
+[data-theme='light'] .ag-header-viewport {
   border-color: var(--border-color) !important;
 }
 
-[data-theme="light"] .ag-header-container {
+[data-theme='light'] .ag-header-container {
   border-color: var(--border-color) !important;
 }
 
-[data-theme="light"] [class*="ag-"] {
+[data-theme='light'] [class*='ag-'] {
   --ag-border-color: var(--border-color);
   --ag-header-column-separator-color: var(--border-color);
   --ag-row-border-color: var(--border-color);
@@ -870,32 +870,32 @@
   --ag-cell-horizontal-border: solid 1px var(--border-color);
 }
 
-[data-theme="light"] .spreadsheet-container {
+[data-theme='light'] .spreadsheet-container {
   border-color: var(--border-color);
 }
 
-[data-theme="light"] .context-menu {
+[data-theme='light'] .context-menu {
   background: var(--bg-elevated);
   border-color: var(--border-color);
   box-shadow: var(--shadow-md);
 }
 
-[data-theme="light"] .ctx-btn {
+[data-theme='light'] .ctx-btn {
   background: var(--bg-tertiary);
   border-color: var(--border-color);
   color: var(--text-secondary);
 }
 
-[data-theme="light"] .ctx-btn:hover {
+[data-theme='light'] .ctx-btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
 }
 
-[data-theme="light"] .table-name {
+[data-theme='light'] .table-name {
   color: var(--text-secondary);
 }
 
-[data-theme="light"] .selection-info {
+[data-theme='light'] .selection-info {
   color: var(--text-secondary);
   background: rgba(0, 0, 0, 0.05);
 }
@@ -903,42 +903,42 @@
 /* ========================================
    Danger buttons - light mode
    ======================================== */
-[data-theme="light"] button.danger,
-[data-theme="light"] .btn.danger,
-[data-theme="light"] .snapshot-restore-btn.danger {
+[data-theme='light'] button.danger,
+[data-theme='light'] .btn.danger,
+[data-theme='light'] .snapshot-restore-btn.danger {
   color: var(--error-color);
   background: var(--error-bg);
   border-color: var(--error-border);
 }
 
-[data-theme="light"] button.danger:hover,
-[data-theme="light"] .btn.danger:hover,
-[data-theme="light"] .snapshot-restore-btn.danger:hover {
+[data-theme='light'] button.danger:hover,
+[data-theme='light'] .btn.danger:hover,
+[data-theme='light'] .snapshot-restore-btn.danger:hover {
   background: var(--error-hover);
 }
 
-[data-theme="light"] .detail-actions button.danger {
+[data-theme='light'] .detail-actions button.danger {
   background: var(--error-bg);
   border-color: var(--error-border);
   color: var(--error-color);
 }
 
-[data-theme="light"] .detail-actions button.danger:hover {
+[data-theme='light'] .detail-actions button.danger:hover {
   background: var(--error-hover);
 }
 
-[data-theme="light"] .menu-item.danger {
+[data-theme='light'] .menu-item.danger {
   color: var(--error-color);
 }
 
-[data-theme="light"] .menu-item.danger:hover {
+[data-theme='light'] .menu-item.danger:hover {
   background: var(--error-bg);
 }
 
 /* ========================================
    NodeContextMenu - light mode
    ======================================== */
-[data-theme="light"] .context-menu {
+[data-theme='light'] .context-menu {
   background: rgba(255, 255, 255, 0.95);
   border-color: var(--border-color);
   box-shadow:
@@ -947,167 +947,162 @@
     0 0 80px rgba(0, 0, 0, 0.1);
 }
 
-[data-theme="light"] .context-menu::before {
-  background: linear-gradient(
-    135deg,
-    rgba(0, 0, 0, 0.05) 0%,
-    transparent 50%,
-    transparent 100%
-  );
+[data-theme='light'] .context-menu::before {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.05) 0%, transparent 50%, transparent 100%);
 }
 
-[data-theme="light"] .menu-backdrop {
+[data-theme='light'] .menu-backdrop {
   background: rgba(0, 0, 0, 0.1);
 }
 
-[data-theme="light"] .menu-header {
+[data-theme='light'] .menu-header {
   border-bottom-color: var(--border-color);
 }
 
-[data-theme="light"] .menu-title {
+[data-theme='light'] .menu-title {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .menu-type-badge {
+[data-theme='light'] .menu-type-badge {
   background: var(--bg-tertiary);
   color: var(--text-secondary);
 }
 
-[data-theme="light"] .menu-section {
+[data-theme='light'] .menu-section {
   border-color: var(--border-color);
 }
 
-[data-theme="light"] .menu-item {
+[data-theme='light'] .menu-item {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .menu-item:hover {
+[data-theme='light'] .menu-item:hover {
   background: var(--bg-hover);
 }
 
-[data-theme="light"] .menu-icon {
+[data-theme='light'] .menu-icon {
   color: var(--text-secondary);
 }
 
-[data-theme="light"] .menu-shortcut {
+[data-theme='light'] .menu-shortcut {
   color: var(--text-tertiary);
 }
 
-[data-theme="light"] .linked-section {
+[data-theme='light'] .linked-section {
   background: var(--bg-secondary);
 }
 
-[data-theme="light"] .linked-item {
+[data-theme='light'] .linked-item {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .linked-item:hover {
+[data-theme='light'] .linked-item:hover {
   background: var(--bg-hover);
 }
 
-[data-theme="light"] .workspace-item:hover {
+[data-theme='light'] .workspace-item:hover {
   background: var(--bg-hover);
 }
 
 /* NodeSpreadsheet - row index, column menu, rename input */
-[data-theme="light"] .row-index-cell {
+[data-theme='light'] .row-index-cell {
   background-color: var(--bg-secondary) !important;
   color: var(--text-tertiary) !important;
 }
 
-[data-theme="light"] .column-rename-input {
+[data-theme='light'] .column-rename-input {
   background: var(--bg-primary);
   border-color: var(--accent-color);
   color: var(--text-primary);
 }
 
-[data-theme="light"] .column-menu {
+[data-theme='light'] .column-menu {
   background: var(--bg-elevated);
   border-color: var(--border-color);
   box-shadow: var(--shadow-md);
 }
 
-[data-theme="light"] .column-menu-item {
+[data-theme='light'] .column-menu-item {
   color: var(--text-primary);
 }
 
-[data-theme="light"] .column-menu-item:hover {
+[data-theme='light'] .column-menu-item:hover {
   background: var(--bg-hover);
 }
 
-[data-theme="light"] .column-menu-item.delete {
+[data-theme='light'] .column-menu-item.delete {
   color: var(--error-color);
 }
 
-[data-theme="light"] .column-menu-item.delete:hover {
+[data-theme='light'] .column-menu-item.delete:hover {
   background: var(--error-bg);
 }
 
 /* TableView - inherited completed rows */
-[data-theme="light"] .node-row.inherited-completed {
+[data-theme='light'] .node-row.inherited-completed {
   background: rgba(0, 0, 0, 0.05);
 }
 
-[data-theme="light"] .node-row.inherited-completed .col-title {
+[data-theme='light'] .node-row.inherited-completed .col-title {
   color: var(--text-tertiary);
 }
 
-[data-theme="light"] .node-row.inherited-completed .col-title::after {
+[data-theme='light'] .node-row.inherited-completed .col-title::after {
   color: var(--success-color);
 }
 
 /* TableView - tree indent colors */
-[data-theme="light"] .tree-indent {
+[data-theme='light'] .tree-indent {
   color: var(--accent-color);
 }
 
-[data-theme="light"] .tree-indent.depth-1 {
+[data-theme='light'] .tree-indent.depth-1 {
   color: var(--accent-color);
 }
 
-[data-theme="light"] .tree-indent.depth-2 {
+[data-theme='light'] .tree-indent.depth-2 {
   color: var(--accent-hover);
 }
 
 /* TableView - drag ghost */
-[data-theme="light"] .drag-ghost {
+[data-theme='light'] .drag-ghost {
   background: var(--bg-primary);
   border-color: var(--accent-color);
   color: var(--text-primary);
 }
 
-[data-theme="light"] .drag-ghost .ghost-action {
+[data-theme='light'] .drag-ghost .ghost-action {
   color: var(--accent-color);
 }
 
 /* TableView - drop indicators */
-[data-theme="light"] .node-row.drop-before {
+[data-theme='light'] .node-row.drop-before {
   border-top-color: var(--accent-color);
 }
 
-[data-theme="light"] .node-row.drop-after {
+[data-theme='light'] .node-row.drop-after {
   border-bottom-color: var(--accent-color);
 }
 
-[data-theme="light"] .node-row.drop-child {
+[data-theme='light'] .node-row.drop-child {
   outline-color: var(--accent-color);
 }
 
 /* Table header row */
-[data-theme="light"] thead tr {
+[data-theme='light'] thead tr {
   background: var(--bg-secondary);
 }
 
-[data-theme="light"] th {
+[data-theme='light'] th {
   background: var(--bg-secondary);
   color: var(--text-secondary);
 }
 
 /* Table body */
-[data-theme="light"] tbody tr {
+[data-theme='light'] tbody tr {
   background: var(--bg-primary);
 }
 
-[data-theme="light"] tbody tr:nth-child(even) {
+[data-theme='light'] tbody tr:nth-child(even) {
   background: var(--bg-secondary);
 }

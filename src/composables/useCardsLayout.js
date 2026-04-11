@@ -26,7 +26,7 @@ export function useCardsLayout({
   containerHeight,
   breadcrumbs,
   currentContainer,
-  inheritColors
+  inheritColors,
 }) {
   /**
    * Calculate progress from original children (before filtering)
@@ -39,7 +39,7 @@ export function useCardsLayout({
     return {
       completed,
       total: tasks.length,
-      percent: Math.round((completed / tasks.length) * 100)
+      percent: Math.round((completed / tasks.length) * 100),
     }
   }
 
@@ -55,7 +55,7 @@ export function useCardsLayout({
       .map(node => ({
         ...node,
         _progress: calculateProgress(node.children),
-        children: node.children ? filterChildrenRecursive(node.children) : []
+        children: node.children ? filterChildrenRecursive(node.children) : [],
       }))
   }
 
@@ -118,11 +118,7 @@ export function useCardsLayout({
    * Number of columns in the current grid layout
    */
   const gridColumns = computed(() => {
-    return calculateGridColumns(
-      filteredChildren.value.length,
-      containerWidth.value,
-      containerHeight.value
-    )
+    return calculateGridColumns(filteredChildren.value.length, containerWidth.value, containerHeight.value)
   })
 
   /**
@@ -142,7 +138,7 @@ export function useCardsLayout({
       gridTemplateColumns: `repeat(${cols}, 1fr)`,
       gridTemplateRows: `repeat(${rows}, 1fr)`,
       gap: `${gap}px`,
-      height: '100%'
+      height: '100%',
     }
   })
 
@@ -165,17 +161,10 @@ export function useCardsLayout({
 
     // Container's own color, or inherited from ancestors
     const containerHasOwnColor = currentContainer?.value?.color && currentContainer.value.color !== DEFAULT_NODE_COLOR
-    const containerColor = containerHasOwnColor
-      ? currentContainer.value.color
-      : (shouldInherit ? ancestorColor : null)
+    const containerColor = containerHasOwnColor ? currentContainer.value.color : shouldInherit ? ancestorColor : null
 
     // Build color map using shared function
-    const colorMap = buildInheritedColorMap(
-      children.value,
-      shouldInherit ? containerColor : null,
-      {},
-      shouldInherit
-    )
+    const colorMap = buildInheritedColorMap(children.value, shouldInherit ? containerColor : null, {}, shouldInherit)
 
     // Add container itself to the map
     if (currentContainer?.value?.id) {
@@ -221,6 +210,6 @@ export function useCardsLayout({
     gridColumns,
     filterChildrenRecursive,
     inheritedColorMap,
-    getNodeColor
+    getNodeColor,
   }
 }

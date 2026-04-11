@@ -6,7 +6,7 @@ import { createNodeCache } from '../services/nodeCache.js'
 // Shared cache instance for sidebar data
 const sidebarCache = createNodeCache({
   maxSize: 100,
-  ttlMs: 60000 // 1 minute TTL for sidebar data
+  ttlMs: 60000, // 1 minute TTL for sidebar data
 })
 
 /**
@@ -36,15 +36,17 @@ export function useDataLoading(currentWorkspace) {
   function buildChildTree(flatNodes, parentId, parentCompleted = false) {
     if (!flatNodes) return []
     const children = flatNodes.filter(n => n && n.parent_id === parentId)
-    return children.map(child => {
-      if (!child || !child.id) return null
-      const inheritedCompleted = parentCompleted || child.completed
-      return {
-        ...child,
-        inheritedCompleted: parentCompleted,
-        children: buildChildTree(flatNodes, child.id, inheritedCompleted)
-      }
-    }).filter(Boolean)
+    return children
+      .map(child => {
+        if (!child || !child.id) return null
+        const inheritedCompleted = parentCompleted || child.completed
+        return {
+          ...child,
+          inheritedCompleted: parentCompleted,
+          children: buildChildTree(flatNodes, child.id, inheritedCompleted),
+        }
+      })
+      .filter(Boolean)
   }
 
   // Sidebar tree loading with batch fetching and caching
@@ -74,15 +76,17 @@ export function useDataLoading(currentWorkspace) {
       const rootIds = filteredRoots.map(r => r.id).filter(Boolean)
       const descendantsByRoot = await api.getDescendantsBatch(rootIds)
 
-      const rootsWithChildren = filteredRoots.map(root => {
-        if (!root || !root.id) return null
-        const descendants = descendantsByRoot.get(root.id) || []
-        const filteredDescendants = descendants.filter(matchesWorkspace)
-        return {
-          ...root,
-          children: buildChildTree(filteredDescendants, root.id)
-        }
-      }).filter(Boolean)
+      const rootsWithChildren = filteredRoots
+        .map(root => {
+          if (!root || !root.id) return null
+          const descendants = descendantsByRoot.get(root.id) || []
+          const filteredDescendants = descendants.filter(matchesWorkspace)
+          return {
+            ...root,
+            children: buildChildTree(filteredDescendants, root.id),
+          }
+        })
+        .filter(Boolean)
 
       sidebarTree.value = rootsWithChildren
       sidebarCache.set(cacheKey, rootsWithChildren)
@@ -268,7 +272,7 @@ export function useDataLoading(currentWorkspace) {
 
     // Orphan operations
     moveToRoot,
-    deleteOrphanedNode
+    deleteOrphanedNode,
   }
 }
 

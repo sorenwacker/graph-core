@@ -276,10 +276,18 @@ const webApi = {
   },
 
   // Database Backups & Reload (Electron only in web mode, these are stubs)
-  async backup() { return { error: 'Backups only available in desktop app' } },
-  async listBackups() { return [] },
-  async restoreBackup() { return { error: 'Restore only available in desktop app' } },
-  async reload() { return { error: 'Reload only available in desktop app' } },
+  async backup() {
+    return { error: 'Backups only available in desktop app' }
+  },
+  async listBackups() {
+    return []
+  },
+  async restoreBackup() {
+    return { error: 'Restore only available in desktop app' }
+  },
+  async reload() {
+    return { error: 'Reload only available in desktop app' }
+  },
 
   // Node Tables (Spreadsheet)
   async getNodeTable(nodeId) {
@@ -334,9 +342,9 @@ const webApi = {
         prompt: fullPrompt,
         stream: false,
         options: {
-          num_ctx: contextSize || 32768
-        }
-      })
+          num_ctx: contextSize || 32768,
+        },
+      }),
     })
 
     if (!response.ok) {
@@ -359,14 +367,14 @@ const webApi = {
       if (!response.ok) {
         return {
           success: false,
-          error: `Ollama API error: ${response.status} ${response.statusText}`
+          error: `Ollama API error: ${response.status} ${response.statusText}`,
         }
       }
       return { success: true }
     } catch {
       return {
         success: false,
-        error: 'Ollama is not running. Start with: ollama serve'
+        error: 'Ollama is not running. Start with: ollama serve',
       }
     }
   },
@@ -386,16 +394,16 @@ const webApi = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model,
         messages: [
           { role: 'system', content: prompt },
-          { role: 'user', content: content }
+          { role: 'user', content: content },
         ],
-        stream: false
-      })
+        stream: false,
+      }),
     })
 
     if (!response.ok) {
@@ -416,7 +424,7 @@ const webApi = {
     }
     try {
       const response = await fetch(`${endpoint}/models`, {
-        headers: { 'Authorization': `Bearer ${apiKey}` }
+        headers: { Authorization: `Bearer ${apiKey}` },
       })
       if (!response.ok) {
         if (response.status === 401) {
@@ -435,7 +443,7 @@ const webApi = {
       throw new Error('API key is required')
     }
     const response = await fetch(`${endpoint}/models`, {
-      headers: { 'Authorization': `Bearer ${apiKey}` }
+      headers: { Authorization: `Bearer ${apiKey}` },
     })
     if (!response.ok) {
       throw new Error(`API error: ${response.status} ${response.statusText}`)
@@ -449,22 +457,22 @@ const webApi = {
 // Wrap array-returning methods with filterNulls to prevent null entries
 const electronApi = {
   // Node CRUD
-  getNodes: async (params) => filterNulls(await window.electronAPI.getNodes(params)),
-  getNode: (id) => window.electronAPI.getNode(id),
-  createNode: (data) => window.electronAPI.createNode(data),
+  getNodes: async params => filterNulls(await window.electronAPI.getNodes(params)),
+  getNode: id => window.electronAPI.getNode(id),
+  createNode: data => window.electronAPI.createNode(data),
   updateNode: (id, data) => window.electronAPI.updateNode(id, data),
   deleteNode: (id, hard) => window.electronAPI.deleteNode(id, hard),
 
   // Tree operations - all return arrays, so wrap with filterNulls
-  getRoots: async (workspaceId) => filterNulls(await window.electronAPI.getRoots(workspaceId)),
+  getRoots: async workspaceId => filterNulls(await window.electronAPI.getRoots(workspaceId)),
   getProjects: async () => filterNulls(await window.electronAPI.getProjects()),
   getInbox: async () => filterNulls(await window.electronAPI.getInbox()),
   getRecent: async (limit, workspaceId) => filterNulls(await window.electronAPI.getRecent(limit, workspaceId)),
-  getFavorites: async (workspaceId) => filterNulls(await window.electronAPI.getFavorites(workspaceId)),
-  getTasks: async (params) => filterNulls(await window.electronAPI.getTasks(params)),
+  getFavorites: async workspaceId => filterNulls(await window.electronAPI.getFavorites(workspaceId)),
+  getTasks: async params => filterNulls(await window.electronAPI.getTasks(params)),
   getChildren: async (id, type) => filterNulls(await window.electronAPI.getChildren(id, type)),
   getDescendants: async (id, maxDepth) => filterNulls(await window.electronAPI.getDescendants(id, maxDepth)),
-  getDescendantsBatch: async (rootIds) => {
+  getDescendantsBatch: async rootIds => {
     const result = await window.electronAPI.getDescendantsBatch(rootIds)
     // Convert plain object back to Map and filter nulls from each array
     const map = new Map()
@@ -473,78 +481,83 @@ const electronApi = {
     }
     return map
   },
-  getAncestors: async (id) => filterNulls(await window.electronAPI.getAncestors(id)),
+  getAncestors: async id => filterNulls(await window.electronAPI.getAncestors(id)),
   moveNode: (id, newParentId) => window.electronAPI.moveNode(id, newParentId),
 
   // Links
   linkNodes: (sourceId, targetId) => window.electronAPI.linkNodes(sourceId, targetId),
   unlinkNodes: (sourceId, targetId) => window.electronAPI.unlinkNodes(sourceId, targetId),
-  getAllLinks: async (nodeIds) => filterNulls(await window.electronAPI.getAllLinks(nodeIds)),
-  getLinkedNodes: async (id) => filterNulls(await window.electronAPI.getLinkedNodes(id)),
+  getAllLinks: async nodeIds => filterNulls(await window.electronAPI.getAllLinks(nodeIds)),
+  getLinkedNodes: async id => filterNulls(await window.electronAPI.getLinkedNodes(id)),
 
   // Tree view
-  getTree: (rootId) => window.electronAPI.getTree(rootId),
+  getTree: rootId => window.electronAPI.getTree(rootId),
 
   // Search with pagination
-  search: async (query, type, workspaceId, options) => filterNulls(await window.electronAPI.search(query, type, workspaceId, options)),
+  search: async (query, type, workspaceId, options) =>
+    filterNulls(await window.electronAPI.search(query, type, workspaceId, options)),
   searchCount: (query, type, workspaceId, options) => window.electronAPI.searchCount(query, type, workspaceId, options),
 
   // Reorder
   reorderNode: (nodeId, targetId, position) => window.electronAPI.reorderNode(nodeId, targetId, position),
 
   // Export
-  exportMarkdown: (nodeId) => window.electronAPI.exportMarkdown(nodeId),
+  exportMarkdown: nodeId => window.electronAPI.exportMarkdown(nodeId),
   exportJSON: (nodeId, options) => window.electronAPI.exportJSON(nodeId, options),
   exportCSV: (nodeId, workspaceId) => window.electronAPI.exportCSV(nodeId, workspaceId),
 
   // Import
   importJSON: (data, targetParentId, workspaceId) => window.electronAPI.importJSON(data, targetParentId, workspaceId),
-  importCSV: (csvData, targetParentId, workspaceId) => window.electronAPI.importCSV(csvData, targetParentId, workspaceId),
+  importCSV: (csvData, targetParentId, workspaceId) =>
+    window.electronAPI.importCSV(csvData, targetParentId, workspaceId),
 
   // Trash
-  getTrash: async (limit) => filterNulls(await window.electronAPI.getTrash(limit)),
-  restoreNode: (id) => window.electronAPI.restoreNode(id),
+  getTrash: async limit => filterNulls(await window.electronAPI.getTrash(limit)),
+  restoreNode: id => window.electronAPI.restoreNode(id),
   emptyTrash: () => window.electronAPI.emptyTrash(),
 
   // Lost & Found
   getOrphanedNodes: async () => filterNulls(await window.electronAPI.getOrphanedNodes()),
-  reparentToRoot: (id) => window.electronAPI.reparentToRoot(id),
+  reparentToRoot: id => window.electronAPI.reparentToRoot(id),
 
   // Tags
-  getAllTags: async (workspaceId) => filterNulls(await window.electronAPI.getAllTags(workspaceId)),
-  getNodesByTag: async (tag, workspaceId, options) => filterNulls(await window.electronAPI.getNodesByTag(tag, workspaceId, options)),
+  getAllTags: async workspaceId => filterNulls(await window.electronAPI.getAllTags(workspaceId)),
+  getNodesByTag: async (tag, workspaceId, options) =>
+    filterNulls(await window.electronAPI.getNodesByTag(tag, workspaceId, options)),
 
   // Workspaces
   getWorkspaces: async () => filterNulls(await window.electronAPI.getWorkspaces()),
-  getWorkspace: (id) => window.electronAPI.getWorkspace(id),
-  createWorkspace: (data) => window.electronAPI.createWorkspace(data),
+  getWorkspace: id => window.electronAPI.getWorkspace(id),
+  createWorkspace: data => window.electronAPI.createWorkspace(data),
   updateWorkspace: (id, data) => window.electronAPI.updateWorkspace(id, data),
-  deleteWorkspace: (id) => window.electronAPI.deleteWorkspace(id),
+  deleteWorkspace: id => window.electronAPI.deleteWorkspace(id),
 
   // Database Backups & Reload
-  backup: (suffix) => window.electronAPI.backup(suffix),
+  backup: suffix => window.electronAPI.backup(suffix),
   listBackups: () => window.electronAPI.listBackups(),
-  restoreBackup: (backupPath) => window.electronAPI.restoreBackup(backupPath),
+  restoreBackup: backupPath => window.electronAPI.restoreBackup(backupPath),
   reload: () => window.electronAPI.reload(),
 
   // Node Tables (Spreadsheet)
-  getNodeTable: (nodeId) => window.electronAPI.getNodeTable(nodeId),
+  getNodeTable: nodeId => window.electronAPI.getNodeTable(nodeId),
   createNodeTable: (nodeId, data) => window.electronAPI.createNodeTable(nodeId, data),
   updateNodeTable: (nodeId, data) => window.electronAPI.updateNodeTable(nodeId, data),
-  deleteNodeTable: (nodeId) => window.electronAPI.deleteNodeTable(nodeId),
-  getTableCells: (nodeId) => window.electronAPI.getTableCells(nodeId),
+  deleteNodeTable: nodeId => window.electronAPI.deleteNodeTable(nodeId),
+  getTableCells: nodeId => window.electronAPI.getTableCells(nodeId),
   setCells: (nodeId, cells) => window.electronAPI.setCells(nodeId, cells),
-  clearCells: (nodeId) => window.electronAPI.clearCells(nodeId),
+  clearCells: nodeId => window.electronAPI.clearCells(nodeId),
 
   // Ollama LLM
-  ollamaGenerate: (options) => window.electronAPI.ollamaGenerate(options),
-  ollamaTestConnection: (endpoint) => window.electronAPI.ollamaTestConnection(endpoint),
-  ollamaListModels: (endpoint) => window.electronAPI.ollamaListModels(endpoint),
+  ollamaGenerate: options => window.electronAPI.ollamaGenerate(options),
+  ollamaTestConnection: endpoint => window.electronAPI.ollamaTestConnection(endpoint),
+  ollamaListModels: endpoint => window.electronAPI.ollamaListModels(endpoint),
 
   // OpenAI-compatible API
-  openaiGenerate: (options) => window.electronAPI.openaiGenerate(options),
-  openaiTestConnection: (endpoint, apiKey, skipSslVerification) => window.electronAPI.openaiTestConnection(endpoint, apiKey, skipSslVerification),
-  openaiListModels: (endpoint, apiKey, skipSslVerification) => window.electronAPI.openaiListModels(endpoint, apiKey, skipSslVerification),
+  openaiGenerate: options => window.electronAPI.openaiGenerate(options),
+  openaiTestConnection: (endpoint, apiKey, skipSslVerification) =>
+    window.electronAPI.openaiTestConnection(endpoint, apiKey, skipSslVerification),
+  openaiListModels: (endpoint, apiKey, skipSslVerification) =>
+    window.electronAPI.openaiListModels(endpoint, apiKey, skipSslVerification),
 }
 
 // Export the appropriate API based on environment

@@ -15,12 +15,12 @@ vi.mock('../services/api.js', () => ({
     restoreNode: vi.fn(),
     reparentToRoot: vi.fn(),
     deleteNode: vi.fn(),
-    emptyTrash: vi.fn()
-  }
+    emptyTrash: vi.fn(),
+  },
 }))
 
 vi.mock('../composables/useErrorHandler.js', () => ({
-  handleError: vi.fn()
+  handleError: vi.fn(),
 }))
 
 describe('useDataLoading', () => {
@@ -41,11 +41,11 @@ describe('useDataLoading', () => {
     it('should use batch fetching for descendants', async () => {
       const roots = [
         { id: 1, title: 'Root 1', workspace_id: 'work' },
-        { id: 2, title: 'Root 2', workspace_id: 'work' }
+        { id: 2, title: 'Root 2', workspace_id: 'work' },
       ]
       const descendantsMap = new Map([
         [1, [{ id: 3, title: 'Child 1', parent_id: 1, workspace_id: 'work' }]],
-        [2, [{ id: 4, title: 'Child 2', parent_id: 2, workspace_id: 'work' }]]
+        [2, [{ id: 4, title: 'Child 2', parent_id: 2, workspace_id: 'work' }]],
       ])
 
       api.getRoots.mockResolvedValue(roots)
@@ -190,7 +190,7 @@ describe('useDataLoading', () => {
       const flatNodes = [
         { id: 2, title: 'Child 1', parent_id: 1, completed: false },
         { id: 3, title: 'Child 2', parent_id: 1, completed: false },
-        { id: 4, title: 'Grandchild', parent_id: 2, completed: false }
+        { id: 4, title: 'Grandchild', parent_id: 2, completed: false },
       ]
 
       const tree = buildChildTree(flatNodes, 1)
@@ -208,7 +208,7 @@ describe('useDataLoading', () => {
 
       const flatNodes = [
         { id: 2, title: 'Completed Parent', parent_id: 1, completed: true },
-        { id: 3, title: 'Child', parent_id: 2, completed: false }
+        { id: 3, title: 'Child', parent_id: 2, completed: false },
       ]
 
       const tree = buildChildTree(flatNodes, 1)

@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 
 const props = defineProps({
-  isLoading: { type: Boolean, default: false }
+  isLoading: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['submit', 'close'])
@@ -51,14 +51,8 @@ onUnmounted(() => {
         <span class="hint">Press Ctrl+Enter to submit</span>
       </div>
       <div class="modal-footer">
-        <button class="cancel-btn" @click="emit('close')" :disabled="isLoading">
-          Cancel
-        </button>
-        <button
-          class="submit-btn"
-          @click="handleSubmit"
-          :disabled="!customPrompt.trim() || isLoading"
-        >
+        <button class="cancel-btn" @click="emit('close')" :disabled="isLoading">Cancel</button>
+        <button class="submit-btn" @click="handleSubmit" :disabled="!customPrompt.trim() || isLoading">
           <span v-if="isLoading" class="spinner"></span>
           <span v-else>Generate</span>
         </button>

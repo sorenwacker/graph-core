@@ -6,12 +6,39 @@ let SQL = null // Will be initialized once
 
 // Shared field list for node CRUD operations
 const NODE_FIELDS = [
-  'type', 'title', 'parent_id', 'notes', 'completed', 'color', 'sort_order',
-  'importance', 'start_date', 'end_date', 'due_date', 'location', 'email', 'phone',
-  'organization', 'role', 'address', 'website', 'favorite', 'notes_sensitive',
-  'category_id', 'status_id', 'tags', 'workspace_id', 'graph_layout', 'show_root_node',
-  'show_external_links', 'show_links', 'graph_max_depth', 'graph_type_filter',
-  'graph_relax_locked', 'graph_fit_locked', 'graph_physics'
+  'type',
+  'title',
+  'parent_id',
+  'notes',
+  'completed',
+  'color',
+  'sort_order',
+  'importance',
+  'start_date',
+  'end_date',
+  'due_date',
+  'location',
+  'email',
+  'phone',
+  'organization',
+  'role',
+  'address',
+  'website',
+  'favorite',
+  'notes_sensitive',
+  'category_id',
+  'status_id',
+  'tags',
+  'workspace_id',
+  'graph_layout',
+  'show_root_node',
+  'show_external_links',
+  'show_links',
+  'graph_max_depth',
+  'graph_type_filter',
+  'graph_relax_locked',
+  'graph_fit_locked',
+  'graph_physics',
 ]
 
 class Database {
@@ -69,12 +96,13 @@ class Database {
     const dir = path.dirname(this.dbPath)
     const base = path.basename(this.dbPath, '.db')
     try {
-      return fs.readdirSync(dir)
+      return fs
+        .readdirSync(dir)
         .filter(f => f.startsWith(base + '-backup-') && f.endsWith('.db'))
         .map(f => ({
           path: path.join(dir, f),
           name: f,
-          created: fs.statSync(path.join(dir, f)).mtime
+          created: fs.statSync(path.join(dir, f)).mtime,
         }))
         .sort((a, b) => b.created - a.created)
     } catch {
@@ -119,14 +147,17 @@ class Database {
   _seedDefaultWorkspaces() {
     const defaults = [
       { id: 'work', name: 'Work', color: '#3498db', icon: 'briefcase', sort_order: 1 },
-      { id: 'private', name: 'Private', color: '#27ae60', icon: 'home', sort_order: 2 }
+      { id: 'private', name: 'Private', color: '#27ae60', icon: 'home', sort_order: 2 },
     ]
     for (const ws of defaults) {
       try {
-        this.db.run(
-          `INSERT OR IGNORE INTO workspaces (id, name, color, icon, sort_order) VALUES (?, ?, ?, ?, ?)`,
-          [ws.id, ws.name, ws.color, ws.icon, ws.sort_order]
-        )
+        this.db.run(`INSERT OR IGNORE INTO workspaces (id, name, color, icon, sort_order) VALUES (?, ?, ?, ?, ?)`, [
+          ws.id,
+          ws.name,
+          ws.color,
+          ws.icon,
+          ws.sort_order,
+        ])
       } catch {
         // Ignore duplicates
       }
@@ -157,10 +188,13 @@ class Database {
    */
   createWorkspace(data) {
     const id = data.id || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-    this._run(
-      `INSERT INTO workspaces (id, name, color, icon, sort_order) VALUES (?, ?, ?, ?, ?)`,
-      [id, data.name, data.color || '#3498db', data.icon || 'folder', data.sort_order || 99]
-    )
+    this._run(`INSERT INTO workspaces (id, name, color, icon, sort_order) VALUES (?, ?, ?, ?, ?)`, [
+      id,
+      data.name,
+      data.color || '#3498db',
+      data.icon || 'folder',
+      data.sort_order || 99,
+    ])
     return this.getWorkspace(id)
   }
 
@@ -348,17 +382,22 @@ class Database {
       { table: 'nodes', column: 'show_root_node', def: 'INTEGER DEFAULT NULL' },
       { table: 'nodes', column: 'show_external_links', def: 'INTEGER DEFAULT NULL' },
       { table: 'nodes', column: 'show_links', def: 'INTEGER DEFAULT 1' },
-      { table: 'nodes', column: 'workspace_id', def: 'TEXT DEFAULT NULL', onAdd: () => {
-        this.backup('-pre-workspace-migration')
-        console.log('Created backup before workspace migration')
-        console.log('Added workspace_id column to nodes table')
-      }},
+      {
+        table: 'nodes',
+        column: 'workspace_id',
+        def: 'TEXT DEFAULT NULL',
+        onAdd: () => {
+          this.backup('-pre-workspace-migration')
+          console.log('Created backup before workspace migration')
+          console.log('Added workspace_id column to nodes table')
+        },
+      },
       { table: 'nodes', column: 'graph_max_depth', def: 'INTEGER DEFAULT NULL' },
       { table: 'nodes', column: 'graph_type_filter', def: 'TEXT DEFAULT NULL' },
       { table: 'nodes', column: 'graph_relax_locked', def: 'INTEGER DEFAULT NULL' },
       { table: 'nodes', column: 'graph_fit_locked', def: 'INTEGER DEFAULT NULL' },
       { table: 'nodes', column: 'graph_physics', def: 'TEXT DEFAULT NULL' },
-      { table: 'workspaces', column: 'show_external_links', def: 'INTEGER DEFAULT 1' }
+      { table: 'workspaces', column: 'show_external_links', def: 'INTEGER DEFAULT 1' },
     ]
 
     for (const { table, column, def, onAdd } of columnMigrations) {
@@ -386,7 +425,7 @@ class Database {
    * Set show_links = 1 for nodes where it's NULL (newly added column)
    */
   _migrateShowLinksDefault() {
-    this.db.run("UPDATE nodes SET show_links = 1 WHERE show_links IS NULL")
+    this.db.run('UPDATE nodes SET show_links = 1 WHERE show_links IS NULL')
   }
 
   /**
@@ -398,7 +437,9 @@ class Database {
     )
     if (unassigned[0]?.cnt > 0) {
       console.log(`Migrating ${unassigned[0].cnt} unassigned nodes to 'work' workspace`)
-      this.db.run("UPDATE nodes SET workspace_id = 'work' WHERE workspace_id IS NULL AND type NOT IN ('person', 'organization', 'group')")
+      this.db.run(
+        "UPDATE nodes SET workspace_id = 'work' WHERE workspace_id IS NULL AND type NOT IN ('person', 'organization', 'group')"
+      )
       this._save()
     }
   }
@@ -412,7 +453,9 @@ class Database {
     )
     if (needsMigration[0]?.cnt > 0) {
       console.log(`Setting start_date for ${needsMigration[0].cnt} tasks/projects`)
-      this.db.run("UPDATE nodes SET start_date = DATE(created_at) WHERE type IN ('task', 'project') AND start_date IS NULL AND created_at IS NOT NULL")
+      this.db.run(
+        "UPDATE nodes SET start_date = DATE(created_at) WHERE type IN ('task', 'project') AND start_date IS NULL AND created_at IS NOT NULL"
+      )
       this._save()
     }
   }
@@ -430,7 +473,7 @@ class Database {
 
   _run(sql, params = []) {
     this.db.run(sql, params)
-    const result = this._query("SELECT last_insert_rowid() as id")
+    const result = this._query('SELECT last_insert_rowid() as id')
     const lastId = result[0]?.id
     this._save()
     return { lastInsertRowid: lastId }
@@ -478,7 +521,7 @@ class Database {
       notes_sensitive: Boolean(row.notes_sensitive),
       tags,
       graph_type_filter,
-      graph_physics
+      graph_physics,
     }
   }
 
@@ -521,10 +564,10 @@ class Database {
 
       // Fix all descendants - remove the old prefix from their paths
       // e.g., '614/606' -> '606', '614/606/123' -> '606/123'
-      const descendants = this._query(
-        "SELECT id, path FROM nodes WHERE path LIKE ? OR path = ?",
-        [`${oldPrefix}/%`, oldPrefix]
-      )
+      const descendants = this._query('SELECT id, path FROM nodes WHERE path LIKE ? OR path = ?', [
+        `${oldPrefix}/%`,
+        oldPrefix,
+      ])
 
       for (const desc of descendants) {
         let newPath = desc.path
@@ -559,7 +602,10 @@ class Database {
     if (personsWithParents.length === 0) return
 
     for (const person of personsWithParents) {
-      this.db.run('INSERT OR IGNORE INTO node_links (source_id, target_id) VALUES (?, ?)', [person.id, person.parent_id])
+      this.db.run('INSERT OR IGNORE INTO node_links (source_id, target_id) VALUES (?, ?)', [
+        person.id,
+        person.parent_id,
+      ])
       this.db.run('UPDATE nodes SET parent_id = NULL, path = "", depth = 0 WHERE id = ?', [person.id])
     }
 
@@ -637,7 +683,7 @@ class Database {
             "INSERT INTO nodes (type, title, workspace_id, path, depth, created_at, updated_at) VALUES (?, ?, NULL, '', 0, datetime('now'), datetime('now'))",
             ['organization', orgName]
           )
-          const result = this._query("SELECT last_insert_rowid() as id")
+          const result = this._query('SELECT last_insert_rowid() as id')
           orgId = result[0]?.id
         }
         orgCache.set(orgName.toLowerCase(), orgId)
@@ -646,10 +692,7 @@ class Database {
       if (orgId) {
         // Create link between person and organization
         try {
-          this.db.run(
-            'INSERT OR IGNORE INTO node_links (source_id, target_id) VALUES (?, ?)',
-            [person.id, orgId]
-          )
+          this.db.run('INSERT OR IGNORE INTO node_links (source_id, target_id) VALUES (?, ?)', [person.id, orgId])
           migrated++
         } catch {
           // Link might already exist
@@ -800,7 +843,9 @@ class Database {
     }
 
     // Update paths for reassigned children
-    const reassignedChildren = this._query('SELECT id FROM nodes WHERE parent_id = ? AND deleted_at IS NULL', [newParentId])
+    const reassignedChildren = this._query('SELECT id FROM nodes WHERE parent_id = ? AND deleted_at IS NULL', [
+      newParentId,
+    ])
     for (const child of reassignedChildren) {
       this._updateDescendantPaths(child.id)
     }
@@ -817,7 +862,8 @@ class Database {
    *   - string: specific workspace
    */
   getRoots(workspaceId = undefined) {
-    let sql = 'SELECT *, (EXISTS(SELECT 1 FROM node_tables WHERE node_id = nodes.id)) as has_table FROM nodes WHERE parent_id IS NULL AND deleted_at IS NULL'
+    let sql =
+      'SELECT *, (EXISTS(SELECT 1 FROM node_tables WHERE node_id = nodes.id)) as has_table FROM nodes WHERE parent_id IS NULL AND deleted_at IS NULL'
     const values = []
 
     sql = this._applyWorkspaceFilter(sql, values, workspaceId)
@@ -914,7 +960,8 @@ class Database {
 
   getChildren(id, type = null, workspaceId = undefined) {
     const parent = this.getNode(id)
-    let sql = 'SELECT *, (EXISTS(SELECT 1 FROM node_tables WHERE node_id = nodes.id)) as has_table FROM nodes WHERE parent_id = ? AND deleted_at IS NULL'
+    let sql =
+      'SELECT *, (EXISTS(SELECT 1 FROM node_tables WHERE node_id = nodes.id)) as has_table FROM nodes WHERE parent_id = ? AND deleted_at IS NULL'
     const values = [id]
 
     if (type) {
@@ -936,7 +983,8 @@ class Database {
 
     const pathPrefix = node.path ? `${node.path}/${id}` : `${id}`
 
-    let sql = "SELECT *, (EXISTS(SELECT 1 FROM node_tables WHERE node_id = nodes.id)) as has_table FROM nodes WHERE (path = ? OR path LIKE ?) AND deleted_at IS NULL"
+    let sql =
+      'SELECT *, (EXISTS(SELECT 1 FROM node_tables WHERE node_id = nodes.id)) as has_table FROM nodes WHERE (path = ? OR path LIKE ?) AND deleted_at IS NULL'
     const values = [pathPrefix, `${pathPrefix}/%`]
 
     sql = this._applyWorkspaceFilter(sql, values, node.workspace_id)
@@ -1040,10 +1088,12 @@ class Database {
       }
     }
 
-    this._run(
-      'UPDATE nodes SET parent_id = ?, depth = ?, path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [newParentId, depth, path, id]
-    )
+    this._run('UPDATE nodes SET parent_id = ?, depth = ?, path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [
+      newParentId,
+      depth,
+      path,
+      id,
+    ])
 
     // Update descendants' paths
     this._updateDescendantPaths(id)
@@ -1067,15 +1117,9 @@ class Database {
   // Links
   linkNodes(sourceId, targetId) {
     try {
-      this._run(
-        'INSERT INTO node_links (source_id, target_id) VALUES (?, ?)',
-        [sourceId, targetId]
-      )
+      this._run('INSERT INTO node_links (source_id, target_id) VALUES (?, ?)', [sourceId, targetId])
       // Touch both nodes so they appear in recent nodes
-      this._run(
-        'UPDATE nodes SET updated_at = CURRENT_TIMESTAMP WHERE id IN (?, ?)',
-        [sourceId, targetId]
-      )
+      this._run('UPDATE nodes SET updated_at = CURRENT_TIMESTAMP WHERE id IN (?, ?)', [sourceId, targetId])
       return { success: true }
     } catch (e) {
       return { success: false, error: e.message }
@@ -1083,10 +1127,7 @@ class Database {
   }
 
   unlinkNodes(sourceId, targetId) {
-    this._run(
-      'DELETE FROM node_links WHERE source_id = ? AND target_id = ?',
-      [sourceId, targetId]
-    )
+    this._run('DELETE FROM node_links WHERE source_id = ? AND target_id = ?', [sourceId, targetId])
     return { success: true }
   }
 
@@ -1103,10 +1144,7 @@ class Database {
 
   getLinkedNodes(id) {
     const numId = Number(id)
-    const links = this._query(
-      'SELECT * FROM node_links WHERE source_id = ? OR target_id = ?',
-      [numId, numId]
-    )
+    const links = this._query('SELECT * FROM node_links WHERE source_id = ? OR target_id = ?', [numId, numId])
 
     const linkedIds = new Set()
     for (const link of links) {
@@ -1117,10 +1155,9 @@ class Database {
     if (linkedIds.size === 0) return []
 
     const placeholders = [...linkedIds].map(() => '?').join(', ')
-    return this._query(
-      `SELECT * FROM nodes WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
-      [...linkedIds]
-    ).map(r => this._rowToNode(r))
+    return this._query(`SELECT * FROM nodes WHERE id IN (${placeholders}) AND deleted_at IS NULL`, [...linkedIds]).map(
+      r => this._rowToNode(r)
+    )
   }
 
   // Tree view with nested children
@@ -1162,11 +1199,11 @@ class Database {
    */
   search(query, type = null, workspaceId = undefined, options = {}) {
     const { hideCompleted = false, limit = 50, offset = 0 } = options
-    let sql = "SELECT * FROM nodes WHERE deleted_at IS NULL AND (title LIKE ? OR notes LIKE ?)"
+    let sql = 'SELECT * FROM nodes WHERE deleted_at IS NULL AND (title LIKE ? OR notes LIKE ?)'
     const values = [`%${query}%`, `%${query}%`]
 
     // When searching for persons, default to people workspace (null) unless specified
-    const effectiveWorkspaceId = (type === 'person' && workspaceId === undefined) ? null : workspaceId
+    const effectiveWorkspaceId = type === 'person' && workspaceId === undefined ? null : workspaceId
     sql = this._applyWorkspaceFilter(sql, values, effectiveWorkspaceId)
 
     if (type) {
@@ -1193,10 +1230,10 @@ class Database {
    */
   searchCount(query, type = null, workspaceId = undefined, options = {}) {
     const { hideCompleted = false } = options
-    let sql = "SELECT COUNT(*) as count FROM nodes WHERE deleted_at IS NULL AND (title LIKE ? OR notes LIKE ?)"
+    let sql = 'SELECT COUNT(*) as count FROM nodes WHERE deleted_at IS NULL AND (title LIKE ? OR notes LIKE ?)'
     const values = [`%${query}%`, `%${query}%`]
 
-    const effectiveWorkspaceId = (type === 'person' && workspaceId === undefined) ? null : workspaceId
+    const effectiveWorkspaceId = type === 'person' && workspaceId === undefined ? null : workspaceId
     sql = this._applyWorkspaceFilter(sql, values, effectiveWorkspaceId)
 
     if (type) {
@@ -1229,8 +1266,7 @@ class Database {
       newOrder = targetIndex < siblings.length - 1 ? target.sort_order + 1 : target.sort_order + 1
     }
 
-    this._run('UPDATE nodes SET sort_order = ?, parent_id = ? WHERE id = ?',
-      [newOrder, target.parent_id, nodeId])
+    this._run('UPDATE nodes SET sort_order = ?, parent_id = ? WHERE id = ?', [newOrder, target.parent_id, nodeId])
 
     return this.getNode(nodeId)
   }
@@ -1310,7 +1346,7 @@ class Database {
 
       return {
         ...node,
-        children: children.length > 0 ? children : undefined
+        children: children.length > 0 ? children : undefined,
       }
     }
 
@@ -1329,10 +1365,13 @@ class Database {
 
       if (nodeIds.length > 0) {
         const placeholders = nodeIds.map(() => '?').join(',')
-        const links = db._query(`
+        const links = db._query(
+          `
           SELECT source_id, target_id FROM node_links
           WHERE source_id IN (${placeholders}) AND target_id IN (${placeholders})
-        `, [...nodeIds, ...nodeIds])
+        `,
+          [...nodeIds, ...nodeIds]
+        )
         if (links.length > 0) {
           result.links = links
         }
@@ -1360,10 +1399,24 @@ class Database {
       nodes = this.getNodes({ workspace_id: workspaceId })
     }
 
-    const headers = ['id', 'title', 'type', 'parent_id', 'workspace_id', 'notes', 'completed',
-      'importance', 'due_date', 'start_date', 'end_date', 'tags', 'created_at', 'updated_at']
+    const headers = [
+      'id',
+      'title',
+      'type',
+      'parent_id',
+      'workspace_id',
+      'notes',
+      'completed',
+      'importance',
+      'due_date',
+      'start_date',
+      'end_date',
+      'tags',
+      'created_at',
+      'updated_at',
+    ]
 
-    const escapeCSV = (val) => {
+    const escapeCSV = val => {
       if (val === null || val === undefined) return ''
       const str = String(val)
       if (str.includes(',') || str.includes('"') || str.includes('\n')) {
@@ -1372,15 +1425,19 @@ class Database {
       return str
     }
 
-    const rows = nodes.map(node => headers.map(h => {
-      if (h === 'tags') return escapeCSV(node.tags?.join(';') || '')
-      return escapeCSV(node[h])
-    }).join(','))
+    const rows = nodes.map(node =>
+      headers
+        .map(h => {
+          if (h === 'tags') return escapeCSV(node.tags?.join(';') || '')
+          return escapeCSV(node[h])
+        })
+        .join(',')
+    )
 
     return {
       csv: [headers.join(','), ...rows].join('\n'),
       headers,
-      rowCount: nodes.length
+      rowCount: nodes.length,
     }
   }
 
@@ -1409,7 +1466,7 @@ class Database {
       const newNode = db.createNode({
         ...nodeFields,
         parent_id: parentId,
-        workspace_id: workspaceId
+        workspace_id: workspaceId,
       })
 
       idMap.set(oldId, newNode.id)
@@ -1448,7 +1505,7 @@ class Database {
     return {
       rootId: newRoot.id,
       nodesImported: importedCount,
-      linksCreated
+      linksCreated,
     }
   }
 
@@ -1473,7 +1530,7 @@ class Database {
       throw new Error('CSV must have a "title" column')
     }
 
-    const parseCSVLine = (line) => {
+    const parseCSVLine = line => {
       const values = []
       let current = ''
       let inQuotes = false
@@ -1532,7 +1589,7 @@ class Database {
         due_date: row.due_date || null,
         start_date: row.start_date || null,
         end_date: row.end_date || null,
-        tags: row.tags ? row.tags.split(';').filter(Boolean) : null
+        tags: row.tags ? row.tags.split(';').filter(Boolean) : null,
       })
 
       if (oldId) {
@@ -1542,16 +1599,15 @@ class Database {
     }
 
     return {
-      nodesImported: importedCount
+      nodesImported: importedCount,
     }
   }
 
   // Trash
   getTrash(limit = 100) {
-    return this._query(
-      'SELECT * FROM nodes WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT ?',
-      [limit]
-    ).map(r => this._rowToNode(r))
+    return this._query('SELECT * FROM nodes WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT ?', [
+      limit,
+    ]).map(r => this._rowToNode(r))
   }
 
   restoreNode(id) {
@@ -1568,7 +1624,8 @@ class Database {
 
   // Lost & Found - orphaned nodes whose parent doesn't exist or was deleted
   getOrphanedNodes() {
-    return this._query(`
+    return this._query(
+      `
       SELECT n.* FROM nodes n
       WHERE n.deleted_at IS NULL
         AND n.parent_id IS NOT NULL
@@ -1578,7 +1635,8 @@ class Database {
             AND p.deleted_at IS NULL
         )
       ORDER BY n.updated_at DESC
-    `).map(r => this._rowToNode(r))
+    `
+    ).map(r => this._rowToNode(r))
   }
 
   // Re-parent orphaned node to root
@@ -1649,15 +1707,16 @@ class Database {
       // Get all descendants of this root
       const pathPrefix = root.path ? `${root.path}/${root.id}` : `${root.id}`
       const descendants = this._query(
-        "SELECT id, workspace_id FROM nodes WHERE (path = ? OR path LIKE ?) AND deleted_at IS NULL",
+        'SELECT id, workspace_id FROM nodes WHERE (path = ? OR path LIKE ?) AND deleted_at IS NULL',
         [pathPrefix, `${pathPrefix}/%`]
       )
 
       for (const desc of descendants) {
         // Fix if workspace_id doesn't match root
         const descWorkspace = desc.workspace_id
-        const needsFix = (rootWorkspace === null && descWorkspace !== null) ||
-                        (rootWorkspace !== null && descWorkspace !== rootWorkspace)
+        const needsFix =
+          (rootWorkspace === null && descWorkspace !== null) ||
+          (rootWorkspace !== null && descWorkspace !== rootWorkspace)
         if (needsFix) {
           this._run('UPDATE nodes SET workspace_id = ? WHERE id = ?', [rootWorkspace, desc.id])
           fixed++
@@ -1685,7 +1744,7 @@ class Database {
     return {
       ...row,
       column_definitions: JSON.parse(row.column_definitions || '[]'),
-      settings: JSON.parse(row.settings || '{}')
+      settings: JSON.parse(row.settings || '{}'),
     }
   }
 
@@ -1701,7 +1760,7 @@ class Database {
       { id: 'col0', name: 'A', type: 'text', width: 100 },
       { id: 'col1', name: 'B', type: 'text', width: 100 },
       { id: 'col2', name: 'C', type: 'text', width: 100 },
-      { id: 'col3', name: 'D', type: 'text', width: 100 }
+      { id: 'col3', name: 'D', type: 'text', width: 100 },
     ]
 
     const columns = data.column_definitions || defaultColumns
@@ -1781,7 +1840,7 @@ class Database {
       [table.id]
     ).map(cell => ({
       ...cell,
-      style: cell.style ? JSON.parse(cell.style) : null
+      style: cell.style ? JSON.parse(cell.style) : null,
     }))
   }
 
@@ -1805,7 +1864,15 @@ class Database {
       this.db.run(
         `INSERT OR REPLACE INTO node_table_cells (table_id, row_index, col_index, value, formula, computed_value, style)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [table.id, cell.row_index, cell.col_index, cell.value || null, cell.formula || null, cell.computed_value || null, styleJson]
+        [
+          table.id,
+          cell.row_index,
+          cell.col_index,
+          cell.value || null,
+          cell.formula || null,
+          cell.computed_value || null,
+          styleJson,
+        ]
       )
       updated++
     }

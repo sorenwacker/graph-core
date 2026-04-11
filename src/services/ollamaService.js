@@ -53,8 +53,8 @@ export const ollamaService = {
         body: JSON.stringify({
           model,
           prompt: fullPrompt,
-          stream: false
-        })
+          stream: false,
+        }),
       })
 
       if (!response.ok) {
@@ -80,7 +80,7 @@ export const ollamaService = {
       if (!response.ok) {
         return {
           success: false,
-          error: `Ollama API error: ${response.status} ${response.statusText}`
+          error: `Ollama API error: ${response.status} ${response.statusText}`,
         }
       }
 
@@ -90,12 +90,12 @@ export const ollamaService = {
       if (error.message === 'Failed to fetch' || error.code === 'ECONNREFUSED') {
         return {
           success: false,
-          error: 'Ollama is not running. Start with: ollama serve'
+          error: 'Ollama is not running. Start with: ollama serve',
         }
       }
       return {
         success: false,
-        error: error.message
+        error: error.message,
       }
     }
   },
@@ -118,5 +118,5 @@ export const ollamaService = {
     } catch (error) {
       handleConnectionError(error)
     }
-  }
+  },
 }

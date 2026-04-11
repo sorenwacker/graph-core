@@ -4,7 +4,7 @@ import {
   handleNodeClick,
   handleNodeDoubleClick,
   handleKeydown,
-  shouldShowTooltip
+  shouldShowTooltip,
 } from '../utils/nodeInteractions.js'
 
 /**

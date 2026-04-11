@@ -34,7 +34,7 @@ export function useNodeActionsUI({
   // Additional dependencies for updateNode
   invalidateSidebarCache,
   loadRecentItems,
-  loadTags
+  loadTags,
 }) {
   /**
    * Clear selection state after delete operations
@@ -51,10 +51,10 @@ export function useNodeActionsUI({
     const node = await api.getNode(nodeId)
     if (!node) return
 
-    const descendants = await api.getDescendants(nodeId) || []
+    const descendants = (await api.getDescendants(nodeId)) || []
     const allIds = new Set([node, ...descendants].map(n => String(n.id)))
-    const needsNavigation = allIds.has(String(currentContainerId.value)) ||
-      breadcrumbs.value.some(b => allIds.has(String(b.id)))
+    const needsNavigation =
+      allIds.has(String(currentContainerId.value)) || breadcrumbs.value.some(b => allIds.has(String(b.id)))
 
     const result = await nodeOps.deleteNode(nodeId)
     if (result.success) {
@@ -79,8 +79,8 @@ export function useNodeActionsUI({
     if (nodeIds.length > 1 && !confirm(`Delete ${nodeIds.length} nodes? (Cmd+Z to undo)`)) return
 
     const nodeIdSet = new Set(nodeIds.map(String))
-    const needsNavigation = nodeIdSet.has(String(currentContainerId.value)) ||
-      breadcrumbs.value.some(b => nodeIdSet.has(String(b.id)))
+    const needsNavigation =
+      nodeIdSet.has(String(currentContainerId.value)) || breadcrumbs.value.some(b => nodeIdSet.has(String(b.id)))
 
     const result = await nodeOps.deleteMultipleNodes(nodeIds)
     if (result.success) {
@@ -107,7 +107,7 @@ export function useNodeActionsUI({
         title: parentTitle,
         type: 'group',
         parent_id: node.parent_id,
-        workspace_id: getWorkspaceIdForNode('group')
+        workspace_id: getWorkspaceIdForNode('group'),
       })
       if (!newParent || !newParent.id) {
         throw new Error('Failed to create parent node')
@@ -223,9 +223,8 @@ export function useNodeActionsUI({
     let finalOldNotes, finalNewNotes
     if (selectionRange) {
       finalOldNotes = currentFullNotes
-      finalNewNotes = currentFullNotes.slice(0, selectionRange.from) +
-                      newNotes +
-                      currentFullNotes.slice(selectionRange.to)
+      finalNewNotes =
+        currentFullNotes.slice(0, selectionRange.from) + newNotes + currentFullNotes.slice(selectionRange.to)
     } else {
       finalOldNotes = oldNotes
       finalNewNotes = newNotes
@@ -235,7 +234,7 @@ export function useNodeActionsUI({
       nodeId,
       oldNotes: finalOldNotes,
       newNotes: finalNewNotes,
-      prompt
+      prompt,
     })
     await command.execute(api)
     pushCommand(command)
@@ -283,8 +282,7 @@ export function useNodeActionsUI({
         : children.value.filter(n => n.id !== nodeId)
 
       // Find where this node currently sits among siblings by sort_order
-      const currentNode = children.value.find(n => n.id === nodeId) ||
-                          (await api.getNode(nodeId))
+      const currentNode = children.value.find(n => n.id === nodeId) || (await api.getNode(nodeId))
       const sortedSiblings = [...siblings].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
 
       // Find the sibling that comes just before this node's current position
@@ -298,19 +296,21 @@ export function useNodeActionsUI({
       }
 
       // Store undo info
-      const oldTargetId = prevSibling ? prevSibling.id : (sortedSiblings[0]?.id || null)
+      const oldTargetId = prevSibling ? prevSibling.id : sortedSiblings[0]?.id || null
       const oldPosition = prevSibling ? 'after' : 'before'
 
       await api.reorderNode(nodeId, targetId, position)
 
       if (oldTargetId) {
-        pushCommand(new ReorderCommand({
-          nodeId,
-          oldTargetId,
-          oldPosition,
-          newTargetId: targetId,
-          newPosition: position
-        }))
+        pushCommand(
+          new ReorderCommand({
+            nodeId,
+            oldTargetId,
+            oldPosition,
+            newTargetId: targetId,
+            newPosition: position,
+          })
+        )
       }
 
       await refreshAfterChange()
@@ -361,6 +361,6 @@ export function useNodeActionsUI({
     handleAIImproveNotes,
     handleReorder,
     updateNode,
-    clearSelection
+    clearSelection,
   }
 }

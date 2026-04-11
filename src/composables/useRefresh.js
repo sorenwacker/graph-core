@@ -13,7 +13,7 @@ export function useRefresh({
   currentContainerId,
   selectedNode,
   graphViewRef,
-  detailPanelRef
+  detailPanelRef,
 }) {
   /**
    * Consolidated refresh after data changes
@@ -78,6 +78,6 @@ export function useRefresh({
     refreshAfterDelete,
     refreshGraphAfterStructureChange,
     refreshDetailPanelLinks,
-    refreshAfterChildUpdate
+    refreshAfterChildUpdate,
   }
 }

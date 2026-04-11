@@ -37,16 +37,20 @@ function persistedRef(key, defaultValue, { type = 'string' } = {}) {
   const value = ref(parse(stored))
 
   // Watch for changes and persist
-  watch(value, (val) => {
-    if (typeof localStorage === 'undefined') return
-    if (val === null && type === 'nullable') {
-      localStorage.removeItem(key)
-    } else if (type === 'json') {
-      localStorage.setItem(key, JSON.stringify(val))
-    } else {
-      localStorage.setItem(key, String(val))
-    }
-  }, { deep: true })
+  watch(
+    value,
+    val => {
+      if (typeof localStorage === 'undefined') return
+      if (val === null && type === 'nullable') {
+        localStorage.removeItem(key)
+      } else if (type === 'json') {
+        localStorage.setItem(key, JSON.stringify(val))
+      } else {
+        localStorage.setItem(key, String(val))
+      }
+    },
+    { deep: true }
+  )
 
   return value
 }
@@ -104,6 +108,6 @@ export function useSettings() {
 
     // Legacy (for backwards compatibility)
     ollamaEnabled: persistedRef('graphcore-ollamaEnabled', true, { type: 'boolean' }),
-    ollamaCustomPrompts: persistedRef('graphcore-ollamaCustomPrompts', [], { type: 'json' })
+    ollamaCustomPrompts: persistedRef('graphcore-ollamaCustomPrompts', [], { type: 'json' }),
   }
 }

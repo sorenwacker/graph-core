@@ -15,7 +15,7 @@ export const useNodesStore = defineStore('nodes', () => {
   // ===========================================
 
   // Current view state
-  const currentContainerId = ref(null)  // null = root level
+  const currentContainerId = ref(null) // null = root level
   const currentContainer = ref(null)
   const children = ref([])
   const breadcrumbs = ref([])
@@ -321,6 +321,6 @@ export const useNodesStore = defineStore('nodes', () => {
     // Navigation
     navigateToContainer,
     navigateToRoot,
-    navigateToParent
+    navigateToParent,
   }
 })

@@ -152,7 +152,7 @@ export class TestDatabase {
       favorite: Boolean(row.favorite),
       tags,
       graph_type_filter,
-      graph_physics
+      graph_physics,
     }
   }
 
@@ -180,7 +180,7 @@ export class TestDatabase {
       'graph_type_filter',
       'graph_relax_locked',
       'graph_fit_locked',
-      'graph_physics'
+      'graph_physics',
     ]
 
     let depth = 0
@@ -193,8 +193,8 @@ export class TestDatabase {
       }
     }
 
-    const presentFields = fields.filter((f) => data[f] !== undefined)
-    const values = presentFields.map((f) => {
+    const presentFields = fields.filter(f => data[f] !== undefined)
+    const values = presentFields.map(f => {
       if (f === 'tags' && Array.isArray(data[f])) {
         return JSON.stringify(data[f])
       }
@@ -244,7 +244,7 @@ export class TestDatabase {
       'graph_type_filter',
       'graph_relax_locked',
       'graph_fit_locked',
-      'graph_physics'
+      'graph_physics',
     ]
 
     const updates = []
@@ -279,10 +279,7 @@ export class TestDatabase {
     const node = this.getNode(id)
     const newParentId = node?.parent_id || null
 
-    this._run('UPDATE nodes SET parent_id = ? WHERE parent_id = ? AND deleted_at IS NULL', [
-      newParentId,
-      id
-    ])
+    this._run('UPDATE nodes SET parent_id = ? WHERE parent_id = ? AND deleted_at IS NULL', [newParentId, id])
 
     if (hard) {
       this._run('DELETE FROM nodes WHERE id = ?', [id])
@@ -309,14 +306,14 @@ export class TestDatabase {
     }
 
     sql += ' ORDER BY sort_order, created_at'
-    return this._query(sql, values).map((r) => this._rowToNode(r))
+    return this._query(sql, values).map(r => this._rowToNode(r))
   }
 
   getChildren(parentId) {
     return this._query(
       'SELECT * FROM nodes WHERE parent_id = ? AND deleted_at IS NULL ORDER BY sort_order, created_at',
       [parentId]
-    ).map((r) => this._rowToNode(r))
+    ).map(r => this._rowToNode(r))
   }
 
   getDescendants(id) {
@@ -324,10 +321,10 @@ export class TestDatabase {
     if (!node) return []
 
     const pathPrefix = node.path ? `${node.path}/${id}` : `${id}`
-    return this._query(
-      "SELECT * FROM nodes WHERE (path = ? OR path LIKE ?) AND deleted_at IS NULL ORDER BY depth",
-      [pathPrefix, `${pathPrefix}/%`]
-    ).map((r) => this._rowToNode(r))
+    return this._query('SELECT * FROM nodes WHERE (path = ? OR path LIKE ?) AND deleted_at IS NULL ORDER BY depth', [
+      pathPrefix,
+      `${pathPrefix}/%`,
+    ]).map(r => this._rowToNode(r))
   }
 
   /**
@@ -394,7 +391,7 @@ export class TestDatabase {
     return this._query(
       `SELECT * FROM nodes WHERE id IN (${placeholders}) AND deleted_at IS NULL ORDER BY depth`,
       ancestorIds
-    ).map((r) => this._rowToNode(r))
+    ).map(r => this._rowToNode(r))
   }
 
   moveNode(id, newParentId) {
@@ -411,10 +408,12 @@ export class TestDatabase {
       }
     }
 
-    this._run(
-      'UPDATE nodes SET parent_id = ?, depth = ?, path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [newParentId, depth, path, id]
-    )
+    this._run('UPDATE nodes SET parent_id = ?, depth = ?, path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [
+      newParentId,
+      depth,
+      path,
+      id,
+    ])
 
     return this.getNode(id)
   }
@@ -436,10 +435,7 @@ export class TestDatabase {
 
   getLinkedNodes(id) {
     const numId = Number(id)
-    const links = this._query('SELECT * FROM node_links WHERE source_id = ? OR target_id = ?', [
-      numId,
-      numId
-    ])
+    const links = this._query('SELECT * FROM node_links WHERE source_id = ? OR target_id = ?', [numId, numId])
 
     const linkedIds = new Set()
     for (const link of links) {
@@ -450,10 +446,9 @@ export class TestDatabase {
     if (linkedIds.size === 0) return []
 
     const placeholders = [...linkedIds].map(() => '?').join(', ')
-    return this._query(
-      `SELECT * FROM nodes WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
-      [...linkedIds]
-    ).map((r) => this._rowToNode(r))
+    return this._query(`SELECT * FROM nodes WHERE id IN (${placeholders}) AND deleted_at IS NULL`, [...linkedIds]).map(
+      r => this._rowToNode(r)
+    )
   }
 
   // Search with pagination support
@@ -479,7 +474,7 @@ export class TestDatabase {
     sql += ' ORDER BY updated_at DESC LIMIT ? OFFSET ?'
     values.push(limit, offset)
 
-    return this._query(sql, values).map((r) => this._rowToNode(r))
+    return this._query(sql, values).map(r => this._rowToNode(r))
   }
 
   // Get total count for pagination
@@ -508,14 +503,12 @@ export class TestDatabase {
 
   // Tags
   getAllTags() {
-    const nodes = this._query(
-      'SELECT tags FROM nodes WHERE deleted_at IS NULL AND tags IS NOT NULL AND tags != "[]"'
-    )
+    const nodes = this._query('SELECT tags FROM nodes WHERE deleted_at IS NULL AND tags IS NOT NULL AND tags != "[]"')
     const tagSet = new Set()
     for (const node of nodes) {
       try {
         const tags = JSON.parse(node.tags || '[]')
-        tags.forEach((tag) => tagSet.add(tag))
+        tags.forEach(tag => tagSet.add(tag))
       } catch {
         // Skip invalid JSON
       }
@@ -524,10 +517,9 @@ export class TestDatabase {
   }
 
   getNodesByTag(tag) {
-    return this._query(
-      'SELECT * FROM nodes WHERE deleted_at IS NULL AND tags LIKE ? ORDER BY updated_at DESC',
-      [`%"${tag}"%`]
-    ).map((r) => this._rowToNode(r))
+    return this._query('SELECT * FROM nodes WHERE deleted_at IS NULL AND tags LIKE ? ORDER BY updated_at DESC', [
+      `%"${tag}"%`,
+    ]).map(r => this._rowToNode(r))
   }
 
   // Workspaces
@@ -537,8 +529,8 @@ export class TestDatabase {
 
   // Trash
   getTrash() {
-    return this._query('SELECT * FROM nodes WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC').map(
-      (r) => this._rowToNode(r)
+    return this._query('SELECT * FROM nodes WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC').map(r =>
+      this._rowToNode(r)
     )
   }
 }
@@ -552,7 +544,7 @@ export function createNodeFactory(db) {
   const defaults = {
     type: 'task',
     title: 'Test Node',
-    workspace_id: 'work'
+    workspace_id: 'work',
   }
 
   return {
@@ -571,7 +563,7 @@ export function createNodeFactory(db) {
         const child = db.createNode({
           ...defaults,
           title: `Child ${i + 1}`,
-          parent_id: root.id
+          parent_id: root.id,
         })
         children.push(child)
 
@@ -580,7 +572,7 @@ export function createNodeFactory(db) {
             const grandchild = db.createNode({
               ...defaults,
               title: `Grandchild ${i + 1}-${j + 1}`,
-              parent_id: child.id
+              parent_id: child.id,
             })
             grandchildren.push(grandchild)
           }
@@ -602,6 +594,6 @@ export function createNodeFactory(db) {
       }
 
       return { center, linked }
-    }
+    },
   }
 }

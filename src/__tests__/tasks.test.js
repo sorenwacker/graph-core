@@ -11,7 +11,7 @@ describe('Tasks API', () => {
 
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve([])
+        json: () => Promise.resolve([]),
       })
 
       const module = await import('../services/api.js')
@@ -40,10 +40,7 @@ describe('Tasks API', () => {
 
     it('getTasks with due date range should include both params', async () => {
       await api.getTasks({ dueDateFrom: '2024-01-01', dueDateTo: '2024-12-31' })
-      expect(fetch).toHaveBeenCalledWith(
-        '/api/tasks?dueDateFrom=2024-01-01&dueDateTo=2024-12-31',
-        expect.any(Object)
-      )
+      expect(fetch).toHaveBeenCalledWith('/api/tasks?dueDateFrom=2024-01-01&dueDateTo=2024-12-31', expect.any(Object))
     })
 
     it('getTasks with importance filter should include param', async () => {
@@ -61,7 +58,7 @@ describe('Tasks API', () => {
         workspaceId: 'work',
         completed: false,
         importance: 3,
-        parentId: 10
+        parentId: 10,
       })
       expect(fetch).toHaveBeenCalledWith(
         '/api/tasks?workspaceId=work&completed=false&importance=3&parentId=10',
@@ -78,7 +75,7 @@ describe('Task Helper Functions', () => {
       pastDate.setDate(pastDate.getDate() - 1)
       const dateStr = pastDate.toISOString().split('T')[0]
 
-      const isOverdue = (dueDateStr) => {
+      const isOverdue = dueDateStr => {
         if (!dueDateStr) return false
         const dueDate = new Date(dueDateStr)
         const today = new Date()
@@ -95,7 +92,7 @@ describe('Task Helper Functions', () => {
       futureDate.setDate(futureDate.getDate() + 7)
       const dateStr = futureDate.toISOString().split('T')[0]
 
-      const isOverdue = (dueDateStr) => {
+      const isOverdue = dueDateStr => {
         if (!dueDateStr) return false
         const dueDate = new Date(dueDateStr)
         const today = new Date()
@@ -111,7 +108,7 @@ describe('Task Helper Functions', () => {
       const today = new Date()
       const dateStr = today.toISOString().split('T')[0]
 
-      const isOverdue = (dueDateStr) => {
+      const isOverdue = dueDateStr => {
         if (!dueDateStr) return false
         const dueDate = new Date(dueDateStr)
         const todayDate = new Date()
@@ -124,7 +121,7 @@ describe('Task Helper Functions', () => {
     })
 
     it('should return false for null/undefined due date', () => {
-      const isOverdue = (dueDateStr) => {
+      const isOverdue = dueDateStr => {
         if (!dueDateStr) return false
         const dueDate = new Date(dueDateStr)
         const today = new Date()
@@ -140,7 +137,7 @@ describe('Task Helper Functions', () => {
 
   describe('formatDueDate', () => {
     it('should format date as YYYY-MM-DD', () => {
-      const formatDueDate = (dueDateStr) => {
+      const formatDueDate = dueDateStr => {
         if (!dueDateStr) return ''
         return dueDateStr.split('T')[0]
       }
@@ -150,7 +147,7 @@ describe('Task Helper Functions', () => {
     })
 
     it('should return empty string for null/undefined', () => {
-      const formatDueDate = (dueDateStr) => {
+      const formatDueDate = dueDateStr => {
         if (!dueDateStr) return ''
         return dueDateStr.split('T')[0]
       }

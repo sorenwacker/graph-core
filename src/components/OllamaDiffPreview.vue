@@ -4,7 +4,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 const props = defineProps({
   originalContent: { type: String, required: true },
   improvedContent: { type: String, required: true },
-  promptUsed: { type: String, default: '' }
+  promptUsed: { type: String, default: '' },
 })
 
 const emit = defineEmits(['accept', 'reject', 'edit'])
@@ -63,23 +63,15 @@ onUnmounted(() => {
             <button v-else class="edit-btn" @click="handleSaveEdit">Done</button>
           </div>
           <div class="panel-content">
-            <textarea
-              v-if="isEditing"
-              v-model="editedContent"
-              class="edit-textarea"
-            ></textarea>
+            <textarea v-if="isEditing" v-model="editedContent" class="edit-textarea"></textarea>
             <pre v-else>{{ editedContent }}</pre>
           </div>
         </div>
       </div>
 
       <div class="modal-footer">
-        <button class="reject-btn" @click="emit('reject')">
-          Reject
-        </button>
-        <button class="accept-btn" @click="handleAccept">
-          Accept
-        </button>
+        <button class="reject-btn" @click="emit('reject')">Reject</button>
+        <button class="accept-btn" @click="handleAccept">Accept</button>
       </div>
     </div>
   </div>

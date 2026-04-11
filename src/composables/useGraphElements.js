@@ -8,7 +8,7 @@ import {
   filterCompletedNodes,
   sortNodesRecursively,
   filterByType,
-  buildInheritedColorMap
+  buildInheritedColorMap,
 } from './useNodeFiltering.js'
 
 /**
@@ -55,7 +55,7 @@ export function buildElements(options) {
     selectedIds = [],
     selectedId = null,
     ancestorColor = null,
-    inheritColors = true
+    inheritColors = true,
   } = options
 
   // Filter out null entries from the start
@@ -63,22 +63,23 @@ export function buildElements(options) {
   // Apply depth filter first
   const depthFiltered = filterByDepth(cleanNodeList, maxDepth)
   // Filter completed nodes and their children if hideCompleted is enabled
-  const completedFiltered = hideCompleted
-    ? filterCompletedNodes(depthFiltered)
-    : depthFiltered
+  const completedFiltered = hideCompleted ? filterCompletedNodes(depthFiltered) : depthFiltered
   // Filter by visible node types
   const typeFiltered = filterByType(completedFiltered, visibleTypes)
   // Sort alphabetically if enabled
-  const filteredList = sortAlphabetically
-    ? sortNodesRecursively(typeFiltered)
-    : typeFiltered
+  const filteredList = sortAlphabetically ? sortNodesRecursively(typeFiltered) : typeFiltered
   const flat = flattenNodes(filteredList, [], false, maxDepth)
 
   // Include parent unless hidden by settings, completed when hiding completed, or type is filtered out
   // Always include parent when there are no children (otherwise graph would be empty)
   const parentTypeVisible = !parentNode || visibleTypes.includes(parentNode.type)
   const hasNoChildren = flat.length === 0
-  const includeParent = parentNode && parentNode.id && (hasNoChildren || showRootNode) && parentTypeVisible && !(hideCompleted && parentNode.completed)
+  const includeParent =
+    parentNode &&
+    parentNode.id &&
+    (hasNoChildren || showRootNode) &&
+    parentTypeVisible &&
+    !(hideCompleted && parentNode.completed)
   const allNodes = (includeParent ? [{ ...parentNode, children: filteredList }, ...flat] : flat).filter(n => n && n.id)
   const totalNodes = allNodes.length
   const showDetails = totalNodes <= detailThreshold
@@ -88,8 +89,12 @@ export function buildElements(options) {
   // Build inherited color map - parent colors flow to children
   // Use parent's own color if set, otherwise use ancestor color from the app-level color map
   const parentColor = inheritColors
-    ? (parentNode?.color && parentNode.color !== '#0f4c75' ? parentNode.color : ancestorColor)
-    : (parentNode?.color && parentNode.color !== '#0f4c75' ? parentNode.color : null)
+    ? parentNode?.color && parentNode.color !== '#0f4c75'
+      ? parentNode.color
+      : ancestorColor
+    : parentNode?.color && parentNode.color !== '#0f4c75'
+      ? parentNode.color
+      : null
   const inheritedColorMap = buildInheritedColorMap(filteredList, parentColor, {}, inheritColors)
   // Also add parent to the map if included
   if (includeParent && parentNode) {
@@ -102,7 +107,7 @@ export function buildElements(options) {
   const builtPositions = {}
 
   // Add nodes
-  allNodes.forEach((node) => {
+  allNodes.forEach(node => {
     const savedPos = savedPositions[String(node.id)]
     // Get colors from centralized config (handles person unique colors automatically)
     const colors = getGraphColors(node.type, node.id)
@@ -121,7 +126,7 @@ export function buildElements(options) {
     // Build tooltip HTML using shared utility
     const tooltip = buildTooltipHTML(node, {
       showCheckbox: node.type !== 'person',
-      hideSensitive: hideSensitive || node.notes_sensitive
+      hideSensitive: hideSensitive || node.notes_sensitive,
     })
 
     // Adjust colors for completed nodes and parent nodes
@@ -146,8 +151,8 @@ export function buildElements(options) {
         showDetails,
         totalNodes,
         isSelected: selectedIds?.includes(node.id) || selectedId === node.id,
-        nodeData: node
-      }
+        nodeData: node,
+      },
     }
     // Apply saved position if available, otherwise compute position near parent/siblings
     if (savedPos) {
@@ -193,7 +198,7 @@ export function buildElements(options) {
         const distance = 80 + Math.random() * 40
         element.position = {
           x: referencePos.x + Math.cos(angle) * distance,
-          y: referencePos.y + Math.sin(angle) * distance
+          y: referencePos.y + Math.sin(angle) * distance,
         }
       }
     }
@@ -212,8 +217,8 @@ export function buildElements(options) {
         data: {
           id: `e-${parentNode.id}-${child.id}`,
           source: String(parentNode.id),
-          target: String(child.id)
-        }
+          target: String(child.id),
+        },
       })
     })
   }
@@ -225,8 +230,8 @@ export function buildElements(options) {
           data: {
             id: `e-${node.id}-${child.id}`,
             source: String(node.id),
-            target: String(child.id)
-          }
+            target: String(child.id),
+          },
         })
       })
     }
@@ -253,8 +258,8 @@ export function addLinkEdges(elements, links) {
           id: `link-${sourceId}-${targetId}`,
           source: sourceId,
           target: targetId,
-          isLink: true
-        }
+          isLink: true,
+        },
       })
     }
   })
@@ -279,7 +284,7 @@ export async function fetchLinkedNodes(options) {
     hideCompleted = false,
     selectedIds = [],
     selectedId = null,
-    handleError
+    handleError,
   } = options
 
   const existingNodeIds = new Set(elements.filter(el => !el.data.source).map(el => el.data.id))
@@ -331,7 +336,7 @@ export async function fetchLinkedNodes(options) {
             const distance = 80 + Math.random() * 40
             position = {
               x: avgX + Math.cos(angle) * distance,
-              y: avgY + Math.sin(angle) * distance
+              y: avgY + Math.sin(angle) * distance,
             }
           }
         }
@@ -353,9 +358,9 @@ export async function fetchLinkedNodes(options) {
             borderColor: colors.border,
             textColor,
             isCompleted,
-            isSelected: selectedIds?.includes(node.id) || selectedId === node.id
+            isSelected: selectedIds?.includes(node.id) || selectedId === node.id,
           },
-          position: position ? { x: position.x, y: position.y } : undefined
+          position: position ? { x: position.x, y: position.y } : undefined,
         })
       }
     } catch (err) {
@@ -373,9 +378,9 @@ export async function fetchLinkedNodes(options) {
  */
 export function useGraphElements(options = {}) {
   return {
-    buildElements: (buildOptions) => buildElements({ ...options, ...buildOptions }),
+    buildElements: buildOptions => buildElements({ ...options, ...buildOptions }),
     addLinkEdges,
-    fetchLinkedNodes: (fetchOptions) => fetchLinkedNodes({ ...options, ...fetchOptions }),
-    darkenColor
+    fetchLinkedNodes: fetchOptions => fetchLinkedNodes({ ...options, ...fetchOptions }),
+    darkenColor,
   }
 }

@@ -5,7 +5,7 @@ import { formatDate } from '../../utils/formatting.js'
 const props = defineProps({
   id: { type: [String, Number], required: true },
   createdAt: { type: String, default: null },
-  updatedAt: { type: String, default: null }
+  updatedAt: { type: String, default: null },
 })
 
 const formattedCreatedDate = computed(() => formatDate(props.createdAt))

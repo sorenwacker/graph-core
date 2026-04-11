@@ -8,7 +8,7 @@ describe('LinkCommand', () => {
   beforeEach(() => {
     mockApi = {
       linkNodes: vi.fn().mockResolvedValue(),
-      unlinkNodes: vi.fn().mockResolvedValue()
+      unlinkNodes: vi.fn().mockResolvedValue(),
     }
   })
 
@@ -45,7 +45,7 @@ describe('LinkCommand', () => {
       expect(cmd.toJSON()).toEqual({
         type: 'link',
         sourceId: 1,
-        targetId: 2
+        targetId: 2,
       })
     })
   })
@@ -57,7 +57,7 @@ describe('UnlinkCommand', () => {
   beforeEach(() => {
     mockApi = {
       linkNodes: vi.fn().mockResolvedValue(),
-      unlinkNodes: vi.fn().mockResolvedValue()
+      unlinkNodes: vi.fn().mockResolvedValue(),
     }
   })
 

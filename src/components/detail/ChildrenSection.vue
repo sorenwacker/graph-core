@@ -10,17 +10,10 @@ const props = defineProps({
   collapsed: { type: Boolean, default: false },
   parentId: { type: [Number, String], required: true },
   width: { type: Number, default: 400 },
-  fullscreen: { type: Boolean, default: false }
+  fullscreen: { type: Boolean, default: false },
 })
 
-const emit = defineEmits([
-  'update:collapsed',
-  'select-child',
-  'toggle-complete',
-  'add-task',
-  'add-subtask',
-  'reorder'
-])
+const emit = defineEmits(['update:collapsed', 'select-child', 'toggle-complete', 'add-task', 'add-subtask', 'reorder'])
 
 const newTaskTitle = ref('')
 
@@ -82,7 +75,7 @@ function onDrop(e, targetChild) {
   emit('reorder', {
     draggedId: draggedChild.value.id,
     targetId: targetChild.id,
-    position: dropPosition.value
+    position: dropPosition.value,
   })
 
   draggedChild.value = null
@@ -138,7 +131,7 @@ function onDragEnd() {
               completed: child.completed,
               dragging: draggedChild?.id === child.id,
               'drop-before': dropTarget?.id === child.id && dropPosition === 'before',
-              'drop-after': dropTarget?.id === child.id && dropPosition === 'after'
+              'drop-after': dropTarget?.id === child.id && dropPosition === 'after',
             }"
             :data-child-id="child.id"
             draggable="true"
@@ -150,17 +143,28 @@ function onDragEnd() {
             @click="emit('select-child', child.id)"
           >
             <span class="child-color-dot" :style="{ backgroundColor: child.color || '#0f4c75' }">
-              <input
-                type="checkbox"
-                :checked="child.completed"
-                @click.stop
-                @change="emit('toggle-complete', child)"
-              />
+              <input type="checkbox" :checked="child.completed" @click.stop @change="emit('toggle-complete', child)" />
             </span>
             <span class="child-title">{{ child.title?.slice(0, 30) }}{{ child.title?.length > 30 ? '...' : '' }}</span>
-            <span v-if="child.end_date && (fullscreen || width >= 500)" class="child-end-date">{{ child.end_date.split('T')[0] }}</span>
-            <span v-if="child.due_date" class="child-due" :class="{ 'due-warning': getDueStatus(child) === 'soon', 'due-overdue': getDueStatus(child) === 'overdue' }">{{ child.due_date }}</span>
-            <button class="add-subtask-btn" @click.stop="emit('add-subtask', { parentId: child.id })" title="Add subtask">+</button>
+            <span v-if="child.end_date && (fullscreen || width >= 500)" class="child-end-date">{{
+              child.end_date.split('T')[0]
+            }}</span>
+            <span
+              v-if="child.due_date"
+              class="child-due"
+              :class="{
+                'due-warning': getDueStatus(child) === 'soon',
+                'due-overdue': getDueStatus(child) === 'overdue',
+              }"
+              >{{ child.due_date }}</span
+            >
+            <button
+              class="add-subtask-btn"
+              @click.stop="emit('add-subtask', { parentId: child.id })"
+              title="Add subtask"
+            >
+              +
+            </button>
           </div>
           <!-- Grandchildren -->
           <template v-if="expandedChildren.has(child.id) && grandchildren[child.id]?.length">
@@ -174,7 +178,13 @@ function onDragEnd() {
               <span v-if="gc.type === 'person'" class="gc-type person" v-html="personIconSvg"></span>
               <span v-else class="gc-type" :class="gc.type" v-html="getTypeIcon(gc.type)"></span>
               <span class="gc-title">{{ gc.title }}</span>
-              <button class="add-subtask-btn" @click.stop="emit('add-subtask', { parentId: gc.id })" title="Add subtask">+</button>
+              <button
+                class="add-subtask-btn"
+                @click.stop="emit('add-subtask', { parentId: gc.id })"
+                title="Add subtask"
+              >
+                +
+              </button>
             </div>
           </template>
         </template>
@@ -337,7 +347,7 @@ function onDragEnd() {
   flex-shrink: 0;
 }
 
-.child-color-dot input[type="checkbox"] {
+.child-color-dot input[type='checkbox'] {
   width: 14px;
   height: 14px;
   cursor: pointer;

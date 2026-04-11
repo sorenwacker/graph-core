@@ -1,6 +1,6 @@
 <script setup>
 defineProps({
-  breadcrumbs: { type: Array, default: () => [] }
+  breadcrumbs: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['navigate'])

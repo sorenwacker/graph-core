@@ -208,6 +208,6 @@ export function useInlineEdit({ onSaveTitle, onSaveNotes, findNode } = {}) {
     isEditingNotes,
 
     // Cleanup
-    cleanup
+    cleanup,
   }
 }

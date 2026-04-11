@@ -2,7 +2,7 @@
 import TagInput from '../TagInput.vue'
 
 defineProps({
-  tags: { type: Array, default: () => [] }
+  tags: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['update:tags'])
@@ -15,10 +15,7 @@ function onUpdate(newTags) {
 <template>
   <div v-if="tags && tags.length > 0" class="tags-section">
     <label>Tags</label>
-    <TagInput
-      :tags="tags"
-      @update="onUpdate"
-    />
+    <TagInput :tags="tags" @update="onUpdate" />
   </div>
 </template>
 

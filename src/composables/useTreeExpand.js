@@ -84,6 +84,6 @@ export function useTreeExpand({ workspace, flatChildren } = {}) {
     isExpanded,
     setExpandedIds,
     loadExpandedState,
-    saveExpandedState
+    saveExpandedState,
   }
 }

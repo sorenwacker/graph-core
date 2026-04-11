@@ -22,7 +22,7 @@ if (detachedNodeId) {
   const detachedApp = createApp({
     render() {
       return h(DetachedView, { nodeId })
-    }
+    },
   })
   detachedApp.use(pinia)
   detachedApp.mount('#app')

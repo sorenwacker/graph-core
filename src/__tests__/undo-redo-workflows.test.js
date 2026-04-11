@@ -7,7 +7,7 @@ import {
   MoveCommand,
   CompleteCommand,
   LinkCommand,
-  UnlinkCommand
+  UnlinkCommand,
 } from '../commands/index.js'
 
 /**
@@ -25,7 +25,7 @@ describe('undo/redo workflows', () => {
       moveNode: vi.fn().mockResolvedValue(),
       restoreNode: vi.fn().mockResolvedValue({ id: 1, parent_id: 2 }),
       linkNodes: vi.fn().mockResolvedValue(),
-      unlinkNodes: vi.fn().mockResolvedValue()
+      unlinkNodes: vi.fn().mockResolvedValue(),
     }
     // Disable persistence in tests to avoid cross-test pollution
     undoRedo = useUndoRedo({ api: mockApi, persist: false })
@@ -36,7 +36,7 @@ describe('undo/redo workflows', () => {
       const command = new CreateCommand({
         nodeId: 1,
         nodeData: { title: 'Test', type: 'task' },
-        parentId: null
+        parentId: null,
       })
       undoRedo.pushCommand(command)
 
@@ -51,7 +51,7 @@ describe('undo/redo workflows', () => {
       const command = new CreateCommand({
         nodeId: 1,
         nodeData: { title: 'Test', type: 'task' },
-        parentId: 5
+        parentId: 5,
       })
       undoRedo.pushCommand(command)
 
@@ -61,7 +61,7 @@ describe('undo/redo workflows', () => {
       expect(mockApi.createNode).toHaveBeenCalledWith({
         title: 'Test',
         type: 'task',
-        parent_id: 5
+        parent_id: 5,
       })
     })
   })
@@ -71,7 +71,7 @@ describe('undo/redo workflows', () => {
       const command = new EditCommand({
         nodeId: 1,
         oldValues: { title: 'Original' },
-        newValues: { title: 'Changed' }
+        newValues: { title: 'Changed' },
       })
       undoRedo.pushCommand(command)
 
@@ -84,7 +84,7 @@ describe('undo/redo workflows', () => {
       const command = new EditCommand({
         nodeId: 1,
         oldValues: { title: 'Original' },
-        newValues: { title: 'Changed' }
+        newValues: { title: 'Changed' },
       })
       undoRedo.pushCommand(command)
 
@@ -99,7 +99,7 @@ describe('undo/redo workflows', () => {
   describe('delete then undo', () => {
     it('should restore node on undo', async () => {
       const command = new DeleteCommand({
-        nodeData: { id: 1, title: 'Deleted', parent_id: 5 }
+        nodeData: { id: 1, title: 'Deleted', parent_id: 5 },
       })
       undoRedo.pushCommand(command)
 
@@ -111,7 +111,7 @@ describe('undo/redo workflows', () => {
 
     it('should fix parent_id if changed during restore', async () => {
       const command = new DeleteCommand({
-        nodeData: { id: 1, title: 'Deleted', parent_id: 5 }
+        nodeData: { id: 1, title: 'Deleted', parent_id: 5 },
       })
       undoRedo.pushCommand(command)
 
@@ -128,7 +128,7 @@ describe('undo/redo workflows', () => {
       const command = new MoveCommand({
         nodeId: 1,
         oldParentId: 5,
-        newParentId: 10
+        newParentId: 10,
       })
       undoRedo.pushCommand(command)
 
@@ -141,7 +141,7 @@ describe('undo/redo workflows', () => {
       const command = new MoveCommand({
         nodeId: 1,
         oldParentId: 5,
-        newParentId: 10
+        newParentId: 10,
       })
       undoRedo.pushCommand(command)
 
@@ -158,7 +158,7 @@ describe('undo/redo workflows', () => {
       const command = new CompleteCommand({
         nodeId: 1,
         oldCompleted: false,
-        newCompleted: true
+        newCompleted: true,
       })
       undoRedo.pushCommand(command)
 
@@ -198,21 +198,27 @@ describe('undo/redo workflows', () => {
       })
 
       // Create -> Edit -> Edit sequence
-      undoRedo.pushCommand(new EditCommand({
-        nodeId: 1,
-        oldValues: { title: 'A' },
-        newValues: { title: 'B' }
-      }))
-      undoRedo.pushCommand(new EditCommand({
-        nodeId: 1,
-        oldValues: { title: 'B' },
-        newValues: { title: 'C' }
-      }))
-      undoRedo.pushCommand(new EditCommand({
-        nodeId: 1,
-        oldValues: { title: 'C' },
-        newValues: { title: 'D' }
-      }))
+      undoRedo.pushCommand(
+        new EditCommand({
+          nodeId: 1,
+          oldValues: { title: 'A' },
+          newValues: { title: 'B' },
+        })
+      )
+      undoRedo.pushCommand(
+        new EditCommand({
+          nodeId: 1,
+          oldValues: { title: 'B' },
+          newValues: { title: 'C' },
+        })
+      )
+      undoRedo.pushCommand(
+        new EditCommand({
+          nodeId: 1,
+          oldValues: { title: 'C' },
+          newValues: { title: 'D' },
+        })
+      )
 
       expect(undoRedo.undoCount.value).toBe(3)
 
@@ -224,7 +230,7 @@ describe('undo/redo workflows', () => {
       expect(callOrder).toEqual([
         { action: 'update', id: 1, data: { title: 'C' } },
         { action: 'update', id: 1, data: { title: 'B' } },
-        { action: 'update', id: 1, data: { title: 'A' } }
+        { action: 'update', id: 1, data: { title: 'A' } },
       ])
 
       expect(undoRedo.undoCount.value).toBe(0)
@@ -239,16 +245,20 @@ describe('undo/redo workflows', () => {
         return Promise.resolve()
       })
 
-      undoRedo.pushCommand(new EditCommand({
-        nodeId: 1,
-        oldValues: { title: 'A' },
-        newValues: { title: 'B' }
-      }))
-      undoRedo.pushCommand(new EditCommand({
-        nodeId: 1,
-        oldValues: { title: 'B' },
-        newValues: { title: 'C' }
-      }))
+      undoRedo.pushCommand(
+        new EditCommand({
+          nodeId: 1,
+          oldValues: { title: 'A' },
+          newValues: { title: 'B' },
+        })
+      )
+      undoRedo.pushCommand(
+        new EditCommand({
+          nodeId: 1,
+          oldValues: { title: 'B' },
+          newValues: { title: 'C' },
+        })
+      )
 
       await undoRedo.undo()
       await undoRedo.undo()
@@ -259,31 +269,37 @@ describe('undo/redo workflows', () => {
 
       expect(callOrder).toEqual([
         { action: 'update', id: 1, data: { title: 'B' } },
-        { action: 'update', id: 1, data: { title: 'C' } }
+        { action: 'update', id: 1, data: { title: 'C' } },
       ])
     })
 
     it('should clear redo stack when new command is pushed after undo', async () => {
-      undoRedo.pushCommand(new EditCommand({
-        nodeId: 1,
-        oldValues: { title: 'A' },
-        newValues: { title: 'B' }
-      }))
-      undoRedo.pushCommand(new EditCommand({
-        nodeId: 1,
-        oldValues: { title: 'B' },
-        newValues: { title: 'C' }
-      }))
+      undoRedo.pushCommand(
+        new EditCommand({
+          nodeId: 1,
+          oldValues: { title: 'A' },
+          newValues: { title: 'B' },
+        })
+      )
+      undoRedo.pushCommand(
+        new EditCommand({
+          nodeId: 1,
+          oldValues: { title: 'B' },
+          newValues: { title: 'C' },
+        })
+      )
 
       await undoRedo.undo() // C -> B, redo has C
       expect(undoRedo.redoCount.value).toBe(1)
 
       // Push new command - should clear redo stack
-      undoRedo.pushCommand(new EditCommand({
-        nodeId: 1,
-        oldValues: { title: 'B' },
-        newValues: { title: 'X' }
-      }))
+      undoRedo.pushCommand(
+        new EditCommand({
+          nodeId: 1,
+          oldValues: { title: 'B' },
+          newValues: { title: 'X' },
+        })
+      )
 
       expect(undoRedo.redoCount.value).toBe(0)
       expect(undoRedo.undoCount.value).toBe(2)
@@ -294,17 +310,17 @@ describe('undo/redo workflows', () => {
       const createCmd = new CreateCommand({
         nodeId: 1,
         nodeData: { title: 'Task', type: 'task' },
-        parentId: null
+        parentId: null,
       })
       const editCmd = new EditCommand({
         nodeId: 1,
         oldValues: { title: 'Task' },
-        newValues: { title: 'Updated Task' }
+        newValues: { title: 'Updated Task' },
       })
       const completeCmd = new CompleteCommand({
         nodeId: 1,
         oldCompleted: false,
-        newCompleted: true
+        newCompleted: true,
       })
 
       undoRedo.pushCommand(createCmd)
@@ -331,7 +347,7 @@ describe('undo/redo workflows', () => {
       const command = new EditCommand({
         nodeId: 1,
         oldValues: { tags: ['bug'] },
-        newValues: { tags: ['bug', 'feature'] }
+        newValues: { tags: ['bug', 'feature'] },
       })
       undoRedo.pushCommand(command)
 
@@ -344,7 +360,7 @@ describe('undo/redo workflows', () => {
       const command = new EditCommand({
         nodeId: 1,
         oldValues: { tags: [] },
-        newValues: { tags: ['urgent'] }
+        newValues: { tags: ['urgent'] },
       })
       undoRedo.pushCommand(command)
 
@@ -359,14 +375,14 @@ describe('undo/redo workflows', () => {
       const command = new EditCommand({
         nodeId: 1,
         oldValues: { tags: ['bug', 'feature', 'urgent'] },
-        newValues: { tags: ['bug'] }
+        newValues: { tags: ['bug'] },
       })
       undoRedo.pushCommand(command)
 
       await undoRedo.undo()
 
       expect(mockApi.updateNode).toHaveBeenCalledWith(1, {
-        tags: ['bug', 'feature', 'urgent']
+        tags: ['bug', 'feature', 'urgent'],
       })
     })
 
@@ -374,7 +390,7 @@ describe('undo/redo workflows', () => {
       const command = new EditCommand({
         nodeId: 1,
         oldValues: { tags: ['last-tag'] },
-        newValues: { tags: [] }
+        newValues: { tags: [] },
       })
       undoRedo.pushCommand(command)
 
@@ -386,16 +402,20 @@ describe('undo/redo workflows', () => {
 
   describe('error handling in workflows', () => {
     it('should preserve stack state when undo fails mid-workflow', async () => {
-      undoRedo.pushCommand(new EditCommand({
-        nodeId: 1,
-        oldValues: { title: 'A' },
-        newValues: { title: 'B' }
-      }))
-      undoRedo.pushCommand(new EditCommand({
-        nodeId: 2,
-        oldValues: { title: 'X' },
-        newValues: { title: 'Y' }
-      }))
+      undoRedo.pushCommand(
+        new EditCommand({
+          nodeId: 1,
+          oldValues: { title: 'A' },
+          newValues: { title: 'B' },
+        })
+      )
+      undoRedo.pushCommand(
+        new EditCommand({
+          nodeId: 2,
+          oldValues: { title: 'X' },
+          newValues: { title: 'Y' },
+        })
+      )
 
       // First undo succeeds, second fails
       mockApi.updateNode
@@ -417,7 +437,7 @@ describe('undo/redo workflows', () => {
       const failingCmd = new EditCommand({
         nodeId: 1,
         oldValues: { title: 'A' },
-        newValues: { title: 'B' }
+        newValues: { title: 'B' },
       })
       ur.pushCommand(failingCmd)
 

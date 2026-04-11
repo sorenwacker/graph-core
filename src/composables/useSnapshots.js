@@ -21,7 +21,7 @@ export function useSnapshots({
   onReload,
   onAfterRestore,
   onAfterReload,
-  confirm: confirmFn = (msg) => window.confirm(msg)
+  confirm: confirmFn = msg => window.confirm(msg),
 } = {}) {
   const { handleError } = useErrorHandler()
 
@@ -109,7 +109,7 @@ export function useSnapshots({
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     })
   }
 
@@ -145,6 +145,6 @@ export function useSnapshots({
     formatSnapshotDate,
     toggleSnapshotList,
     closeSnapshotList,
-    cleanup
+    cleanup,
   }
 }

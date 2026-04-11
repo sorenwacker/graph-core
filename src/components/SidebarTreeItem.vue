@@ -6,7 +6,7 @@ const props = defineProps({
   level: { type: Number, default: 0 },
   currentContainerId: [Number, String],
   expandedIds: { type: Set, default: () => new Set() },
-  maxLevel: { type: Number, default: 10 }
+  maxLevel: { type: Number, default: 10 },
 })
 
 const emit = defineEmits(['enter', 'context-menu', 'toggle-expand'])
@@ -31,7 +31,9 @@ function getIndentStyle() {
       class="tree-expand-btn"
       @click.stop="emit('toggle-expand', node.id)"
       :title="expandedIds.has(node.id) ? 'Collapse' : 'Expand'"
-    >{{ expandedIds.has(node.id) ? '−' : '+' }}</button>
+    >
+      {{ expandedIds.has(node.id) ? '−' : '+' }}
+    </button>
     <span v-else class="tree-spacer"></span>
     <span class="type-icon" :class="node.type"><span v-html="getTypeIcon(node.type)"></span></span>
     <span class="label" @click="emit('enter', node)">{{ node.title }}</span>

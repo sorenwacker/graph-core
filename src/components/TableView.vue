@@ -14,7 +14,7 @@ const defaultColWidths = {
   due: 90,
   children: 40,
   fav: 30,
-  actions: 60
+  actions: 60,
 }
 
 // Load saved widths from localStorage
@@ -83,30 +83,48 @@ const props = defineProps({
   currentParentId: { type: Number, default: null },
   currentContainer: { type: Object, default: null },
   colorMap: { type: Object, default: () => ({}) },
-  hoverPreviewEnabled: { type: Boolean, default: true }
+  hoverPreviewEnabled: { type: Boolean, default: true },
 })
 
-const emit = defineEmits(['hover', 'select', 'select-multiple', 'enter', 'toggle-complete', 'toggle-favorite', 'toggle-expand', 'expand-all', 'collapse-all', 'add-child', 'delete', 'move', 'move-multiple', 'reorder', 'go-parent', 'open-fullscreen', 'context-menu'])
+const emit = defineEmits([
+  'hover',
+  'select',
+  'select-multiple',
+  'enter',
+  'toggle-complete',
+  'toggle-favorite',
+  'toggle-expand',
+  'expand-all',
+  'collapse-all',
+  'add-child',
+  'delete',
+  'move',
+  'move-multiple',
+  'reorder',
+  'go-parent',
+  'open-fullscreen',
+  'context-menu',
+])
 
 // Setup tooltips
 const { showTooltip, hideTooltip } = useNodeTooltip({
-  onOpenDetail: (nodeId) => emit('open-fullscreen', nodeId),
-  onToggleComplete: (nodeId) => emit('toggle-complete', nodeId),
+  onOpenDetail: nodeId => emit('open-fullscreen', nodeId),
+  onToggleComplete: nodeId => emit('toggle-complete', nodeId),
   getHideSensitive: () => props.hideSensitive,
-  shouldShowTooltip: () => props.hoverPreviewEnabled && !props.showDetail
+  shouldShowTooltip: () => props.hoverPreviewEnabled && !props.showDetail,
 })
 
 // Setup node interactions (shared logic for hover/click/double-click)
 const { handleHover, handleLeave, handleClick, handleDoubleClick } = useNodeInteractions({
-  onHover: (node) => emit('hover', node),    // Light select on hover
-  onSelect: (node) => emit('select', node),  // Full select + open detail on click
-  onNavigate: (node) => emit('enter', node), // Navigate on double-click
+  onHover: node => emit('hover', node), // Light select on hover
+  onSelect: node => emit('select', node), // Full select + open detail on click
+  onNavigate: node => emit('enter', node), // Navigate on double-click
   onMultiSelect: (node, opts) => emit('select-multiple', { node, ...opts }),
-  onAddChild: (node) => emit('add-child', { parentId: node.id, title: '', prompt: true }),
-  onDelete: (node) => emit('delete', node.id),
+  onAddChild: node => emit('add-child', { parentId: node.id, title: '', prompt: true }),
+  onDelete: node => emit('delete', node.id),
   getShowDetail: () => props.showDetail,
   showTooltip,
-  hideTooltip
+  hideTooltip,
 })
 
 // Context menu handler
@@ -130,7 +148,7 @@ function filterNodes(nodeList) {
     .filter(node => !node.completed && !node.inheritedCompleted)
     .map(node => ({
       ...node,
-      children: node.children ? filterNodes(node.children) : []
+      children: node.children ? filterNodes(node.children) : [],
     }))
 }
 
@@ -147,7 +165,7 @@ const flattenedRows = computed(() => {
       rows.push({
         node,
         isLast,
-        parentIsLastStack: [...parentIsLastStack]
+        parentIsLastStack: [...parentIsLastStack],
       })
 
       // If expanded and has children, recurse
@@ -233,7 +251,7 @@ function getIndentPadding(node) {
   const depth = node.depth || 0
   const basePadding = 8
   const indentPerLevel = 24
-  return `${basePadding + (depth * indentPerLevel)}px`
+  return `${basePadding + depth * indentPerLevel}px`
 }
 
 // Get tree prefix for visual hierarchy - uses Unicode box-drawing chars
@@ -437,7 +455,7 @@ function onMouseUp(_e) {
       emit('reorder', {
         nodeId: sourceNode.id,
         targetId: targetNode.id,
-        position: dropPosition.value
+        position: dropPosition.value,
       })
     }
   }
@@ -471,13 +489,12 @@ function findNodeById(id) {
   return search(filteredNodes.value)
 }
 
-
 function getDropClass(node) {
   if (!dropTarget.value || dropTarget.value.id !== node.id) return {}
   return {
     'drop-before': dropPosition.value === 'before',
     'drop-after': dropPosition.value === 'after',
-    'drop-inside': dropPosition.value === 'inside'
+    'drop-inside': dropPosition.value === 'inside',
   }
 }
 
@@ -522,15 +539,21 @@ function isSelected(nodeId) {
       </thead>
       <tbody>
         <!-- Parent row -->
-        <tr
-          v-if="currentContainer"
-          class="node-row parent-row"
-          @click="emit('go-parent')"
-        >
+        <tr v-if="currentContainer" class="node-row parent-row" @click="emit('go-parent')">
           <td class="col-expand">..</td>
           <td class="col-type">
-            <span v-if="currentContainer.type === 'person'" class="type-badge person" :style="getBadgeStyle(currentContainer)" v-html="personIconSvg"></span>
-            <span v-else class="type-badge" :class="currentContainer.type" v-html="getTypeIcon(currentContainer.type)"></span>
+            <span
+              v-if="currentContainer.type === 'person'"
+              class="type-badge person"
+              :style="getBadgeStyle(currentContainer)"
+              v-html="personIconSvg"
+            ></span>
+            <span
+              v-else
+              class="type-badge"
+              :class="currentContainer.type"
+              v-html="getTypeIcon(currentContainer.type)"
+            ></span>
           </td>
           <td class="col-check"></td>
           <td class="col-title">
@@ -553,8 +576,8 @@ function isSelected(nodeId) {
               selected: isSelected(row.node.id),
               completed: row.node.completed,
               'inherited-completed': row.node.inheritedCompleted,
-              ...getDropClass(row.node)
-            }
+              ...getDropClass(row.node),
+            },
           ]"
           :style="{ '--indent': getIndentPadding(row.node), ...getRowStyle(row.node) }"
           :data-node-id="row.node.id"
@@ -567,17 +590,18 @@ function isSelected(nodeId) {
           @contextmenu.prevent="handleContextMenu($event, row.node)"
         >
           <td class="col-expand">
-            <button
-              v-if="row.node.children?.length"
-              class="expand-btn"
-              @click.stop="handleExpand(row.node.id)"
-            >
+            <button v-if="row.node.children?.length" class="expand-btn" @click.stop="handleExpand(row.node.id)">
               {{ expandedIds.has(row.node.id) ? '−' : '+' }}
             </button>
           </td>
           <td class="col-type">
             <span class="tree-prefix">{{ getTreePrefixFlat(row.node, row.isLast, row.parentIsLastStack) }}</span>
-            <span v-if="row.node.type === 'person'" class="type-badge person" :style="getBadgeStyle(row.node)" v-html="personIconSvg"></span>
+            <span
+              v-if="row.node.type === 'person'"
+              class="type-badge person"
+              :style="getBadgeStyle(row.node)"
+              v-html="personIconSvg"
+            ></span>
             <span v-else class="type-badge" :class="row.node.type" v-html="getTypeIcon(row.node.type)"></span>
           </td>
           <td class="col-check">

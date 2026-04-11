@@ -16,11 +16,11 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
     },
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#0a0a0f',
-    icon: path.join(__dirname, '../assets/icon.png')
+    icon: path.join(__dirname, '../assets/icon.png'),
   })
 
   // Set Content Security Policy (stricter in production)
@@ -32,9 +32,9 @@ function createWindow() {
         'Content-Security-Policy': [
           isDev
             ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws://localhost:*"
-            : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'"
-        ]
-      }
+            : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'",
+        ],
+      },
     })
   })
 
@@ -49,9 +49,10 @@ function createWindow() {
 
   // Also handle clicks on links within the page
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    const appUrl = process.env.NODE_ENV === 'development'
-      ? 'http://localhost:9743'
-      : `file://${path.join(__dirname, '../dist/index.html')}`
+    const appUrl =
+      process.env.NODE_ENV === 'development'
+        ? 'http://localhost:9743'
+        : `file://${path.join(__dirname, '../dist/index.html')}`
 
     if (!url.startsWith(appUrl) && (url.startsWith('http://') || url.startsWith('https://'))) {
       event.preventDefault()
@@ -96,12 +97,12 @@ function createDetachedWindow(nodeId, nodeTitle) {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
     },
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#0a0a0f',
     title: nodeTitle || 'Detached Node',
-    icon: path.join(__dirname, '../assets/icon.png')
+    icon: path.join(__dirname, '../assets/icon.png'),
   })
 
   // Track the window
@@ -122,9 +123,10 @@ function createDetachedWindow(nodeId, nodeTitle) {
   })
 
   detachedWindow.webContents.on('will-navigate', (event, url) => {
-    const appUrl = process.env.NODE_ENV === 'development'
-      ? 'http://localhost:9743'
-      : `file://${path.join(__dirname, '../dist/index.html')}`
+    const appUrl =
+      process.env.NODE_ENV === 'development'
+        ? 'http://localhost:9743'
+        : `file://${path.join(__dirname, '../dist/index.html')}`
 
     if (!url.startsWith(appUrl) && (url.startsWith('http://') || url.startsWith('https://'))) {
       event.preventDefault()
@@ -137,7 +139,7 @@ function createDetachedWindow(nodeId, nodeTitle) {
     detachedWindow.loadURL(`http://localhost:9743?detached=${nodeId}`)
   } else {
     detachedWindow.loadFile(path.join(__dirname, '../dist/index.html'), {
-      query: { detached: String(nodeId) }
+      query: { detached: String(nodeId) },
     })
   }
 
@@ -148,28 +150,32 @@ function createMenu() {
   const isMac = process.platform === 'darwin'
   const template = [
     // App menu (macOS only)
-    ...(isMac ? [{
-      label: app.name,
-      submenu: [
-        { role: 'about' },
-        { type: 'separator' },
-        {
-          label: 'Settings...',
-          accelerator: 'CmdOrCtrl+,',
-          click: () => {
-            mainWindow?.webContents.send('open-settings')
-          }
-        },
-        { type: 'separator' },
-        { role: 'services' },
-        { type: 'separator' },
-        { role: 'hide' },
-        { role: 'hideOthers' },
-        { role: 'unhide' },
-        { type: 'separator' },
-        { role: 'quit' }
-      ]
-    }] : []),
+    ...(isMac
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              { role: 'about' },
+              { type: 'separator' },
+              {
+                label: 'Settings...',
+                accelerator: 'CmdOrCtrl+,',
+                click: () => {
+                  mainWindow?.webContents.send('open-settings')
+                },
+              },
+              { type: 'separator' },
+              { role: 'services' },
+              { type: 'separator' },
+              { role: 'hide' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit' },
+            ],
+          },
+        ]
+      : []),
     // Edit menu
     {
       label: 'Edit',
@@ -179,21 +185,21 @@ function createMenu() {
           accelerator: 'CmdOrCtrl+Z',
           click: () => {
             mainWindow?.webContents.send('menu-undo')
-          }
+          },
         },
         {
           label: 'Redo',
           accelerator: 'CmdOrCtrl+Shift+Z',
           click: () => {
             mainWindow?.webContents.send('menu-redo')
-          }
+          },
         },
         { type: 'separator' },
         { role: 'cut' },
         { role: 'copy' },
         { role: 'paste' },
-        { role: 'selectAll' }
-      ]
+        { role: 'selectAll' },
+      ],
     },
     // View menu
     {
@@ -207,8 +213,8 @@ function createMenu() {
         { role: 'zoomIn' },
         { role: 'zoomOut' },
         { type: 'separator' },
-        { role: 'togglefullscreen' }
-      ]
+        { role: 'togglefullscreen' },
+      ],
     },
     // Window menu
     {
@@ -216,15 +222,10 @@ function createMenu() {
       submenu: [
         { role: 'minimize' },
         { role: 'zoom' },
-        ...(isMac ? [
-          { type: 'separator' },
-          { role: 'front' },
-          { type: 'separator' },
-          { role: 'window' }
-        ] : [
-          { role: 'close' }
-        ])
-      ]
+        ...(isMac
+          ? [{ type: 'separator' }, { role: 'front' }, { type: 'separator' }, { role: 'window' }]
+          : [{ role: 'close' }]),
+      ],
     },
     // Help menu
     {
@@ -234,49 +235,49 @@ function createMenu() {
           label: 'GitHub Repository',
           click: async () => {
             await shell.openExternal('https://github.com/sorenwacker/graph-core')
-          }
+          },
         },
         {
           label: 'Documentation',
           click: async () => {
             await shell.openExternal('https://github.com/sorenwacker/graph-core#readme')
-          }
+          },
         },
         {
           label: 'Keyboard Shortcuts',
           accelerator: 'CmdOrCtrl+/',
           click: () => {
             mainWindow?.webContents.send('show-shortcuts')
-          }
+          },
         },
         { type: 'separator' },
         {
           label: 'Release Notes',
           click: async () => {
             await shell.openExternal('https://github.com/sorenwacker/graph-core/releases')
-          }
+          },
         },
         {
           label: 'Report Issue',
           click: async () => {
             await shell.openExternal('https://github.com/sorenwacker/graph-core/issues')
-          }
+          },
         },
         { type: 'separator' },
         {
           label: 'Ollama Setup',
           click: async () => {
             await shell.openExternal('https://ollama.ai/download')
-          }
+          },
         },
         {
           label: 'Ollama Models',
           click: async () => {
             await shell.openExternal('https://ollama.ai/library')
-          }
-        }
-      ]
-    }
+          },
+        },
+      ],
+    },
   ]
 
   const menu = Menu.buildFromTemplate(template)
@@ -306,7 +307,7 @@ app.on('window-all-closed', () => {
 })
 
 // Notify renderer to save before quitting
-app.on('before-quit', (event) => {
+app.on('before-quit', event => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('app-before-quit')
   }
@@ -347,7 +348,9 @@ ipcMain.handle('db:getTree', (event, rootId) => db.getTree(rootId))
 
 // Search
 ipcMain.handle('db:search', (event, query, type, workspaceId, options) => db.search(query, type, workspaceId, options))
-ipcMain.handle('db:searchCount', (event, query, type, workspaceId, options) => db.searchCount(query, type, workspaceId, options))
+ipcMain.handle('db:searchCount', (event, query, type, workspaceId, options) =>
+  db.searchCount(query, type, workspaceId, options)
+)
 
 // Reorder
 ipcMain.handle('db:reorderNode', (event, nodeId, targetId, position) => db.reorderNode(nodeId, targetId, position))
@@ -358,8 +361,12 @@ ipcMain.handle('db:exportJSON', (event, nodeId, options) => db.exportJSON(nodeId
 ipcMain.handle('db:exportCSV', (event, nodeId, workspaceId) => db.exportCSV(nodeId, workspaceId))
 
 // Import
-ipcMain.handle('db:importJSON', (event, data, targetParentId, workspaceId) => db.importJSON(data, targetParentId, workspaceId))
-ipcMain.handle('db:importCSV', (event, csvData, targetParentId, workspaceId) => db.importCSV(csvData, targetParentId, workspaceId))
+ipcMain.handle('db:importJSON', (event, data, targetParentId, workspaceId) =>
+  db.importJSON(data, targetParentId, workspaceId)
+)
+ipcMain.handle('db:importCSV', (event, csvData, targetParentId, workspaceId) =>
+  db.importCSV(csvData, targetParentId, workspaceId)
+)
 
 // Trash
 ipcMain.handle('db:getTrash', (event, limit) => db.getTrash(limit))
@@ -445,7 +452,7 @@ async function httpRequestWithoutSslVerification(url, options = {}) {
     body,
     headers = {},
     errorPrefix = 'API',
-    connectionError = 'Cannot connect to API endpoint'
+    connectionError = 'Cannot connect to API endpoint',
   } = options
 
   return new Promise((resolve, reject) => {
@@ -459,7 +466,7 @@ async function httpRequestWithoutSslVerification(url, options = {}) {
       path: urlObj.pathname + urlObj.search,
       method,
       headers: { ...headers },
-      rejectUnauthorized: false // Skip SSL verification
+      rejectUnauthorized: false, // Skip SSL verification
     }
 
     if (body) {
@@ -468,10 +475,10 @@ async function httpRequestWithoutSslVerification(url, options = {}) {
       requestOptions.headers['Content-Length'] = Buffer.byteLength(bodyStr)
     }
 
-    const request = transport.request(requestOptions, (response) => {
+    const request = transport.request(requestOptions, response => {
       let responseData = ''
 
-      response.on('data', (chunk) => {
+      response.on('data', chunk => {
         responseData += chunk.toString()
       })
 
@@ -495,7 +502,7 @@ async function httpRequestWithoutSslVerification(url, options = {}) {
       })
     })
 
-    request.on('error', (error) => {
+    request.on('error', error => {
       if (error.code === 'ECONNREFUSED') {
         reject(new Error(connectionError))
       } else {
@@ -529,7 +536,7 @@ async function httpRequest(url, options = {}) {
     headers = {},
     errorPrefix = 'API',
     connectionError = 'Cannot connect to API endpoint',
-    skipSslVerification = false
+    skipSslVerification = false,
   } = options
 
   // For SSL bypass, use Node's https module directly
@@ -550,8 +557,8 @@ async function httpRequest(url, options = {}) {
 
     let responseData = ''
 
-    request.on('response', (response) => {
-      response.on('data', (chunk) => {
+    request.on('response', response => {
+      response.on('data', chunk => {
         responseData += chunk.toString()
       })
 
@@ -575,12 +582,20 @@ async function httpRequest(url, options = {}) {
       })
     })
 
-    request.on('error', (error) => {
+    request.on('error', error => {
       if (error.code === 'ECONNREFUSED') {
         reject(new Error(connectionError))
-      } else if (error.message?.includes('SSL') || error.message?.includes('ERR_SSL') ||
-                 error.message?.includes('CERT') || error.message?.includes('certificate')) {
-        reject(new Error(`SSL/TLS error: ${error.message}. For self-signed certificates, enable "Skip SSL verification" in settings.`))
+      } else if (
+        error.message?.includes('SSL') ||
+        error.message?.includes('ERR_SSL') ||
+        error.message?.includes('CERT') ||
+        error.message?.includes('certificate')
+      ) {
+        reject(
+          new Error(
+            `SSL/TLS error: ${error.message}. For self-signed certificates, enable "Skip SSL verification" in settings.`
+          )
+        )
       } else {
         reject(error)
       }
@@ -606,7 +621,7 @@ function ollamaRequest(endpoint, path, options = {}) {
     method: options.method,
     body: options.body,
     errorPrefix: 'Ollama API',
-    connectionError: 'Ollama is not running. Start with: ollama serve'
+    connectionError: 'Ollama is not running. Start with: ollama serve',
   })
 }
 
@@ -621,9 +636,9 @@ ipcMain.handle('ollama:generate', async (event, { prompt, content, model, endpoi
         prompt: fullPrompt,
         stream: false,
         options: {
-          num_ctx: contextSize || 32768
-        }
-      }
+          num_ctx: contextSize || 32768,
+        },
+      },
     })
     return response.response
   } catch (error) {
@@ -641,7 +656,7 @@ ipcMain.handle('ollama:testConnection', async (event, endpoint) => {
   } catch (error) {
     return {
       success: false,
-      error: error.message
+      error: error.message,
     }
   }
 })
@@ -663,7 +678,7 @@ function openaiRequest(endpoint, path, apiKey, options = {}) {
     method: options.method,
     body: options.body,
     headers: { Authorization: `Bearer ${apiKey}` },
-    skipSslVerification: options.skipSslVerification
+    skipSslVerification: options.skipSslVerification,
   })
 }
 
@@ -679,11 +694,11 @@ ipcMain.handle('openai:generate', async (event, { prompt, content, model, endpoi
         model,
         messages: [
           { role: 'system', content: prompt },
-          { role: 'user', content: content }
+          { role: 'user', content: content },
         ],
-        stream: false
+        stream: false,
       },
-      skipSslVerification
+      skipSslVerification,
     })
     return response.choices?.[0]?.message?.content || ''
   } catch (error) {
@@ -710,7 +725,7 @@ ipcMain.handle('openai:testConnection', async (event, endpoint, apiKey, skipSslV
     }
     return {
       success: false,
-      error: error.message
+      error: error.message,
     }
   }
 })

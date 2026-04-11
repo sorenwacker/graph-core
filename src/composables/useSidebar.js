@@ -39,10 +39,10 @@ export function useSidebar({ pinned } = {}) {
   const tagsCollapsed = ref(getStoredBoolean('sidebar-tags-collapsed'))
 
   // Persist collapse state changes
-  watch(treeCollapsed, (val) => localStorage.setItem('sidebar-tree-collapsed', String(val)))
-  watch(favoritesCollapsed, (val) => localStorage.setItem('sidebar-favorites-collapsed', String(val)))
-  watch(recentCollapsed, (val) => localStorage.setItem('sidebar-recent-collapsed', String(val)))
-  watch(tagsCollapsed, (val) => localStorage.setItem('sidebar-tags-collapsed', String(val)))
+  watch(treeCollapsed, val => localStorage.setItem('sidebar-tree-collapsed', String(val)))
+  watch(favoritesCollapsed, val => localStorage.setItem('sidebar-favorites-collapsed', String(val)))
+  watch(recentCollapsed, val => localStorage.setItem('sidebar-recent-collapsed', String(val)))
+  watch(tagsCollapsed, val => localStorage.setItem('sidebar-tags-collapsed', String(val)))
 
   // Tree expansion state
   const expandedIds = ref(new Set())
@@ -156,6 +156,6 @@ export function useSidebar({ pinned } = {}) {
     toggleTreeCollapse,
     toggleFavoritesCollapse,
     toggleRecentCollapse,
-    toggleTagsCollapse
+    toggleTagsCollapse,
   }
 }

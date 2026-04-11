@@ -41,7 +41,7 @@ describe('Database Integration Tests', () => {
       const updated = db.updateNode(node.id, {
         title: 'Updated Title',
         notes: 'Some notes',
-        completed: true
+        completed: true,
       })
 
       expect(updated.title).toBe('Updated Title')
@@ -55,7 +55,7 @@ describe('Database Integration Tests', () => {
       db.deleteNode(node.id, false)
 
       expect(db.getNode(node.id)).toBeNull()
-      expect(db.getTrash().some((n) => n.id === node.id)).toBe(true)
+      expect(db.getTrash().some(n => n.id === node.id)).toBe(true)
     })
 
     it('should hard delete a node', () => {
@@ -64,7 +64,7 @@ describe('Database Integration Tests', () => {
       db.deleteNode(node.id, true)
 
       expect(db.getNode(node.id)).toBeNull()
-      expect(db.getTrash().some((n) => n.id === node.id)).toBe(false)
+      expect(db.getTrash().some(n => n.id === node.id)).toBe(false)
     })
 
     it('should restore a soft-deleted node', () => {
@@ -105,7 +105,7 @@ describe('Database Integration Tests', () => {
 
       const children = db.getChildren(parent.id)
       expect(children.length).toBe(2)
-      expect(children.every((c) => c.parent_id === parent.id)).toBe(true)
+      expect(children.every(c => c.parent_id === parent.id)).toBe(true)
     })
 
     it('should calculate depth and path correctly', () => {
@@ -258,7 +258,7 @@ describe('Database Integration Tests', () => {
     it('should store and retrieve tags', () => {
       const node = factory.task({
         title: 'Tagged Node',
-        tags: ['urgent', 'bug', 'backend']
+        tags: ['urgent', 'bug', 'backend'],
       })
 
       const retrieved = db.getNode(node.id)
@@ -294,7 +294,7 @@ describe('Database Integration Tests', () => {
 
       const bugNodes = db.getNodesByTag('bug')
       expect(bugNodes.length).toBe(2)
-      expect(bugNodes.every((n) => n.tags.includes('bug'))).toBe(true)
+      expect(bugNodes.every(n => n.tags.includes('bug'))).toBe(true)
     })
   })
 
@@ -306,7 +306,7 @@ describe('Database Integration Tests', () => {
 
       const results = db.search('Meeting')
       expect(results.length).toBe(2)
-      expect(results.every((r) => r.title.includes('Meeting'))).toBe(true)
+      expect(results.every(r => r.title.includes('Meeting'))).toBe(true)
     })
 
     it('should search by notes', () => {
@@ -391,8 +391,8 @@ describe('Database Integration Tests', () => {
   describe('Workspaces', () => {
     it('should have default workspaces', () => {
       const workspaces = db.getWorkspaces()
-      expect(workspaces.some((w) => w.id === 'work')).toBe(true)
-      expect(workspaces.some((w) => w.id === 'private')).toBe(true)
+      expect(workspaces.some(w => w.id === 'work')).toBe(true)
+      expect(workspaces.some(w => w.id === 'private')).toBe(true)
     })
 
     it('should filter roots by workspace', () => {
@@ -402,8 +402,8 @@ describe('Database Integration Tests', () => {
       const workRoots = db.getRoots('work')
       const privateRoots = db.getRoots('private')
 
-      expect(workRoots.every((r) => r.workspace_id === 'work')).toBe(true)
-      expect(privateRoots.every((r) => r.workspace_id === 'private')).toBe(true)
+      expect(workRoots.every(r => r.workspace_id === 'work')).toBe(true)
+      expect(privateRoots.every(r => r.workspace_id === 'private')).toBe(true)
     })
   })
 
@@ -439,17 +439,17 @@ describe('Database Integration Tests', () => {
 
     it('should handle special characters in title', () => {
       const node = factory.task({
-        title: "Test's \"Special\" <Characters> & More"
+        title: 'Test\'s "Special" <Characters> & More',
       })
 
       const retrieved = db.getNode(node.id)
-      expect(retrieved.title).toBe("Test's \"Special\" <Characters> & More")
+      expect(retrieved.title).toBe('Test\'s "Special" <Characters> & More')
     })
 
     it('should handle unicode in notes', () => {
       const node = factory.note({
         title: 'Unicode Test',
-        notes: 'Japanese: \u65e5\u672c\u8a9e, Emoji: \ud83d\ude00\ud83d\ude80\ud83c\udf33'
+        notes: 'Japanese: \u65e5\u672c\u8a9e, Emoji: \ud83d\ude00\ud83d\ude80\ud83c\udf33',
       })
 
       const retrieved = db.getNode(node.id)

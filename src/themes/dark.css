@@ -5,7 +5,7 @@
  * Variables are defined for [data-theme="dark"] to override :root when explicitly set.
  */
 
-[data-theme="dark"] {
+[data-theme='dark'] {
   /* Text */
   --text-primary: #ffffff;
   --text-secondary: #c0c0c0;

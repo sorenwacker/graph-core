@@ -55,7 +55,7 @@ export function useDetachedWindow() {
       try {
         channel.value.postMessage({
           type: 'node-updated',
-          node: JSON.parse(JSON.stringify(node))
+          node: JSON.parse(JSON.stringify(node)),
         })
       } catch (e) {
         console.warn('Failed to broadcast node update:', e)
@@ -68,7 +68,7 @@ export function useDetachedWindow() {
     if (channel.value) {
       channel.value.postMessage({
         type: 'node-deleted',
-        nodeId: nodeId
+        nodeId: nodeId,
       })
     }
   }
@@ -78,7 +78,7 @@ export function useDetachedWindow() {
     if (channel.value) {
       channel.value.postMessage({
         type: 'navigate',
-        nodeId: nodeId
+        nodeId: nodeId,
       })
     }
   }
@@ -86,7 +86,7 @@ export function useDetachedWindow() {
   // Subscribe to channel messages
   function onMessage(callback) {
     if (channel.value) {
-      channel.value.onmessage = (event) => {
+      channel.value.onmessage = event => {
         callback(event.data)
       }
     }
@@ -119,6 +119,6 @@ export function useDetachedWindow() {
     broadcastNodeDelete,
     broadcastNavigation,
     onMessage,
-    cleanup
+    cleanup,
   }
 }

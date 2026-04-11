@@ -30,9 +30,15 @@ export function loadNodePositions(key) {
     const MAX_POS = 50000
     const validated = {}
     for (const [id, pos] of Object.entries(positions)) {
-      if (pos && typeof pos.x === 'number' && typeof pos.y === 'number' &&
-          isFinite(pos.x) && isFinite(pos.y) &&
-          Math.abs(pos.x) < MAX_POS && Math.abs(pos.y) < MAX_POS) {
+      if (
+        pos &&
+        typeof pos.x === 'number' &&
+        typeof pos.y === 'number' &&
+        isFinite(pos.x) &&
+        isFinite(pos.y) &&
+        Math.abs(pos.x) < MAX_POS &&
+        Math.abs(pos.y) < MAX_POS
+      ) {
         validated[id] = pos
       }
     }
@@ -57,8 +63,7 @@ export function saveNodePositions(cy, key) {
   cy.nodes().forEach(node => {
     const pos = node.position()
     // Only save valid positions
-    if (isFinite(pos.x) && isFinite(pos.y) &&
-        Math.abs(pos.x) < MAX_POS && Math.abs(pos.y) < MAX_POS) {
+    if (isFinite(pos.x) && isFinite(pos.y) && Math.abs(pos.x) < MAX_POS && Math.abs(pos.y) < MAX_POS) {
       positions[node.id()] = { x: pos.x, y: pos.y }
     }
   })
@@ -82,16 +87,14 @@ export function findSmartPosition(nodeId, parentId, savedPositions, childIds = [
   // First priority: if this node has children with positions, position near them
   // This handles wrap-with-parent where the new parent should be near its child
   if (childIds.length > 0) {
-    const childPositions = childIds
-      .map(id => savedPositions[String(id)])
-      .filter(pos => pos)
+    const childPositions = childIds.map(id => savedPositions[String(id)]).filter(pos => pos)
     if (childPositions.length > 0) {
       const avgX = childPositions.reduce((sum, p) => sum + p.x, 0) / childPositions.length
       const avgY = childPositions.reduce((sum, p) => sum + p.y, 0) / childPositions.length
       // Place slightly above/offset from children
       return {
         x: avgX + (Math.random() - 0.5) * 30,
-        y: avgY - 40 - Math.random() * 20
+        y: avgY - 40 - Math.random() * 20,
       }
     }
   }
@@ -103,7 +106,7 @@ export function findSmartPosition(nodeId, parentId, savedPositions, childIds = [
     const distance = 20 + Math.random() * 20
     return {
       x: parentPos.x + Math.cos(angle) * distance,
-      y: parentPos.y + Math.sin(angle) * distance
+      y: parentPos.y + Math.sin(angle) * distance,
     }
   }
 
@@ -116,7 +119,7 @@ export function findSmartPosition(nodeId, parentId, savedPositions, childIds = [
       const distance = 20 + Math.random() * 20
       return {
         x: parentPos.x + Math.cos(angle) * distance,
-        y: parentPos.y + Math.sin(angle) * distance
+        y: parentPos.y + Math.sin(angle) * distance,
       }
     }
   }
@@ -130,7 +133,7 @@ export function findSmartPosition(nodeId, parentId, savedPositions, childIds = [
     const distance = 30 + Math.random() * 30
     return {
       x: centerX + Math.cos(angle) * distance,
-      y: centerY + Math.sin(angle) * distance
+      y: centerY + Math.sin(angle) * distance,
     }
   }
 
@@ -143,7 +146,7 @@ export function findSmartPosition(nodeId, parentId, savedPositions, childIds = [
     const distance = 30 + Math.random() * 30
     return {
       x: centerX + Math.cos(angle) * distance,
-      y: centerY + Math.sin(angle) * distance
+      y: centerY + Math.sin(angle) * distance,
     }
   }
 
@@ -186,6 +189,6 @@ export function useNodePositions(options = {}) {
     getPositionsKey: getKey,
     loadNodePositions: load,
     saveNodePositions: save,
-    findSmartPosition: findPosition
+    findSmartPosition: findPosition,
   }
 }

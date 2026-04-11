@@ -1,7 +1,7 @@
 <script setup>
 defineProps({
   color: { type: String, default: null },
-  defaultColor: { type: String, default: '#0f4c75' }
+  defaultColor: { type: String, default: '#0f4c75' },
 })
 
 const emit = defineEmits(['update:color'])
@@ -19,16 +19,8 @@ function clearColor() {
   <div v-if="color && color !== defaultColor" class="color-picker-section">
     <label>Color</label>
     <div class="color-field">
-      <input
-        type="color"
-        :value="color"
-        @change="onColorChange"
-      />
-      <button
-        class="clear-btn"
-        title="Inherit from parent"
-        @click="clearColor"
-      >x</button>
+      <input type="color" :value="color" @change="onColorChange" />
+      <button class="clear-btn" title="Inherit from parent" @click="clearColor">x</button>
     </div>
   </div>
 </template>
@@ -54,7 +46,7 @@ function clearColor() {
   gap: 4px;
 }
 
-.color-field input[type="color"] {
+.color-field input[type='color'] {
   width: 28px;
   height: 28px;
   border: none;

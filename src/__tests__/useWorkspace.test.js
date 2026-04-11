@@ -10,17 +10,17 @@ describe('useWorkspace composable', () => {
     vi.stubGlobal('localStorage', {
       getItem: vi.fn().mockReturnValue(null),
       setItem: vi.fn(),
-      removeItem: vi.fn()
+      removeItem: vi.fn(),
     })
 
     mockApi = {
       getWorkspaces: vi.fn().mockResolvedValue([
         { id: 'work', name: 'Work' },
-        { id: 'personal', name: 'Personal' }
+        { id: 'personal', name: 'Personal' },
       ]),
       createWorkspace: vi.fn().mockResolvedValue({ id: 'new-ws', name: 'New' }),
       deleteWorkspace: vi.fn().mockResolvedValue(true),
-      getRoots: vi.fn().mockResolvedValue([])
+      getRoots: vi.fn().mockResolvedValue([]),
     }
     workspace = useWorkspace({ api: mockApi })
   })
@@ -58,7 +58,7 @@ describe('useWorkspace composable', () => {
       mockApi.getWorkspaces.mockResolvedValue([
         { id: 'work', name: 'Work' },
         null,
-        { id: 'personal', name: 'Personal' }
+        { id: 'personal', name: 'Personal' },
       ])
 
       await workspace.loadWorkspaces()
@@ -160,7 +160,7 @@ describe('useWorkspace composable', () => {
       mockApi.getWorkspaces
         .mockResolvedValueOnce([
           { id: 'work', name: 'Work' },
-          { id: 'personal', name: 'Personal' }
+          { id: 'personal', name: 'Personal' },
         ])
         .mockResolvedValueOnce([{ id: 'personal', name: 'Personal' }])
 

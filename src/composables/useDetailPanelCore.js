@@ -40,7 +40,7 @@ export function useDetailPanelCore(props, emit) {
     updateTable,
     deleteTable,
     saveCell,
-    saveCellStyle
+    saveCellStyle,
   } = useNodeTable()
 
   // Expanded children and their grandchildren
@@ -74,12 +74,12 @@ export function useDetailPanelCore(props, emit) {
     handleKeydown: handleMentionKeydown,
     selectMention,
     hideMentions,
-    refreshPersons
+    refreshPersons,
   } = useMentions({
     onMentionInserted: async () => {
       await loadLinkedNodes()
     },
-    workspaceId: props.currentWorkspace
+    workspaceId: props.currentWorkspace,
   })
 
   // Computed properties
@@ -493,6 +493,6 @@ export function useDetailPanelCore(props, emit) {
     startResize,
     autoResizeTitle,
     handleKeydown,
-    cleanup
+    cleanup,
   }
 }
