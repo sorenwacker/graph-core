@@ -235,8 +235,8 @@ class Database {
 
   _initSchema() {
     this._createTables()
-    this._createIndexes()
     this._runMigrations()
+    this._createIndexes()
   }
 
   /**
