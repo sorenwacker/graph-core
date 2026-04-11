@@ -150,14 +150,14 @@ function getChildProgress(node) {
 }
 
 function nestedGridStyle(count) {
-  const cols = count <= 2 ? count : count <= 4 ? 2 : 3
+  const cols = count <= 1 ? 1 : 2
   return { gridTemplateColumns: `repeat(${cols}, 1fr)` }
 }
 
 function getNestedCardSize(count) {
   if (count <= 2) return 'child-lg'
   if (count <= 4) return 'child-md'
-  return 'child-sm'
+  return 'child-md'
 }
 
 const filteredNodes = computed(() => {
