@@ -426,7 +426,6 @@ function handleCanvasClick(e) {
                 @change.stop="emit('toggle-complete', grandchild)"
               />
               <span class="grandchild-title" :class="{ completed: grandchild.completed }">{{ grandchild.title }}</span>
-              <span v-if="grandchild.notes && !grandchild.notes_sensitive" class="grandchild-notes">{{ decodeHtml(grandchild.notes) }}</span>
               <span v-if="grandchild.children?.length" class="grandchild-count">{{ grandchild.children.length }}</span>
             </div>
           </div>
