@@ -120,6 +120,20 @@ function getDateCountdown(node) {
   return null
 }
 
+function formatDueDate(node) {
+  if (!node.due_date) return null
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const due = new Date(node.due_date)
+  due.setHours(0, 0, 0, 0)
+  const days = Math.ceil((due - today) / (1000 * 60 * 60 * 24))
+
+  if (days < 0) return `${Math.abs(days)}d overdue`
+  if (days === 0) return 'due today'
+  if (days === 1) return 'due tomorrow'
+  return `due in ${days}d`
+}
+
 function getDueDateStatus(dueDate) {
   if (!dueDate) return null
   const today = new Date()
@@ -228,7 +242,7 @@ function handleCanvasClick(e) {
           {{ node.children.length }}
         </span>
         <span v-if="node.due_date && cardSizeClass !== 'card-xs'" class="card-due-date" :class="{ overdue: getDueDateStatus(node.due_date)?.type === 'overdue' }" :title="node.due_date">
-          due in {{ getDateCountdown(node)?.text || node.due_date }}
+          {{ formatDueDate(node) }}
         </span>
         <button class="card-add-btn" @click.stop="emit('add-child', node.id, $event)" title="Add child item">+</button>
         <button class="card-delete-btn" @click.stop="emit('delete', node.id)" title="Delete">x</button>
