@@ -23,6 +23,14 @@ function parseLocalDate(dateStr) {
   return new Date(year, month - 1, day)
 }
 
+// Format a Date object as YYYY-MM-DD in local time (not UTC)
+function formatLocalDate(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 const props = defineProps({
   nodes: { type: Array, default: () => [] },
   selectedId: Number,
@@ -155,7 +163,7 @@ const timelineNodes = computed(() => {
       if (node.type === 'task' || node.type === 'project' || node.type === 'event') {
         // Include nodes that have own dates OR can inherit a date OR have created_at
         const createdAtDate = node.created_at ? node.created_at.split('T')[0] : null
-        const today = new Date().toISOString().split('T')[0]
+        const today = formatLocalDate(new Date())
 
         const startFallback = createdAtDate
         const displayDate = node.start_date || node.due_date || inheritedEnd || startFallback
@@ -212,12 +220,12 @@ const dateRange = computed(() => {
   // Start from earliest date or 3 months ago, whichever is earlier
   const threeMonthsAgo = new Date()
   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
-  const startDate = parseLocalDate(minDate) < threeMonthsAgo ? minDate : threeMonthsAgo.toISOString().split('T')[0]
+  const startDate = parseLocalDate(minDate) < threeMonthsAgo ? minDate : formatLocalDate(threeMonthsAgo)
 
   // End at latest date or 1 year from now, whichever is later
   const oneYearFromNow = new Date()
   oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
-  const endDate = parseLocalDate(maxDate) > oneYearFromNow ? maxDate : oneYearFromNow.toISOString().split('T')[0]
+  const endDate = parseLocalDate(maxDate) > oneYearFromNow ? maxDate : formatLocalDate(oneYearFromNow)
 
   const start = parseLocalDate(startDate)
   const end = parseLocalDate(endDate)
@@ -240,7 +248,7 @@ const years = computed(() => {
   while (current <= end) {
     result.push({
       label: current.getFullYear().toString(),
-      position: getDatePosition(current.toISOString().split('T')[0])
+      position: getDatePosition(formatLocalDate(current))
     })
     current.setFullYear(current.getFullYear() + 1)
   }
@@ -258,7 +266,7 @@ const months = computed(() => {
 
   let current = new Date(start.getFullYear(), start.getMonth(), 1)
   while (current <= end) {
-    const position = getDatePosition(current.toISOString().split('T')[0])
+    const position = getDatePosition(formatLocalDate(current))
     result.push({
       label: current.toLocaleDateString('en-US', { month: 'short' }),
       position
@@ -285,7 +293,7 @@ const weeks = computed(() => {
 
   while (current <= end) {
     result.push({
-      position: getDatePosition(current.toISOString().split('T')[0])
+      position: getDatePosition(formatLocalDate(current))
     })
     current.setDate(current.getDate() + 7)
   }
@@ -307,7 +315,7 @@ const days = computed(() => {
     const isFirst = current.getDate() === 1
     result.push({
       label: current.getDate().toString(),
-      position: getDatePosition(current.toISOString().split('T')[0]),
+      position: getDatePosition(formatLocalDate(current)),
       isWeekend,
       isFirst
     })
@@ -331,7 +339,7 @@ const weekends = computed(() => {
   }
 
   while (current <= end) {
-    const saturdayPos = getDatePosition(current.toISOString().split('T')[0])
+    const saturdayPos = getDatePosition(formatLocalDate(current))
     result.push({
       position: saturdayPos,
       width: zoom * 2 // 2 days (Sat + Sun)
@@ -446,7 +454,7 @@ function getProjectBoxStyle(project) {
 // Today marker position
 const todayPosition = computed(() => {
   if (!dateRange.value.start) return null
-  const today = new Date().toISOString().split('T')[0]
+  const today = formatLocalDate(new Date())
   const pos = getDatePosition(today)
   // Only show if today is within the date range
   if (pos < 0 || pos > timelineWidth.value) return null
@@ -703,7 +711,7 @@ function positionToDate(pixelX) {
   const days = Math.round(pixelX / zoomLevel.value)
   const start = parseLocalDate(dateRange.value.start)
   start.setDate(start.getDate() + days)
-  return start.toISOString().split('T')[0]
+  return formatLocalDate(start)
 }
 
 // Timeline drag composable
