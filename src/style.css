@@ -1184,9 +1184,9 @@ input[type="checkbox"] {
 .grandchild-item.group { border-left-color: var(--type-group-text); }
 .grandchild-item.component { border-left-color: var(--type-component-text); }
 
-.grandchild-check {
-  width: 8px;
-  height: 8px;
+input.grandchild-check {
+  width: 8px !important;
+  height: 8px !important;
   margin: 0;
   accent-color: var(--type-task-text);
   cursor: pointer;
