@@ -1,0 +1,7 @@
+# Vue files with multi-statement inline event handlers
+# TODO: Refactor these to use methods instead of inline handlers
+src/App.vue
+src/components/DetailPanel.vue
+src/components/SettingsPanel.vue
+src/components/SpotlightSearch.vue
+src/components/detail/MetadataGridSection.vue
