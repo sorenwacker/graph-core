@@ -848,11 +848,25 @@
 }
 
 .child-card-checkbox {
-  width: 12px;
-  height: 12px;
   cursor: pointer;
   flex-shrink: 0;
   accent-color: var(--accent-color);
+}
+
+/* Checkbox sizes scale with child card size */
+.child-card.child-lg .child-card-checkbox {
+  width: 14px;
+  height: 14px;
+}
+
+.child-card.child-md .child-card-checkbox {
+  width: 12px;
+  height: 12px;
+}
+
+.child-card.child-sm .child-card-checkbox {
+  width: 10px;
+  height: 10px;
 }
 
 /* Child card type colors - left border */
