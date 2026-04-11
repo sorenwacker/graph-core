@@ -1255,16 +1255,13 @@ input[type="checkbox"] {
   opacity: 0.5;
 }
 
-/* Compact grandchildren in small child cards */
+/* Small child cards - hide notes and grandchildren, show title only */
 .child-card.child-sm .grandchild-list {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+  display: none;
 }
 
-.child-card.child-sm .grandchild-item {
-  font-size: 9px;
-  padding: 1px 4px;
+.child-card.child-sm .child-card-notes {
+  display: none;
 }
 
 /* Compact child cards when there are many children */

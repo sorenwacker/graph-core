@@ -913,12 +913,11 @@
 
 /* Small child cards - compact notes */
 .child-card.child-sm .child-card-notes {
-  margin-top: 2px;
+  display: none;
 }
 
-.child-card.child-sm .child-card-notes :deep(.card-notes-display) {
-  font-size: 9px;
-  line-height: 1.4;
+.child-card.child-sm .grandchild-list {
+  display: none;
 }
 
 .grandchild-notes {

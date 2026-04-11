@@ -157,7 +157,7 @@ function nestedGridStyle(count) {
 function getNestedCardSize(count) {
   if (count <= 2) return 'child-lg'
   if (count <= 4) return 'child-md'
-  return 'child-md'
+  return 'child-sm'
 }
 
 const filteredNodes = computed(() => {
