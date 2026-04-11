@@ -1120,15 +1120,33 @@ input.grandchild-check {
   50% { opacity: 0.7; }
 }
 
-/* Due date display */
+/* Due date display with closeness colors */
 .card-due-date {
   font-size: 10px;
   font-weight: 500;
   padding: 2px 6px;
   border-radius: 4px;
+  white-space: nowrap;
+}
+
+.card-due-date.due-later {
+  background: rgba(100, 116, 139, 0.15);
+  color: #94a3b8;
+}
+
+.card-due-date.due-soon {
   background: rgba(59, 130, 246, 0.15);
   color: #60a5fa;
-  white-space: nowrap;
+}
+
+.card-due-date.due-tomorrow {
+  background: rgba(234, 179, 8, 0.2);
+  color: #facc15;
+}
+
+.card-due-date.due-today {
+  background: rgba(249, 115, 22, 0.2);
+  color: #fb923c;
 }
 
 .card-due-date.overdue {

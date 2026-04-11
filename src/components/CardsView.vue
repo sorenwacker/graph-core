@@ -134,6 +134,21 @@ function formatDueDate(node) {
   return `due in ${days}d`
 }
 
+function getDueDateClass(node) {
+  if (!node.due_date) return ''
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const due = new Date(node.due_date)
+  due.setHours(0, 0, 0, 0)
+  const days = Math.ceil((due - today) / (1000 * 60 * 60 * 24))
+
+  if (days < 0) return 'overdue'
+  if (days === 0) return 'due-today'
+  if (days === 1) return 'due-tomorrow'
+  if (days <= 7) return 'due-soon'
+  return 'due-later'
+}
+
 function getDueDateStatus(dueDate) {
   if (!dueDate) return null
   const today = new Date()
@@ -241,7 +256,7 @@ function handleCanvasClick(e) {
         <span v-if="node.children?.length && cardSizeClass !== 'card-xs'" class="node-card-children" :title="node.children.length + ' children'">
           {{ node.children.length }}
         </span>
-        <span v-if="node.due_date && cardSizeClass !== 'card-xs'" class="card-due-date" :class="{ overdue: getDueDateStatus(node.due_date)?.type === 'overdue' }" :title="node.due_date">
+        <span v-if="node.due_date && cardSizeClass !== 'card-xs'" class="card-due-date" :class="getDueDateClass(node)" :title="node.due_date">
           {{ formatDueDate(node) }}
         </span>
         <button class="card-add-btn" @click.stop="emit('add-child', node.id, $event)" title="Add child item">+</button>
@@ -346,12 +361,9 @@ function handleCanvasClick(e) {
         :max-cols="cardSizeClass === 'card-xl' ? 5 : cardSizeClass === 'card-lg' ? 4 : 3"
       />
 
-      <!-- Metadata - xl/lg only -->
-      <div v-if="(cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg') && (node.due_date || node.start_date)" class="node-card-meta">
-        <span v-if="node.due_date" class="meta-item due">
-          <span class="meta-icon">D</span>{{ node.due_date }}
-        </span>
-        <span v-if="node.start_date && cardSizeClass === 'card-xl'" class="meta-item start">
+      <!-- Metadata - xl/lg only (start date) -->
+      <div v-if="(cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg') && node.start_date" class="node-card-meta">
+        <span class="meta-item start">
           <span class="meta-icon">S</span>{{ node.start_date }}
         </span>
       </div>
