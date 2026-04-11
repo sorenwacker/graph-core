@@ -104,7 +104,8 @@ jobs:
         run: npm run release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: false
+          # Allow ad-hoc signing on macOS
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ matrix.os != 'macos-latest' && 'false' || 'true' }}
 
   # Mark release as prerelease or full release and add install instructions
   finalize:

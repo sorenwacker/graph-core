@@ -1,7 +1,7 @@
 {
   "name": "graph-core",
   "private": true,
-  "version": "1.6.0-beta.4",
+  "version": "1.6.0-beta.5",
   "description": "Graph-based task and note management",
   "author": {
     "name": "Your Name",
@@ -88,7 +88,10 @@
       "icon": "resources/icon-1024.png",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "identity": null,
+      "identity": "-",
+      "entitlements": null,
+      "entitlementsInherit": null,
+      "signIgnore": [],
       "target": [
         "dmg",
         "zip"
