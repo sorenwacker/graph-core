@@ -28,7 +28,8 @@
     "electron:build:linux": "npm run build && electron-builder --linux",
     "electron:build:mas": "npm run build && electron-builder --mac mas",
     "dist": "npm run build && electron-builder",
-    "release": "npm run build && electron-builder --publish always"
+    "release": "npm run build && electron-builder --publish always",
+    "prepare": "husky"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.1",
@@ -64,7 +65,9 @@
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-vue": "^10.7.0",
+    "husky": "^9.1.7",
     "jsdom": "^27.4.0",
+    "lint-staged": "^16.4.0",
     "prettier": "^3.8.0",
     "vite": "^8.0.8",
     "vitest": "^4.0.17",
@@ -131,5 +134,18 @@
   "overrides": {
     "tar": "^7.5.4",
     "lodash-es": "^4.17.23"
+  },
+  "lint-staged": {
+    "src/**/*.{js,vue}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "src/**/*.css": [
+      "prettier --write"
+    ],
+    "electron/**/*.js": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   }
 }
