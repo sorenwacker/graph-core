@@ -132,3 +132,27 @@ jobs:
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease=false --notes "$NOTES"
             echo "Marked $TAG as full release"
           fi
+
+  # Upload release assets to R2 (full releases only)
+  upload-r2:
+    needs: [validate, build, finalize]
+    if: needs.validate.outputs.is_prerelease == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p assets
+          gh release download "${{ github.ref_name }}" --repo "${{ github.repository }}" --dir assets
+
+      - name: Upload to R2
+        env:
+          RCLONE_CONFIG_R2_TYPE: s3
+          RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+          RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          RCLONE_CONFIG_R2_ENDPOINT: https://78836246513c4e18ead5fd9349aea200.r2.cloudflarestorage.com
+        run: |
+          curl -s https://rclone.org/install.sh | sudo bash
+          rclone copy assets/ r2:binaries/graph-core/
