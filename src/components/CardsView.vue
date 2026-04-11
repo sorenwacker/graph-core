@@ -384,7 +384,6 @@ function handleCanvasClick(e) {
               @click.stop
               @change.stop="emit('toggle-complete', child)"
             />
-            <span class="child-card-type" :class="child.type">{{ child.type[0].toUpperCase() }}</span>
             <CardTitleEdit
               :title="child.title"
               :model-value="editingTitle"
