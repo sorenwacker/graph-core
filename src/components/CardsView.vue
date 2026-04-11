@@ -137,7 +137,9 @@ function isSensitiveNode(node) {
 }
 
 // Calculate task/project completion progress from children
+// Uses _progress if available (pre-calculated before filtering)
 function getChildProgress(node) {
+  if (node._progress) return node._progress
   if (!node.children?.length) return null
   const tasks = node.children.filter(c => c.type === 'task' || c.type === 'project')
   if (tasks.length === 0) return null

@@ -29,7 +29,23 @@ export function useCardsLayout({
   inheritColors
 }) {
   /**
+   * Calculate progress from original children (before filtering)
+   */
+  function calculateProgress(nodeChildren) {
+    if (!nodeChildren?.length) return null
+    const tasks = nodeChildren.filter(c => c && (c.type === 'task' || c.type === 'project'))
+    if (tasks.length === 0) return null
+    const completed = tasks.filter(c => c.completed).length
+    return {
+      completed,
+      total: tasks.length,
+      percent: Math.round((completed / tasks.length) * 100)
+    }
+  }
+
+  /**
    * Recursively filter children, removing completed nodes when hideCompleted is true
+   * Preserves original progress counts in _progress property
    */
   function filterChildrenRecursive(nodeList) {
     if (!nodeList) return []
@@ -38,6 +54,7 @@ export function useCardsLayout({
       .filter(node => node && !node.completed && !node.inheritedCompleted)
       .map(node => ({
         ...node,
+        _progress: calculateProgress(node.children),
         children: node.children ? filterChildrenRecursive(node.children) : []
       }))
   }
