@@ -270,8 +270,8 @@ function handleCanvasClick(e) {
           type="checkbox"
           class="card-checkbox"
           :checked="node.completed"
-          @click.stop
-          @change.stop="emit('toggle-complete', node)"
+          draggable="false"
+          @click.stop="emit('toggle-complete', node)"
           title="Mark as complete"
         />
         <CardTitleEdit
@@ -406,8 +406,8 @@ function handleCanvasClick(e) {
               type="checkbox"
               class="child-card-checkbox"
               :checked="child.completed"
-              @click.stop
-              @change.stop="emit('toggle-complete', child)"
+              draggable="false"
+              @click.stop="emit('toggle-complete', child)"
             />
             <CardTitleEdit
               :title="child.title"
@@ -447,8 +447,8 @@ function handleCanvasClick(e) {
                 type="checkbox"
                 class="grandchild-check"
                 :checked="grandchild.completed"
-                @click.stop
-                @change.stop="emit('toggle-complete', grandchild)"
+                draggable="false"
+                @click.stop="emit('toggle-complete', grandchild)"
               />
               <span class="grandchild-title" :class="{ completed: grandchild.completed }">{{ grandchild.title }}</span>
               <span v-if="grandchild.children?.length" class="grandchild-count">{{ grandchild.children.length }}</span>

@@ -898,8 +898,11 @@
 
 /* Grandchild checkbox - smaller than child */
 input.grandchild-check {
-  width: 8px !important;
-  height: 8px !important;
+  width: 10px !important;
+  height: 10px !important;
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
 }
 
 /* Child card type colors - left border */
