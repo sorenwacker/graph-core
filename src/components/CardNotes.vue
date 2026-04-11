@@ -141,6 +141,9 @@ watch(() => props.isEditing, (editing) => {
   font-size: 10px;
   line-height: 1.4;
   padding: 4px 8px;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .card-notes-display.size-grandchild {
