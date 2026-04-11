@@ -1193,8 +1193,8 @@ input[type="checkbox"] {
 .grandchild-item.component { border-left-color: var(--type-component-text); }
 
 .grandchild-check {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   margin: 0;
   accent-color: var(--type-task-text);
   cursor: pointer;
