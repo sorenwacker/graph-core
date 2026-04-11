@@ -370,7 +370,7 @@ function handleCanvasClick(e) {
           <span class="meta-icon">E</span>{{ node.end_date }}
         </span>
         <span v-if="node.location && node.type !== 'person'" class="meta-item location">
-          <span class="meta-icon">📍</span>{{ node.location }}
+          <span class="meta-icon">⌖</span>{{ node.location }}
         </span>
       </div>
 
