@@ -769,6 +769,32 @@
   color: var(--accent-color);
 }
 
+/* Children grid - fills available space */
+.node-card-children-grid {
+  display: grid;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 12px 12px 12px;
+}
+
+.node-card-children-grid.compact {
+  gap: 4px;
+  padding: 4px 8px 8px 8px;
+}
+
+/* Child cards - fill grid cell */
+.child-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* Child card sizes */
 .child-card.child-lg {
   padding: 10px 12px;
