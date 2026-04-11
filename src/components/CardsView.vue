@@ -434,8 +434,8 @@ function handleCanvasClick(e) {
         </div>
       </div>
 
-      <!-- Footer metadata for smaller cards -->
-      <div v-if="(cardSizeClass === 'card-md' || cardSizeClass === 'card-sm' || cardSizeClass === 'card-xs') && (node.importance || node.children?.length || getDateCountdown(node))" class="node-card-footer">
+      <!-- Footer metadata -->
+      <div v-if="node.importance || node.children?.length || getDateCountdown(node)" class="node-card-footer">
         <span v-if="node.importance" class="card-importance" :class="'imp-' + node.importance">{{ node.importance }}</span>
         <span v-if="node.children?.length" class="node-card-children">{{ node.children.length }}</span>
         <span v-if="getDateCountdown(node)" class="date-countdown" :class="getDateCountdown(node).type">{{ getDateCountdown(node).text }}</span>
