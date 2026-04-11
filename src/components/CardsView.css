@@ -907,11 +907,28 @@
 .child-card-notes {
   margin-top: 4px;
   overflow: hidden;
-  max-height: 60px;
+  flex: 1;
+  min-height: 0;
 }
 
-/* Notes type child cards - show more content */
+/* Hide notes on small child cards */
+.child-card.child-sm .child-card-notes {
+  display: none;
+}
+
+/* Medium child cards - limited notes */
+.child-card.child-md .child-card-notes {
+  max-height: 40px;
+}
+
+/* Large child cards - more notes space */
+.child-card.child-lg .child-card-notes {
+  max-height: none;
+}
+
+/* Notes type child cards - always show full content */
 .child-card.notes .child-card-notes {
+  display: block;
   max-height: none;
   flex: 1;
 }
