@@ -66,7 +66,7 @@ jobs:
             echo "This is a FULL RELEASE: $TAG"
 
             # Check if a prerelease exists for this version
-            PRERELEASES=$(gh release list --limit 100 | grep -E "^v${VERSION}-(alpha|beta|rc)" || true)
+            PRERELEASES=$(gh release list --limit 100 | grep -E "${VERSION}-(alpha|beta|rc)" || true)
 
             if [ -z "$PRERELEASES" ]; then
               echo "::error::No pre-release found for version $VERSION. Create a pre-release first (e.g., v${VERSION}-beta.1)"
