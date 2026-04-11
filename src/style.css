@@ -1168,33 +1168,29 @@ input[type="checkbox"] {
   align-items: flex-start;
   flex-wrap: wrap;
   gap: 3px;
-  padding: 2px;
+  padding: 2px 4px;
   font-size: 9px;
   line-height: 1.4;
   color: var(--text-tertiary);
   cursor: pointer;
+  border-left: 2px solid var(--border-color);
+  margin-left: 2px;
 }
 
-.grandchild-item::before {
-  content: '\2022';
-  font-size: 6px;
-  opacity: 0.4;
-  flex-shrink: 0;
-  width: 8px;
-  text-align: center;
-}
-
-/* Type-colored bullets */
-.grandchild-item.project::before { color: var(--type-project-text); }
-.grandchild-item.task::before { display: none; }
-.grandchild-item.note::before, .grandchild-item.notes::before { color: var(--type-note-text); }
-.grandchild-item.milestone::before { color: var(--type-milestone-text); }
-.grandchild-item.person::before { color: var(--type-person-text); }
-.grandchild-item.event::before { color: var(--type-event-text); }
-.grandchild-item.topic::before { color: var(--type-topic-text); }
-.grandchild-item.organization::before { color: var(--type-organization-text); }
-.grandchild-item.group::before { color: var(--type-group-text); }
-.grandchild-item.component::before { color: var(--type-component-text); }
+/* Grandchild type colors - left border */
+.grandchild-item.task { border-left-color: var(--type-task-text); }
+.grandchild-item.project { border-left-color: var(--type-project-text); }
+.grandchild-item.goal { border-left-color: var(--type-goal-text); }
+.grandchild-item.note, .grandchild-item.notes { border-left-color: var(--type-note-text); }
+.grandchild-item.person { border-left-color: var(--type-person-text); }
+.grandchild-item.organization, .grandchild-item.org { border-left-color: var(--type-org-text); }
+.grandchild-item.area { border-left-color: var(--type-area-text); }
+.grandchild-item.resource { border-left-color: var(--type-resource-text); }
+.grandchild-item.event { border-left-color: var(--type-event-text); }
+.grandchild-item.milestone { border-left-color: var(--type-milestone-text); }
+.grandchild-item.topic { border-left-color: var(--type-topic-text); }
+.grandchild-item.group { border-left-color: var(--type-group-text); }
+.grandchild-item.component { border-left-color: var(--type-component-text); }
 
 .grandchild-check {
   width: 8px;
