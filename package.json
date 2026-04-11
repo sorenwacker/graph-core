@@ -1,7 +1,7 @@
 {
   "name": "graph-core",
   "private": true,
-  "version": "1.6.0-beta.5",
+  "version": "1.6.0-beta.6",
   "description": "Graph-based task and note management",
   "author": {
     "name": "Your Name",
@@ -88,15 +88,13 @@
       "icon": "resources/icon-1024.png",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "identity": "-",
-      "entitlements": null,
-      "entitlementsInherit": null,
-      "signIgnore": [],
+      "identity": null,
       "target": [
         "dmg",
         "zip"
       ]
     },
+    "afterPack": "scripts/sign-mac.js",
     "mas": {
       "category": "public.app-category.productivity",
       "entitlements": "build/entitlements.mac.plist",
