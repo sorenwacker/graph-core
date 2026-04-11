@@ -227,18 +227,15 @@ function handleCanvasClick(e) {
         <span v-if="node.children?.length && cardSizeClass !== 'card-xs'" class="node-card-children" :title="node.children.length + ' children'">
           {{ node.children.length }}
         </span>
+        <span v-if="node.due_date && cardSizeClass !== 'card-xs'" class="card-due-date" :class="{ overdue: getDueDateStatus(node.due_date)?.type === 'overdue' }" :title="'Due: ' + node.due_date">
+          {{ node.due_date }}
+        </span>
         <span
           v-if="getDateCountdown(node)"
           class="date-countdown"
           :class="getDateCountdown(node).type"
           :title="node.start_date ? 'Start: ' + node.start_date : 'Due: ' + (node.due_date || node.end_date)"
         >{{ getDateCountdown(node).text }}</span>
-        <span
-          v-if="getDueDateStatus(node.due_date) && !node.completed && getDueDateStatus(node.due_date).type === 'overdue'"
-          class="due-warning"
-          :class="getDueDateStatus(node.due_date).type"
-          :title="'Due: ' + node.due_date"
-        >{{ getDueDateStatus(node.due_date).text }}</span>
         <button class="card-add-btn" @click.stop="emit('add-child', node.id, $event)" title="Add child item">+</button>
         <button class="card-delete-btn" @click.stop="emit('delete', node.id)" title="Delete">x</button>
       </div>
