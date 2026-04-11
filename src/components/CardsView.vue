@@ -361,6 +361,15 @@ function handleCanvasClick(e) {
         :max-cols="cardSizeClass === 'card-xl' ? 8 : cardSizeClass === 'card-lg' ? 6 : 5"
       />
 
+      <!-- Location and tags for all cards -->
+      <div v-if="(node.location || (node.tags && node.tags.length > 0)) && node.type !== 'person'" class="card-location-tags">
+        <span v-if="node.location" class="card-location">
+          <span class="meta-icon">L</span>{{ node.location }}
+        </span>
+        <span v-for="tag in (node.tags || []).slice(0, 3)" :key="tag" class="card-tag">{{ tag }}</span>
+        <span v-if="node.tags?.length > 3" class="card-tag-more">+{{ node.tags.length - 3 }}</span>
+      </div>
+
       <!-- Metadata - xl/lg only (start/end dates) -->
       <div v-if="(cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg') && (node.start_date || node.end_date)" class="node-card-meta">
         <span v-if="node.start_date" class="meta-item start">
