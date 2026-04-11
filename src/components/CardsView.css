@@ -1154,6 +1154,17 @@ input.grandchild-check {
   color: #f87171;
 }
 
+/* End date display */
+.card-end-date {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  white-space: nowrap;
+}
+
 /* Date countdown badges */
 .date-countdown {
   font-size: 10px;
