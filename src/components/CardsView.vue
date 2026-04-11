@@ -374,12 +374,6 @@ function handleCanvasClick(e) {
         </span>
       </div>
 
-      <!-- Tags for all cards -->
-      <div v-if="node.tags && node.tags.length > 0 && node.type !== 'person'" class="card-tags">
-        <span v-for="tag in node.tags.slice(0, 3)" :key="tag" class="card-tag">{{ tag }}</span>
-        <span v-if="node.tags.length > 3" class="card-tag-more">+{{ node.tags.length - 3 }}</span>
-      </div>
-
       <!-- Nested children cards -->
       <div
         v-if="node.children?.length"
@@ -468,6 +462,12 @@ function handleCanvasClick(e) {
         <span v-if="node.importance" class="card-importance" :class="'imp-' + node.importance">{{ node.importance }}</span>
         <span v-if="node.children?.length" class="node-card-children">{{ node.children.length }}</span>
         <span v-if="getDateCountdown(node)" class="date-countdown" :class="getDateCountdown(node).type">{{ getDateCountdown(node).text }}</span>
+      </div>
+
+      <!-- Tags at bottom -->
+      <div v-if="node.tags && node.tags.length > 0 && node.type !== 'person'" class="card-tags">
+        <span v-for="tag in node.tags.slice(0, 5)" :key="tag" class="card-tag">{{ tag }}</span>
+        <span v-if="node.tags.length > 5" class="card-tag-more">+{{ node.tags.length - 5 }}</span>
       </div>
     </div>
 
