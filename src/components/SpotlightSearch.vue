@@ -12,7 +12,7 @@ const props = defineProps({
   selectedResultIndex: { type: Number, default: 0 },
   viewMode: { type: String, default: 'tree' },
   hasMoreResults: { type: Boolean, default: false },
-  isLoadingMore: { type: Boolean, default: false }
+  isLoadingMore: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -23,7 +23,7 @@ const emit = defineEmits([
   'keydown',
   'select-result',
   'clear-recent',
-  'load-more'
+  'load-more',
 ])
 
 const resultsRef = ref(null)
@@ -37,13 +37,21 @@ function handleScroll(e) {
   }
 }
 
+function onSearchInput(event) {
+  emit('update:searchQuery', event.target.value)
+  emit('search-input')
+}
+
 const searchInputRef = ref(null)
 
-watch(() => props.visible, (val) => {
-  if (val) {
-    nextTick(() => searchInputRef.value?.focus())
+watch(
+  () => props.visible,
+  val => {
+    if (val) {
+      nextTick(() => searchInputRef.value?.focus())
+    }
   }
-})
+)
 
 function getImportanceLabel(importance) {
   const labels = { 1: 'Low', 2: 'Medium', 3: 'High', 4: 'Critical' }
@@ -80,12 +88,11 @@ function getModeBadge() {
             type="text"
             :placeholder="getPlaceholder()"
             class="spotlight-input"
-            @input="emit('update:searchQuery', $event.target.value); emit('search-input')"
+            @input="onSearchInput"
             @keydown="emit('keydown', $event)"
           />
           <span class="spotlight-hint">
-            <span class="key">esc</span> close
-            <span class="key">up</span><span class="key">down</span> navigate
+            <span class="key">esc</span> close <span class="key">up</span><span class="key">down</span> navigate
             <span class="key">enter</span> select
           </span>
         </div>
@@ -112,9 +119,13 @@ function getModeBadge() {
               <div class="result-breadcrumb" v-if="result.breadcrumb">{{ result.breadcrumb }}</div>
               <div class="result-meta" v-if="result.due_date || result.importance">
                 <span v-if="result.due_date" class="result-due">Due: {{ result.due_date.split('T')[0] }}</span>
-                <span v-if="result.importance" class="result-priority">{{ getImportanceLabel(result.importance) }}</span>
+                <span v-if="result.importance" class="result-priority">{{
+                  getImportanceLabel(result.importance)
+                }}</span>
               </div>
-              <div v-if="result.notes" class="result-notes">{{ decodeHtml(result.notes).substring(0, 80) }}{{ result.notes.length > 80 ? '...' : '' }}</div>
+              <div v-if="result.notes" class="result-notes">
+                {{ decodeHtml(result.notes).substring(0, 80) }}{{ result.notes.length > 80 ? '...' : '' }}
+              </div>
             </div>
             <div class="result-action">
               {{ getSearchActionLabel(result) }}
@@ -308,16 +319,46 @@ function getModeBadge() {
   flex-shrink: 0;
 }
 
-.result-type-badge.project { background: var(--type-project-bg); color: var(--type-project-text); }
-.result-type-badge.task { background: var(--type-task-bg); color: var(--type-task-text); }
-.result-type-badge.note { background: var(--type-note-bg); color: var(--type-note-text); }
-.result-type-badge.milestone { background: var(--type-milestone-bg); color: var(--type-milestone-text); }
-.result-type-badge.group { background: var(--type-group-bg); color: var(--type-group-text); }
-.result-type-badge.event { background: var(--type-event-bg); color: var(--type-event-text); }
-.result-type-badge.topic { background: var(--type-topic-bg); color: var(--type-topic-text); }
-.result-type-badge.person { background: var(--type-person-bg); color: var(--type-person-text); }
-.result-type-badge.organization { background: var(--type-organization-bg); color: var(--type-organization-text); }
-.result-type-badge.component { background: var(--type-component-bg); color: var(--type-component-text); }
+.result-type-badge.project {
+  background: var(--type-project-bg);
+  color: var(--type-project-text);
+}
+.result-type-badge.task {
+  background: var(--type-task-bg);
+  color: var(--type-task-text);
+}
+.result-type-badge.note {
+  background: var(--type-note-bg);
+  color: var(--type-note-text);
+}
+.result-type-badge.milestone {
+  background: var(--type-milestone-bg);
+  color: var(--type-milestone-text);
+}
+.result-type-badge.group {
+  background: var(--type-group-bg);
+  color: var(--type-group-text);
+}
+.result-type-badge.event {
+  background: var(--type-event-bg);
+  color: var(--type-event-text);
+}
+.result-type-badge.topic {
+  background: var(--type-topic-bg);
+  color: var(--type-topic-text);
+}
+.result-type-badge.person {
+  background: var(--type-person-bg);
+  color: var(--type-person-text);
+}
+.result-type-badge.organization {
+  background: var(--type-organization-bg);
+  color: var(--type-organization-text);
+}
+.result-type-badge.component {
+  background: var(--type-component-bg);
+  color: var(--type-component-text);
+}
 
 .result-type-badge :deep(svg) {
   width: 16px;

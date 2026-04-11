@@ -70,7 +70,7 @@ const {
   openaiModel,
   openaiSkipSslVerification,
   // Legacy
-  ollamaEnabled
+  ollamaEnabled,
 } = useSettings()
 
 // loading state is managed by useNavigation composable
@@ -94,7 +94,7 @@ const {
   visible: sidebarVisible,
   onEnter: onSidebarEnter,
   onLeave: onSidebarLeave,
-  toggleExpand: toggleSidebarExpand
+  toggleExpand: toggleSidebarExpand,
 } = useSidebar({ pinned: sidebarPinned })
 
 // Context menu state is managed by useContextMenu composable (initialized after functions it needs)
@@ -107,7 +107,7 @@ const {
   createWorkspace: createNewWorkspace,
   deleteCurrentWorkspace: _deleteCurrentWorkspace,
   renameWorkspace,
-  getWorkspaceIdForNode
+  getWorkspaceIdForNode,
 } = useWorkspace({
   api,
   onWorkspaceChange: async () => {
@@ -121,7 +121,7 @@ const {
     await loadSidebarTree()
     await Promise.all([loadRecentItems(), loadFavorites(), loadTags()])
     loadExpandedState()
-  }
+  },
 })
 
 // Wrap deleteCurrentWorkspace with confirmation
@@ -151,28 +151,36 @@ const {
   restoreFromTrash,
   emptyAllTrash,
   moveToRoot,
-  deleteOrphanedNode
+  deleteOrphanedNode,
 } = useDataLoading(currentWorkspace)
 
-const selectTag = (tag) => { searchQuery.value = `#${tag}`; showSearch.value = true; onSearchInput() }
+const selectTag = tag => {
+  searchQuery.value = `#${tag}`
+  showSearch.value = true
+  onSearchInput()
+}
 
 // Detail panel resize
-const {
-  detailWidth,
-  isResizing: isResizingDetail,
-  onResizeStart: onDetailResizeStart
-} = useDetailResize()
+const { detailWidth, isResizing: isResizingDetail, onResizeStart: onDetailResizeStart } = useDetailResize()
 
-const closeDetail = () => { showDetail.value = false; fullscreenDetail.value = false; detailPinned.value = false }
+const closeDetail = () => {
+  showDetail.value = false
+  fullscreenDetail.value = false
+  detailPinned.value = false
+}
 
 // Tooltip composable
-const { showTooltip, hideTooltip, forceHide: forceHideTooltip } = useNodeTooltip({
-  onToggleComplete: async (nodeId) => {
+const {
+  showTooltip,
+  hideTooltip,
+  forceHide: forceHideTooltip,
+} = useNodeTooltip({
+  onToggleComplete: async nodeId => {
     const node = flatChildren.value.find(n => n.id === nodeId)
     if (node) await toggleComplete(node)
   },
   getHideSensitive: () => hideSensitive.value,
-  shouldShowTooltip: () => hoverPreviewEnabled.value && !showDetail.value
+  shouldShowTooltip: () => hoverPreviewEnabled.value && !showDetail.value,
 })
 
 // Detached window for cross-window sync
@@ -180,7 +188,7 @@ const {
   openDetachedWindow,
   broadcastNodeUpdate,
   broadcastNodeDelete,
-  onMessage: onDetachedMessage
+  onMessage: onDetachedMessage,
 } = useDetachedWindow()
 
 // Additional UI state
@@ -195,7 +203,7 @@ const {
   cardSizeClass,
   cardsGridStyle,
   gridColumns,
-  inheritedColorMap
+  inheritedColorMap,
 } = useCardsLayout({
   children,
   hideCompleted,
@@ -204,7 +212,7 @@ const {
   containerHeight,
   breadcrumbs,
   currentContainer,
-  inheritColors
+  inheritColors,
 })
 
 // Snapshot/backup management (callbacks reference functions defined below via closure)
@@ -215,7 +223,7 @@ const {
   loadSnapshots,
   createSnapshot,
   restoreSnapshot,
-  reloadDatabase
+  reloadDatabase,
 } = useSnapshots({
   onListBackups: api.listBackups,
   onCreateBackup: api.backup,
@@ -233,14 +241,29 @@ const {
     await loadSidebarTree()
     loadRecentItems()
     if (selectedNode.value?.id) selectedNode.value = await api.getNode(selectedNode.value.id)
-  }
+  },
 })
 
+// Toggle handlers for MainToolbar
+function toggleSnapshots() {
+  showSnapshotList.value = !showSnapshotList.value
+  loadSnapshots()
+}
+
+function toggleLostFound() {
+  loadOrphanedNodes()
+  showLostFound.value = !showLostFound.value
+}
+
 // Load trash items when switching to trash view
-watch(viewMode, (mode) => { if (mode === 'trash') loadTrashedItems() })
+watch(viewMode, mode => {
+  if (mode === 'trash') loadTrashedItems()
+})
 
 // Close tooltips when detail panel opens
-watch(showDetail, (isOpen) => { if (isOpen) forceHideTooltip() })
+watch(showDetail, isOpen => {
+  if (isOpen) forceHideTooltip()
+})
 
 // Component refs
 const viewRendererRef = ref(null)
@@ -250,23 +273,17 @@ const addChildParentId = ref(null) // Parent ID when adding via card + button
 // Add node modal state
 const addNodeModal = ref({
   visible: false,
-  parentId: null
+  parentId: null,
 })
 
 // Undo/redo using Command pattern
-const {
-  undoStack,
-  redoStack,
-  pushCommand,
-  undo,
-  redo
-} = useUndoRedo({
+const { undoStack, redoStack, pushCommand, undo, redo } = useUndoRedo({
   api,
   showNotification: showToast,
   onSuccess: async () => {
     await loadChildren(currentContainerId.value, { silent: true })
     await loadSidebarTree()
-  }
+  },
 })
 
 // Node operations (CRUD with undo/redo)
@@ -274,10 +291,14 @@ const nodeOps = useNodeOperations({
   api,
   pushCommand,
   getWorkspaceIdForNode,
-  onSuccess: async ({ type, node, x, y }) => { if (type === 'create' && node) saveNodePosition(node.id, x, y, node.parent_id) },
-  onError: (e) => { error.value = e.message },
+  onSuccess: async ({ type, node, x, y }) => {
+    if (type === 'create' && node) saveNodePosition(node.id, x, y, node.parent_id)
+  },
+  onError: e => {
+    error.value = e.message
+  },
   broadcastUpdate: broadcastNodeUpdate,
-  broadcastDelete: broadcastNodeDelete
+  broadcastDelete: broadcastNodeDelete,
 })
 
 // Cards drag
@@ -288,25 +309,21 @@ const {
   onDragEnd: onCardDragEnd,
   onDragOver: onCardDragOver,
   onDragLeave: onCardDragLeave,
-  onDrop: onCardDrop
+  onDrop: onCardDrop,
 } = useCardDrag({
   onMove: (src, tgt) => moveNode({ nodeId: src.id, newParentId: tgt.id }),
-  onReorder: (src, tgt, pos) => handleReorder({ nodeId: src.id, targetId: tgt.id, position: pos })
+  onReorder: (src, tgt, pos) => handleReorder({ nodeId: src.id, targetId: tgt.id, position: pos }),
 })
 
 // Graph depth: use root setting at root level
-const effectiveGraphMaxDepth = computed(() => currentContainerId.value === null ? graphRootMaxDepth.value : graphMaxDepth.value)
+const effectiveGraphMaxDepth = computed(() =>
+  currentContainerId.value === null ? graphRootMaxDepth.value : graphMaxDepth.value
+)
 
 // Tree expand/collapse
-const {
-  expandedIds,
-  toggleExpand,
-  expandAll,
-  collapseAll,
-  loadExpandedState
-} = useTreeExpand({
+const { expandedIds, toggleExpand, expandAll, collapseAll, loadExpandedState } = useTreeExpand({
   workspace: currentWorkspace,
-  flatChildren
+  flatChildren,
 })
 
 // Selection
@@ -320,15 +337,15 @@ const {
   toggleDetailPanel,
   selectChildById,
   openNodeFullscreen,
-  selectAll
+  selectAll,
 } = useSelection({
   showDetail,
   fullscreenDetail,
   openDetailFullscreen,
   flatChildren,
   currentContainer,
-  getNode: (nodeId) => api.getNode(nodeId),
-  onError: handleError
+  getNode: nodeId => api.getNode(nodeId),
+  onError: handleError,
 })
 
 // Wrap selectNode to respect pin state - don't deselect when pinned
@@ -346,29 +363,52 @@ const navigation = useNavigation({
   onBeforeNavigate: cancelDetailOpen,
   onLeafNode: () => false,
   onSelectNode: selectNode,
-  onSidebarSync: (rootChildren) => { sidebarTree.value = rootChildren },
-  onTransitionStart: (dir) => { transitionDirection.value = dir; transitioning.value = true },
-  onTransitionEnd: () => { transitioning.value = false },
+  onSidebarSync: rootChildren => {
+    sidebarTree.value = rootChildren
+  },
+  onTransitionStart: dir => {
+    transitionDirection.value = dir
+    transitioning.value = true
+  },
+  onTransitionEnd: () => {
+    transitioning.value = false
+  },
   onNotFound: async () => {
     currentContainerId.value = null
     localStorage.removeItem('graphcore-containerId')
     await navigation.loadChildren(null)
-  }
+  },
 })
 
 // Sync navigation state to local refs (preserves reactivity for composables initialized earlier)
-watch(navigation.children, (val) => {
-  children.value = val
-}, { immediate: true, deep: true })
-watch(navigation.breadcrumbs, (val) => {
-  breadcrumbs.value = val
-}, { immediate: true, deep: true })
-watch(navigation.currentContainer, (val) => {
-  currentContainer.value = val
-}, { immediate: true })
-watch(navigation.currentContainerId, (val) => {
-  currentContainerId.value = val
-}, { immediate: true })
+watch(
+  navigation.children,
+  val => {
+    children.value = val
+  },
+  { immediate: true, deep: true }
+)
+watch(
+  navigation.breadcrumbs,
+  val => {
+    breadcrumbs.value = val
+  },
+  { immediate: true, deep: true }
+)
+watch(
+  navigation.currentContainer,
+  val => {
+    currentContainer.value = val
+  },
+  { immediate: true }
+)
+watch(
+  navigation.currentContainerId,
+  val => {
+    currentContainerId.value = val
+  },
+  { immediate: true }
+)
 const {
   loading,
   loadChildren,
@@ -379,7 +419,7 @@ const {
   goToFirstChild,
   goToPrevSibling,
   goToNextSibling,
-  navigateToNode
+  navigateToNode,
 } = navigation
 
 // Search
@@ -398,7 +438,7 @@ const {
   goToSearchResult: _goToSearchResult,
   hasMoreResults,
   isLoadingMore,
-  loadMoreResults
+  loadMoreResults,
 } = useSearch({
   selectedNode,
   onSearch: async (query, mode, workspaceId, paginationOptions = {}) => {
@@ -429,25 +469,41 @@ const {
       handleError(e, { context: 'Moving node' })
     }
   },
-  onNavigate: async (node) => {
+  onNavigate: async node => {
     if (currentContainerId.value !== node.id) await loadChildren(node.id)
     selectNode(node)
   },
   getAncestors: api.getAncestors,
-  getWorkspace: () => currentWorkspace.value
+  getWorkspace: () => currentWorkspace.value,
 })
 
 // Close detail panel when node is deselected (if not pinned)
-watch(selectedNode, (node) => { if (!node && !detailPinned.value) showDetail.value = false })
+watch(selectedNode, node => {
+  if (!node && !detailPinned.value) showDetail.value = false
+})
 
 // Inline editing
 const {
-  editingCardId, editingTitle, inlineNotesId, inlineNotesText,
-  startEditing, saveEditing, cancelEditing, startInlineNotes, saveInlineNotes, cancelInlineNotes
+  editingCardId,
+  editingTitle,
+  inlineNotesId,
+  inlineNotesText,
+  startEditing,
+  saveEditing,
+  cancelEditing,
+  startInlineNotes,
+  saveInlineNotes,
+  cancelInlineNotes,
 } = useInlineEdit({
-  findNode: (nodeId) => flatChildren.value.find(n => n.id === nodeId),
-  onSaveTitle: async (nodeId, newTitle) => { await api.updateNode(nodeId, { title: newTitle }); await loadChildren(currentContainerId.value) },
-  onSaveNotes: async (nodeId, newNotes, { autoSave }) => { await api.updateNode(nodeId, { notes: newNotes }); if (!autoSave) await loadChildren(currentContainerId.value) }
+  findNode: nodeId => flatChildren.value.find(n => n.id === nodeId),
+  onSaveTitle: async (nodeId, newTitle) => {
+    await api.updateNode(nodeId, { title: newTitle })
+    await loadChildren(currentContainerId.value)
+  },
+  onSaveNotes: async (nodeId, newNotes, { autoSave }) => {
+    await api.updateNode(nodeId, { notes: newNotes })
+    if (!autoSave) await loadChildren(currentContainerId.value)
+  },
 })
 
 // Graph operations (initialized after refreshAfterChange)
@@ -456,15 +512,26 @@ let graphOps = null
 async function createNode() {
   if (!newNodeTitle.value.trim()) return
   const targetParentId = addChildParentId.value || currentContainerId.value
-  const newNode = await nodeOps.createNode({ title: newNodeTitle.value, type: newNodeType.value, parentId: targetParentId })
+  const newNode = await nodeOps.createNode({
+    title: newNodeTitle.value,
+    type: newNodeType.value,
+    parentId: targetParentId,
+  })
   if (newNode) {
-    if (addChildParentId.value) { expandedIds.value.add(addChildParentId.value); await loadSidebarTree() }
-    newNodeTitle.value = ''; addChildParentId.value = null
+    if (addChildParentId.value) {
+      expandedIds.value.add(addChildParentId.value)
+      await loadSidebarTree()
+    }
+    newNodeTitle.value = ''
+    addChildParentId.value = null
     await loadChildren(currentContainerId.value, { silent: true })
   }
 }
 
-const addChildFromDetail = async (payload) => { await addChildNode(payload); detailPanelRef.value?.loadChildren() }
+const addChildFromDetail = async payload => {
+  await addChildNode(payload)
+  detailPanelRef.value?.loadChildren()
+}
 
 // Refresh operations
 const {
@@ -472,7 +539,7 @@ const {
   refreshAfterDelete,
   refreshGraphAfterStructureChange,
   refreshDetailPanelLinks,
-  refreshAfterChildUpdate
+  refreshAfterChildUpdate,
 } = useRefresh({
   api,
   loadChildren,
@@ -481,7 +548,7 @@ const {
   currentContainerId,
   selectedNode,
   graphViewRef: viewRendererRef,
-  detailPanelRef
+  detailPanelRef,
 })
 
 // Initialize graph operations now that refreshAfterChange is defined
@@ -491,7 +558,7 @@ graphOps = useGraphOperations({
   currentWorkspace,
   expandedIds,
   getWorkspaceIdForNode,
-  refreshAfterChange
+  refreshAfterChange,
 })
 
 const { saveNodePosition, insertBetween } = graphOps
@@ -514,7 +581,7 @@ const {
   handleAIImproveNotes,
   handleReorder,
   updateNode,
-  clearSelection
+  clearSelection,
 } = useNodeActionsUI({
   api,
   nodeOps,
@@ -541,16 +608,19 @@ const {
   loadChildren,
   invalidateSidebarCache,
   loadRecentItems,
-  loadTags
+  loadTags,
 })
 
 async function createNodeAtPosition({ title, type, x, y }) {
   const newNode = await nodeOps.createNode({ title, type, parentId: currentContainerId.value, x, y })
-  if (newNode) { await refreshAfterChange(); selectNode(newNode) }
+  if (newNode) {
+    await refreshAfterChange()
+    selectNode(newNode)
+  }
 }
 
 // Open node in detached window
-const handleDetach = (node) => node && openDetachedWindow(node.id, node.title)
+const handleDetach = node => node && openDetachedWindow(node.id, node.title)
 
 // Context menu - using composable
 const {
@@ -567,38 +637,57 @@ const {
   handleUnlink: handleContextMenuUnlink,
   handleMoveToWorkspace: handleContextMenuMoveToWorkspace,
   handleDelete: handleContextMenuDelete,
-  handleViewContextMenu
+  handleViewContextMenu,
 } = useContextMenu({
   onLoadLinks: api.getLinkedNodes,
   onViewDetails: selectNode,
   onEnter: enterContainer,
-  onAddChild: (node) => showAddNodeModal(node.id),
+  onAddChild: node => showAddNodeModal(node.id),
   onToggleComplete: toggleComplete,
   onToggleFavorite: toggleFavorite,
   onOpenLinkSearch: openLinkSearch,
   onOpenMoveSearch: openMoveSearch,
   onUnlink: nodeOps.unlinkNodes,
-  onMoveToWorkspace: async (nodeId, wsId) => { await api.updateNode(nodeId, { workspace_id: wsId }); await loadChildren() },
+  onMoveToWorkspace: async (nodeId, wsId) => {
+    await api.updateNode(nodeId, { workspace_id: wsId })
+    await loadChildren()
+  },
   onDelete: deleteNode,
-  onRefreshSelectedNode: async (sourceId) => { if (showDetail.value && selectedNode.value?.id === sourceId) selectedNode.value = await api.getNode(sourceId) }
+  onRefreshSelectedNode: async sourceId => {
+    if (showDetail.value && selectedNode.value?.id === sourceId) selectedNode.value = await api.getNode(sourceId)
+  },
 })
 
 // Tooltip wrapper that checks editing state
-const showCardTooltip = (e, node) => { if (!editingCardId.value && !inlineNotesId.value) showTooltip(e, node) }
+const showCardTooltip = (e, node) => {
+  if (!editingCardId.value && !inlineNotesId.value) showTooltip(e, node)
+}
 
 // Add node modal
-const showAddNodeModal = (parentId = null) => { showDetail.value = false; addNodeModal.value = { visible: true, parentId } }
+const showAddNodeModal = (parentId = null) => {
+  showDetail.value = false
+  addNodeModal.value = { visible: true, parentId }
+}
 
 // Unified add-child handler (Graph: object with title, Cards: parentId)
 function handleAddChild(payload, e) {
-  if (payload?.title) { addChildNode(payload); return }
-  e?.stopPropagation(); hideTooltip(); showAddNodeModal(payload)
+  if (payload?.title) {
+    addChildNode(payload)
+    return
+  }
+  e?.stopPropagation()
+  hideTooltip()
+  showAddNodeModal(payload)
 }
 
 // Unified create handler (Graph: object with position, Cards: opens modal)
 function handleCreate(payload) {
-  if (payload?.title) { createNodeAtPosition(payload); return }
-  hideTooltip(); showAddNodeModal(currentContainerId.value)
+  if (payload?.title) {
+    createNodeAtPosition(payload)
+    return
+  }
+  hideTooltip()
+  showAddNodeModal(currentContainerId.value)
 }
 
 // Keyboard shortcuts via composable
@@ -619,7 +708,7 @@ const { handleKeydown } = useKeyboardShortcuts({
     selectAll,
     selectNode,
     enterContainer,
-    openDetachedWindow: handleDetach
+    openDetachedWindow: handleDetach,
   },
   state: {
     viewMode,
@@ -631,12 +720,14 @@ const { handleKeydown } = useKeyboardShortcuts({
     showDetail,
     flatChildren,
     filteredChildren,
-    gridColumns
-  }
+    gridColumns,
+  },
 })
 
 // Custom open-link-search event handler
-const handleOpenLinkSearchEvent = (e) => { if (e.detail?.nodeId === selectedNode.value?.id) openLinkSearch() }
+const handleOpenLinkSearchEvent = e => {
+  if (e.detail?.nodeId === selectedNode.value?.id) openLinkSearch()
+}
 
 // App lifecycle management (initialization, event listeners, cleanup)
 useAppLifecycle({
@@ -661,19 +752,14 @@ useAppLifecycle({
   detailPanelRef,
   undo,
   redo,
-  showSettings
+  showSettings,
 })
 </script>
 
 <template>
   <div class="app" :class="{ 'is-resizing': isResizingDetail }">
     <!-- Sidebar hover trigger when collapsed -->
-    <div
-      v-if="!sidebarPinned"
-      class="sidebar-trigger"
-      @mouseenter="onSidebarEnter"
-      @mouseleave="onSidebarLeave"
-    ></div>
+    <div v-if="!sidebarPinned" class="sidebar-trigger" @mouseenter="onSidebarEnter" @mouseleave="onSidebarLeave"></div>
 
     <!-- Sidebar -->
     <AppSidebar
@@ -744,154 +830,147 @@ useAppLifecycle({
             @undo="undo"
             @redo="redo"
             @create-snapshot="createSnapshot"
-            @toggle-snapshots="showSnapshotList = !showSnapshotList; loadSnapshots()"
+            @toggle-snapshots="toggleSnapshots"
             @restore-snapshot="restoreSnapshot"
             @reload-database="reloadDatabase"
-            @toggle-lost-found="loadOrphanedNodes(); showLostFound = !showLostFound"
+            @toggle-lost-found="toggleLostFound"
             @move-to-root="moveToRoot"
             @delete-orphan="deleteOrphanedNode"
             :current-workspace="currentWorkspace"
             @import-complete="loadChildren()"
           />
-      </div>
+        </div>
       </div>
 
       <!-- Add Node Input -->
-      <AddNodeBar
-        v-model:node-type="newNodeType"
-        v-model:node-title="newNodeTitle"
-        @create="createNode"
-      />
+      <AddNodeBar v-model:node-type="newNodeType" v-model:node-title="newNodeTitle" @create="createNode" />
 
       <!-- Content wrapper (breadcrumbs + body + detail panel) -->
       <div class="content-wrapper">
         <!-- Main content area (breadcrumbs + body) -->
         <div class="content-main">
           <!-- Breadcrumbs / Path -->
-          <Breadcrumbs
-            :breadcrumbs="breadcrumbs"
-            @navigate="navigateToBreadcrumb"
-          />
-        <!-- Content with transition -->
-        <div
-          class="content-body"
-          :class="{
-            'transitioning': transitioning,
-            'transition-forward': transitionDirection === 'forward',
-            'transition-back': transitionDirection === 'back'
-          }"
-        >
-          <!-- View Renderer - handles all view modes -->
-          <ViewRenderer
-            ref="viewRendererRef"
-            :view-mode="viewMode"
-            :loading="loading"
-            :error="error"
-            :sorted-children="sortedChildren"
-            :filtered-children="filteredChildren"
-            :selected-node="selectedNode"
-            :selected-ids="selectedIds"
-            :expanded-ids="expandedIds"
-            :hide-completed="hideCompleted"
-            :hide-sensitive="hideSensitive"
-            :current-container-id="currentContainerId"
-            :current-container="currentContainer"
-            :color-map="inheritedColorMap"
-            :hover-preview-enabled="hoverPreviewEnabled"
-            :show-detail="showDetail"
-            :graph-detail-threshold="graphDetailThreshold"
-            :effective-graph-max-depth="effectiveGraphMaxDepth"
-            :graph-notes-preview-length="graphNotesPreviewLength"
-            :inherit-colors="inheritColors"
-            :fullscreen-detail="fullscreenDetail"
-            :sort-alphabetically="sortAlphabetically"
-            :workspace="currentWorkspace"
-            :workspaces="workspaces"
-            :card-size-class="cardSizeClass"
-            :cards-grid-style="cardsGridStyle"
-            :editing-card-id="editingCardId"
-            :editing-title="editingTitle"
-            :inline-notes-id="inlineNotesId"
-            :inline-notes-text="inlineNotesText"
-            :drop-target="dropTarget"
-            :drop-position="dropPosition"
-            :container-title="currentContainer?.title"
-            :trashed-items="trashedItems"
-            @hover="hoverSelectNode"
-            @select="selectNode"
-            @select-multiple="handleMultiSelect"
-            @enter="enterContainer"
-            @toggle-complete="toggleComplete"
-            @toggle-expand="toggleExpand"
-            @expand-all="expandAll"
-            @collapse-all="collapseAll"
-            @delete="deleteNode"
-            @move="moveNode"
-            @move-multiple="moveMultipleNodes"
-            @reorder="handleReorder"
-            @go-parent="goToParent"
-            @open-fullscreen="openNodeFullscreen"
-            @context-menu="handleViewContextMenu"
-            @add-child="handleAddChild"
-            @create="handleCreate"
-            @show-tooltip="showCardTooltip"
-            @hide-tooltip="hideTooltip"
-            @drag-start="onCardDragStart"
-            @drag-end="onCardDragEnd"
-            @drag-over="onCardDragOver"
-            @drag-leave="onCardDragLeave"
-            @drop="onCardDrop"
-            @start-edit="startEditing"
-            @save-edit="saveEditing"
-            @cancel-edit="cancelEditing"
-            @start-notes="startInlineNotes"
-            @save-notes="saveInlineNotes"
-            @cancel-notes="cancelInlineNotes"
-            @update:editing-title="editingTitle = $event"
-            @update:inline-notes-text="inlineNotesText = $event"
-            @link="linkNodesFromGraph"
-            @unlink="unlinkNodesFromGraph"
-            @insert-between="insertBetween"
-            @update="updateNode"
-            @delete-multiple="deleteMultipleNodes"
-            @wrap-with-parent="wrapWithParent"
-            @go-first-child="goToFirstChild"
-            @go-prev-sibling="goToPrevSibling"
-            @go-next-sibling="goToNextSibling"
-            @navigate="navigateToNode"
-            @empty-all="emptyAllTrash"
-            @restore="restoreFromTrash"
-          />
-        </div>
+          <Breadcrumbs :breadcrumbs="breadcrumbs" @navigate="navigateToBreadcrumb" />
+          <!-- Content with transition -->
+          <div
+            class="content-body"
+            :class="{
+              transitioning: transitioning,
+              'transition-forward': transitionDirection === 'forward',
+              'transition-back': transitionDirection === 'back',
+            }"
+          >
+            <!-- View Renderer - handles all view modes -->
+            <ViewRenderer
+              ref="viewRendererRef"
+              :view-mode="viewMode"
+              :loading="loading"
+              :error="error"
+              :sorted-children="sortedChildren"
+              :filtered-children="filteredChildren"
+              :selected-node="selectedNode"
+              :selected-ids="selectedIds"
+              :expanded-ids="expandedIds"
+              :hide-completed="hideCompleted"
+              :hide-sensitive="hideSensitive"
+              :current-container-id="currentContainerId"
+              :current-container="currentContainer"
+              :color-map="inheritedColorMap"
+              :hover-preview-enabled="hoverPreviewEnabled"
+              :show-detail="showDetail"
+              :graph-detail-threshold="graphDetailThreshold"
+              :effective-graph-max-depth="effectiveGraphMaxDepth"
+              :graph-notes-preview-length="graphNotesPreviewLength"
+              :inherit-colors="inheritColors"
+              :fullscreen-detail="fullscreenDetail"
+              :sort-alphabetically="sortAlphabetically"
+              :workspace="currentWorkspace"
+              :workspaces="workspaces"
+              :card-size-class="cardSizeClass"
+              :cards-grid-style="cardsGridStyle"
+              :editing-card-id="editingCardId"
+              :editing-title="editingTitle"
+              :inline-notes-id="inlineNotesId"
+              :inline-notes-text="inlineNotesText"
+              :drop-target="dropTarget"
+              :drop-position="dropPosition"
+              :container-title="currentContainer?.title"
+              :trashed-items="trashedItems"
+              @hover="hoverSelectNode"
+              @select="selectNode"
+              @select-multiple="handleMultiSelect"
+              @enter="enterContainer"
+              @toggle-complete="toggleComplete"
+              @toggle-expand="toggleExpand"
+              @expand-all="expandAll"
+              @collapse-all="collapseAll"
+              @delete="deleteNode"
+              @move="moveNode"
+              @move-multiple="moveMultipleNodes"
+              @reorder="handleReorder"
+              @go-parent="goToParent"
+              @open-fullscreen="openNodeFullscreen"
+              @context-menu="handleViewContextMenu"
+              @add-child="handleAddChild"
+              @create="handleCreate"
+              @show-tooltip="showCardTooltip"
+              @hide-tooltip="hideTooltip"
+              @drag-start="onCardDragStart"
+              @drag-end="onCardDragEnd"
+              @drag-over="onCardDragOver"
+              @drag-leave="onCardDragLeave"
+              @drop="onCardDrop"
+              @start-edit="startEditing"
+              @save-edit="saveEditing"
+              @cancel-edit="cancelEditing"
+              @start-notes="startInlineNotes"
+              @save-notes="saveInlineNotes"
+              @cancel-notes="cancelInlineNotes"
+              @update:editing-title="editingTitle = $event"
+              @update:inline-notes-text="inlineNotesText = $event"
+              @link="linkNodesFromGraph"
+              @unlink="unlinkNodesFromGraph"
+              @insert-between="insertBetween"
+              @update="updateNode"
+              @delete-multiple="deleteMultipleNodes"
+              @wrap-with-parent="wrapWithParent"
+              @go-first-child="goToFirstChild"
+              @go-prev-sibling="goToPrevSibling"
+              @go-next-sibling="goToNextSibling"
+              @navigate="navigateToNode"
+              @empty-all="emptyAllTrash"
+              @restore="restoreFromTrash"
+            />
+          </div>
         </div>
         <!-- Detail Panel (inside content-wrapper) -->
         <Transition name="detail-panel">
-        <DetailPanel
-          v-if="showDetail && selectedNode"
-          ref="detailPanelRef"
-          @click.stop
-          :node="selectedNode"
-          :width="detailWidth"
-          :fullscreen="fullscreenDetail"
-          :hide-completed="hideCompleted"
-          :pinned="detailPinned"
-          :workspaces="workspaces"
-          :current-workspace="currentWorkspace"
-          @update="updateNode"
-          @delete="deleteNode"
-          @wrap-with-parent="wrapWithParent"
-          @move-to-root="moveNodeToRoot"
-          @select-child="selectChildById"
-          @resize-start="onDetailResizeStart"
-          @toggle-fullscreen="fullscreenDetail = !fullscreenDetail"
-          @toggle-pin="detailPinned = !detailPinned"
-          @close="closeDetail"
-          @open-link-search="openLinkSearch"
-          @add-child="addChildFromDetail"
-          @child-updated="refreshAfterChildUpdate"
-          @detach="handleDetach"
-          @ai-improve-notes="handleAIImproveNotes"
-        />
+          <DetailPanel
+            v-if="showDetail && selectedNode"
+            ref="detailPanelRef"
+            @click.stop
+            :node="selectedNode"
+            :width="detailWidth"
+            :fullscreen="fullscreenDetail"
+            :hide-completed="hideCompleted"
+            :pinned="detailPinned"
+            :workspaces="workspaces"
+            :current-workspace="currentWorkspace"
+            @update="updateNode"
+            @delete="deleteNode"
+            @wrap-with-parent="wrapWithParent"
+            @move-to-root="moveNodeToRoot"
+            @select-child="selectChildById"
+            @resize-start="onDetailResizeStart"
+            @toggle-fullscreen="fullscreenDetail = !fullscreenDetail"
+            @toggle-pin="detailPinned = !detailPinned"
+            @close="closeDetail"
+            @open-link-search="openLinkSearch"
+            @add-child="addChildFromDetail"
+            @child-updated="refreshAfterChildUpdate"
+            @detach="handleDetach"
+            @ai-improve-notes="handleAIImproveNotes"
+          />
         </Transition>
       </div>
     </main>
@@ -1000,7 +1079,9 @@ useAppLifecycle({
 
 /* Transition animations */
 .content-body {
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
 }
 
 .content-body.transitioning {
@@ -1014,5 +1095,4 @@ useAppLifecycle({
 .content-body.transitioning.transition-back {
   transform: translateX(-20px);
 }
-
 </style>

@@ -4,14 +4,7 @@ import { api } from '../services/api.js'
 import { useOllama } from '../composables/useOllama.js'
 import { useTheme } from '../composables/useTheme.js'
 
-const {
-  presetPrompts,
-  savePrompt,
-  deletePrompt,
-  resetPrompt,
-  isPromptModified,
-  isDefaultPrompt
-} = useOllama()
+const { presetPrompts, savePrompt, deletePrompt, resetPrompt, isPromptModified, isDefaultPrompt } = useOllama()
 
 const { currentTheme, setTheme, themes } = useTheme()
 
@@ -43,7 +36,7 @@ const props = defineProps({
   // Legacy
   ollamaEnabled: { type: Boolean, default: false },
   // Import
-  currentWorkspace: { type: String, default: 'work' }
+  currentWorkspace: { type: String, default: 'work' },
 })
 
 const emit = defineEmits([
@@ -74,7 +67,7 @@ const emit = defineEmits([
   'move-to-root',
   'delete-orphan',
   'close',
-  'import-complete'
+  'import-complete',
 ])
 
 const ollamaConnectionStatus = ref(null) // null, 'testing', 'success', 'error'
@@ -124,7 +117,7 @@ function handleSavePrompt() {
   savePrompt({
     id,
     label: promptForm.value.label.trim(),
-    prompt: promptForm.value.prompt.trim()
+    prompt: promptForm.value.prompt.trim(),
   })
   closePromptEditor()
 }
@@ -146,7 +139,7 @@ function formatSnapshotDate(timestamp) {
 // Import functionality
 const importFileInput = ref(null)
 const importType = ref('json')
-const importAccept = computed(() => importType.value === 'json' ? '.json' : '.csv')
+const importAccept = computed(() => (importType.value === 'json' ? '.json' : '.csv'))
 
 function triggerImport(type) {
   importType.value = type
@@ -210,12 +203,20 @@ async function testOpenaiConnection() {
   openaiConnectionError.value = ''
 
   try {
-    const result = await api.openaiTestConnection(props.openaiEndpoint, props.openaiApiKey, props.openaiSkipSslVerification)
+    const result = await api.openaiTestConnection(
+      props.openaiEndpoint,
+      props.openaiApiKey,
+      props.openaiSkipSslVerification
+    )
     if (result.success) {
       openaiConnectionStatus.value = 'success'
       // Also fetch available models
       try {
-        openaiModels.value = await api.openaiListModels(props.openaiEndpoint, props.openaiApiKey, props.openaiSkipSslVerification)
+        openaiModels.value = await api.openaiListModels(
+          props.openaiEndpoint,
+          props.openaiApiKey,
+          props.openaiSkipSslVerification
+        )
       } catch {
         openaiModels.value = []
       }
@@ -231,6 +232,11 @@ async function testOpenaiConnection() {
 
 // Computed for current provider's enabled state
 const isAiEnabled = computed(() => props.aiEnabled ?? props.ollamaEnabled)
+
+function onAiEnabledChange(event) {
+  emit('update:aiEnabled', event.target.checked)
+  emit('update:ollamaEnabled', event.target.checked)
+}
 
 // Fetch Ollama models without full connection test
 async function fetchOllamaModels() {
@@ -258,7 +264,11 @@ async function fetchOpenaiModels() {
   openaiModelsLoading.value = true
   openaiConnectionError.value = ''
   try {
-    openaiModels.value = await api.openaiListModels(props.openaiEndpoint, props.openaiApiKey, props.openaiSkipSslVerification)
+    openaiModels.value = await api.openaiListModels(
+      props.openaiEndpoint,
+      props.openaiApiKey,
+      props.openaiSkipSslVerification
+    )
     // If we got models, connection is working
     if (openaiModels.value.length > 0) {
       openaiConnectionStatus.value = 'success'
@@ -286,48 +296,66 @@ function debouncedFetchOpenaiModels() {
 }
 
 // Watch for settings changes to auto-fetch models
-watch(() => props.ollamaEndpoint, () => {
-  if (props.aiProvider === 'ollama' && isAiEnabled.value) {
-    debouncedFetchOllamaModels()
+watch(
+  () => props.ollamaEndpoint,
+  () => {
+    if (props.aiProvider === 'ollama' && isAiEnabled.value) {
+      debouncedFetchOllamaModels()
+    }
   }
-})
+)
 
-watch(() => props.openaiEndpoint, () => {
-  if (props.aiProvider === 'openai' && isAiEnabled.value) {
-    debouncedFetchOpenaiModels()
+watch(
+  () => props.openaiEndpoint,
+  () => {
+    if (props.aiProvider === 'openai' && isAiEnabled.value) {
+      debouncedFetchOpenaiModels()
+    }
   }
-})
+)
 
-watch(() => props.openaiApiKey, () => {
-  if (props.aiProvider === 'openai' && isAiEnabled.value) {
-    debouncedFetchOpenaiModels()
+watch(
+  () => props.openaiApiKey,
+  () => {
+    if (props.aiProvider === 'openai' && isAiEnabled.value) {
+      debouncedFetchOpenaiModels()
+    }
   }
-})
+)
 
-watch(() => props.openaiSkipSslVerification, () => {
-  if (props.aiProvider === 'openai' && isAiEnabled.value && props.openaiApiKey) {
-    debouncedFetchOpenaiModels()
+watch(
+  () => props.openaiSkipSslVerification,
+  () => {
+    if (props.aiProvider === 'openai' && isAiEnabled.value && props.openaiApiKey) {
+      debouncedFetchOpenaiModels()
+    }
   }
-})
+)
 
-watch(() => props.aiProvider, (newProvider) => {
-  if (!isAiEnabled.value) return
-  if (newProvider === 'ollama') {
-    fetchOllamaModels()
-  } else if (newProvider === 'openai') {
-    fetchOpenaiModels()
-  }
-})
-
-watch(() => isAiEnabled.value, (enabled) => {
-  if (enabled) {
-    if (props.aiProvider === 'ollama') {
+watch(
+  () => props.aiProvider,
+  newProvider => {
+    if (!isAiEnabled.value) return
+    if (newProvider === 'ollama') {
       fetchOllamaModels()
-    } else if (props.aiProvider === 'openai') {
+    } else if (newProvider === 'openai') {
       fetchOpenaiModels()
     }
   }
-})
+)
+
+watch(
+  () => isAiEnabled.value,
+  enabled => {
+    if (enabled) {
+      if (props.aiProvider === 'ollama') {
+        fetchOllamaModels()
+      } else if (props.aiProvider === 'openai') {
+        fetchOpenaiModels()
+      }
+    }
+  }
+)
 
 // Fetch models on mount
 onMounted(() => {
@@ -350,21 +378,11 @@ onMounted(() => {
       </div>
 
       <div class="settings-tabs">
-        <button
-          class="settings-tab"
-          :class="{ active: activeTab === 'general' }"
-          @click="activeTab = 'general'"
-        >General</button>
-        <button
-          class="settings-tab"
-          :class="{ active: activeTab === 'ai' }"
-          @click="activeTab = 'ai'"
-        >AI</button>
-        <button
-          class="settings-tab"
-          :class="{ active: activeTab === 'data' }"
-          @click="activeTab = 'data'"
-        >Data</button>
+        <button class="settings-tab" :class="{ active: activeTab === 'general' }" @click="activeTab = 'general'">
+          General
+        </button>
+        <button class="settings-tab" :class="{ active: activeTab === 'ai' }" @click="activeTab = 'ai'">AI</button>
+        <button class="settings-tab" :class="{ active: activeTab === 'data' }" @click="activeTab = 'data'">Data</button>
       </div>
 
       <div class="settings-grid">
@@ -383,7 +401,9 @@ onMounted(() => {
             <span class="settings-hint">Show details when &le; {{ graphDetailThreshold }} nodes</span>
           </div>
           <div class="settings-item">
-            <label>Max depth <span class="slider-value">{{ graphMaxDepth === 0 ? 'All' : graphMaxDepth }}</span></label>
+            <label
+              >Max depth <span class="slider-value">{{ graphMaxDepth === 0 ? 'All' : graphMaxDepth }}</span></label
+            >
             <input
               type="range"
               :value="graphMaxDepth"
@@ -393,10 +413,15 @@ onMounted(() => {
               class="settings-slider"
               @input="emit('update:graphMaxDepth', Number($event.target.value))"
             />
-            <span class="settings-hint">{{ graphMaxDepth === 0 ? 'Show all levels' : `Show up to ${graphMaxDepth} levels` }}</span>
+            <span class="settings-hint">{{
+              graphMaxDepth === 0 ? 'Show all levels' : `Show up to ${graphMaxDepth} levels`
+            }}</span>
           </div>
           <div class="settings-item">
-            <label>Root depth <span class="slider-value">{{ graphRootMaxDepth === 0 ? 'All' : graphRootMaxDepth }}</span></label>
+            <label
+              >Root depth
+              <span class="slider-value">{{ graphRootMaxDepth === 0 ? 'All' : graphRootMaxDepth }}</span></label
+            >
             <input
               type="range"
               :value="graphRootMaxDepth"
@@ -406,10 +431,14 @@ onMounted(() => {
               class="settings-slider"
               @input="emit('update:graphRootMaxDepth', Number($event.target.value))"
             />
-            <span class="settings-hint">{{ graphRootMaxDepth === 0 ? 'Show all levels at root' : `Show ${graphRootMaxDepth} levels at root` }}</span>
+            <span class="settings-hint">{{
+              graphRootMaxDepth === 0 ? 'Show all levels at root' : `Show ${graphRootMaxDepth} levels at root`
+            }}</span>
           </div>
           <div class="settings-item">
-            <label>Notes preview <span class="slider-value">{{ graphNotesPreviewLength }}</span></label>
+            <label
+              >Notes preview <span class="slider-value">{{ graphNotesPreviewLength }}</span></label
+            >
             <input
               type="range"
               :value="graphNotesPreviewLength"
@@ -484,11 +513,7 @@ onMounted(() => {
           <h3 class="section-title">AI</h3>
           <div class="settings-item">
             <label>
-              <input
-                type="checkbox"
-                :checked="isAiEnabled"
-                @change="emit('update:aiEnabled', $event.target.checked); emit('update:ollamaEnabled', $event.target.checked)"
-              />
+              <input type="checkbox" :checked="isAiEnabled" @change="onAiEnabledChange" />
               Enable AI
             </label>
             <span class="settings-hint">Use LLM to improve notes</span>
@@ -533,7 +558,9 @@ onMounted(() => {
                     class="settings-select"
                   >
                     <option v-for="model in ollamaModels" :key="model" :value="model">{{ model }}</option>
-                    <option v-if="!ollamaModels.includes(ollamaModel)" :value="ollamaModel">{{ ollamaModel }} (not installed)</option>
+                    <option v-if="!ollamaModels.includes(ollamaModel)" :value="ollamaModel">
+                      {{ ollamaModel }} (not installed)
+                    </option>
                   </select>
                   <input
                     v-else
@@ -559,7 +586,9 @@ onMounted(() => {
               </div>
 
               <div class="settings-item">
-                <label>Context Size <span class="slider-value">{{ (ollamaContextSize / 1024).toFixed(0) }}K</span></label>
+                <label
+                  >Context Size <span class="slider-value">{{ (ollamaContextSize / 1024).toFixed(0) }}K</span></label
+                >
                 <input
                   type="range"
                   :value="ollamaContextSize"
@@ -582,14 +611,11 @@ onMounted(() => {
                   <span v-if="ollamaConnectionStatus === 'testing'">Testing...</span>
                   <span v-else>Test Connection</span>
                 </button>
-                <span v-if="ollamaConnectionStatus === 'success'" class="connection-status success">
-                  Connected
-                </span>
+                <span v-if="ollamaConnectionStatus === 'success'" class="connection-status success"> Connected </span>
                 <span v-else-if="ollamaConnectionStatus === 'error'" class="connection-status error">
                   {{ ollamaConnectionError }}
                 </span>
               </div>
-
             </template>
 
             <!-- OpenAI Settings -->
@@ -628,7 +654,8 @@ onMounted(() => {
                 </label>
                 <span class="settings-hint">For endpoints with certificate issues (self-signed or untrusted CA)</span>
                 <span v-if="openaiSkipSslVerification" class="ssl-warning">
-                  Warning: Disabling SSL verification exposes data to potential interception. Only use on trusted networks.
+                  Warning: Disabling SSL verification exposes data to potential interception. Only use on trusted
+                  networks.
                 </span>
               </div>
 
@@ -664,7 +691,9 @@ onMounted(() => {
                     refresh
                   </button>
                 </div>
-                <span v-if="openaiModels.length > 0" class="settings-hint">{{ openaiModels.length }} models available</span>
+                <span v-if="openaiModels.length > 0" class="settings-hint"
+                  >{{ openaiModels.length }} models available</span
+                >
               </div>
 
               <div class="settings-item">
@@ -677,14 +706,11 @@ onMounted(() => {
                   <span v-if="openaiConnectionStatus === 'testing'">Testing...</span>
                   <span v-else>Test Connection</span>
                 </button>
-                <span v-if="openaiConnectionStatus === 'success'" class="connection-status success">
-                  Connected
-                </span>
+                <span v-if="openaiConnectionStatus === 'success'" class="connection-status success"> Connected </span>
                 <span v-else-if="openaiConnectionStatus === 'error'" class="connection-status error">
                   {{ openaiConnectionError }}
                 </span>
               </div>
-
             </template>
           </div>
         </section>
@@ -697,16 +723,14 @@ onMounted(() => {
               <button class="snapshot-btn" @click="showPromptList = !showPromptList" title="Show or hide AI prompts">
                 {{ showPromptList ? 'Hide' : 'Show' }} Prompts
               </button>
-              <button class="snapshot-btn" @click="openPromptEditor()" title="Create a new custom prompt">Add New</button>
+              <button class="snapshot-btn" @click="openPromptEditor()" title="Create a new custom prompt">
+                Add New
+              </button>
             </div>
           </div>
 
           <div v-if="showPromptList" class="prompt-list">
-            <div
-              v-for="prompt in presetPrompts"
-              :key="prompt.id"
-              class="prompt-item"
-            >
+            <div v-for="prompt in presetPrompts" :key="prompt.id" class="prompt-item">
               <div class="prompt-info">
                 <span class="prompt-label">{{ prompt.label }}</span>
                 <span v-if="isPromptModified(prompt.id)" class="prompt-modified">(modified)</span>
@@ -718,13 +742,17 @@ onMounted(() => {
                   class="snapshot-restore-btn"
                   @click="handleResetPrompt(prompt.id)"
                   title="Reset to default"
-                >Reset</button>
+                >
+                  Reset
+                </button>
                 <button
                   v-if="!isDefaultPrompt(prompt.id)"
                   class="snapshot-restore-btn danger"
                   @click="handleDeletePrompt(prompt.id)"
                   title="Delete"
-                >Del</button>
+                >
+                  Del
+                </button>
               </div>
             </div>
           </div>
@@ -736,7 +764,9 @@ onMounted(() => {
           <div class="settings-item">
             <label>Snapshots</label>
             <div class="snapshot-actions">
-              <button class="snapshot-btn" @click="emit('create-snapshot')" title="Create a backup snapshot">Create</button>
+              <button class="snapshot-btn" @click="emit('create-snapshot')" title="Create a backup snapshot">
+                Create
+              </button>
               <button class="snapshot-btn" @click="emit('toggle-snapshots')" title="Show available snapshots">
                 {{ showSnapshotList ? 'Hide' : 'Show' }}
               </button>
@@ -744,13 +774,15 @@ onMounted(() => {
             <span v-if="snapshotMessage" class="settings-hint snapshot-message">{{ snapshotMessage }}</span>
           </div>
           <div v-if="showSnapshotList && availableSnapshots.length > 0" class="snapshot-list">
-            <div
-              v-for="snapshot in availableSnapshots.slice(0, 10)"
-              :key="snapshot.path"
-              class="snapshot-item"
-            >
+            <div v-for="snapshot in availableSnapshots.slice(0, 10)" :key="snapshot.path" class="snapshot-item">
               <span class="snapshot-date">{{ formatSnapshotDate(snapshot.created) }}</span>
-              <button class="snapshot-restore-btn" @click="emit('restore-snapshot', snapshot.path)" title="Restore this snapshot">Restore</button>
+              <button
+                class="snapshot-restore-btn"
+                @click="emit('restore-snapshot', snapshot.path)"
+                title="Restore this snapshot"
+              >
+                Restore
+              </button>
             </div>
           </div>
           <div v-else-if="showSnapshotList" class="settings-hint">No snapshots available</div>
@@ -765,12 +797,8 @@ onMounted(() => {
           <div class="settings-item">
             <label>Import</label>
             <div class="snapshot-actions">
-              <button class="snapshot-btn" @click="triggerImport('json')" title="Import JSON export file">
-                JSON
-              </button>
-              <button class="snapshot-btn" @click="triggerImport('csv')" title="Import CSV file">
-                CSV
-              </button>
+              <button class="snapshot-btn" @click="triggerImport('json')" title="Import JSON export file">JSON</button>
+              <button class="snapshot-btn" @click="triggerImport('csv')" title="Import CSV file">CSV</button>
             </div>
             <span class="settings-hint">Import data into current workspace root</span>
             <input
@@ -788,21 +816,31 @@ onMounted(() => {
           <h3 class="section-title">Lost & Found</h3>
           <div class="settings-item">
             <div class="snapshot-actions">
-              <button class="snapshot-btn" @click="emit('toggle-lost-found')" title="Show orphaned nodes without parents">
+              <button
+                class="snapshot-btn"
+                @click="emit('toggle-lost-found')"
+                title="Show orphaned nodes without parents"
+              >
                 {{ showLostFound ? 'Hide' : 'Show' }} ({{ orphanedNodes.length }})
               </button>
             </div>
           </div>
           <div v-if="showLostFound && orphanedNodes.length > 0" class="snapshot-list">
-            <div
-              v-for="node in orphanedNodes"
-              :key="node.id"
-              class="snapshot-item"
-            >
-              <span class="snapshot-date">{{ node.title }} <span class="orphan-type">({{ node.type }})</span></span>
+            <div v-for="node in orphanedNodes" :key="node.id" class="snapshot-item">
+              <span class="snapshot-date"
+                >{{ node.title }} <span class="orphan-type">({{ node.type }})</span></span
+              >
               <div class="lost-actions">
-                <button class="snapshot-restore-btn" @click="emit('move-to-root', node)" title="Move to root">Root</button>
-                <button class="snapshot-restore-btn danger" @click="emit('delete-orphan', node)" title="Delete permanently">Del</button>
+                <button class="snapshot-restore-btn" @click="emit('move-to-root', node)" title="Move to root">
+                  Root
+                </button>
+                <button
+                  class="snapshot-restore-btn danger"
+                  @click="emit('delete-orphan', node)"
+                  title="Delete permanently"
+                >
+                  Del
+                </button>
               </div>
             </div>
           </div>
@@ -820,12 +858,7 @@ onMounted(() => {
           <div class="prompt-editor-body">
             <div class="settings-item">
               <label>Label</label>
-              <input
-                v-model="promptForm.label"
-                type="text"
-                class="text-input"
-                placeholder="e.g., Make Formal"
-              />
+              <input v-model="promptForm.label" type="text" class="text-input" placeholder="e.g., Make Formal" />
             </div>
             <div class="settings-item">
               <label>Prompt</label>
@@ -843,7 +876,9 @@ onMounted(() => {
               class="snapshot-btn primary"
               @click="handleSavePrompt"
               :disabled="!promptForm.label.trim() || !promptForm.prompt.trim()"
-            >Save</button>
+            >
+              Save
+            </button>
           </div>
         </div>
       </div>
