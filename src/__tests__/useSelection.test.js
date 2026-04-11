@@ -191,10 +191,11 @@ describe('useSelection composable', () => {
       expect(selection.anchorNode.value).toEqual(node)
     })
 
-    it('should open detail panel', () => {
+    it('should not auto-open detail panel (requires Enter key)', () => {
       selection.handleMultiSelect({ node: { id: 1 }, add: true })
 
-      expect(showDetail.value).toBe(true)
+      // Detail panel only opens via toggleDetailPanel() or explicit immediate: true
+      expect(showDetail.value).toBe(false)
     })
   })
 
