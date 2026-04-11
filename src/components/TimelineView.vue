@@ -14,6 +14,15 @@ const MIN_LABELS_WIDTH = 100
 const MAX_LABELS_WIDTH = 400
 const DEFAULT_LABELS_WIDTH = 200
 
+// Parse date string as local time (not UTC) to avoid timezone shift issues
+function parseLocalDate(dateStr) {
+  if (!dateStr) return null
+  // Handle both "2024-04-07" and "2024-04-07T..." formats
+  const [datePart] = dateStr.split('T')
+  const [year, month, day] = datePart.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
 const props = defineProps({
   nodes: { type: Array, default: () => [] },
   selectedId: Number,
@@ -203,15 +212,15 @@ const dateRange = computed(() => {
   // Start from earliest date or 3 months ago, whichever is earlier
   const threeMonthsAgo = new Date()
   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
-  const startDate = new Date(minDate) < threeMonthsAgo ? minDate : threeMonthsAgo.toISOString().split('T')[0]
+  const startDate = parseLocalDate(minDate) < threeMonthsAgo ? minDate : threeMonthsAgo.toISOString().split('T')[0]
 
   // End at latest date or 1 year from now, whichever is later
   const oneYearFromNow = new Date()
   oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
-  const endDate = new Date(maxDate) > oneYearFromNow ? maxDate : oneYearFromNow.toISOString().split('T')[0]
+  const endDate = parseLocalDate(maxDate) > oneYearFromNow ? maxDate : oneYearFromNow.toISOString().split('T')[0]
 
-  const start = new Date(startDate)
-  const end = new Date(endDate)
+  const start = parseLocalDate(startDate)
+  const end = parseLocalDate(endDate)
   const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1
 
   return { start: startDate, end: endDate, days: Math.max(days, 1) }
@@ -222,8 +231,8 @@ const years = computed(() => {
   if (!dateRange.value.start) return []
   const _zoom = zoomLevel.value // explicit dependency
   const result = []
-  const start = new Date(dateRange.value.start)
-  const end = new Date(dateRange.value.end)
+  const start = parseLocalDate(dateRange.value.start)
+  const end = parseLocalDate(dateRange.value.end)
 
   let current = new Date(start.getFullYear(), 0, 1)
   if (current < start) current.setFullYear(current.getFullYear() + 1)
@@ -244,8 +253,8 @@ const months = computed(() => {
   const _zoom = zoomLevel.value // explicit dependency
 
   const result = []
-  const start = new Date(dateRange.value.start)
-  const end = new Date(dateRange.value.end)
+  const start = parseLocalDate(dateRange.value.start)
+  const end = parseLocalDate(dateRange.value.end)
 
   let current = new Date(start.getFullYear(), start.getMonth(), 1)
   while (current <= end) {
@@ -265,8 +274,8 @@ const weeks = computed(() => {
   const zoom = zoomLevel.value // explicit dependency
   if (!dateRange.value.start || zoom < 10) return []
   const result = []
-  const start = new Date(dateRange.value.start)
-  const end = new Date(dateRange.value.end)
+  const start = parseLocalDate(dateRange.value.start)
+  const end = parseLocalDate(dateRange.value.end)
 
   // Find first Monday
   let current = new Date(start)
@@ -288,8 +297,8 @@ const days = computed(() => {
   const zoom = zoomLevel.value // explicit dependency
   if (!dateRange.value.start || zoom < 8) return []
   const result = []
-  const start = new Date(dateRange.value.start)
-  const end = new Date(dateRange.value.end)
+  const start = parseLocalDate(dateRange.value.start)
+  const end = parseLocalDate(dateRange.value.end)
 
   let current = new Date(start)
   while (current <= end) {
@@ -312,8 +321,8 @@ const weekends = computed(() => {
   const zoom = zoomLevel.value // explicit dependency
   if (!dateRange.value.start || zoom < 8) return []
   const result = []
-  const start = new Date(dateRange.value.start)
-  const end = new Date(dateRange.value.end)
+  const start = parseLocalDate(dateRange.value.start)
+  const end = parseLocalDate(dateRange.value.end)
 
   let current = new Date(start)
   // Find first Saturday
@@ -335,8 +344,8 @@ const weekends = computed(() => {
 function getDatePosition(dateStr) {
   if (!dateRange.value.start || !dateStr) return 0
 
-  const start = new Date(dateRange.value.start)
-  const date = new Date(dateStr)
+  const start = parseLocalDate(dateRange.value.start)
+  const date = parseLocalDate(dateStr)
   const days = Math.round((date - start) / (1000 * 60 * 60 * 24))
 
   return days * zoomLevel.value
@@ -345,8 +354,8 @@ function getDatePosition(dateStr) {
 function getNodeWidth(node) {
   if (!node.displayDate || !node.endDisplayDate) return MIN_BAR_WIDTH
 
-  const start = new Date(node.displayDate)
-  const end = new Date(node.endDisplayDate)
+  const start = parseLocalDate(node.displayDate)
+  const end = parseLocalDate(node.endDisplayDate)
   const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1
 
   return Math.max(days * zoomLevel.value, MIN_BAR_WIDTH)
@@ -692,7 +701,7 @@ onUnmounted(() => {
 function positionToDate(pixelX) {
   if (!dateRange.value.start) return null
   const days = Math.round(pixelX / zoomLevel.value)
-  const start = new Date(dateRange.value.start)
+  const start = parseLocalDate(dateRange.value.start)
   start.setDate(start.getDate() + days)
   return start.toISOString().split('T')[0]
 }
