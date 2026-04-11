@@ -542,6 +542,42 @@
   display: none;
 }
 
+/* Location and tags for all cards */
+.card-location-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  font-size: 11px;
+}
+
+.card-location {
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.card-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  color: var(--text-secondary);
+}
+
+.card-tag-more {
+  font-size: 9px;
+  color: var(--text-tertiary);
+}
+
+/* Hide location/tags on small cards */
+.node-card.card-sm .card-location-tags,
+.node-card.card-xs .card-location-tags {
+  display: none;
+}
+
 .node-card a,
 .child-card a,
 .node-cards a {
