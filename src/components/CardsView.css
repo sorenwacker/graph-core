@@ -542,21 +542,12 @@
   display: none;
 }
 
-/* Location and tags for all cards */
-.card-location-tags {
+/* Tags for all cards */
+.card-tags {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
+  gap: 4px;
   padding: 4px 12px;
-  font-size: 11px;
-}
-
-.card-location {
-  color: var(--text-tertiary);
-  display: flex;
-  align-items: center;
-  gap: 2px;
 }
 
 .card-tag {
@@ -572,9 +563,9 @@
   color: var(--text-tertiary);
 }
 
-/* Hide location/tags on small cards */
-.node-card.card-sm .card-location-tags,
-.node-card.card-xs .card-location-tags {
+/* Hide tags on small cards */
+.node-card.card-sm .card-tags,
+.node-card.card-xs .card-tags {
   display: none;
 }
 
