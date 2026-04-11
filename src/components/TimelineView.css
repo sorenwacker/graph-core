@@ -377,13 +377,14 @@
   cursor: pointer;
   display: flex;
   align-items: center;
-  padding: 0 8px;
+  padding: 0 4px;
   min-width: 20px;
   transition: filter 0.15s, box-shadow 0.15s, outline 0.15s;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   will-change: left, width;
   backface-visibility: hidden;
   z-index: 1;
+  overflow: visible;
 }
 
 .timeline-bar:hover {
@@ -415,9 +416,10 @@
   flex: 1;
   min-width: 0;
   cursor: grab;
-  padding: 0 4px;
+  padding: 0 2px;
   display: flex;
   align-items: center;
+  overflow: visible;
 }
 
 .bar-content:active,
@@ -452,10 +454,15 @@
   color: var(--text-primary);
   font-size: 0.7rem;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   pointer-events: none;
-  text-shadow: 0 1px 2px var(--bg-primary);
+  text-shadow:
+    0 1px 2px var(--bg-primary),
+    0 0 4px var(--bg-primary),
+    1px 0 2px var(--bg-primary),
+    -1px 0 2px var(--bg-primary);
+  /* Allow label to extend beyond narrow bars */
+  position: relative;
+  z-index: 2;
 }
 
 .due-marker {
