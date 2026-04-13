@@ -371,7 +371,7 @@
   align-items: center;
   gap: 8px;
   padding: 0 16px;
-  margin-bottom: 8px;
+  margin: 12px 0;
 }
 
 .progress-bar {
@@ -577,6 +577,12 @@
 /* Hide tags on small cards */
 .node-card.card-sm .card-tags,
 .node-card.card-xs .card-tags {
+  display: none;
+}
+
+/* Hide notes on xs cards only */
+.node-card.card-xs :deep(.card-notes-display),
+.node-card.card-xs :deep(.card-notes-textarea) {
   display: none;
 }
 
@@ -859,7 +865,7 @@
   background: var(--bg-secondary);
   border-radius: 8px;
   border: 1px solid var(--border-color);
-  min-height: 40px;
+  min-height: 24px;
   height: 100%;
   overflow: hidden;
 }
@@ -880,7 +886,8 @@
 
 .child-card.child-sm {
   padding: 3px 6px;
-  min-height: 24px;
+  min-height: 18px;
+  justify-content: center;
 }
 
 .child-card.child-sm .child-card-title {
@@ -1026,14 +1033,7 @@ input.grandchild-check {
   min-height: 0;
 }
 
-/* Small child cards - compact notes */
-.child-card.child-sm .child-card-notes {
-  display: none;
-}
-
-.child-card.child-sm .grandchild-list {
-  display: none;
-}
+/* Child card content spacing handled in Vue template based on size */
 
 .grandchild-notes {
   font-size: 10px;
