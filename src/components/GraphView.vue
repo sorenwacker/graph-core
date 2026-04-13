@@ -27,6 +27,9 @@ import nodeHtmlLabel from 'cytoscape-node-html-label'
 import { marked } from 'marked'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 import AddNodeModal from './AddNodeModal.vue'
+import { usePlatform } from '../composables/usePlatform.js'
+
+const { modifierKey, optionKey } = usePlatform()
 
 // Register cytoscape extensions once
 if (!window.__cytoscapeExtensionsRegistered) {
@@ -94,6 +97,7 @@ const emit = defineEmits([
   'select-multiple',
   'enter',
   'move',
+  'move-multiple',
   'add-child',
   'insert-between',
   'update',
@@ -264,6 +268,7 @@ const events = useGraphEvents({
   getDropHighlight: () => dropHighlightEl.value,
   getLinkModeActive: () => linkModeActive.value,
   getParent: () => props.parent,
+  getSelectedIds: () => props.selectedIds,
   emit,
   showAddNodeModal,
   hideEditModal,
@@ -617,7 +622,7 @@ async function initGraph() {
         }
         const bc = d.borderColor || typeConfig.task.text,
           bg = d.customBgTint
-            ? `background:linear-gradient(135deg,${d.customBgTint}99 0%,${d.customBgTint}44 50%,transparent 100%),var(--bg-secondary);`
+            ? `background:linear-gradient(135deg,${d.customBgTint}99 0%,${d.customBgTint}44 50%,var(--bg-secondary) 100%),var(--bg-secondary);`
             : ''
         let notes = ''
         if (d.showDetails && n.notes) {
@@ -999,7 +1004,7 @@ onUnmounted(() => {
           class="icon-btn"
           @click="layout.handleRelaxClick()"
           :class="{ 'relax-locked': relaxLocked }"
-          title="Relax layout"
+          title="Relax layout (double-click to lock)"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M4 12c0-2 2-4 4-2s4-2 4-2 2-2 4 0 4 2 4 2" />
@@ -1133,20 +1138,41 @@ onUnmounted(() => {
           </div>
           <div class="hotkey-section">
             <h4>Actions</h4>
-            <div class="hotkey-item"><kbd>Cmd</kbd>+<kbd>Click</kbd> Add child</div>
+            <div class="hotkey-item">
+              <kbd>{{ modifierKey }}</kbd
+              >+<kbd>Click</kbd> Add child
+            </div>
             <div class="hotkey-item"><kbd>Double-click</kbd> Enter node</div>
-            <div class="hotkey-item"><kbd>Opt</kbd>+<kbd>Cmd</kbd>+<kbd>Click</kbd> Delete</div>
+            <div class="hotkey-item">
+              <kbd>{{ optionKey }}</kbd
+              >+<kbd>{{ modifierKey }}</kbd
+              >+<kbd>Click</kbd> Delete
+            </div>
           </div>
           <div class="hotkey-section">
             <h4>Navigation</h4>
-            <div class="hotkey-item"><kbd>Cmd</kbd>+<kbd>Up</kbd> Go to parent</div>
-            <div class="hotkey-item"><kbd>Cmd</kbd>+<kbd>Down</kbd> First child</div>
-            <div class="hotkey-item"><kbd>Cmd</kbd>+<kbd>Left/Right</kbd> Siblings</div>
+            <div class="hotkey-item">
+              <kbd>{{ modifierKey }}</kbd
+              >+<kbd>Up</kbd> Go to parent
+            </div>
+            <div class="hotkey-item">
+              <kbd>{{ modifierKey }}</kbd
+              >+<kbd>Down</kbd> First child
+            </div>
+            <div class="hotkey-item">
+              <kbd>{{ modifierKey }}</kbd
+              >+<kbd>Left/Right</kbd> Siblings
+            </div>
           </div>
           <div class="hotkey-section">
             <h4>Links</h4>
-            <div class="hotkey-item"><kbd>Option</kbd> Hold for link mode</div>
-            <div class="hotkey-item"><kbd>Option</kbd>+<kbd>Drag</kbd> Create link</div>
+            <div class="hotkey-item">
+              <kbd>{{ optionKey }}</kbd> Hold for link mode
+            </div>
+            <div class="hotkey-item">
+              <kbd>{{ optionKey }}</kbd
+              >+<kbd>Drag</kbd> Create link
+            </div>
           </div>
         </div>
         <button class="hotkey-close" @click="showHotkeyHelp = false">Close</button>

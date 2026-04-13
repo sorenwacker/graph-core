@@ -228,6 +228,7 @@ defineExpose({
     @select-multiple="emit('select-multiple', $event)"
     @enter="emit('enter', $event)"
     @move="emit('move', $event)"
+    @move-multiple="emit('move-multiple', $event)"
     @link="emit('link', $event)"
     @unlink="emit('unlink', $event)"
     @add-child="emit('add-child', $event)"

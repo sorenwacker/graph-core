@@ -1,6 +1,35 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useCardDrag } from '../composables/useCardDrag.js'
 
+/**
+ * Create a mock drag event for testing.
+ * @param {Object} overrides - Properties to override
+ * @returns {Object} Mock event object
+ */
+function createMockDragEvent(overrides = {}) {
+  return {
+    target: {
+      tagName: 'DIV',
+      closest: () => null,
+      classList: { add: vi.fn(), remove: vi.fn() },
+    },
+    dataTransfer: {
+      effectAllowed: '',
+      dropEffect: '',
+      setData: vi.fn(),
+    },
+    preventDefault: vi.fn(),
+    currentTarget: {
+      getBoundingClientRect: () => ({ left: 0, width: 1000 }),
+      contains: () => false,
+    },
+    clientX: 500,
+    shiftKey: false,
+    relatedTarget: null,
+    ...overrides,
+  }
+}
+
 describe('useCardDrag composable', () => {
   let onMove, onReorder, drag
 
@@ -31,17 +60,7 @@ describe('useCardDrag composable', () => {
   describe('onDragStart', () => {
     it('should set draggedNode', () => {
       const node = { id: 1, title: 'Test' }
-      const e = {
-        target: {
-          tagName: 'DIV',
-          closest: () => null,
-          classList: { add: vi.fn() },
-        },
-        dataTransfer: {
-          effectAllowed: '',
-          setData: vi.fn(),
-        },
-      }
+      const e = createMockDragEvent()
 
       drag.onDragStart(e, node)
 
@@ -53,13 +72,7 @@ describe('useCardDrag composable', () => {
 
     it('should prevent drag from input elements', () => {
       const node = { id: 1, title: 'Test' }
-      const e = {
-        target: {
-          tagName: 'INPUT',
-          closest: () => null,
-        },
-        preventDefault: vi.fn(),
-      }
+      const e = createMockDragEvent({ target: { tagName: 'INPUT', closest: () => null } })
 
       drag.onDragStart(e, node)
 
@@ -69,13 +82,7 @@ describe('useCardDrag composable', () => {
 
     it('should prevent drag from textarea elements', () => {
       const node = { id: 1, title: 'Test' }
-      const e = {
-        target: {
-          tagName: 'TEXTAREA',
-          closest: () => null,
-        },
-        preventDefault: vi.fn(),
-      }
+      const e = createMockDragEvent({ target: { tagName: 'TEXTAREA', closest: () => null } })
 
       drag.onDragStart(e, node)
 
@@ -85,13 +92,12 @@ describe('useCardDrag composable', () => {
 
     it('should prevent drag when inside input/textarea', () => {
       const node = { id: 1, title: 'Test' }
-      const e = {
+      const e = createMockDragEvent({
         target: {
           tagName: 'DIV',
           closest: selector => (selector === 'input, textarea' ? document.createElement('input') : null),
         },
-        preventDefault: vi.fn(),
-      }
+      })
 
       drag.onDragStart(e, node)
 
@@ -101,17 +107,7 @@ describe('useCardDrag composable', () => {
 
     it('should report isDragging true after drag start', () => {
       const node = { id: 1, title: 'Test' }
-      const e = {
-        target: {
-          tagName: 'DIV',
-          closest: () => null,
-          classList: { add: vi.fn() },
-        },
-        dataTransfer: {
-          effectAllowed: '',
-          setData: vi.fn(),
-        },
-      }
+      const e = createMockDragEvent()
 
       drag.onDragStart(e, node)
 
@@ -144,6 +140,7 @@ describe('useCardDrag composable', () => {
   describe('onDragOver', () => {
     beforeEach(() => {
       drag.draggedNode.value = { id: 1 }
+      drag.draggedNodeIds.value = [1]
     })
 
     it('should ignore if no dragged node', () => {
@@ -284,6 +281,7 @@ describe('useCardDrag composable', () => {
       const source = { id: 1, title: 'Source' }
       const target = { id: 2, title: 'Target' }
       drag.draggedNode.value = source
+      drag.draggedNodeIds.value = [source.id]
       drag.dropPosition.value = 'inside'
 
       const e = { preventDefault: vi.fn() }
@@ -297,6 +295,7 @@ describe('useCardDrag composable', () => {
       const source = { id: 1, title: 'Source' }
       const target = { id: 2, title: 'Target' }
       drag.draggedNode.value = source
+      drag.draggedNodeIds.value = [source.id]
       drag.dropPosition.value = 'before'
 
       const e = { preventDefault: vi.fn() }
@@ -310,6 +309,7 @@ describe('useCardDrag composable', () => {
       const source = { id: 1, title: 'Source' }
       const target = { id: 2, title: 'Target' }
       drag.draggedNode.value = source
+      drag.draggedNodeIds.value = [source.id]
       drag.dropPosition.value = 'after'
 
       const e = { preventDefault: vi.fn() }
@@ -320,6 +320,7 @@ describe('useCardDrag composable', () => {
 
     it('should clear drag state after drop', async () => {
       drag.draggedNode.value = { id: 1 }
+      drag.draggedNodeIds.value = [1]
       drag.dropTarget.value = { id: 2 }
       drag.dropPosition.value = 'before'
 
@@ -333,6 +334,7 @@ describe('useCardDrag composable', () => {
 
     it('should ignore drop on same node', async () => {
       drag.draggedNode.value = { id: 1 }
+      drag.draggedNodeIds.value = [1]
 
       const e = { preventDefault: vi.fn() }
       await drag.onDrop(e, { id: 1 })
@@ -398,10 +400,90 @@ describe('useCardDrag composable', () => {
     })
   })
 
+  describe('multi-select drag', () => {
+    it('should drag all selected nodes when dragged node is in selection', () => {
+      const selectedIds = { value: new Set([1, 2, 3]) }
+      const dragWithSelection = useCardDrag({ onMove, onReorder, selectedIds })
+
+      const node = { id: 2, title: 'Selected Node' }
+      const e = createMockDragEvent()
+
+      dragWithSelection.onDragStart(e, node)
+
+      expect(dragWithSelection.draggedNodeIds.value).toEqual([1, 2, 3])
+      expect(dragWithSelection.getDragCount()).toBe(3)
+    })
+
+    it('should drag only single node when not in selection', () => {
+      const selectedIds = { value: new Set([1, 2]) }
+      const dragWithSelection = useCardDrag({ onMove, onReorder, selectedIds })
+
+      const node = { id: 3, title: 'Not Selected' }
+      const e = createMockDragEvent()
+
+      dragWithSelection.onDragStart(e, node)
+
+      expect(dragWithSelection.draggedNodeIds.value).toEqual([3])
+      expect(dragWithSelection.getDragCount()).toBe(1)
+    })
+
+    it('should call onMoveMultiple when dropping multiple nodes inside', async () => {
+      const onMoveMultiple = vi.fn()
+      const selectedIds = { value: new Set([1, 2, 3]) }
+      const dragWithSelection = useCardDrag({ onMove, onMoveMultiple, onReorder, selectedIds })
+
+      const source = { id: 1, title: 'Source' }
+      const target = { id: 4, title: 'Target' }
+
+      // Simulate starting drag with multi-selection
+      dragWithSelection.draggedNode.value = source
+      dragWithSelection.draggedNodeIds.value = [1, 2, 3]
+      dragWithSelection.dropPosition.value = 'inside'
+
+      const e = { preventDefault: vi.fn() }
+      await dragWithSelection.onDrop(e, target)
+
+      expect(onMoveMultiple).toHaveBeenCalledWith([1, 2, 3], target)
+      expect(onMove).not.toHaveBeenCalled()
+    })
+
+    it('should skip reorder for multi-select drag', async () => {
+      const selectedIds = { value: new Set([1, 2]) }
+      const dragWithSelection = useCardDrag({ onMove, onReorder, selectedIds })
+
+      dragWithSelection.draggedNode.value = { id: 1 }
+      dragWithSelection.draggedNodeIds.value = [1, 2]
+      dragWithSelection.dropPosition.value = 'before'
+
+      const e = { preventDefault: vi.fn() }
+      await dragWithSelection.onDrop(e, { id: 3 })
+
+      // Multi-select doesn't support reorder
+      expect(onReorder).not.toHaveBeenCalled()
+      expect(onMove).not.toHaveBeenCalled()
+    })
+
+    it('should ignore dragOver on any dragged node', () => {
+      const selectedIds = { value: new Set([1, 2, 3]) }
+      const dragWithSelection = useCardDrag({ onMove, onReorder, selectedIds })
+
+      dragWithSelection.draggedNode.value = { id: 1 }
+      dragWithSelection.draggedNodeIds.value = [1, 2, 3]
+
+      const e = { preventDefault: vi.fn() }
+      // Try to drag over node 2 which is in the dragged set
+      dragWithSelection.onDragOver(e, { id: 2 })
+
+      expect(e.preventDefault).not.toHaveBeenCalled()
+      expect(dragWithSelection.dropTarget.value).toBeNull()
+    })
+  })
+
   describe('without callbacks', () => {
     it('should work without onMove callback', async () => {
       const dragNoCallbacks = useCardDrag({})
       dragNoCallbacks.draggedNode.value = { id: 1 }
+      dragNoCallbacks.draggedNodeIds.value = [1]
       dragNoCallbacks.dropPosition.value = 'inside'
 
       const e = { preventDefault: vi.fn() }
@@ -414,6 +496,7 @@ describe('useCardDrag composable', () => {
     it('should work without onReorder callback', async () => {
       const dragNoCallbacks = useCardDrag({})
       dragNoCallbacks.draggedNode.value = { id: 1 }
+      dragNoCallbacks.draggedNodeIds.value = [1]
       dragNoCallbacks.dropPosition.value = 'before'
 
       const e = { preventDefault: vi.fn() }

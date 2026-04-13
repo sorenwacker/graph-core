@@ -36,8 +36,12 @@ import AddNodeBar from './components/AddNodeBar.vue'
 import Breadcrumbs from './components/Breadcrumbs.vue'
 import MainToolbar from './components/MainToolbar.vue'
 import SpotlightSearch from './components/SpotlightSearch.vue'
+import KeyboardShortcutsModal from './components/KeyboardShortcutsModal.vue'
+import OnboardingModal from './components/OnboardingModal.vue'
+import HintBar from './components/HintBar.vue'
 import { showToast } from './composables/useToast.js'
 import { handleError } from './composables/useErrorHandler.js'
+import { createDemoWorkspace, resetDemoWorkspace, demoWorkspaceExists, DEMO_WORKSPACE_ID } from './utils/demoData.js'
 
 // Navigation state placeholders (reassigned from composable)
 let currentContainerId = ref(null)
@@ -71,7 +75,15 @@ const {
   openaiSkipSslVerification,
   // Legacy
   ollamaEnabled,
+  // Onboarding
+  hasSeenOnboarding,
+  // Hint bar
+  showHintBar,
 } = useSettings()
+
+// Modal visibility state
+const showShortcutsModal = ref(false)
+const showOnboarding = ref(false)
 
 // loading state is managed by useNavigation composable
 const error = ref(null)
@@ -301,20 +313,6 @@ const nodeOps = useNodeOperations({
   broadcastDelete: broadcastNodeDelete,
 })
 
-// Cards drag
-const {
-  dropTarget,
-  dropPosition,
-  onDragStart: onCardDragStart,
-  onDragEnd: onCardDragEnd,
-  onDragOver: onCardDragOver,
-  onDragLeave: onCardDragLeave,
-  onDrop: onCardDrop,
-} = useCardDrag({
-  onMove: (src, tgt) => moveNode({ nodeId: src.id, newParentId: tgt.id }),
-  onReorder: (src, tgt, pos) => handleReorder({ nodeId: src.id, targetId: tgt.id, position: pos }),
-})
-
 // Graph depth: use root setting at root level
 const effectiveGraphMaxDepth = computed(() =>
   currentContainerId.value === null ? graphRootMaxDepth.value : graphMaxDepth.value
@@ -353,6 +351,22 @@ function selectNode(node, options = {}) {
   if (!node && detailPinned.value) return
   _selectNode(node, options)
 }
+
+// Cards drag (supports multi-select)
+const {
+  dropTarget,
+  dropPosition,
+  onDragStart: onCardDragStart,
+  onDragEnd: onCardDragEnd,
+  onDragOver: onCardDragOver,
+  onDragLeave: onCardDragLeave,
+  onDrop: onCardDrop,
+} = useCardDrag({
+  selectedIds,
+  onMove: (src, tgt) => moveNode({ nodeId: src.id, newParentId: tgt.id }),
+  onMoveMultiple: (nodeIds, tgt) => moveMultipleNodes({ nodeIds, newParentId: tgt.id }),
+  onReorder: (src, tgt, pos) => handleReorder({ nodeId: src.id, targetId: tgt.id, position: pos }),
+})
 
 // Navigation composable
 const navigation = useNavigation({
@@ -709,6 +723,9 @@ const { handleKeydown } = useKeyboardShortcuts({
     selectNode,
     enterContainer,
     openDetachedWindow: handleDetach,
+    showShortcuts: () => {
+      showShortcutsModal.value = true
+    },
   },
   state: {
     viewMode,
@@ -727,6 +744,47 @@ const { handleKeydown } = useKeyboardShortcuts({
 // Custom open-link-search event handler
 const handleOpenLinkSearchEvent = e => {
   if (e.detail?.nodeId === selectedNode.value?.id) openLinkSearch()
+}
+
+// Demo workspace creation
+async function handleCreateDemoWorkspace() {
+  const exists = await demoWorkspaceExists(api)
+  if (exists) {
+    showToast('Demo workspace already exists', 'info')
+    currentWorkspace.value = DEMO_WORKSPACE_ID
+    return
+  }
+
+  const result = await createDemoWorkspace(api)
+  if (result.success) {
+    await loadWorkspaces()
+    currentWorkspace.value = DEMO_WORKSPACE_ID
+    showToast('Demo workspace created', 'success')
+  } else {
+    showToast(result.error || 'Failed to create demo workspace', 'error')
+  }
+}
+
+// Demo workspace reset
+async function handleResetDemoWorkspace() {
+  const confirmed = confirm(
+    'Reset Demo Workspace?\n\nThis will delete all data in the Demo workspace and recreate it with fresh sample content.'
+  )
+  if (!confirmed) return
+
+  const result = await resetDemoWorkspace(api)
+  if (result.success) {
+    await loadWorkspaces()
+    currentWorkspace.value = DEMO_WORKSPACE_ID
+    showToast('Demo workspace reset', 'success')
+  } else {
+    showToast(result.error || 'Failed to reset demo workspace', 'error')
+  }
+}
+
+// Show onboarding on first run
+if (!hasSeenOnboarding.value) {
+  showOnboarding.value = true
 }
 
 // App lifecycle management (initialization, event listeners, cleanup)
@@ -753,6 +811,7 @@ useAppLifecycle({
   undo,
   redo,
   showSettings,
+  showShortcuts: showShortcutsModal,
 })
 </script>
 
@@ -808,6 +867,7 @@ useAppLifecycle({
             v-model:open-detail-fullscreen="openDetailFullscreen"
             v-model:hover-preview-enabled="hoverPreviewEnabled"
             v-model:inherit-colors="inheritColors"
+            v-model:show-hint-bar="showHintBar"
             v-model:ai-enabled="aiEnabled"
             v-model:ai-provider="aiProvider"
             v-model:ollama-endpoint="ollamaEndpoint"
@@ -827,6 +887,7 @@ useAppLifecycle({
             :show-lost-found="showLostFound"
             :orphaned-nodes="orphanedNodes"
             @toggle-completed="hideCompleted = !hideCompleted"
+            @open-search="openSearch"
             @undo="undo"
             @redo="redo"
             @create-snapshot="createSnapshot"
@@ -838,6 +899,18 @@ useAppLifecycle({
             @delete-orphan="deleteOrphanedNode"
             :current-workspace="currentWorkspace"
             @import-complete="loadChildren()"
+            @show-onboarding="
+              showSettings = false
+              showOnboarding = true
+            "
+            @create-demo="
+              showSettings = false
+              handleCreateDemoWorkspace()
+            "
+            @reset-demo="
+              showSettings = false
+              handleResetDemoWorkspace()
+            "
           />
         </div>
       </div>
@@ -1026,6 +1099,25 @@ useAppLifecycle({
 
     <!-- Toast notifications -->
     <ToastContainer />
+
+    <!-- Keyboard Shortcuts Modal -->
+    <KeyboardShortcutsModal :visible="showShortcutsModal" @close="showShortcutsModal = false" />
+
+    <!-- Onboarding Modal -->
+    <OnboardingModal
+      :visible="showOnboarding"
+      @close="showOnboarding = false"
+      @dismiss-forever="hasSeenOnboarding = true"
+      @create-demo="handleCreateDemoWorkspace"
+    />
+
+    <!-- Hint Bar -->
+    <HintBar
+      :visible="showHintBar"
+      :current-workspace="currentWorkspace"
+      :sidebar-pinned="sidebarPinned"
+      @dismiss="showHintBar = false"
+    />
   </div>
 </template>
 
