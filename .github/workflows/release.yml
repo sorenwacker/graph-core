@@ -272,4 +272,4 @@ jobs:
           done
           echo "</body></html>" >> assets/index.html
 
-          rclone sync assets/ r2:binaries/graph-core/
+          rclone copy assets/ r2:binaries/graph-core/
