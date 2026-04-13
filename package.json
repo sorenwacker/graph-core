@@ -77,6 +77,7 @@
   "build": {
     "appId": "com.graphcore.app",
     "productName": "Graph Core",
+    "artifactName": "Graph-Core-${version}-${arch}.${ext}",
     "directories": {
       "output": "release"
     },
@@ -124,7 +125,11 @@
       "target": [
         "nsis",
         "portable"
-      ]
+      ],
+      "artifactName": "Graph-Core-${version}.${ext}"
+    },
+    "nsis": {
+      "artifactName": "Graph-Core-Setup-${version}.${ext}"
     },
     "linux": {
       "target": [
