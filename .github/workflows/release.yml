@@ -274,4 +274,4 @@ jobs:
 
           echo "Files to upload:"
           ls -la assets/
-          rclone copy assets/ r2:binaries/graph-core/ -v
+          rclone sync assets/ r2:binaries/graph-core/ -v
