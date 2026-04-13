@@ -415,7 +415,9 @@ onMounted(async () => {
         </button>
         <button class="settings-tab" :class="{ active: activeTab === 'ai' }" @click="activeTab = 'ai'">AI</button>
         <button class="settings-tab" :class="{ active: activeTab === 'data' }" @click="activeTab = 'data'">Data</button>
-        <button class="settings-tab" :class="{ active: activeTab === 'about' }" @click="activeTab = 'about'">About</button>
+        <button class="settings-tab" :class="{ active: activeTab === 'about' }" @click="activeTab = 'about'">
+          About
+        </button>
       </div>
 
       <div class="settings-grid">
@@ -930,7 +932,9 @@ onMounted(async () => {
                 Reset Demo Workspace
               </button>
             </div>
-            <span class="settings-hint">{{ demoExists ? 'Reset to get fresh sample data' : 'Creates sample nodes to explore features' }}</span>
+            <span class="settings-hint">{{
+              demoExists ? 'Reset to get fresh sample data' : 'Creates sample nodes to explore features'
+            }}</span>
           </div>
         </section>
 
@@ -956,9 +960,19 @@ onMounted(async () => {
         <section v-show="activeTab === 'about'" class="settings-section legal-section">
           <h3 class="section-title">Privacy Notice</h3>
           <div class="legal-text">
-            <p><strong>Data Storage:</strong> All your data is stored locally on your device. GraphCore does not transmit your data to external servers unless you explicitly configure AI features.</p>
-            <p><strong>AI Features:</strong> When AI features are enabled, note content may be sent to the configured AI provider (Ollama running locally, or an external OpenAI-compatible API). You control which provider receives your data through the AI settings.</p>
-            <p><strong>No Analytics:</strong> GraphCore does not collect usage analytics, telemetry, or personal information.</p>
+            <p>
+              <strong>Data Storage:</strong> All your data is stored locally on your device. GraphCore does not transmit
+              your data to external servers unless you explicitly configure AI features.
+            </p>
+            <p>
+              <strong>AI Features:</strong> When AI features are enabled, note content may be sent to the configured AI
+              provider (Ollama running locally, or an external OpenAI-compatible API). You control which provider
+              receives your data through the AI settings.
+            </p>
+            <p>
+              <strong>No Analytics:</strong> GraphCore does not collect usage analytics, telemetry, or personal
+              information.
+            </p>
             <p><strong>Local Backups:</strong> Snapshots and backups are stored locally on your device.</p>
           </div>
         </section>

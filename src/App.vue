@@ -899,9 +899,18 @@ useAppLifecycle({
             @delete-orphan="deleteOrphanedNode"
             :current-workspace="currentWorkspace"
             @import-complete="loadChildren()"
-            @show-onboarding="showSettings = false; showOnboarding = true"
-            @create-demo="showSettings = false; handleCreateDemoWorkspace()"
-            @reset-demo="showSettings = false; handleResetDemoWorkspace()"
+            @show-onboarding="
+              showSettings = false
+              showOnboarding = true
+            "
+            @create-demo="
+              showSettings = false
+              handleCreateDemoWorkspace()
+            "
+            @reset-demo="
+              showSettings = false
+              handleResetDemoWorkspace()
+            "
           />
         </div>
       </div>
