@@ -1,6 +1,9 @@
 #!/bin/bash
 # Release script with comprehensive validation
 # Usage: ./scripts/release.sh v1.0.0
+#
+# This script validates and pushes a tag. The GitHub Actions workflow
+# handles building artifacts and creating the actual release.
 
 set -e
 
@@ -66,7 +69,12 @@ npm run format:check || {
 }
 
 # Check if this is a full release (no prerelease suffix)
-if echo "$TAG" | grep -qE "^v[0-9]+\.[0-9]+\.[0-9]+$"; then
+IS_PRERELEASE=false
+if echo "$TAG" | grep -qE "^v[0-9]+\.[0-9]+\.[0-9]+-.+"; then
+  IS_PRERELEASE=true
+fi
+
+if [ "$IS_PRERELEASE" = "false" ]; then
   echo ""
   echo "Creating full release: $TAG"
 
@@ -88,17 +96,46 @@ if echo "$TAG" | grep -qE "^v[0-9]+\.[0-9]+\.[0-9]+$"; then
     echo "$PRERELEASES"
     echo ""
   fi
-
-  # Create full release
-  gh release create "$TAG" --generate-notes
-  echo ""
-  echo "Full release $TAG created successfully"
 else
   echo ""
   echo "Creating prerelease: $TAG"
-
-  # Create prerelease
-  gh release create "$TAG" --prerelease --generate-notes
-  echo ""
-  echo "Prerelease $TAG created successfully"
 fi
+
+# Check if tag already exists locally
+if git rev-parse "$TAG" >/dev/null 2>&1; then
+  echo "ERROR: Tag $TAG already exists locally"
+  echo "Delete it first: git tag -d $TAG"
+  exit 1
+fi
+
+# Check if tag already exists remotely
+if git ls-remote --tags origin | grep -q "refs/tags/$TAG$"; then
+  echo "ERROR: Tag $TAG already exists on remote"
+  echo "Delete it first: git push origin :refs/tags/$TAG"
+  exit 1
+fi
+
+# Create and push tag - the workflow will build and create the release
+echo "Creating tag $TAG..."
+git tag "$TAG"
+
+echo "Pushing tag to trigger build workflow..."
+git push origin "$TAG"
+
+echo ""
+echo "Tag $TAG pushed successfully!"
+echo ""
+echo "The GitHub Actions workflow will now:"
+echo "  1. Run tests and validation"
+echo "  2. Build for macOS, Windows, and Linux"
+echo "  3. Create the release with artifacts"
+echo ""
+echo "Monitor progress at:"
+echo "  https://github.com/sorenwacker/graph-core/actions"
+echo ""
+if [ "$IS_PRERELEASE" = "true" ]; then
+  echo "Once complete, the prerelease will be at:"
+else
+  echo "Once complete, the release will be at:"
+fi
+echo "  https://github.com/sorenwacker/graph-core/releases/tag/$TAG"
