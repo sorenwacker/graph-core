@@ -56,12 +56,6 @@ function clearColor() {
   emit('save')
 }
 
-function updateGraphDepth(value) {
-  const numValue = value === '' ? null : Number(value)
-  emit('update:field', { field: 'graph_max_depth', value: numValue })
-  emit('save')
-}
-
 function onTypeChange(event) {
   emit('update:field', { field: 'type', value: event.target.value })
   emit('save')
@@ -180,20 +174,6 @@ function clearLocation() {
               x
             </button>
           </div>
-        </div>
-
-        <!-- Graph Depth -->
-        <div class="meta-item">
-          <label>Graph Depth</label>
-          <select :value="editedNode.graph_max_depth ?? ''" @change="updateGraphDepth($event.target.value)">
-            <option value="">Default</option>
-            <option value="1">1 level</option>
-            <option value="2">2 levels</option>
-            <option value="3">3 levels</option>
-            <option value="4">4 levels</option>
-            <option value="5">5 levels</option>
-            <option value="0">All levels</option>
-          </select>
         </div>
 
         <!-- Location, Tags, Links -->
