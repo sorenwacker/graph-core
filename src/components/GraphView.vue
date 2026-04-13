@@ -1055,6 +1055,20 @@ onUnmounted(() => {
           </svg>
         </button>
         <span class="controls-separator"></span>
+        <div class="depth-control" title="Max depth">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3v18M3 12h18M7 7l10 10M17 7l-10 10" />
+          </svg>
+          <select v-model.number="maxDepth" class="depth-select">
+            <option :value="0">All</option>
+            <option :value="1">1</option>
+            <option :value="2">2</option>
+            <option :value="3">3</option>
+            <option :value="4">4</option>
+            <option :value="5">5</option>
+          </select>
+        </div>
+        <span class="controls-separator"></span>
         <div class="type-filter-wrapper">
           <button
             class="icon-btn"
