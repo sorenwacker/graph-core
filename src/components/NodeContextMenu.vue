@@ -2,6 +2,9 @@
 import { ref, computed } from 'vue'
 import { calculateMenuPosition } from '../utils/menuPosition'
 import { getInitials } from '../utils/formatting.js'
+import { usePlatform } from '../composables/usePlatform.js'
+
+const { modifierKey, optionKey } = usePlatform()
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -139,7 +142,7 @@ function openInWindow() {
               <path d="M12 8v8M8 12h8" />
             </svg>
             <span>Add Child</span>
-            <kbd class="menu-shortcut">Cmd+Click</kbd>
+            <kbd class="menu-shortcut">{{ modifierKey }}+Click</kbd>
           </button>
         </div>
 
@@ -303,7 +306,7 @@ function openInWindow() {
               <line x1="14" y1="11" x2="14" y2="17" />
             </svg>
             <span>Delete</span>
-            <kbd class="menu-shortcut">Opt+Cmd+Click</kbd>
+            <kbd class="menu-shortcut">{{ optionKey }}+{{ modifierKey }}+Click</kbd>
           </button>
         </div>
       </div>

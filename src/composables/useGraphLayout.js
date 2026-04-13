@@ -65,18 +65,16 @@ export const LAYOUTS = {
     sort: (a, b) => (a.data('label') || '').localeCompare(b.data('label') || ''),
   },
 
-  // Circle: nodes arranged in a circle
+  // Circle: simple circle layout
   circle: {
-    name: 'concentric',
+    name: 'circle',
     animate: true,
     animationDuration: 250,
     fit: true,
     padding: 50,
-    minNodeSpacing: 100,
     avoidOverlap: true,
     nodeDimensionsIncludeLabels: true,
-    concentric: () => 1,
-    levelWidth: () => 1,
+    spacingFactor: 1.2,
   },
 
   // Relax (single click): Dagre - clean up edge crossings
@@ -178,6 +176,26 @@ export function useGraphLayout(options = {}) {
         gravity: scaledGravity,
         gravityRange: 10,
         numIter: radialSettings.iterations,
+      }
+    }
+    // Circle layout: arrange nodes in concentric rings by depth
+    if (layoutMode === 'circle') {
+      const cy = getCy ? getCy() : null
+      let maxDepth = 1
+      if (cy) {
+        cy.nodes().forEach(n => {
+          const depth = n.data('nodeData')?.depth || 0
+          if (depth > maxDepth) maxDepth = depth
+        })
+      }
+      return {
+        ...LAYOUTS.circle,
+        concentric: node => {
+          const depth = node.data('nodeData')?.depth || 0
+          // Higher value = closer to center
+          // Depth 0 (root/container) at center, children in outer rings
+          return maxDepth + 1 - depth
+        },
       }
     }
     return LAYOUTS[layoutMode] || LAYOUTS.tree

@@ -28,15 +28,15 @@ describe('useSettings composable', () => {
   describe('initial state', () => {
     it('should use defaults when localStorage is empty', () => {
       const settings = useSettings()
-      expect(settings.viewMode.value).toBe('tree')
+      expect(settings.viewMode.value).toBe('graph')
       expect(settings.hideCompleted.value).toBe(true)
       expect(settings.hideSensitive.value).toBe(false)
-      expect(settings.graphDetailThreshold.value).toBe(0)
+      expect(settings.graphDetailThreshold.value).toBe(50)
       expect(settings.graphMaxDepth.value).toBe(0)
-      expect(settings.graphRootMaxDepth.value).toBe(1)
+      expect(settings.graphRootMaxDepth.value).toBe(5)
       expect(settings.openDetailFullscreen.value).toBe(false)
       expect(settings.hoverPreviewEnabled.value).toBe(true)
-      expect(settings.sidebarPinned.value).toBe(false)
+      expect(settings.sidebarPinned.value).toBe(true)
       expect(settings.workspace.value).toBe('work')
     })
 
@@ -71,7 +71,7 @@ describe('useSettings composable', () => {
     it('should handle invalid number values gracefully', () => {
       mockStorage['graphcore-graphDetailThreshold'] = 'invalid'
       const settings = useSettings()
-      expect(settings.graphDetailThreshold.value).toBe(0) // Default
+      expect(settings.graphDetailThreshold.value).toBe(50) // Default
     })
   })
 

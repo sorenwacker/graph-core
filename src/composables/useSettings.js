@@ -64,7 +64,7 @@ function persistedRef(key, defaultValue, { type = 'string' } = {}) {
 export function useSettings() {
   return {
     // View mode: tree, graph, timeline, table, persons, tasks, trash
-    viewMode: persistedRef('graphcore-viewMode', 'tree'),
+    viewMode: persistedRef('graphcore-viewMode', 'graph'),
 
     // Current container ID (null for root level)
     containerId: persistedRef('graphcore-containerId', null, { type: 'nullable' }),
@@ -74,9 +74,9 @@ export function useSettings() {
     hideSensitive: persistedRef('graphcore-hideSensitive', false, { type: 'boolean' }),
 
     // Graph settings
-    graphDetailThreshold: persistedRef('graphcore-graphDetailThreshold', 0, { type: 'number' }),
+    graphDetailThreshold: persistedRef('graphcore-graphDetailThreshold', 50, { type: 'number' }),
     graphMaxDepth: persistedRef('graphcore-graphMaxDepth', 0, { type: 'number' }),
-    graphRootMaxDepth: persistedRef('graphcore-graphRootMaxDepth', 1, { type: 'number' }),
+    graphRootMaxDepth: persistedRef('graphcore-graphRootMaxDepth', 5, { type: 'number' }),
     graphNotesPreviewLength: persistedRef('graphcore-graphNotesPreviewLength', 200, { type: 'number' }),
 
     // Detail panel settings
@@ -85,7 +85,7 @@ export function useSettings() {
     inheritColors: persistedRef('graphcore-inheritColors', true, { type: 'boolean' }),
 
     // Sidebar settings
-    sidebarPinned: persistedRef('graphcore-sidebarPinned', false, { type: 'boolean' }),
+    sidebarPinned: persistedRef('graphcore-sidebarPinned', true, { type: 'boolean' }),
 
     // Workspace
     workspace: persistedRef('graphcore-workspace', 'work'),
@@ -109,5 +109,11 @@ export function useSettings() {
     // Legacy (for backwards compatibility)
     ollamaEnabled: persistedRef('graphcore-ollamaEnabled', true, { type: 'boolean' }),
     ollamaCustomPrompts: persistedRef('graphcore-ollamaCustomPrompts', [], { type: 'json' }),
+
+    // Onboarding
+    hasSeenOnboarding: persistedRef('graphcore-hasSeenOnboarding', false, { type: 'boolean' }),
+
+    // Hint bar
+    showHintBar: persistedRef('graphcore-showHintBar', true, { type: 'boolean' }),
   }
 }

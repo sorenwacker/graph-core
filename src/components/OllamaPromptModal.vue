@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import '../assets/modal-base.css'
 
 const props = defineProps({
   isLoading: { type: Boolean, default: false },
@@ -34,12 +35,18 @@ onUnmounted(() => {
 
 <template>
   <div class="modal-overlay" @click.self="emit('close')">
-    <div class="modal-content">
+    <div class="modal prompt-modal">
       <div class="modal-header">
-        <h3>Custom AI Prompt</h3>
-        <button class="close-btn" @click="emit('close')">&times;</button>
+        <div class="modal-title-row">
+          <h3>Custom AI Prompt</h3>
+        </div>
+        <button class="close-btn" @click="emit('close')" aria-label="Close" title="Close dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
       </div>
-      <div class="modal-body">
+      <div class="modal-content prompt-body">
         <textarea
           ref="inputRef"
           v-model="customPrompt"
@@ -50,7 +57,7 @@ onUnmounted(() => {
         ></textarea>
         <span class="hint">Press Ctrl+Enter to submit</span>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer prompt-footer">
         <button class="cancel-btn" @click="emit('close')" :disabled="isLoading">Cancel</button>
         <button class="submit-btn" @click="handleSubmit" :disabled="!customPrompt.trim() || isLoading">
           <span v-if="isLoading" class="spinner"></span>
@@ -62,62 +69,17 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
+/* Override modal sizing */
+.prompt-modal {
+  --modal-max-width: 500px;
+  --modal-border-radius: 8px;
 }
 
-.modal-content {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  width: 90%;
-  max-width: 500px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
-}
-
-.close-btn:hover {
-  color: var(--text-primary);
-}
-
-.modal-body {
+.prompt-body {
   padding: 16px;
 }
 
-.modal-body textarea {
+.prompt-body textarea {
   width: 100%;
   min-height: 100px;
   padding: 10px;
@@ -128,14 +90,15 @@ onUnmounted(() => {
   font-size: 0.9rem;
   resize: vertical;
   font-family: inherit;
+  box-sizing: border-box;
 }
 
-.modal-body textarea:focus {
+.prompt-body textarea:focus {
   outline: none;
   border-color: var(--accent-color);
 }
 
-.modal-body textarea:disabled {
+.prompt-body textarea:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -147,12 +110,11 @@ onUnmounted(() => {
   margin-top: 6px;
 }
 
-.modal-footer {
+.prompt-footer {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 16px;
-  border-top: 1px solid var(--border-color);
 }
 
 .cancel-btn,
@@ -162,6 +124,7 @@ onUnmounted(() => {
   font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.15s;
+  font-family: inherit;
 }
 
 .cancel-btn {
@@ -205,6 +168,18 @@ onUnmounted(() => {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .cancel-btn,
+  .submit-btn {
+    transition: none;
+  }
+
+  .spinner {
+    animation: none;
   }
 }
 </style>

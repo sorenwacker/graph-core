@@ -2,7 +2,7 @@
   <Teleport to="body">
     <Transition name="modal">
       <div v-if="visible" class="modal-overlay" @click.self="$emit('close')">
-        <div class="modal" @keydown="handleKeydown">
+        <div class="modal add-node-modal" @keydown="handleKeydown">
           <!-- Header -->
           <div class="modal-header">
             <div class="modal-title-row">
@@ -50,7 +50,7 @@
           </div>
 
           <!-- Footer hint -->
-          <div class="modal-footer"><kbd>Esc</kbd> to cancel</div>
+          <div class="modal-footer add-node-footer"><kbd>Esc</kbd> to cancel</div>
         </div>
       </div>
     </Transition>
@@ -60,6 +60,7 @@
 <script setup>
 import { ref, watch, nextTick } from 'vue'
 import { nodeTypes } from '../utils/constants.js'
+import '../assets/modal-base.css'
 
 const typeIcons = {
   task: 'T',
@@ -127,32 +128,8 @@ watch(
 </script>
 
 <style scoped>
-/* Overlay */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000;
-}
-
-/* Modal container */
-.modal {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  width: 90%;
-  max-width: 480px;
-  box-shadow: var(--shadow-lg);
-  overflow: hidden;
-}
-
 /* Subtle top glow */
-.modal::before {
+.add-node-modal::before {
   content: '';
   position: absolute;
   top: 0;
@@ -162,73 +139,7 @@ watch(
   background: linear-gradient(90deg, transparent, var(--border-color) 30%, var(--border-color) 70%, transparent);
 }
 
-/* Header */
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 18px 20px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.modal-title-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.modal-icon {
-  width: 20px;
-  height: 20px;
-  color: var(--accent-color);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-primary);
-  letter-spacing: -0.01em;
-}
-
-.close-btn {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s ease;
-}
-
-.close-btn svg {
-  width: 16px;
-  height: 16px;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.close-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.close-btn:active {
-  transform: scale(0.95);
-}
-
-/* Content */
-.modal-content {
-  padding: 20px;
-}
-
+/* Input wrapper */
 .input-wrapper {
   position: relative;
   margin-bottom: 20px;
@@ -398,93 +309,18 @@ watch(
   border-color: var(--type-organization-text);
 }
 
-/* Footer */
-.modal-footer {
-  padding: 12px 20px;
-  border-top: 1px solid var(--border-subtle);
+/* Footer centered */
+.add-node-footer {
   text-align: center;
   font-size: 11px;
   color: var(--text-tertiary);
 }
 
-.modal-footer kbd {
-  display: inline-block;
-  padding: 2px 6px;
-  margin-right: 4px;
-  border-radius: 4px;
-  background: var(--bg-tertiary);
-  font-family: inherit;
-  font-size: 10px;
-}
-
-/* Entrance/exit animations */
-.modal-enter-active {
-  animation: overlay-in 0.25s ease;
-}
-
-.modal-leave-active {
-  animation: overlay-out 0.2s ease forwards;
-}
-
-.modal-enter-active .modal {
-  animation: modal-in 0.3s var(--ease-out-expo);
-}
-
-.modal-leave-active .modal {
-  animation: modal-out 0.2s ease forwards;
-}
-
-@keyframes overlay-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes overlay-out {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
-
-@keyframes modal-in {
-  from {
-    opacity: 0;
-    transform: scale(0.96) translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-@keyframes modal-out {
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: scale(0.98) translateY(-4px);
-  }
-}
-
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  .modal-enter-active,
-  .modal-leave-active,
-  .modal-enter-active .modal,
-  .modal-leave-active .modal {
-    animation: none;
-  }
-
   .type-btn,
-  .type-icon {
+  .type-icon,
+  .node-input {
     transition: none;
   }
 }

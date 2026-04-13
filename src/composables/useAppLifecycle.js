@@ -34,6 +34,8 @@ export function useAppLifecycle({
   redo,
   // Settings
   showSettings,
+  // Shortcuts modal
+  showShortcuts,
 }) {
   let resizeObserver = null
 
@@ -69,6 +71,11 @@ export function useAppLifecycle({
       window.electronAPI.onOpenSettings(() => {
         showSettings.value = true
       })
+      if (showShortcuts) {
+        window.electronAPI.onShowShortcuts?.(() => {
+          showShortcuts.value = true
+        })
+      }
 
       // Autosave before app quits
       window.electronAPI.onBeforeQuit(() => {
