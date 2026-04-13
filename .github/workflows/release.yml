@@ -195,6 +195,7 @@ jobs:
         run: npx electron-builder --linux --publish never
 
       - name: Upload artifacts to release
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
