@@ -45,7 +45,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       is_prerelease: ${{ steps.check.outputs.is_prerelease }}
-      is_valid: ${{ steps.check.outputs.is_valid }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -57,37 +56,36 @@ jobs:
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
           VERSION="${TAG#v}"
+          # Extract base version (strip prerelease suffix)
+          BASE_VERSION=$(echo "$VERSION" | sed 's/-.*//')
 
           # Check if this is a prerelease tag (contains -alpha, -beta, -rc, etc.)
           if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-.+ ]]; then
             echo "is_prerelease=true" >> $GITHUB_OUTPUT
-            echo "is_valid=true" >> $GITHUB_OUTPUT
             echo "This is a PRE-RELEASE: $TAG"
           else
             echo "is_prerelease=false" >> $GITHUB_OUTPUT
             echo "This is a FULL RELEASE: $TAG"
 
             # Check if a prerelease exists for this version
-            PRERELEASES=$(gh release list --limit 100 | grep -E "${VERSION}-(alpha|beta|rc)" || true)
+            PRERELEASES=$(gh release list --limit 100 | grep -E "${BASE_VERSION}-(alpha|beta|rc)" || true)
 
             if [ -z "$PRERELEASES" ]; then
-              echo "is_valid=false" >> $GITHUB_OUTPUT
-              echo "::error::No pre-release found for version $VERSION. Create a pre-release first (e.g., v${VERSION}-beta.1)"
+              echo "::error::No pre-release found for version $BASE_VERSION. Create a pre-release first (e.g., v${BASE_VERSION}-beta.1)"
               exit 1
             else
-              echo "is_valid=true" >> $GITHUB_OUTPUT
               echo "Found pre-releases for this version:"
               echo "$PRERELEASES"
             fi
           fi
 
-  # Clean up invalid releases - delete release and tag if validation failed
+  # Clean up invalid releases - delete tag if validation failed
   cleanup-invalid:
     needs: [test, validate]
     if: failure()
     runs-on: ubuntu-latest
     steps:
-      - name: Delete invalid release and tag
+      - name: Delete invalid tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -102,8 +100,6 @@ jobs:
 
           echo ""
           echo "Invalid release $TAG has been deleted."
-          echo "To create a valid release, first create a prerelease:"
-          echo "  ./scripts/release.sh ${TAG}-beta.1"
 
   # Verify package.json version matches tag
   verify-version:
@@ -130,13 +126,41 @@ jobs:
           fi
           echo "Version verified: $PKG_VERSION"
 
-  # Build release artifacts after validation
-  build:
+  # Create the GitHub release first (so builds can upload to it)
+  create-release:
     needs: [validate, verify-version]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          IS_PRERELEASE="${{ needs.validate.outputs.is_prerelease }}"
+
+          NOTES="## Installation
+
+          **macOS:** Open Terminal and run: \`xattr -cr /Applications/Graph\\ Core.app\` then open the app.
+
+          **Windows:** Run the installer. Click \"More info\" then \"Run anyway\" if you see a SmartScreen warning.
+
+          **Linux:** Make the AppImage executable: \`chmod +x Graph-Core-*.AppImage\`"
+
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --prerelease --generate-notes --notes "$NOTES"
+            echo "Created draft prerelease: $TAG"
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --generate-notes --notes "$NOTES"
+            echo "Created draft release: $TAG"
+          fi
+
+  # Build release artifacts and upload to the release
+  build:
+    needs: [validate, verify-version, create-release]
     runs-on: ${{ matrix.os }}
 
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
 
@@ -153,42 +177,67 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build and publish
-        run: npm run release
+      - name: Build app
+        run: npm run build
+
+      - name: Build Electron (macOS)
+        if: matrix.os == 'macos-latest'
+        run: npx electron-builder --mac --publish never
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
-  # Mark release as prerelease or full release and add install instructions
-  finalize:
-    needs: [validate, build]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Mark release type and add notes
+      - name: Build Electron (Windows)
+        if: matrix.os == 'windows-latest'
+        run: npx electron-builder --win --publish never
+
+      - name: Build Electron (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: npx electron-builder --linux --publish never
+
+      - name: Upload artifacts to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
+          echo "Uploading artifacts to release $TAG"
 
-          NOTES="## Installation
+          # Upload all release files except blockmap and yml files
+          for file in release/*; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file")
+              # Skip blockmap and yml files
+              if [[ "$filename" != *.blockmap && "$filename" != *.yml ]]; then
+                echo "Uploading: $filename"
+                gh release upload "$TAG" "$file" --repo "$GITHUB_REPOSITORY" --clobber
+              fi
+            fi
+          done
 
-          **macOS:** Open Terminal and run: \`xattr -cr /Applications/Graph\\ Core.app\` then open the app.
+  # Publish the release (remove draft status)
+  publish-release:
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          IS_PRERELEASE="${{ needs.validate.outputs.is_prerelease }}"
 
-          **Windows:** Run the installer. Click \"More info\" then \"Run anyway\" if you see a SmartScreen warning.
+          echo "Publishing release: $TAG"
 
-          **Linux:** Make the AppImage executable: \`chmod +x Graph-Core-*.AppImage\`"
-
-          if [ "${{ needs.validate.outputs.is_prerelease }}" = "true" ]; then
-            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease --notes "$NOTES"
-            echo "Marked $TAG as pre-release"
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease
+            echo "Published prerelease: $TAG"
           else
-            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease=false --notes "$NOTES"
-            echo "Marked $TAG as full release"
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false
+            echo "Published release: $TAG"
           fi
 
   # Upload release assets to R2 (full releases only)
   upload-r2:
-    needs: [validate, build, finalize]
+    needs: [validate, publish-release]
     if: needs.validate.outputs.is_prerelease == 'false'
     runs-on: ubuntu-latest
     steps:
