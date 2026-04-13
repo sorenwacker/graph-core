@@ -45,6 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       is_prerelease: ${{ steps.check.outputs.is_prerelease }}
+      is_valid: ${{ steps.check.outputs.is_valid }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -60,6 +61,7 @@ jobs:
           # Check if this is a prerelease tag (contains -alpha, -beta, -rc, etc.)
           if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-.+ ]]; then
             echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            echo "is_valid=true" >> $GITHUB_OUTPUT
             echo "This is a PRE-RELEASE: $TAG"
           else
             echo "is_prerelease=false" >> $GITHUB_OUTPUT
@@ -69,17 +71,68 @@ jobs:
             PRERELEASES=$(gh release list --limit 100 | grep -E "${VERSION}-(alpha|beta|rc)" || true)
 
             if [ -z "$PRERELEASES" ]; then
+              echo "is_valid=false" >> $GITHUB_OUTPUT
               echo "::error::No pre-release found for version $VERSION. Create a pre-release first (e.g., v${VERSION}-beta.1)"
               exit 1
             else
+              echo "is_valid=true" >> $GITHUB_OUTPUT
               echo "Found pre-releases for this version:"
               echo "$PRERELEASES"
             fi
           fi
 
+  # Clean up invalid releases - delete release and tag if validation failed
+  cleanup-invalid:
+    needs: [test, validate]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete invalid release and tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "Cleaning up invalid release: $TAG"
+
+          # Delete the release if it exists
+          gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes 2>/dev/null || echo "No release to delete"
+
+          # Delete the tag
+          git push --delete origin "$TAG" 2>/dev/null || echo "No remote tag to delete"
+
+          echo ""
+          echo "Invalid release $TAG has been deleted."
+          echo "To create a valid release, first create a prerelease:"
+          echo "  ./scripts/release.sh ${TAG}-beta.1"
+
+  # Verify package.json version matches tag
+  verify-version:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify version match
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          TAG_VERSION="${TAG#v}"
+          # Extract base version (strip prerelease suffix)
+          TAG_BASE=$(echo "$TAG_VERSION" | sed 's/-.*//')
+          PKG_VERSION=$(node -p "require('./package.json').version")
+
+          echo "Tag version: $TAG_VERSION (base: $TAG_BASE)"
+          echo "Package.json version: $PKG_VERSION"
+
+          if [ "$TAG_BASE" != "$PKG_VERSION" ]; then
+            echo "::error::Version mismatch! Tag ($TAG_BASE) does not match package.json ($PKG_VERSION)"
+            exit 1
+          fi
+          echo "Version verified: $PKG_VERSION"
+
   # Build release artifacts after validation
   build:
-    needs: validate
+    needs: [validate, verify-version]
     runs-on: ${{ matrix.os }}
 
     strategy:
