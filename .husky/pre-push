@@ -1,0 +1,41 @@
+#!/bin/sh
+
+# Validate release tags before push
+# Full releases (v1.0.0) require an existing prerelease (v1.0.0-beta.1)
+
+while read local_ref local_sha remote_ref remote_sha; do
+  # Check if pushing a tag
+  if echo "$local_ref" | grep -q "^refs/tags/v"; then
+    TAG=$(echo "$local_ref" | sed 's|refs/tags/||')
+    VERSION=$(echo "$TAG" | sed 's|^v||')
+
+    # Check if this is a full release (no prerelease suffix)
+    if echo "$TAG" | grep -qE "^v[0-9]+\.[0-9]+\.[0-9]+$"; then
+      echo "Validating full release: $TAG"
+
+      # Check for existing prereleases
+      PRERELEASES=$(gh release list --limit 100 2>/dev/null | grep -E "${VERSION}-(alpha|beta|rc)" || true)
+
+      if [ -z "$PRERELEASES" ]; then
+        echo ""
+        echo "ERROR: No prerelease found for version $VERSION"
+        echo ""
+        echo "Full releases require an existing prerelease."
+        echo "Create a prerelease first: v${VERSION}-beta.1"
+        echo ""
+        echo "Example:"
+        echo "  git tag v${VERSION}-beta.1"
+        echo "  git push origin v${VERSION}-beta.1"
+        echo "  gh release create v${VERSION}-beta.1 --prerelease"
+        echo ""
+        exit 1
+      else
+        echo "Found prereleases for $VERSION:"
+        echo "$PRERELEASES"
+        echo ""
+      fi
+    fi
+  fi
+done
+
+exit 0
