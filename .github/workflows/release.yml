@@ -272,4 +272,6 @@ jobs:
           done
           echo "</body></html>" >> assets/index.html
 
-          rclone copy assets/ r2:binaries/graph-core/
+          echo "Files to upload:"
+          ls -la assets/
+          rclone copy assets/ r2:binaries/graph-core/ -v
