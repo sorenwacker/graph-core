@@ -61,14 +61,19 @@
               </div>
             </div>
 
-            <p class="tip">Press <kbd>{{ modifierKey }}</kbd><kbd>/</kbd> anytime to see all shortcuts.</p>
+            <p class="tip">
+              Press <kbd>{{ modifierKey }}</kbd
+              ><kbd>/</kbd> anytime to see all shortcuts.
+            </p>
 
             <!-- Demo workspace option -->
             <div class="demo-section">
               <p class="demo-intro">Want to explore with sample data?</p>
               <button class="demo-btn" @click="handleCreateDemo">
                 <svg class="demo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 3l1.912 5.813L20 10.236l-4.938 3.978L16.82 20 12 16.5 7.18 20l1.758-5.786L4 10.236l6.088-1.423L12 3z" />
+                  <path
+                    d="M12 3l1.912 5.813L20 10.236l-4.938 3.978L16.82 20 12 16.5 7.18 20l1.758-5.786L4 10.236l6.088-1.423L12 3z"
+                  />
                 </svg>
                 Create Demo Workspace
               </button>
