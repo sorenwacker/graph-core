@@ -782,6 +782,22 @@ async function handleResetDemoWorkspace() {
   }
 }
 
+// Settings panel event handlers
+function handleShowOnboarding() {
+  showSettings.value = false
+  showOnboarding.value = true
+}
+
+function handleCreateDemo() {
+  showSettings.value = false
+  handleCreateDemoWorkspace()
+}
+
+function handleResetDemo() {
+  showSettings.value = false
+  handleResetDemoWorkspace()
+}
+
 // Show onboarding on first run
 if (!hasSeenOnboarding.value) {
   showOnboarding.value = true
@@ -899,18 +915,9 @@ useAppLifecycle({
             @delete-orphan="deleteOrphanedNode"
             :current-workspace="currentWorkspace"
             @import-complete="loadChildren()"
-            @show-onboarding="
-              showSettings = false
-              showOnboarding = true
-            "
-            @create-demo="
-              showSettings = false
-              handleCreateDemoWorkspace()
-            "
-            @reset-demo="
-              showSettings = false
-              handleResetDemoWorkspace()
-            "
+            @show-onboarding="handleShowOnboarding"
+            @create-demo="handleCreateDemo"
+            @reset-demo="handleResetDemo"
           />
         </div>
       </div>
