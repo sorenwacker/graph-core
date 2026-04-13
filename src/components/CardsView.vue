@@ -309,7 +309,7 @@ function handleCanvasClick(e) {
         />
       </div>
 
-      <!-- Interactive notes area -->
+      <!-- Interactive notes area (hidden by CSS container query if card too short) -->
       <CardNotes
         :notes="node.notes"
         :model-value="inlineNotesText"
@@ -321,22 +321,6 @@ function handleCanvasClick(e) {
         @cancel="emit('cancel-notes')"
         @update:model-value="emit('update:inlineNotesText', $event)"
       />
-
-      <!-- Task/Project progress bar -->
-      <div
-        v-if="(node.type === 'task' || node.type === 'project') && getChildProgress(node)"
-        class="task-progress"
-        :title="`${getChildProgress(node).completed}/${getChildProgress(node).total} completed`"
-      >
-        <div class="progress-bar">
-          <div
-            class="progress-fill"
-            :class="{ complete: getChildProgress(node).percent === 100 }"
-            :style="{ width: getChildProgress(node).percent + '%' }"
-          ></div>
-        </div>
-        <span class="progress-text">{{ getChildProgress(node).completed }}/{{ getChildProgress(node).total }}</span>
-      </div>
 
       <!-- Person card specialization -->
       <div v-if="node.type === 'person'" class="person-info">
@@ -404,6 +388,22 @@ function handleCanvasClick(e) {
         </span>
       </div>
 
+      <!-- Task/Project progress bar -->
+      <div
+        v-if="(node.type === 'task' || node.type === 'project') && getChildProgress(node)"
+        class="task-progress"
+        :title="`${getChildProgress(node).completed}/${getChildProgress(node).total} completed`"
+      >
+        <div class="progress-bar">
+          <div
+            class="progress-fill"
+            :class="{ complete: getChildProgress(node).percent === 100 }"
+            :style="{ width: getChildProgress(node).percent + '%' }"
+          ></div>
+        </div>
+        <span class="progress-text">{{ getChildProgress(node).completed }}/{{ getChildProgress(node).total }}</span>
+      </div>
+
       <!-- Nested children cards -->
       <div
         v-if="node.children?.length"
@@ -463,15 +463,23 @@ function handleCanvasClick(e) {
             <button class="child-delete-btn" @click.stop="emit('delete', child.id)" title="Delete">x</button>
           </div>
           <CardNotes
-            v-if="child.notes && !child.notes_sensitive"
+            v-if="
+              child.notes &&
+              !child.notes_sensitive &&
+              getNestedCardSize(node.children.length, cardSizeClass) === 'child-lg'
+            "
             :notes="child.notes"
             :sensitive="child.notes_sensitive"
             size="child"
             class="child-card-notes"
           />
 
-          <!-- Grandchildren -->
-          <div v-if="child.children?.length" class="grandchild-list" @click.stop>
+          <!-- Grandchildren (hidden for smallest child cards) -->
+          <div
+            v-if="child.children?.length && getNestedCardSize(node.children.length, cardSizeClass) !== 'child-sm'"
+            class="grandchild-list"
+            @click.stop
+          >
             <div
               v-for="grandchild in child.children"
               :key="grandchild.id"
