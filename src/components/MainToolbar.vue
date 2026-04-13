@@ -4,10 +4,13 @@ import tippy from 'tippy.js'
 import ViewSwitcher from './ViewSwitcher.vue'
 import SettingsPanel from './SettingsPanel.vue'
 import { useTheme } from '../composables/useTheme.js'
+import { usePlatform } from '../composables/usePlatform.js'
 
 const { currentTheme, resolvedTheme, cycleTheme } = useTheme()
+const { formatShortcut } = usePlatform()
 
 // Refs for tooltip targets
+const searchBtn = ref(null)
 const sortBtn = ref(null)
 const hideCompletedBtn = ref(null)
 const undoBtn = ref(null)
@@ -25,10 +28,11 @@ let tippyInstances = []
 
 onMounted(() => {
   const buttons = [
+    { el: searchBtn.value, content: `Search (${formatShortcut(['Cmd', 'K'])})` },
     { el: sortBtn.value, content: 'Sort A-Z' },
     { el: hideCompletedBtn.value, content: 'Toggle completed visibility' },
-    { el: undoBtn.value, content: 'Undo (Cmd+Z)' },
-    { el: redoBtn.value, content: 'Redo (Cmd+Shift+Z)' },
+    { el: undoBtn.value, content: `Undo (${formatShortcut(['Cmd', 'Z'])})` },
+    { el: redoBtn.value, content: `Redo (${formatShortcut(['Cmd', 'Shift', 'Z'])})` },
     { el: themeBtn.value, content: () => themeTooltip.value },
     { el: settingsBtn.value, content: 'Settings' },
   ]
@@ -83,6 +87,7 @@ const props = defineProps({
   openDetailFullscreen: { type: Boolean, default: false },
   hoverPreviewEnabled: { type: Boolean, default: true },
   inheritColors: { type: Boolean, default: true },
+  showHintBar: { type: Boolean, default: true },
   snapshotMessage: { type: String, default: '' },
   showSnapshotList: { type: Boolean, default: false },
   availableSnapshots: { type: Array, default: () => [] },
@@ -107,6 +112,7 @@ const emit = defineEmits([
   'update:viewMode',
   'update:sortAlphabetically',
   'toggle-completed',
+  'open-search',
   'undo',
   'redo',
   'update:showSettings',
@@ -118,6 +124,7 @@ const emit = defineEmits([
   'update:openDetailFullscreen',
   'update:hoverPreviewEnabled',
   'update:inheritColors',
+  'update:showHintBar',
   'update:aiEnabled',
   'update:aiProvider',
   'update:ollamaEndpoint',
@@ -134,6 +141,9 @@ const emit = defineEmits([
   'toggle-lost-found',
   'move-to-root',
   'delete-orphan',
+  'show-onboarding',
+  'create-demo',
+  'reset-demo',
 ])
 </script>
 
@@ -179,6 +189,12 @@ const emit = defineEmits([
       </svg>
     </button>
     <span class="toolbar-separator"></span>
+    <button ref="searchBtn" class="icon-btn" @click="emit('open-search')" aria-label="Search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"></circle>
+        <path d="m21 21-4.35-4.35"></path>
+      </svg>
+    </button>
     <button ref="undoBtn" class="icon-btn" :disabled="!canUndo" @click="emit('undo')" aria-label="Undo">
       &#x21A9;
     </button>
@@ -232,6 +248,7 @@ const emit = defineEmits([
           :open-detail-fullscreen="openDetailFullscreen"
           :hover-preview-enabled="hoverPreviewEnabled"
           :inherit-colors="inheritColors"
+          :show-hint-bar="showHintBar"
           :snapshot-message="snapshotMessage"
           :show-snapshot-list="showSnapshotList"
           :available-snapshots="availableSnapshots"
@@ -253,6 +270,7 @@ const emit = defineEmits([
           @update:open-detail-fullscreen="emit('update:openDetailFullscreen', $event)"
           @update:hover-preview-enabled="emit('update:hoverPreviewEnabled', $event)"
           @update:inherit-colors="emit('update:inheritColors', $event)"
+          @update:show-hint-bar="emit('update:showHintBar', $event)"
           @update:ai-enabled="emit('update:aiEnabled', $event)"
           @update:ai-provider="emit('update:aiProvider', $event)"
           @update:ollama-endpoint="emit('update:ollamaEndpoint', $event)"
@@ -270,6 +288,9 @@ const emit = defineEmits([
           @move-to-root="emit('move-to-root', $event)"
           @delete-orphan="emit('delete-orphan', $event)"
           @close="emit('update:showSettings', false)"
+          @show-onboarding="emit('show-onboarding')"
+          @create-demo="emit('create-demo')"
+          @reset-demo="emit('reset-demo')"
         />
       </Teleport>
     </div>

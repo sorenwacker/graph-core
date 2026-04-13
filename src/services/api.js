@@ -288,6 +288,9 @@ const webApi = {
   async reload() {
     return { error: 'Reload only available in desktop app' }
   },
+  async getDataPath() {
+    return null
+  },
 
   // Node Tables (Spreadsheet)
   async getNodeTable(nodeId) {
@@ -537,6 +540,7 @@ const electronApi = {
   listBackups: () => window.electronAPI.listBackups(),
   restoreBackup: backupPath => window.electronAPI.restoreBackup(backupPath),
   reload: () => window.electronAPI.reload(),
+  getDataPath: () => window.electronAPI.getDataPath(),
 
   // Node Tables (Spreadsheet)
   getNodeTable: nodeId => window.electronAPI.getNodeTable(nodeId),

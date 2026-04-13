@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { api } from '../services/api.js'
 import { useOllama } from '../composables/useOllama.js'
 import { useTheme } from '../composables/useTheme.js'
+import { demoWorkspaceExists } from '../utils/demoData.js'
 
 const { presetPrompts, savePrompt, deletePrompt, resetPrompt, isPromptModified, isDefaultPrompt } = useOllama()
 
@@ -16,6 +17,7 @@ const props = defineProps({
   openDetailFullscreen: { type: Boolean, required: true },
   hoverPreviewEnabled: { type: Boolean, required: true },
   inheritColors: { type: Boolean, default: true },
+  showHintBar: { type: Boolean, default: true },
   snapshotMessage: { type: String, default: '' },
   showSnapshotList: { type: Boolean, default: false },
   availableSnapshots: { type: Array, default: () => [] },
@@ -47,6 +49,7 @@ const emit = defineEmits([
   'update:openDetailFullscreen',
   'update:hoverPreviewEnabled',
   'update:inheritColors',
+  'update:showHintBar',
   // AI settings
   'update:aiEnabled',
   'update:aiProvider',
@@ -68,6 +71,9 @@ const emit = defineEmits([
   'delete-orphan',
   'close',
   'import-complete',
+  'show-onboarding',
+  'create-demo',
+  'reset-demo',
 ])
 
 const ollamaConnectionStatus = ref(null) // null, 'testing', 'success', 'error'
@@ -86,6 +92,15 @@ let openaiFetchTimeout = null
 
 // Tab navigation
 const activeTab = ref('general')
+
+// App version
+const appVersion = ref('--')
+
+// Demo workspace status
+const demoExists = ref(false)
+
+// Data storage path
+const dataPath = ref('')
 
 // Prompt management
 const showPromptEditor = ref(false)
@@ -357,14 +372,31 @@ watch(
   }
 )
 
-// Fetch models on mount
-onMounted(() => {
+// Fetch models and version on mount
+onMounted(async () => {
   if (isAiEnabled.value) {
     if (props.aiProvider === 'ollama') {
       fetchOllamaModels()
     } else if (props.aiProvider === 'openai') {
       fetchOpenaiModels()
     }
+  }
+
+  // Fetch app version
+  try {
+    appVersion.value = await api.getVersion()
+  } catch {
+    appVersion.value = 'Unknown'
+  }
+
+  // Check if demo workspace exists
+  demoExists.value = await demoWorkspaceExists(api)
+
+  // Get data storage path
+  try {
+    dataPath.value = await api.getDataPath()
+  } catch {
+    dataPath.value = ''
   }
 })
 </script>
@@ -383,6 +415,7 @@ onMounted(() => {
         </button>
         <button class="settings-tab" :class="{ active: activeTab === 'ai' }" @click="activeTab = 'ai'">AI</button>
         <button class="settings-tab" :class="{ active: activeTab === 'data' }" @click="activeTab = 'data'">Data</button>
+        <button class="settings-tab" :class="{ active: activeTab === 'about' }" @click="activeTab = 'about'">About</button>
       </div>
 
       <div class="settings-grid">
@@ -505,6 +538,17 @@ onMounted(() => {
               Inherit colors
             </label>
             <span class="settings-hint">Child nodes inherit colors from parent nodes</span>
+          </div>
+          <div class="settings-item">
+            <label>
+              <input
+                type="checkbox"
+                :checked="showHintBar"
+                @change="emit('update:showHintBar', $event.target.checked)"
+              />
+              Show hint bar
+            </label>
+            <span class="settings-hint">Show keyboard shortcut hints at bottom of screen</span>
           </div>
         </section>
 
@@ -761,6 +805,11 @@ onMounted(() => {
         <!-- Data Management -->
         <section v-show="activeTab === 'data'" class="settings-section">
           <h3 class="section-title">Data</h3>
+          <div v-if="dataPath" class="settings-item">
+            <label>Storage Location</label>
+            <code class="data-path">{{ dataPath }}</code>
+            <span class="settings-hint">Database and backups are stored here</span>
+          </div>
           <div class="settings-item">
             <label>Snapshots</label>
             <div class="snapshot-actions">
@@ -845,6 +894,73 @@ onMounted(() => {
             </div>
           </div>
           <div v-else-if="showLostFound" class="settings-hint">No orphaned nodes</div>
+        </section>
+
+        <!-- About / Legal -->
+        <section v-show="activeTab === 'about'" class="settings-section">
+          <h3 class="section-title">About</h3>
+          <div class="settings-item">
+            <label>Version</label>
+            <span class="version-text">{{ appVersion }}</span>
+          </div>
+          <div class="settings-item">
+            <span class="copyright-text">Copyright 2026 GraphCore. All rights reserved.</span>
+          </div>
+          <div class="settings-item">
+            <button class="snapshot-btn" @click="emit('show-onboarding')" title="Show the welcome tutorial">
+              Show Welcome
+            </button>
+          </div>
+          <div class="settings-item">
+            <div class="snapshot-actions">
+              <button
+                v-if="!demoExists"
+                class="snapshot-btn"
+                @click="emit('create-demo')"
+                title="Create a demo workspace with sample data"
+              >
+                Create Demo Workspace
+              </button>
+              <button
+                v-else
+                class="snapshot-btn"
+                @click="emit('reset-demo')"
+                title="Reset demo workspace with fresh sample data"
+              >
+                Reset Demo Workspace
+              </button>
+            </div>
+            <span class="settings-hint">{{ demoExists ? 'Reset to get fresh sample data' : 'Creates sample nodes to explore features' }}</span>
+          </div>
+        </section>
+
+        <section v-show="activeTab === 'about'" class="settings-section legal-section">
+          <h3 class="section-title">Warranty Disclaimer</h3>
+          <div class="legal-text">
+            <p>
+              THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
+              LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+            </p>
+            <p>
+              IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY,
+              WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE
+              SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+            </p>
+            <p>
+              You assume all responsibility and risk for the use of this software. The developers make no guarantees
+              regarding data integrity, availability, or security.
+            </p>
+          </div>
+        </section>
+
+        <section v-show="activeTab === 'about'" class="settings-section legal-section">
+          <h3 class="section-title">Privacy Notice</h3>
+          <div class="legal-text">
+            <p><strong>Data Storage:</strong> All your data is stored locally on your device. GraphCore does not transmit your data to external servers unless you explicitly configure AI features.</p>
+            <p><strong>AI Features:</strong> When AI features are enabled, note content may be sent to the configured AI provider (Ollama running locally, or an external OpenAI-compatible API). You control which provider receives your data through the AI settings.</p>
+            <p><strong>No Analytics:</strong> GraphCore does not collect usage analytics, telemetry, or personal information.</p>
+            <p><strong>Local Backups:</strong> Snapshots and backups are stored locally on your device.</p>
+          </div>
         </section>
       </div>
 

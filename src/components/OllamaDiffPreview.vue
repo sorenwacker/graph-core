@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import '../assets/modal-base.css'
 
 const props = defineProps({
   originalContent: { type: String, required: true },
@@ -41,11 +42,17 @@ onUnmounted(() => {
 
 <template>
   <div class="modal-overlay" @click.self="emit('reject')">
-    <div class="diff-modal">
+    <div class="modal diff-modal">
       <div class="modal-header">
-        <h3>AI Suggestion</h3>
-        <span v-if="promptUsed" class="prompt-badge">{{ promptUsed }}</span>
-        <button class="close-btn" @click="emit('reject')">&times;</button>
+        <div class="modal-title-row">
+          <h3>AI Suggestion</h3>
+          <span v-if="promptUsed" class="prompt-badge">{{ promptUsed }}</span>
+        </div>
+        <button class="close-btn" @click="emit('reject')" aria-label="Close" title="Close dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
       </div>
 
       <div class="diff-container">
@@ -69,7 +76,7 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="modal-footer">
+      <div class="modal-footer diff-footer">
         <button class="reject-btn" @click="emit('reject')">Reject</button>
         <button class="accept-btn" @click="handleAccept">Accept</button>
       </div>
@@ -78,44 +85,11 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-}
-
+/* Override modal sizing */
 .diff-modal {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  width: 90%;
-  max-width: 900px;
+  --modal-max-width: 900px;
+  --modal-border-radius: 8px;
   max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 500;
-  color: var(--text-primary);
 }
 
 .prompt-badge {
@@ -124,21 +98,7 @@ onUnmounted(() => {
   background: var(--accent-subtle);
   color: var(--accent-color);
   border-radius: 4px;
-}
-
-.close-btn {
-  margin-left: auto;
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
-}
-
-.close-btn:hover {
-  color: var(--text-primary);
+  margin-left: 12px;
 }
 
 .diff-container {
@@ -184,6 +144,7 @@ onUnmounted(() => {
   background: var(--bg-primary);
   color: var(--text-secondary);
   cursor: pointer;
+  font-family: inherit;
 }
 
 .edit-btn:hover {
@@ -219,18 +180,18 @@ onUnmounted(() => {
   font-size: 0.85rem;
   line-height: 1.5;
   resize: none;
+  box-sizing: border-box;
 }
 
 .edit-textarea:focus {
   outline: none;
 }
 
-.modal-footer {
+.diff-footer {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 16px;
-  border-top: 1px solid var(--border-color);
 }
 
 .reject-btn,
@@ -240,6 +201,7 @@ onUnmounted(() => {
   font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.15s;
+  font-family: inherit;
 }
 
 .reject-btn {
@@ -262,5 +224,13 @@ onUnmounted(() => {
 
 .accept-btn:hover {
   background: #16a34a;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .reject-btn,
+  .accept-btn {
+    transition: none;
+  }
 }
 </style>

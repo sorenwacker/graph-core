@@ -398,6 +398,7 @@ ipcMain.handle('db:listBackups', () => db.listBackups())
 ipcMain.handle('db:restoreBackup', (event, backupPath) => db.restoreBackup(backupPath))
 ipcMain.handle('db:reload', () => db.reload())
 ipcMain.handle('db:repairWorkspaces', () => db.repairWorkspaces())
+ipcMain.handle('db:getDataPath', () => app.getPath('userData'))
 
 // =========================================
 // NODE TABLES

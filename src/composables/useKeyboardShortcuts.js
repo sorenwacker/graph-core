@@ -22,6 +22,7 @@ export function useKeyboardShortcuts({ actions, state }) {
     selectAll,
     enterContainer,
     openDetachedWindow,
+    showShortcuts,
   } = actions
 
   const {
@@ -160,6 +161,13 @@ export function useKeyboardShortcuts({ actions, state }) {
       } else if (!detailPinned.value) {
         clearSelection()
       }
+      return
+    }
+
+    // ? - show keyboard shortcuts modal
+    if (e.key === '?' && showShortcuts) {
+      e.preventDefault()
+      showShortcuts()
       return
     }
 

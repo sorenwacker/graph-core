@@ -766,7 +766,7 @@
 /* Selected node - strong highlight with solid accent background */
 :global(.node-html.selected),
 :global(.node-html[data-selected='true']) {
-  background: rgba(74, 158, 255, 0.35) !important;
+  background: linear-gradient(135deg, rgba(74, 158, 255, 0.5) 0%, rgba(74, 158, 255, 0.25) 50%, var(--bg-secondary) 100%), var(--bg-secondary) !important;
   outline: 4px solid #fff;
   outline-offset: 0;
   border: 3px solid var(--accent-color, #4a9eff) !important;

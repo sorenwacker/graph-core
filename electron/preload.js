@@ -76,6 +76,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   restoreBackup: backupPath => ipcRenderer.invoke('db:restoreBackup', backupPath),
   reload: () => ipcRenderer.invoke('db:reload'),
   repairWorkspaces: () => ipcRenderer.invoke('db:repairWorkspaces'),
+  getDataPath: () => ipcRenderer.invoke('db:getDataPath'),
 
   // Node Tables (Spreadsheet)
   getNodeTable: nodeId => ipcRenderer.invoke('db:getNodeTable', nodeId),
@@ -109,6 +110,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuUndo: callback => ipcRenderer.on('menu-undo', callback),
   onMenuRedo: callback => ipcRenderer.on('menu-redo', callback),
   onOpenSettings: callback => ipcRenderer.on('open-settings', callback),
+  onShowShortcuts: callback => ipcRenderer.on('show-shortcuts', callback),
 
   // App lifecycle
   onBeforeQuit: callback => ipcRenderer.on('app-before-quit', callback),

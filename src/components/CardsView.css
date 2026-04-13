@@ -15,6 +15,7 @@
   border-radius: 12px;
   border: 1px solid var(--border-color);
   overflow: hidden;
+  text-align: left;
 }
 
 .empty-state {
@@ -1049,7 +1050,9 @@ input.grandchild-check {
 .node-card-title-row {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 6px;
+  text-align: left;
 }
 
 .node-card.card-xl .node-card-title-row {
