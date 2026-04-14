@@ -86,8 +86,10 @@ export function useSelection({
     }
 
     // Open fullscreen if explicitly requested OR if setting is enabled OR window is narrow
+    // But only for leaf nodes (nodes without children) - non-leaf nodes should be navigated into
     const isNarrowWindow = typeof window !== 'undefined' && window.innerWidth < NARROW_WINDOW_THRESHOLD
-    if (fullscreenDetail && (options.fullscreen || openDetailFullscreen?.value || isNarrowWindow)) {
+    const hasChildren = node.children?.length > 0
+    if (fullscreenDetail && !hasChildren && (options.fullscreen || openDetailFullscreen?.value || isNarrowWindow)) {
       if (showDetail) showDetail.value = true
       fullscreenDetail.value = true
     }
