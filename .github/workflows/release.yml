@@ -274,4 +274,16 @@ jobs:
 
           echo "Files to upload:"
           ls -la assets/
-          rclone sync assets/ r2:binaries/graph-core/ -v
+
+          # First upload new files (copy doesn't delete anything)
+          rclone copy assets/ r2:binaries/graph-core/ -v
+
+          # Verify upload succeeded by checking a file exists in R2
+          if rclone ls r2:binaries/graph-core/ | head -1 | grep -q .; then
+            echo "Upload verified, cleaning up old versions..."
+            # Now safe to sync (deletes old files since new ones exist)
+            rclone sync assets/ r2:binaries/graph-core/ -v
+          else
+            echo "::error::Upload verification failed - keeping old files"
+            exit 1
+          fi
