@@ -90,12 +90,9 @@ export function useNodeOperations({
         updatedNode.end_date = new Date().toISOString().split('T')[0]
       }
 
-      // Trim whitespace from title and notes
+      // Trim whitespace from title only (not notes - would disrupt editing)
       if (typeof updatedNode.title === 'string') {
         updatedNode.title = updatedNode.title.trim()
-      }
-      if (typeof updatedNode.notes === 'string') {
-        updatedNode.notes = updatedNode.notes.trim()
       }
 
       const newValues = pickNodeFields(updatedNode)
