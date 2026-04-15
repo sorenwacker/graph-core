@@ -202,12 +202,12 @@ jobs:
           TAG="${GITHUB_REF#refs/tags/}"
           echo "Uploading artifacts to release $TAG"
 
-          # Upload all release files except blockmap and yml files
+          # Upload all release files except blockmap and debug yml files
           for file in release/*; do
             if [ -f "$file" ]; then
               filename=$(basename "$file")
-              # Skip blockmap and yml files
-              if [[ "$filename" != *.blockmap && "$filename" != *.yml ]]; then
+              # Skip blockmap and builder-debug.yml, but include latest*.yml for auto-updates
+              if [[ "$filename" != *.blockmap && "$filename" != "builder-debug.yml" ]]; then
                 echo "Uploading: $filename"
                 gh release upload "$TAG" "$file" --repo "$GITHUB_REPOSITORY" --clobber
               fi
