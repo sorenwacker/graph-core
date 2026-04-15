@@ -22,6 +22,13 @@ function formatDate(dateStr) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+// Keywords that indicate potentially sensitive content in notes
+const SENSITIVE_KEYWORDS = ['password', 'secret', 'api_key', 'credential']
+
+// Layout constants for tooltip positioning
+const TOOLTIP_MARGIN = 20
+const TOOLTIP_TOP_OFFSET = 80
+
 /**
  * Build tooltip HTML for a node
  * @param {Object} node - The node object
@@ -38,12 +45,7 @@ export function buildTooltipHTML(node, options = {}) {
   const childCount = node.children?.length || 0
   const isCompleted = node.completed
   // Check if node is marked sensitive or contains sensitive keywords
-  const isSensitive =
-    node.notes_sensitive ||
-    node.notes?.toLowerCase().includes('password') ||
-    node.notes?.toLowerCase().includes('secret') ||
-    node.notes?.toLowerCase().includes('api_key') ||
-    node.notes?.toLowerCase().includes('credential')
+  const isSensitive = node.notes_sensitive || SENSITIVE_KEYWORDS.some(kw => node.notes?.toLowerCase().includes(kw))
 
   let tooltip = `<div class="tt-header">`
   if (showCheckbox && node.type === 'task') {
@@ -106,10 +108,10 @@ export function getFixedTooltipReference(event) {
   const showOnRight = cursorX < viewportWidth / 2
 
   // Position anchor at top, on opposite side
-  const margin = 20
-  dynamicAnchor.style.top = '80px'
-  dynamicAnchor.style.left = showOnRight ? '' : `${margin}px`
-  dynamicAnchor.style.right = showOnRight ? `${margin}px` : ''
+  dynamicAnchor.style.top = `${TOOLTIP_TOP_OFFSET}px`
+  // Must explicitly clear the opposite side with 'auto' to override previous positioning
+  dynamicAnchor.style.left = showOnRight ? 'auto' : `${TOOLTIP_MARGIN}px`
+  dynamicAnchor.style.right = showOnRight ? `${TOOLTIP_MARGIN}px` : 'auto'
 
   return dynamicAnchor
 }

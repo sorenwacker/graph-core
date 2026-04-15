@@ -2,7 +2,7 @@
 import { ref, watch, onMounted, nextTick } from 'vue'
 import { marked } from 'marked'
 import mermaid from 'mermaid'
-import { decodeHtmlEntities } from '../utils/html.js'
+import { decodeHtmlEntities, decodeHtml } from '../utils/html.js'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
 
 const { handleError } = useErrorHandler()
@@ -34,44 +34,40 @@ mermaid.initialize({
   },
 })
 
-async function renderContent() {
-  if (!props.content) {
-    renderedHtml.value = ''
-    return
-  }
-
-  // Parse markdown then decode HTML entities
-  let html = marked.parse(props.content)
-  html = decodeHtmlEntities(html)
-
-  // Convert person mention links to styled chips
-  // Matches: <a href="person:123">@[Person Name]</a> or <a href="person:123">Person Name</a>
-  html = html.replace(
+// Convert person mention links to styled chips
+// Matches: <a href="person:123">@[Person Name]</a> or <a href="person:123">Person Name</a>
+function processPersonMentions(html) {
+  return html.replace(
     /<a href="person:(\d+)">@?\[?([^\]<]+)\]?<\/a>/g,
     '<span class="person-mention" data-person-id="$1">@$2</span>'
   )
+}
 
-  // Style inline #hashtags (not already in a link)
-  // Matches #word or #multi-word-tag but not already inside HTML tags
-  html = html.replace(/(?<!["\w])#([\w-]+)(?![^<]*>)/g, '<span class="hashtag">#$1</span>')
+// Style inline #hashtags (not already in a link)
+// Matches #word or #multi-word-tag but not already inside HTML tags
+function processHashtags(html) {
+  return html.replace(/(?<!["\w])#([\w-]+)(?![^<]*>)/g, '<span class="hashtag">#$1</span>')
+}
 
-  // Extract and process mermaid blocks
+// Extract mermaid code blocks and replace with placeholder containers
+function extractMermaidBlocks(html) {
   const mermaidRegex = /<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g
   let mermaidIndex = 0
-  const mermaidBlocks = []
+  const blocks = []
 
-  html = html.replace(mermaidRegex, (match, code) => {
+  const processedHtml = html.replace(mermaidRegex, (match, code) => {
     const id = `mermaid-${Date.now()}-${mermaidIndex++}`
-    mermaidBlocks.push({ id, code: code.trim() })
+    // Use DOM-based decoder to handle all HTML entities in mermaid code
+    blocks.push({ id, code: decodeHtml(code.trim()) })
     return `<div class="mermaid-container" id="${id}"></div>`
   })
 
-  renderedHtml.value = html
+  return { html: processedHtml, blocks }
+}
 
-  // Render mermaid diagrams after DOM update
-  await nextTick()
-
-  for (const block of mermaidBlocks) {
+// Render extracted mermaid blocks into their placeholder containers
+async function renderMermaidBlocks(blocks) {
+  for (const block of blocks) {
     try {
       const el = document.getElementById(block.id)
       if (el) {
@@ -86,6 +82,29 @@ async function renderContent() {
       }
     }
   }
+}
+
+async function renderContent() {
+  if (!props.content) {
+    renderedHtml.value = ''
+    return
+  }
+
+  // Parse markdown then decode HTML entities
+  let html = marked.parse(props.content)
+  html = decodeHtmlEntities(html)
+
+  // Process person mentions and hashtags
+  html = processPersonMentions(html)
+  html = processHashtags(html)
+
+  // Extract mermaid blocks and update HTML with placeholders
+  const { html: processedHtml, blocks: mermaidBlocks } = extractMermaidBlocks(html)
+  renderedHtml.value = processedHtml
+
+  // Render mermaid diagrams after DOM update
+  await nextTick()
+  await renderMermaidBlocks(mermaidBlocks)
 }
 
 watch(() => props.content, renderContent, { immediate: true })
