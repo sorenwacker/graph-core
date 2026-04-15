@@ -4,6 +4,7 @@ import { api } from '../services/api.js'
 import { useDetachedWindow } from '../composables/useDetachedWindow.js'
 import { useTheme } from '../composables/useTheme.js'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
+import { pickNodeFields } from '../utils/nodeFields.js'
 import DetailPanel from './DetailPanel.vue'
 
 const { handleError } = useErrorHandler()
@@ -53,26 +54,7 @@ async function loadWorkspaces() {
 // Handle node update from DetailPanel
 async function handleUpdate(updatedNode) {
   try {
-    const newValues = {
-      title: updatedNode.title,
-      type: updatedNode.type,
-      notes: updatedNode.notes,
-      notes_sensitive: updatedNode.notes_sensitive,
-      completed: updatedNode.completed,
-      favorite: updatedNode.favorite,
-      due_date: updatedNode.due_date,
-      start_date: updatedNode.start_date,
-      end_date: updatedNode.end_date,
-      color: updatedNode.color,
-      importance: updatedNode.importance,
-      location: updatedNode.location,
-      email: updatedNode.email,
-      phone: updatedNode.phone,
-      organization: updatedNode.organization,
-      role: updatedNode.role,
-      website: updatedNode.website,
-    }
-    await api.updateNode(updatedNode.id, newValues)
+    await api.updateNode(updatedNode.id, pickNodeFields(updatedNode))
     currentNode.value = { ...updatedNode }
 
     // Broadcast update to other windows
