@@ -46,8 +46,9 @@ export function useNodeOperations({
     try {
       const nodeType = type || 'task'
       const today = new Date().toISOString().split('T')[0]
+      const trimmedTitle = typeof title === 'string' ? title.trim() : title
       const nodeData = {
-        title,
+        title: trimmedTitle,
         type: nodeType,
         parent_id: parentId,
         workspace_id: getWorkspaceIdForNode?.(nodeType),
@@ -87,6 +88,14 @@ export function useNodeOperations({
       // Auto-set end_date when marking complete (if no end_date)
       if (updatedNode.completed && !oldNode?.completed && !updatedNode.end_date) {
         updatedNode.end_date = new Date().toISOString().split('T')[0]
+      }
+
+      // Trim whitespace from title and notes
+      if (typeof updatedNode.title === 'string') {
+        updatedNode.title = updatedNode.title.trim()
+      }
+      if (typeof updatedNode.notes === 'string') {
+        updatedNode.notes = updatedNode.notes.trim()
       }
 
       const newValues = pickNodeFields(updatedNode)
