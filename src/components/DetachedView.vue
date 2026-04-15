@@ -180,10 +180,12 @@ async function moveToRoot(node) {
 // Handle adding child - receives { parentId, title, type } from ChildrenSection
 async function addChild(payload) {
   try {
+    // Use payload.parentId for subtasks (adding to a child), otherwise use current node
+    const parentId = payload.parentId || currentNode.value?.id
     const childData = {
       title: payload.title || 'New Task',
       type: payload.type || 'task',
-      parent_id: payload.parentId,
+      parent_id: parentId,
       workspace_id: currentNode.value?.workspace_id,
     }
     const newChild = await api.createNode(childData)
