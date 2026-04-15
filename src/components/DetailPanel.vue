@@ -490,7 +490,7 @@ defineExpose({
           {{ pinned ? '&#128205;' : '&#128204;' }}
         </button>
         <button
-          v-if="isElectron && !fullscreen"
+          v-if="isElectron"
           class="detach-btn"
           @click="$emit('detach', props.node)"
           title="Open in new window"
