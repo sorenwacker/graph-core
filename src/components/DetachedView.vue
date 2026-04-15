@@ -177,17 +177,19 @@ async function moveToRoot(node) {
   }
 }
 
-// Handle adding child
-async function addChild(parentNode) {
+// Handle adding child - receives { parentId, title, type } from ChildrenSection
+async function addChild(payload) {
   try {
     const childData = {
-      title: 'New Task',
-      type: 'task',
-      parent_id: parentNode.id,
-      workspace_id: parentNode.workspace_id,
+      title: payload.title || 'New Task',
+      type: payload.type || 'task',
+      parent_id: payload.parentId,
+      workspace_id: currentNode.value?.workspace_id,
     }
     const newChild = await api.createNode(childData)
     broadcastNodeUpdate(newChild)
+    // Reload to show the new child in the list
+    await loadNode(currentNode.value.id)
   } catch (e) {
     handleError(e, { context: 'Adding child' })
   }
