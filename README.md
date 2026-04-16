@@ -1,6 +1,7 @@
 # Graph Core
 
 [![CI](https://github.com/sorenwacker/graph-core/actions/workflows/ci.yml/badge.svg)](https://github.com/sorenwacker/graph-core/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://sorenwacker.github.io/graph-core/)
 ![Node](https://img.shields.io/badge/node-20%2B-green)
 ![Electron](https://img.shields.io/badge/electron-35-blue)
 ![Vue](https://img.shields.io/badge/vue-3-brightgreen)
