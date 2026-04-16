@@ -3,6 +3,7 @@ import { ref, computed, onUnmounted } from 'vue'
 import { useNodeTooltip } from '../composables/useNodeTooltip.js'
 import { useNodeInteractions } from '../composables/useNodeInteractions.js'
 import { getTypeIcon, personIconSvg } from '../utils/constants.js'
+import { decodeHtmlEntities } from '../utils/html.js'
 
 // Column widths (resizable)
 const defaultColWidths = {
@@ -216,17 +217,7 @@ function formatDate(dateStr) {
 function truncateNotes(notes) {
   if (!notes) return ''
   let text = notes.replace(/[#*_`[\]]/g, '').trim()
-  // Decode HTML entities for plain text display
-  text = text
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&#x27;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&#34;/g, '"')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&nbsp;/g, ' ')
+  text = decodeHtmlEntities(text)
   return text.length > 50 ? text.substring(0, 50) + '...' : text
 }
 

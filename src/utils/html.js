@@ -7,16 +7,17 @@
  */
 export function decodeHtmlEntities(text) {
   if (!text) return ''
+  // Order matters: decode &amp; LAST to avoid double-unescaping (e.g. &amp;lt; -> &lt; -> <)
   return text
     .replace(/&#39;/g, "'")
     .replace(/&apos;/g, "'")
     .replace(/&#x27;/g, "'")
     .replace(/&quot;/g, '"')
     .replace(/&#34;/g, '"')
-    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
 }
 
 /**

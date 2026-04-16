@@ -444,8 +444,8 @@ ipcMain.handle('window:closeDetached', (event, nodeId) => {
 // =========================================
 
 /**
- * HTTP request using Node's https module with SSL verification disabled
- * Used for self-hosted endpoints with self-signed certificates
+ * HTTP request using Node's https module with SSL verification disabled for localhost only
+ * Used for self-hosted endpoints (like Ollama) with self-signed certificates
  */
 async function httpRequestWithoutSslVerification(url, options = {}) {
   const {
@@ -461,13 +461,20 @@ async function httpRequestWithoutSslVerification(url, options = {}) {
     const isHttps = urlObj.protocol === 'https:'
     const transport = isHttps ? https : http
 
+    // Only skip SSL verification for localhost to prevent MITM attacks
+    const isLocalhost =
+      urlObj.hostname === 'localhost' ||
+      urlObj.hostname === '127.0.0.1' ||
+      urlObj.hostname === '::1' ||
+      urlObj.hostname.endsWith('.local')
+
     const requestOptions = {
       hostname: urlObj.hostname,
       port: urlObj.port || (isHttps ? 443 : 80),
       path: urlObj.pathname + urlObj.search,
       method,
       headers: { ...headers },
-      rejectUnauthorized: false, // Skip SSL verification
+      rejectUnauthorized: !isLocalhost,
     }
 
     if (body) {
