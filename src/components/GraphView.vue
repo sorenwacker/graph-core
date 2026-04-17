@@ -116,6 +116,7 @@ const emit = defineEmits([
   'go-first-child',
   'go-prev-sibling',
   'go-next-sibling',
+  'update:root-max-depth',
 ])
 
 const container = ref(null),
@@ -312,7 +313,12 @@ watch(showExternalLinks, v => {
       .catch(e => handleError(e, { context: 'Saving show external links to workspace', silent: true }))
 })
 watch(maxDepth, v => {
-  saveNodeSetting(props.parent?.id, 'graph_max_depth', v, 'max depth')
+  if (props.parent?.id) {
+    saveNodeSetting(props.parent.id, 'graph_max_depth', v, 'max depth')
+  } else {
+    // At root level, emit event to update global setting
+    emit('update:root-max-depth', v)
+  }
 })
 watch(
   visibleTypes,

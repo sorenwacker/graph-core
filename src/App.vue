@@ -1017,6 +1017,7 @@ useAppLifecycle({
               @go-first-child="goToFirstChild"
               @go-prev-sibling="goToPrevSibling"
               @go-next-sibling="goToNextSibling"
+              @update:root-max-depth="graphRootMaxDepth = $event"
               @navigate="navigateToNode"
               @empty-all="emptyAllTrash"
               @restore="restoreFromTrash"
