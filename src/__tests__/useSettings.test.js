@@ -115,9 +115,9 @@ describe('useSettings composable', () => {
       expect(settings.aiProvider.value).toBe('ollama')
     })
 
-    it('should have AI enabled by default', () => {
+    it('should have AI disabled by default', () => {
       const settings = useSettings()
-      expect(settings.aiEnabled.value).toBe(true)
+      expect(settings.aiEnabled.value).toBe(false)
     })
 
     it('should have default OpenAI endpoint', () => {

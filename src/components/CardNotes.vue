@@ -175,4 +175,31 @@ watch(
 .markdown-content :deep(p:last-child) {
   margin-bottom: 0;
 }
+
+/* Task list checkboxes - scale based on context size */
+.markdown-content :deep(input[type='checkbox']) {
+  width: 1em;
+  height: 1em;
+  margin-right: 0.3em;
+  vertical-align: middle;
+}
+
+.size-child .markdown-content :deep(input[type='checkbox']) {
+  width: 0.9em;
+  height: 0.9em;
+}
+
+.size-grandchild .markdown-content :deep(input[type='checkbox']) {
+  width: 0.8em;
+  height: 0.8em;
+}
+
+.markdown-content :deep(ul) {
+  padding-left: 1.2em;
+  margin: 0.3em 0;
+}
+
+.markdown-content :deep(li) {
+  margin: 0.15em 0;
+}
 </style>

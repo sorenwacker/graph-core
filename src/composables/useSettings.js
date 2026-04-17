@@ -92,7 +92,7 @@ export function useSettings() {
 
     // AI provider settings
     aiProvider: persistedRef('graphcore-aiProvider', 'ollama'), // 'ollama' or 'openai'
-    aiEnabled: persistedRef('graphcore-aiEnabled', true, { type: 'boolean' }),
+    aiEnabled: persistedRef('graphcore-aiEnabled', false, { type: 'boolean' }),
     aiCustomPrompts: persistedRef('graphcore-aiCustomPrompts', [], { type: 'json' }),
 
     // Ollama LLM settings
@@ -107,7 +107,7 @@ export function useSettings() {
     openaiSkipSslVerification: persistedRef('graphcore-openaiSkipSslVerification', false, { type: 'boolean' }),
 
     // Legacy (for backwards compatibility)
-    ollamaEnabled: persistedRef('graphcore-ollamaEnabled', true, { type: 'boolean' }),
+    ollamaEnabled: persistedRef('graphcore-ollamaEnabled', false, { type: 'boolean' }),
     ollamaCustomPrompts: persistedRef('graphcore-ollamaCustomPrompts', [], { type: 'json' }),
 
     // Onboarding
