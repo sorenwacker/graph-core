@@ -56,6 +56,10 @@ export function useKeyboardShortcuts({ actions, state }) {
     return false
   }
 
+  function hasNoModifiers(e) {
+    return !e.metaKey && !e.ctrlKey && !e.altKey
+  }
+
   function handleKeydown(e) {
     // Cmd/Ctrl+K - open spotlight search (works anywhere)
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -213,7 +217,7 @@ export function useKeyboardShortcuts({ actions, state }) {
     }
 
     // Arrow keys - grid navigation in cards view (without modifiers)
-    if (viewMode.value === 'cards' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    if (viewMode.value === 'cards' && hasNoModifiers(e)) {
       const nodes = filteredChildren?.value || []
       if (nodes.length === 0) return
 
@@ -243,7 +247,7 @@ export function useKeyboardShortcuts({ actions, state }) {
     }
 
     // Arrow keys - list navigation in table/tree view (without modifiers)
-    if ((viewMode.value === 'tree' || viewMode.value === 'table') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    if ((viewMode.value === 'tree' || viewMode.value === 'table') && hasNoModifiers(e)) {
       // Use flatChildren for table which includes expanded hierarchy
       const nodes = flatChildren?.value || filteredChildren?.value || []
       if (nodes.length === 0) return

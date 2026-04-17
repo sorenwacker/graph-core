@@ -1,5 +1,29 @@
 import { ref } from 'vue'
 
+// Constants for edge length calculation based on graph density
+const EDGE_LENGTH = {
+  BASE_LARGE: 60, // >100 nodes
+  BASE_MEDIUM: 80, // >50 nodes
+  BASE_SMALL: 100, // >30 nodes
+  BASE_DEFAULT: 120, // <=30 nodes
+  PER_DEGREE_DENSE: 10, // >50 nodes
+  PER_DEGREE_SPARSE: 15, // <=50 nodes
+}
+
+const NODE_COUNT_THRESHOLDS = {
+  LARGE: 100,
+  MEDIUM: 50,
+  SMALL: 30,
+}
+
+const NODE_SPACING = {
+  LARGE: 30, // >100 nodes
+  MEDIUM: 40, // >50 nodes
+  DEFAULT: 50,
+}
+
+const GRAVITY_SCALE_DIVISOR = 10000
+
 /**
  * Layout configurations for different graph modes.
  */
@@ -99,9 +123,9 @@ export const LAYOUTS = {
     fit: false,
     nodeSpacing: node => {
       const nodeCount = node.cy().nodes().length
-      if (nodeCount > 100) return 30
-      if (nodeCount > 50) return 40
-      return 50
+      if (nodeCount > NODE_COUNT_THRESHOLDS.LARGE) return NODE_SPACING.LARGE
+      if (nodeCount > NODE_COUNT_THRESHOLDS.MEDIUM) return NODE_SPACING.MEDIUM
+      return NODE_SPACING.DEFAULT
     },
     edgeLength: edge => {
       const nodeCount = edge.cy().nodes().length
@@ -111,12 +135,13 @@ export const LAYOUTS = {
       const targetDegree = target.degree()
       const avgDegree = (sourceDegree + targetDegree) / 2
 
-      let baseLength = 120
-      if (nodeCount > 100) baseLength = 60
-      else if (nodeCount > 50) baseLength = 80
-      else if (nodeCount > 30) baseLength = 100
+      let baseLength = EDGE_LENGTH.BASE_DEFAULT
+      if (nodeCount > NODE_COUNT_THRESHOLDS.LARGE) baseLength = EDGE_LENGTH.BASE_LARGE
+      else if (nodeCount > NODE_COUNT_THRESHOLDS.MEDIUM) baseLength = EDGE_LENGTH.BASE_MEDIUM
+      else if (nodeCount > NODE_COUNT_THRESHOLDS.SMALL) baseLength = EDGE_LENGTH.BASE_SMALL
 
-      const perDegree = nodeCount > 50 ? 10 : 15
+      const perDegree =
+        nodeCount > NODE_COUNT_THRESHOLDS.MEDIUM ? EDGE_LENGTH.PER_DEGREE_DENSE : EDGE_LENGTH.PER_DEGREE_SPARSE
       return baseLength + Math.min(avgDegree * perDegree, baseLength)
     },
     avoidOverlap: true,
@@ -167,7 +192,7 @@ export function useGraphLayout(options = {}) {
     const layoutMode = mode || (getLayoutMode ? getLayoutMode() : 'tree')
     if (layoutMode === 'radial' && getRadialSettings) {
       const radialSettings = getRadialSettings()
-      const scaledGravity = radialSettings.gravity / 10000
+      const scaledGravity = radialSettings.gravity / GRAVITY_SCALE_DIVISOR
       return {
         ...LAYOUTS.radial,
         nodeRepulsion: radialSettings.nodeRepulsion,
