@@ -286,69 +286,55 @@ const debounce =
   }
 const debouncedUpdateGraph = debounce(() => updateGraph(), 50)
 
+// Helper for saving node settings with consistent error handling
+function saveNodeSetting(nodeId, field, value, errorContext) {
+  if (!nodeId) return
+  api
+    .updateNode(nodeId, { [field]: value })
+    .catch(e => handleError(e, { context: `Saving ${errorContext}`, silent: true }))
+}
+
 // Sync settings - save to workspace defaults and node-specific database
 watch(layoutMode, m => {
   _layoutMode.value = m
-  if (props.parent?.id)
-    api.updateNode(props.parent.id, { graph_layout: m }).catch(e => console.error('Failed to save graph_layout:', e))
+  saveNodeSetting(props.parent?.id, 'graph_layout', m, 'layout mode')
 })
 watch(showRootNode, v => {
   _showRootNode.value = v
-  if (props.parent?.id)
-    api
-      .updateNode(props.parent.id, { show_root_node: v ? 1 : 0 })
-      .catch(e => console.error('Failed to save show_root_node:', e))
+  saveNodeSetting(props.parent?.id, 'show_root_node', v ? 1 : 0, 'show root node')
 })
 watch(showExternalLinks, v => {
   _showExternalLinks.value = v
-  if (props.parent?.id)
-    api
-      .updateNode(props.parent.id, { show_external_links: v ? 1 : 0 })
-      .catch(e => console.error('Failed to save show_external_links:', e))
+  if (props.parent?.id) saveNodeSetting(props.parent.id, 'show_external_links', v ? 1 : 0, 'show external links')
   else if (props.workspace)
     api
       .updateWorkspace(props.workspace, { show_external_links: v ? 1 : 0 })
-      .catch(e => console.error('Failed to save show_external_links to workspace:', e))
+      .catch(e => handleError(e, { context: 'Saving show external links to workspace', silent: true }))
 })
 watch(maxDepth, v => {
-  if (props.parent?.id)
-    api
-      .updateNode(props.parent.id, { graph_max_depth: v })
-      .catch(e => console.error('Failed to save graph_max_depth:', e))
+  saveNodeSetting(props.parent?.id, 'graph_max_depth', v, 'max depth')
 })
 watch(
   visibleTypes,
   v => {
     _visibleTypes.value = v
-    if (props.parent?.id)
-      api
-        .updateNode(props.parent.id, { graph_type_filter: JSON.stringify(v) })
-        .catch(e => console.error('Failed to save graph_type_filter:', e))
+    saveNodeSetting(props.parent?.id, 'graph_type_filter', JSON.stringify(v), 'type filter')
   },
   { deep: true }
 )
 watch(relaxLocked, v => {
   _relaxLocked.value = v
-  if (props.parent?.id)
-    api
-      .updateNode(props.parent.id, { graph_relax_locked: v ? 1 : 0 })
-      .catch(e => console.error('Failed to save graph_relax_locked:', e))
+  saveNodeSetting(props.parent?.id, 'graph_relax_locked', v ? 1 : 0, 'relax locked')
 })
 watch(fitLocked, v => {
   _fitLocked.value = v
-  if (props.parent?.id)
-    api
-      .updateNode(props.parent.id, { graph_fit_locked: v ? 1 : 0 })
-      .catch(e => console.error('Failed to save graph_fit_locked:', e))
+  saveNodeSetting(props.parent?.id, 'graph_fit_locked', v ? 1 : 0, 'fit locked')
 })
 watch(
   radialSettings,
   v => {
     Object.assign(_radialSettings, v)
-    if (props.parent?.id)
-      api
-        .updateNode(props.parent.id, { graph_physics: JSON.stringify(v) })
-        .catch(e => console.error('Failed to save graph_physics:', e))
+    saveNodeSetting(props.parent?.id, 'graph_physics', JSON.stringify(v), 'physics settings')
   },
   { deep: true }
 )

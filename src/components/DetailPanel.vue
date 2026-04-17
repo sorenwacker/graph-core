@@ -421,7 +421,6 @@ async function handleStyleChange({ row, col, style }) {
 
 async function handleTableStructureChange({ type, value }) {
   if (!props.node?.id) return
-  console.log('handleTableStructureChange:', type, value)
   await updateTable(props.node.id, { [type]: value })
   // Reload table to get updated data
   await loadTable(props.node.id)
