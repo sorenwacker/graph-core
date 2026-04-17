@@ -2,6 +2,8 @@
 import { ref, watch, onMounted, nextTick } from 'vue'
 import { marked } from 'marked'
 import mermaid from 'mermaid'
+import katex from 'katex'
+import 'katex/dist/katex.min.css'
 import { decodeHtmlEntities, decodeHtml } from '../utils/html.js'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
 
@@ -33,6 +35,36 @@ mermaid.initialize({
     tertiaryColor: '#1a1a2e',
   },
 })
+
+// Process math formulas using KaTeX
+// Supports $$...$$ for block math and $...$ for inline math
+function processMathFormulas(text) {
+  // Process block math first ($$...$$)
+  text = text.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
+    try {
+      return katex.renderToString(formula.trim(), {
+        displayMode: true,
+        throwOnError: false,
+      })
+    } catch {
+      return `<span class="math-error">${formula}</span>`
+    }
+  })
+
+  // Process inline math ($...$) - but not $$ or escaped \$
+  text = text.replace(/(?<!\$)\$(?!\$)([^$\n]+?)\$(?!\$)/g, (match, formula) => {
+    try {
+      return katex.renderToString(formula.trim(), {
+        displayMode: false,
+        throwOnError: false,
+      })
+    } catch {
+      return `<span class="math-error">${formula}</span>`
+    }
+  })
+
+  return text
+}
 
 // Convert person mention links to styled chips
 // Matches: <a href="person:123">@[Person Name]</a> or <a href="person:123">Person Name</a>
@@ -90,8 +122,11 @@ async function renderContent() {
     return
   }
 
+  // Process math formulas before markdown parsing to preserve them
+  let content = processMathFormulas(props.content)
+
   // Parse markdown then decode HTML entities
-  let html = marked.parse(props.content)
+  let html = marked.parse(content)
   html = decodeHtmlEntities(html)
 
   // Process person mentions and hashtags
@@ -287,5 +322,24 @@ onMounted(renderContent)
 
 .markdown-content :deep(.hashtag:hover) {
   background: rgba(74, 144, 226, 0.3);
+}
+
+/* Math formulas (KaTeX) */
+.markdown-content :deep(.katex-display) {
+  margin: 0.5em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.markdown-content :deep(.katex) {
+  font-size: 1.1em;
+}
+
+.markdown-content :deep(.math-error) {
+  color: #e07d7d;
+  background: rgba(224, 125, 125, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
 }
 </style>
