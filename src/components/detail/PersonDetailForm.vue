@@ -4,6 +4,7 @@ import { api } from '../../services/api'
 import { useErrorHandler } from '../../composables/useErrorHandler.js'
 import { useAutocomplete } from '../../composables/useAutocomplete.js'
 import { getInitials } from '../../utils/formatting.js'
+import { nodeTypes } from '../../utils/constants.js'
 import NotesSection from './NotesSection.vue'
 import MetaInfoSection from './MetaInfoSection.vue'
 import ColorPickerSection from './ColorPickerSection.vue'
@@ -199,6 +200,11 @@ function onShowLinksUpdate(value) {
   saveChanges()
 }
 
+function onTypeChange(event) {
+  updateField('type', event.target.value)
+  saveChanges()
+}
+
 // Watch for node changes to reload data
 watch(
   () => props.editedNode?.id,
@@ -351,6 +357,14 @@ defineExpose({ loadLinkedOrganizations, getNotesSelection })
 
     <!-- Color picker -->
     <ColorPickerSection :color="editedNode.color" default-color="#3498db" @update:color="onColorUpdate" />
+
+    <!-- Type selector -->
+    <div class="type-section">
+      <label>Convert to</label>
+      <select :value="editedNode.type" @change="onTypeChange">
+        <option v-for="t in nodeTypes" :key="t" :value="t">{{ t }}</option>
+      </select>
+    </div>
 
     <!-- Links section -->
     <LinkedItemsSection
@@ -549,5 +563,28 @@ defineExpose({ loadLinkedOrganizations, getNotesSelection })
   min-height: 150px;
   display: flex;
   flex-direction: column;
+}
+
+.type-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.type-section label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.type-section select {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
 }
 </style>
