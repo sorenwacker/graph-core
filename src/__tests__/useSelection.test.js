@@ -199,6 +199,73 @@ describe('useSelection composable', () => {
     })
   })
 
+  describe('toggleDetailPanel', () => {
+    it('should open detail panel when closed', () => {
+      selection.selectNode({ id: 1, title: 'Node 1' })
+      showDetail.value = false
+
+      selection.toggleDetailPanel()
+
+      expect(showDetail.value).toBe(true)
+    })
+
+    it('should close detail panel when open', () => {
+      selection.selectNode({ id: 1, title: 'Node 1' })
+      showDetail.value = true
+
+      selection.toggleDetailPanel()
+
+      expect(showDetail.value).toBe(false)
+    })
+
+    it('should NOT open fullscreen for child leaf node when setting is disabled', () => {
+      openDetailFullscreen.value = false
+      selection.selectNode({ id: 1, title: 'Leaf Node' }) // no children = leaf, but not current container
+      showDetail.value = false
+      fullscreenDetail.value = false
+
+      selection.toggleDetailPanel()
+
+      expect(showDetail.value).toBe(true)
+      expect(fullscreenDetail.value).toBe(false)
+    })
+
+    it('should open fullscreen for leaf node when setting is enabled', () => {
+      openDetailFullscreen.value = true
+      selection.selectNode({ id: 1, title: 'Leaf Node' }) // no children = leaf
+      showDetail.value = false
+      fullscreenDetail.value = false
+
+      selection.toggleDetailPanel()
+
+      expect(showDetail.value).toBe(true)
+      expect(fullscreenDetail.value).toBe(true)
+    })
+
+    it('should NOT open fullscreen for node with children even when setting is enabled', () => {
+      openDetailFullscreen.value = true
+      selection.selectNode({ id: 1, title: 'Parent Node', children: [{ id: 2 }] })
+      showDetail.value = false
+      fullscreenDetail.value = false
+
+      selection.toggleDetailPanel()
+
+      expect(showDetail.value).toBe(true)
+      expect(fullscreenDetail.value).toBe(false)
+    })
+
+    it('should close fullscreen when closing detail panel', () => {
+      selection.selectNode({ id: 1, title: 'Node 1' })
+      showDetail.value = true
+      fullscreenDetail.value = true
+
+      selection.toggleDetailPanel()
+
+      expect(showDetail.value).toBe(false)
+      expect(fullscreenDetail.value).toBe(false)
+    })
+  })
+
   describe('handleMultiSelect - Shift+click (range mode)', () => {
     it('should select range from anchor to clicked node', () => {
       // Set anchor first

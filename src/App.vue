@@ -41,7 +41,7 @@ import OnboardingModal from './components/OnboardingModal.vue'
 import HintBar from './components/HintBar.vue'
 import { showToast } from './composables/useToast.js'
 import { handleError } from './composables/useErrorHandler.js'
-import { createDemoWorkspace, resetDemoWorkspace, demoWorkspaceExists, DEMO_WORKSPACE_ID } from './utils/demoData.js'
+import { useDemoWorkspace } from './composables/useDemoWorkspace.js'
 
 // Navigation state placeholders (reassigned from composable)
 let currentContainerId = ref(null)
@@ -396,32 +396,14 @@ const navigation = useNavigation({
 
 // Sync navigation state to local refs (preserves reactivity for composables initialized earlier)
 watch(
-  navigation.children,
-  val => {
-    children.value = val
+  [navigation.children, navigation.breadcrumbs, navigation.currentContainer, navigation.currentContainerId],
+  ([c, b, cont, id]) => {
+    children.value = c
+    breadcrumbs.value = b
+    currentContainer.value = cont
+    currentContainerId.value = id
   },
   { immediate: true, deep: true }
-)
-watch(
-  navigation.breadcrumbs,
-  val => {
-    breadcrumbs.value = val
-  },
-  { immediate: true, deep: true }
-)
-watch(
-  navigation.currentContainer,
-  val => {
-    currentContainer.value = val
-  },
-  { immediate: true }
-)
-watch(
-  navigation.currentContainerId,
-  val => {
-    currentContainerId.value = val
-  },
-  { immediate: true }
 )
 const {
   loading,
@@ -746,41 +728,12 @@ const handleOpenLinkSearchEvent = e => {
   if (e.detail?.nodeId === selectedNode.value?.id) openLinkSearch()
 }
 
-// Demo workspace creation
-async function handleCreateDemoWorkspace() {
-  const exists = await demoWorkspaceExists(api)
-  if (exists) {
-    showToast('Demo workspace already exists', 'info')
-    currentWorkspace.value = DEMO_WORKSPACE_ID
-    return
-  }
-
-  const result = await createDemoWorkspace(api)
-  if (result.success) {
-    await loadWorkspaces()
-    currentWorkspace.value = DEMO_WORKSPACE_ID
-    showToast('Demo workspace created', 'success')
-  } else {
-    showToast(result.error || 'Failed to create demo workspace', 'error')
-  }
-}
-
-// Demo workspace reset
-async function handleResetDemoWorkspace() {
-  const confirmed = confirm(
-    'Reset Demo Workspace?\n\nThis will delete all data in the Demo workspace and recreate it with fresh sample content.'
-  )
-  if (!confirmed) return
-
-  const result = await resetDemoWorkspace(api)
-  if (result.success) {
-    await loadWorkspaces()
-    currentWorkspace.value = DEMO_WORKSPACE_ID
-    showToast('Demo workspace reset', 'success')
-  } else {
-    showToast(result.error || 'Failed to reset demo workspace', 'error')
-  }
-}
+// Demo workspace management
+const { createDemo, resetDemo } = useDemoWorkspace({
+  api,
+  currentWorkspace,
+  loadWorkspaces,
+})
 
 // Settings panel event handlers
 function handleShowOnboarding() {
@@ -790,12 +743,12 @@ function handleShowOnboarding() {
 
 function handleCreateDemo() {
   showSettings.value = false
-  handleCreateDemoWorkspace()
+  createDemo()
 }
 
 function handleResetDemo() {
   showSettings.value = false
-  handleResetDemoWorkspace()
+  resetDemo()
 }
 
 // Show onboarding on first run
@@ -1116,7 +1069,7 @@ useAppLifecycle({
       :visible="showOnboarding"
       @close="showOnboarding = false"
       @dismiss-forever="hasSeenOnboarding = true"
-      @create-demo="handleCreateDemoWorkspace"
+      @create-demo="createDemo"
     />
 
     <!-- Hint Bar -->

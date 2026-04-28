@@ -16,7 +16,7 @@ import {
   saveNodePositions,
   findSmartPosition,
 } from '../composables/useNodePositions.js'
-import { nodeTypes, typeConfig } from '../utils/constants.js'
+import { typeConfig } from '../utils/constants.js'
 import { getContrastColor } from '../utils/formatting.js'
 import cytoscape from 'cytoscape'
 import coseBilkent from 'cytoscape-cose-bilkent'
@@ -25,11 +25,11 @@ import dagre from 'cytoscape-dagre'
 import d3Force from 'cytoscape-d3-force'
 import nodeHtmlLabel from 'cytoscape-node-html-label'
 import { marked } from 'marked'
-import MarkdownRenderer from './MarkdownRenderer.vue'
 import AddNodeModal from './AddNodeModal.vue'
-import { usePlatform } from '../composables/usePlatform.js'
-
-const { modifierKey, optionKey } = usePlatform()
+import GraphControls from './GraphControls.vue'
+import GraphEditModal from './GraphEditModal.vue'
+import GraphPromptModal from './GraphPromptModal.vue'
+import HotkeyHelpModal from './HotkeyHelpModal.vue'
 
 // Register cytoscape extensions once
 if (!window.__cytoscapeExtensionsRegistered) {
@@ -193,9 +193,7 @@ const fitLocked = ref(
 const radialSettings = ref(
   props.parent?.graph_physics ? { ..._radialSettings, ...props.parent.graph_physics } : { ..._radialSettings }
 )
-const showTypeFilter = ref(false),
-  showHotkeyHelp = ref(false),
-  showLayoutSettings = ref(false)
+const showHotkeyHelp = ref(false)
 
 const { handleError } = useErrorHandler()
 
@@ -221,19 +219,13 @@ const {
 
 const {
   editModal,
-  showNotesPreview,
-  editTitleInput,
-  editModalEl,
   hideEditModal,
   saveEditModal,
-  handleEditModalKeydown,
   goToParentFromModal,
   wrapWithParentFromModal,
   promptModal,
-  promptInputRef,
   submitPrompt,
   cancelPrompt,
-  handlePromptKeydown,
   addNodeModal,
   showAddNodeModal,
   hideAddNodeModal,
@@ -879,9 +871,6 @@ const handleCenterEvent = e => {
   if (e.detail?.nodeId) _centerOn(e.detail.nodeId)
 }
 const _isVisible = id => isNodeVisible(cy, id)
-const handleClickOutside = e => {
-  if (showTypeFilter.value && !e.target.closest('.type-filter-wrapper')) showTypeFilter.value = false
-}
 
 defineExpose({
   relaxLayout: () => layout.relaxLayout(),
@@ -898,7 +887,6 @@ onMounted(() => {
   initGraph()
   window.addEventListener('graph-center-node', handleCenterEvent)
   window.addEventListener('keydown', handleGlobalKeydown)
-  window.addEventListener('click', handleClickOutside)
   nextTick(() => {
     if (graphControlsRef.value)
       graphControlsRef.value.querySelectorAll('button[title]').forEach(b => {
@@ -916,7 +904,6 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('graph-center-node', handleCenterEvent)
   window.removeEventListener('keydown', handleGlobalKeydown)
-  window.removeEventListener('click', handleClickOutside)
   if (updateDebounceTimer) clearTimeout(updateDebounceTimer)
   layout.cleanup()
   if (cy) {
@@ -931,200 +918,31 @@ onUnmounted(() => {
 <template>
   <div class="graph-wrapper">
     <Teleport to="#view-controls-target" defer>
-      <div ref="graphControlsRef" class="graph-controls">
-        <button
-          class="icon-btn"
-          @click="setLayout('tree')"
-          :class="{ active: layoutMode === 'tree' }"
-          title="Vertical layout"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <polyline points="19 12 12 19 5 12" />
-          </svg>
-        </button>
-        <button
-          class="icon-btn"
-          @click="setLayout('horizontal')"
-          :class="{ active: layoutMode === 'horizontal' }"
-          title="Horizontal layout"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="5" y1="12" x2="19" y2="12" />
-            <polyline points="12 5 19 12 12 19" />
-          </svg>
-        </button>
-        <button
-          class="icon-btn"
-          @click="setLayout('radial')"
-          :class="{ active: layoutMode === 'radial' }"
-          title="Radial layout"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="4" />
-            <line x1="12" y1="2" x2="12" y2="6" />
-            <line x1="12" y1="18" x2="12" y2="22" />
-            <line x1="2" y1="12" x2="6" y2="12" />
-            <line x1="18" y1="12" x2="22" y2="12" />
-          </svg>
-        </button>
-        <button
-          class="icon-btn"
-          @click="setLayout('grid')"
-          :class="{ active: layoutMode === 'grid' }"
-          title="Grid layout"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="7" height="7" />
-            <rect x="14" y="3" width="7" height="7" />
-            <rect x="3" y="14" width="7" height="7" />
-            <rect x="14" y="14" width="7" height="7" />
-          </svg>
-        </button>
-        <button
-          class="icon-btn"
-          @click="setLayout('circle')"
-          :class="{ active: layoutMode === 'circle' }"
-          title="Circle layout"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10" />
-          </svg>
-        </button>
-        <span class="controls-separator"></span>
-        <button
-          class="icon-btn"
-          @click="layout.handleRelaxClick()"
-          :class="{ 'relax-locked': relaxLocked }"
-          title="Relax layout (double-click to lock)"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M4 12c0-2 2-4 4-2s4-2 4-2 2-2 4 0 4 2 4 2" />
-            <path d="M4 18c0-2 2-4 4-2s4-2 4-2 2-2 4 0 4 2 4 2" />
-          </svg>
-        </button>
-        <button
-          class="icon-btn"
-          @click="layout.handleFitClick()"
-          :class="{ 'fit-locked': fitLocked }"
-          title="Fit to view"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M8 3H5a2 2 0 0 0-2 2v3" />
-            <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
-            <path d="M3 16v3a2 2 0 0 0 2 2h3" />
-            <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
-          </svg>
-        </button>
-        <button class="icon-btn" @click="layout.resetLayout()" title="Reset layout">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-            <path d="M3 3v5h5" />
-          </svg>
-        </button>
-        <span class="controls-separator"></span>
-        <button
-          class="icon-btn"
-          @click="showExternalLinks = !showExternalLinks"
-          :class="{ active: showExternalLinks }"
-          title="Show external links"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-          </svg>
-        </button>
-        <button
-          v-if="parent"
-          class="icon-btn"
-          @click="showRootNode = !showRootNode"
-          :class="{ active: showRootNode }"
-          title="Show root node"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-            <polyline points="9 22 9 12 15 12 15 22" />
-          </svg>
-        </button>
-        <span class="controls-separator"></span>
-        <div class="depth-control" title="Max depth">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 3v18M3 12h18M7 7l10 10M17 7l-10 10" />
-          </svg>
-          <select v-model.number="maxDepth" class="depth-select">
-            <option :value="0">All</option>
-            <option :value="1">1</option>
-            <option :value="2">2</option>
-            <option :value="3">3</option>
-            <option :value="4">4</option>
-            <option :value="5">5</option>
-          </select>
-        </div>
-        <span class="controls-separator"></span>
-        <div class="type-filter-wrapper">
-          <button
-            class="icon-btn"
-            @click="showTypeFilter = !showTypeFilter"
-            :class="{ active: visibleTypes.length < ALL_NODE_TYPES.length }"
-            title="Filter node types"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-            </svg>
-          </button>
-          <div v-if="showTypeFilter" class="type-filter-dropdown">
-            <div class="type-filter-actions">
-              <button @click="selectAllTypes">All</button><button @click="selectNoTypes">None</button>
-            </div>
-            <label v-for="t in ALL_NODE_TYPES" :key="t" class="type-filter-item"
-              ><input type="checkbox" :checked="visibleTypes.includes(t)" @change="toggleTypeFilter(t)" /><span>{{
-                t
-              }}</span></label
-            >
-          </div>
-        </div>
-        <div class="layout-settings-wrapper">
-          <button class="icon-btn" @click="showLayoutSettings = !showLayoutSettings" title="Layout settings">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="3" />
-              <path
-                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-              />
-            </svg>
-          </button>
-          <div v-if="showLayoutSettings" class="layout-settings-dropdown">
-            <div class="layout-setting">
-              <label>Node Repulsion: {{ radialSettings.nodeRepulsion }}</label
-              ><input type="range" v-model.number="radialSettings.nodeRepulsion" min="100" max="10000" step="100" />
-            </div>
-            <div class="layout-setting">
-              <label>Edge Length: {{ radialSettings.edgeLength }}</label
-              ><input type="range" v-model.number="radialSettings.edgeLength" min="20" max="1000" step="10" />
-            </div>
-            <div class="layout-setting">
-              <label>Elasticity: {{ radialSettings.elasticity.toFixed(2) }}</label
-              ><input type="range" v-model.number="radialSettings.elasticity" min="0.1" max="1.5" step="0.05" />
-            </div>
-            <div class="layout-setting">
-              <label>Gravity: {{ radialSettings.gravity }}</label
-              ><input type="range" v-model.number="radialSettings.gravity" min="0" max="50000" step="1000" />
-            </div>
-            <div class="layout-setting">
-              <label>Iterations: {{ radialSettings.iterations }}</label
-              ><input type="range" v-model.number="radialSettings.iterations" min="1000" max="500000" step="1000" />
-            </div>
-            <button class="apply-btn" @click="layout.applyRadialSettings()">Apply</button>
-          </div>
-        </div>
-        <span class="controls-separator"></span>
-        <button class="icon-btn" @click="showHotkeyHelp = !showHotkeyHelp" title="Keyboard shortcuts">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10" />
-            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-            <line x1="12" y1="17" x2="12.01" y2="17" />
-          </svg>
-        </button>
-      </div>
+      <GraphControls
+        ref="graphControlsRef"
+        :layout-mode="layoutMode"
+        :relax-locked="relaxLocked"
+        :fit-locked="fitLocked"
+        :show-external-links="showExternalLinks"
+        :show-root-node="showRootNode"
+        :max-depth="maxDepth"
+        :visible-types="visibleTypes"
+        :radial-settings="radialSettings"
+        :has-parent="!!parent"
+        @set-layout="setLayout"
+        @relax-click="layout.handleRelaxClick()"
+        @fit-click="layout.handleFitClick()"
+        @reset-layout="layout.resetLayout()"
+        @update:show-external-links="showExternalLinks = $event"
+        @update:show-root-node="showRootNode = $event"
+        @update:max-depth="maxDepth = $event"
+        @toggle-type="toggleTypeFilter"
+        @select-all-types="selectAllTypes"
+        @select-no-types="selectNoTypes"
+        @apply-radial-settings="layout.applyRadialSettings()"
+        @update:radial-settings="radialSettings = $event"
+        @show-hotkey-help="showHotkeyHelp = true"
+      />
     </Teleport>
     <div class="graph-container" :class="{ 'box-select-mode': boxSelectModeActive }" ref="container">
       <div v-if="nodes.length === 0" class="graph-empty">No nodes to display</div>
@@ -1132,169 +950,28 @@ onUnmounted(() => {
     <div ref="dropHighlightEl" class="drop-highlight"></div>
     <div v-if="linkModeActive" class="link-mode-indicator">Link Mode</div>
 
-    <div v-if="showHotkeyHelp" class="hotkey-help-overlay" @click.self="showHotkeyHelp = false">
-      <div class="hotkey-help-modal">
-        <h3>Keyboard Shortcuts</h3>
-        <div class="hotkey-list">
-          <div class="hotkey-section">
-            <h4>Selection</h4>
-            <div class="hotkey-item"><kbd>Click</kbd> Select node</div>
-            <div class="hotkey-item"><kbd>Shift</kbd>+<kbd>Click</kbd> Multi-select</div>
-            <div class="hotkey-item"><kbd>Shift</kbd>+<kbd>Drag</kbd> Lasso select</div>
-          </div>
-          <div class="hotkey-section">
-            <h4>Actions</h4>
-            <div class="hotkey-item">
-              <kbd>{{ modifierKey }}</kbd
-              >+<kbd>Click</kbd> Add child
-            </div>
-            <div class="hotkey-item"><kbd>Double-click</kbd> Enter node</div>
-            <div class="hotkey-item">
-              <kbd>{{ optionKey }}</kbd
-              >+<kbd>{{ modifierKey }}</kbd
-              >+<kbd>Click</kbd> Delete
-            </div>
-          </div>
-          <div class="hotkey-section">
-            <h4>Navigation</h4>
-            <div class="hotkey-item">
-              <kbd>{{ modifierKey }}</kbd
-              >+<kbd>Up</kbd> Go to parent
-            </div>
-            <div class="hotkey-item">
-              <kbd>{{ modifierKey }}</kbd
-              >+<kbd>Down</kbd> First child
-            </div>
-            <div class="hotkey-item">
-              <kbd>{{ modifierKey }}</kbd
-              >+<kbd>Left/Right</kbd> Siblings
-            </div>
-          </div>
-          <div class="hotkey-section">
-            <h4>Links</h4>
-            <div class="hotkey-item">
-              <kbd>{{ optionKey }}</kbd> Hold for link mode
-            </div>
-            <div class="hotkey-item">
-              <kbd>{{ optionKey }}</kbd
-              >+<kbd>Drag</kbd> Create link
-            </div>
-          </div>
-        </div>
-        <button class="hotkey-close" @click="showHotkeyHelp = false">Close</button>
-      </div>
-    </div>
+    <HotkeyHelpModal :visible="showHotkeyHelp" @close="showHotkeyHelp = false" />
 
-    <div v-if="editModal.visible" class="edit-modal-overlay" @click.self="hideEditModal">
-      <div ref="editModalEl" class="edit-modal" @keydown="handleEditModalKeydown">
-        <div class="edit-modal-header">
-          <h2>Edit Node</h2>
-          <button class="modal-close" @click="hideEditModal">X</button>
-        </div>
-        <div class="edit-modal-content">
-          <div class="edit-field">
-            <label>Title</label
-            ><input ref="editTitleInput" v-model="editModal.editedNode.title" class="edit-input" placeholder="Title" />
-          </div>
-          <div class="edit-field">
-            <label>Type</label
-            ><select v-model="editModal.editedNode.type" class="edit-select">
-              <option v-for="t in nodeTypes" :key="t" :value="t">{{ t }}</option>
-            </select>
-          </div>
-          <div v-if="editModal.editedNode.type !== 'person'" class="edit-field checkbox-field">
-            <label><input type="checkbox" v-model="editModal.editedNode.completed" /> Completed</label>
-          </div>
-          <div class="edit-field notes-field">
-            <div class="notes-header">
-              <label>Notes</label
-              ><button
-                class="preview-toggle"
-                :class="{ active: showNotesPreview }"
-                @click="showNotesPreview = !showNotesPreview"
-              >
-                {{ showNotesPreview ? 'Edit' : 'Preview' }}
-              </button>
-            </div>
-            <textarea
-              v-if="!showNotesPreview"
-              v-model="editModal.editedNode.notes"
-              class="edit-textarea"
-              placeholder="Add notes..."
-              rows="6"
-            ></textarea>
-            <div v-else class="notes-preview"><MarkdownRenderer :content="editModal.editedNode.notes" /></div>
-          </div>
-          <div class="edit-field checkbox-field">
-            <label><input type="checkbox" v-model="editModal.editedNode.notes_sensitive" /> Sensitive content</label
-            ><span class="field-hint">Hide notes in sensitive mode</span>
-          </div>
-          <div class="edit-field-row">
-            <div class="edit-field">
-              <label>Due Date</label><input type="date" v-model="editModal.editedNode.due_date" class="edit-input" />
-            </div>
-            <div class="edit-field">
-              <label>Start Date</label
-              ><input type="date" v-model="editModal.editedNode.start_date" class="edit-input" />
-            </div>
-            <div class="edit-field">
-              <label>End Date</label><input type="date" v-model="editModal.editedNode.end_date" class="edit-input" />
-            </div>
-          </div>
-          <div class="edit-field-row">
-            <div class="edit-field">
-              <label>Color</label><input type="color" v-model="editModal.editedNode.color" class="edit-color" />
-            </div>
-            <div class="edit-field">
-              <label>Importance (1-5)</label
-              ><input
-                type="number"
-                v-model.number="editModal.editedNode.importance"
-                min="1"
-                max="5"
-                class="edit-input importance-input"
-              />
-            </div>
-          </div>
-          <div class="edit-meta">
-            <span>ID: {{ editModal.node?.id }}</span
-            ><span>Depth: {{ editModal.node?.depth }}</span
-            ><span>Path: {{ editModal.node?.path || '-' }}</span>
-          </div>
-        </div>
-        <div class="edit-modal-footer">
-          <div class="footer-left">
-            <button class="btn-secondary" @click="wrapWithParentFromModal">Wrap with Parent</button
-            ><button class="btn-secondary" @click="goToParentFromModal">Go to Parent</button>
-          </div>
-          <div class="footer-right">
-            <button class="btn-secondary" @click="hideEditModal">Cancel</button
-            ><button class="btn-primary" @click="saveEditModal">Save</button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <GraphEditModal
+      :visible="editModal.visible"
+      :node="editModal.node"
+      :edited-node="editModal.editedNode"
+      @update:edited-node="Object.assign(editModal.editedNode, $event)"
+      @close="hideEditModal"
+      @save="saveEditModal"
+      @go-to-parent="goToParentFromModal"
+      @wrap-with-parent="wrapWithParentFromModal"
+    />
 
-    <div v-if="promptModal.visible" class="prompt-modal-overlay" @click.self="cancelPrompt">
-      <div class="prompt-modal">
-        <div class="prompt-modal-header">
-          <h3>{{ promptModal.title }}</h3>
-        </div>
-        <div class="prompt-modal-content">
-          <input
-            ref="promptInputRef"
-            v-model="promptModal.value"
-            :placeholder="promptModal.placeholder"
-            class="prompt-input"
-            @keydown="handlePromptKeydown"
-          />
-        </div>
-        <div class="prompt-modal-footer">
-          <button class="btn-secondary" @click="cancelPrompt">Cancel</button
-          ><button class="btn-primary" @click="submitPrompt">Create</button>
-        </div>
-      </div>
-    </div>
+    <GraphPromptModal
+      :visible="promptModal.visible"
+      :title="promptModal.title"
+      :placeholder="promptModal.placeholder"
+      :value="promptModal.value"
+      @update:value="promptModal.value = $event"
+      @close="cancelPrompt"
+      @submit="submitPrompt"
+    />
 
     <AddNodeModal
       :visible="addNodeModal.visible"
