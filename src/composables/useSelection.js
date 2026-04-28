@@ -213,10 +213,16 @@ export function useSelection({
           selectedIds.value = new Set([nodeToShow.id])
         }
         showDetail.value = true
-        // Open fullscreen if node has no children (unless detached mode)
+        // Open fullscreen only if:
+        // - Node is the current container (root being viewed), OR
+        // - Setting is enabled, OR
+        // - Window is narrow
+        // But only for leaf nodes (no children)
         if (!detached && fullscreenDetail) {
           const hasChildren = nodeToShow.children?.length > 0
-          if (!hasChildren) {
+          const isCurrentContainer = currentContainer?.value?.id === nodeToShow.id
+          const isNarrowWindow = typeof window !== 'undefined' && window.innerWidth < NARROW_WINDOW_THRESHOLD
+          if (!hasChildren && (isCurrentContainer || openDetailFullscreen?.value || isNarrowWindow)) {
             fullscreenDetail.value = true
           }
         }

@@ -1,8 +1,9 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, toRef } from 'vue'
 import { api } from '../services/api.js'
 import { useOllama } from '../composables/useOllama.js'
 import { useTheme } from '../composables/useTheme.js'
+import { useAIProviderConnection } from '../composables/useAIProviderConnection.js'
 import { demoWorkspaceExists } from '../utils/demoData.js'
 
 const { presetPrompts, savePrompt, deletePrompt, resetPrompt, isPromptModified, isDefaultPrompt } = useOllama()
@@ -76,19 +77,33 @@ const emit = defineEmits([
   'reset-demo',
 ])
 
-const ollamaConnectionStatus = ref(null) // null, 'testing', 'success', 'error'
-const ollamaConnectionError = ref('')
-const ollamaModels = ref([])
-const ollamaModelsLoading = ref(false)
+// Computed for current provider's enabled state (needed before composable)
+const isAiEnabled = computed(() => props.aiEnabled ?? props.ollamaEnabled)
 
-const openaiConnectionStatus = ref(null)
-const openaiConnectionError = ref('')
-const openaiModels = ref([])
-const openaiModelsLoading = ref(false)
-
-// Debounce timeout refs
-let ollamaFetchTimeout = null
-let openaiFetchTimeout = null
+// AI provider connection management
+const {
+  ollamaConnectionStatus,
+  ollamaConnectionError,
+  ollamaModels,
+  ollamaModelsLoading,
+  openaiConnectionStatus,
+  openaiConnectionError,
+  openaiModels,
+  openaiModelsLoading,
+  testOllamaConnection,
+  testOpenaiConnection,
+  fetchOllamaModels,
+  fetchOpenaiModels,
+  setupWatchers: setupAIWatchers,
+  initOnMount: initAIOnMount,
+} = useAIProviderConnection({
+  getAiEnabled: () => isAiEnabled.value,
+  getAiProvider: () => props.aiProvider,
+  getOllamaEndpoint: () => props.ollamaEndpoint,
+  getOpenaiEndpoint: () => props.openaiEndpoint,
+  getOpenaiApiKey: () => props.openaiApiKey,
+  getOpenaiSkipSsl: () => props.openaiSkipSslVerification,
+})
 
 // Tab navigation
 const activeTab = ref('general')
@@ -189,199 +204,26 @@ async function handleImportFile(e) {
   e.target.value = ''
 }
 
-async function testOllamaConnection() {
-  ollamaConnectionStatus.value = 'testing'
-  ollamaConnectionError.value = ''
-
-  try {
-    const result = await api.ollamaTestConnection(props.ollamaEndpoint)
-    if (result.success) {
-      ollamaConnectionStatus.value = 'success'
-      // Also fetch available models
-      try {
-        ollamaModels.value = await api.ollamaListModels(props.ollamaEndpoint)
-      } catch {
-        ollamaModels.value = []
-      }
-    } else {
-      ollamaConnectionStatus.value = 'error'
-      ollamaConnectionError.value = result.error || 'Connection failed'
-    }
-  } catch (error) {
-    ollamaConnectionStatus.value = 'error'
-    ollamaConnectionError.value = error.message || 'Connection failed'
-  }
-}
-
-async function testOpenaiConnection() {
-  openaiConnectionStatus.value = 'testing'
-  openaiConnectionError.value = ''
-
-  try {
-    const result = await api.openaiTestConnection(
-      props.openaiEndpoint,
-      props.openaiApiKey,
-      props.openaiSkipSslVerification
-    )
-    if (result.success) {
-      openaiConnectionStatus.value = 'success'
-      // Also fetch available models
-      try {
-        openaiModels.value = await api.openaiListModels(
-          props.openaiEndpoint,
-          props.openaiApiKey,
-          props.openaiSkipSslVerification
-        )
-      } catch {
-        openaiModels.value = []
-      }
-    } else {
-      openaiConnectionStatus.value = 'error'
-      openaiConnectionError.value = result.error || 'Connection failed'
-    }
-  } catch (error) {
-    openaiConnectionStatus.value = 'error'
-    openaiConnectionError.value = error.message || 'Connection failed'
-  }
-}
-
-// Computed for current provider's enabled state
-const isAiEnabled = computed(() => props.aiEnabled ?? props.ollamaEnabled)
-
 function onAiEnabledChange(event) {
   emit('update:aiEnabled', event.target.checked)
   emit('update:ollamaEnabled', event.target.checked)
 }
 
-// Fetch Ollama models without full connection test
-async function fetchOllamaModels() {
-  if (!props.ollamaEndpoint) return
+// Set up AI watchers for settings changes
+setupAIWatchers({
+  ollamaEndpoint: toRef(props, 'ollamaEndpoint'),
+  openaiEndpoint: toRef(props, 'openaiEndpoint'),
+  openaiApiKey: toRef(props, 'openaiApiKey'),
+  openaiSkipSsl: toRef(props, 'openaiSkipSslVerification'),
+  aiProvider: toRef(props, 'aiProvider'),
+  aiEnabled: isAiEnabled,
+})
 
-  ollamaModelsLoading.value = true
-  try {
-    ollamaModels.value = await api.ollamaListModels(props.ollamaEndpoint)
-    // If we got models, connection is working
-    if (ollamaModels.value.length > 0) {
-      ollamaConnectionStatus.value = 'success'
-      ollamaConnectionError.value = ''
-    }
-  } catch {
-    ollamaModels.value = []
-  } finally {
-    ollamaModelsLoading.value = false
-  }
-}
+// Initialize AI provider connection on mount
+initAIOnMount()
 
-// Fetch OpenAI models without full connection test
-async function fetchOpenaiModels() {
-  if (!props.openaiEndpoint || !props.openaiApiKey) return
-
-  openaiModelsLoading.value = true
-  openaiConnectionError.value = ''
-  try {
-    openaiModels.value = await api.openaiListModels(
-      props.openaiEndpoint,
-      props.openaiApiKey,
-      props.openaiSkipSslVerification
-    )
-    // If we got models, connection is working
-    if (openaiModels.value.length > 0) {
-      openaiConnectionStatus.value = 'success'
-      openaiConnectionError.value = ''
-    }
-  } catch (error) {
-    openaiModels.value = []
-    openaiConnectionStatus.value = 'error'
-    openaiConnectionError.value = error.message || 'Failed to fetch models'
-  } finally {
-    openaiModelsLoading.value = false
-  }
-}
-
-// Debounced fetch for Ollama endpoint changes
-function debouncedFetchOllamaModels() {
-  if (ollamaFetchTimeout) clearTimeout(ollamaFetchTimeout)
-  ollamaFetchTimeout = setTimeout(fetchOllamaModels, 500)
-}
-
-// Debounced fetch for OpenAI settings changes
-function debouncedFetchOpenaiModels() {
-  if (openaiFetchTimeout) clearTimeout(openaiFetchTimeout)
-  openaiFetchTimeout = setTimeout(fetchOpenaiModels, 500)
-}
-
-// Watch for settings changes to auto-fetch models
-watch(
-  () => props.ollamaEndpoint,
-  () => {
-    if (props.aiProvider === 'ollama' && isAiEnabled.value) {
-      debouncedFetchOllamaModels()
-    }
-  }
-)
-
-watch(
-  () => props.openaiEndpoint,
-  () => {
-    if (props.aiProvider === 'openai' && isAiEnabled.value) {
-      debouncedFetchOpenaiModels()
-    }
-  }
-)
-
-watch(
-  () => props.openaiApiKey,
-  () => {
-    if (props.aiProvider === 'openai' && isAiEnabled.value) {
-      debouncedFetchOpenaiModels()
-    }
-  }
-)
-
-watch(
-  () => props.openaiSkipSslVerification,
-  () => {
-    if (props.aiProvider === 'openai' && isAiEnabled.value && props.openaiApiKey) {
-      debouncedFetchOpenaiModels()
-    }
-  }
-)
-
-watch(
-  () => props.aiProvider,
-  newProvider => {
-    if (!isAiEnabled.value) return
-    if (newProvider === 'ollama') {
-      fetchOllamaModels()
-    } else if (newProvider === 'openai') {
-      fetchOpenaiModels()
-    }
-  }
-)
-
-watch(
-  () => isAiEnabled.value,
-  enabled => {
-    if (enabled) {
-      if (props.aiProvider === 'ollama') {
-        fetchOllamaModels()
-      } else if (props.aiProvider === 'openai') {
-        fetchOpenaiModels()
-      }
-    }
-  }
-)
-
-// Fetch models and version on mount
+// Fetch app info on mount
 onMounted(async () => {
-  if (isAiEnabled.value) {
-    if (props.aiProvider === 'ollama') {
-      fetchOllamaModels()
-    } else if (props.aiProvider === 'openai') {
-      fetchOpenaiModels()
-    }
-  }
-
   // Fetch app version
   try {
     appVersion.value = await api.getVersion()
