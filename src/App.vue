@@ -11,7 +11,6 @@ import { useSearch } from './composables/useSearch.js'
 import { useInlineEdit } from './composables/useInlineEdit.js'
 import { useSnapshots } from './composables/useSnapshots.js'
 import { useContextMenu } from './composables/useContextMenu.js'
-import { useDetailResize } from './composables/useDetailResize.js'
 import { useUndoRedo } from './composables/useUndoRedo.js'
 import { useSettings } from './composables/useSettings.js'
 import { useWorkspace } from './composables/useWorkspace.js'
@@ -25,6 +24,9 @@ import { useNavigation } from './composables/useNavigation.js'
 import { useGraphOperations } from './composables/useGraphOperations.js'
 import { useRefresh } from './composables/useRefresh.js'
 import { useNodeActionsUI } from './composables/useNodeActionsUI.js'
+import { useDetailController } from './composables/useDetailController.js'
+import { useModalController } from './composables/useModalController.js'
+import { useViewStateController } from './composables/useViewStateController.js'
 import DetailPanel from './components/DetailPanel.vue'
 import ViewRenderer from './components/ViewRenderer.vue'
 import NodeContextMenu from './components/NodeContextMenu.vue'
@@ -43,13 +45,7 @@ import { showToast } from './composables/useToast.js'
 import { handleError } from './composables/useErrorHandler.js'
 import { useDemoWorkspace } from './composables/useDemoWorkspace.js'
 
-// Navigation state placeholders (reassigned from composable)
-let currentContainerId = ref(null)
-let currentContainer = ref(null)
-let breadcrumbs = ref([])
-let children = ref([])
-
-// UI state - managed by useSettings composable
+// Settings
 const {
   viewMode,
   containerId: savedContainerId,
@@ -63,7 +59,6 @@ const {
   hoverPreviewEnabled,
   inheritColors,
   sidebarPinned,
-  // AI settings
   aiProvider,
   aiEnabled,
   ollamaEndpoint,
@@ -73,33 +68,49 @@ const {
   openaiApiKey,
   openaiModel,
   openaiSkipSslVerification,
-  // Legacy
   ollamaEnabled,
-  // Onboarding
   hasSeenOnboarding,
-  // Hint bar
   showHintBar,
 } = useSettings()
 
-// Modal visibility state
-const showShortcutsModal = ref(false)
-const showOnboarding = ref(false)
+// Detail panel controller
+const {
+  showDetail,
+  fullscreenDetail,
+  detailPinned,
+  detailWidth,
+  isResizingDetail,
+  detailPanelRef,
+  closeDetail,
+  onDetailResizeStart,
+} = useDetailController()
 
-// loading state is managed by useNavigation composable
+// Modal controller
+const modalController = useModalController()
+const { addNodeModal, showShortcutsModal, showOnboarding, showSettings, showSnapshotList, showLostFound } =
+  modalController
+if (!hasSeenOnboarding.value) showOnboarding.value = true
+
+// View state controller
+const viewStateController = useViewStateController({ viewMode })
+const { sortAlphabetically, transitioning, transitionDirection } = viewStateController
+
+// Navigation state refs
+let currentContainerId = ref(null)
+let currentContainer = ref(null)
+let breadcrumbs = ref([])
+let children = ref([])
+
+// Core state
 const error = ref(null)
 const newNodeTitle = ref('')
 const newNodeType = ref('task')
-// Selection state is managed by useSelection composable (initialized after flatChildren)
-// These refs are passed to the composable and also used for UI state
-const showDetail = ref(false)
-const fullscreenDetail = ref(false)
-const detailPinned = ref(false)
-const transitioning = ref(false)
-const transitionDirection = ref('forward')
 const containerWidth = ref(800)
 const containerHeight = ref(600)
+const viewRendererRef = ref(null)
+const addChildParentId = ref(null)
 
-// Sidebar UI state via composable
+// Sidebar
 const {
   hovered: sidebarHovered,
   expandedIds: sidebarExpandedIds,
@@ -109,9 +120,7 @@ const {
   toggleExpand: toggleSidebarExpand,
 } = useSidebar({ pinned: sidebarPinned })
 
-// Context menu state is managed by useContextMenu composable (initialized after functions it needs)
-
-// Workspace management
+// Workspace
 const {
   currentWorkspace,
   workspaces,
@@ -136,7 +145,6 @@ const {
   },
 })
 
-// Wrap deleteCurrentWorkspace with confirmation
 async function deleteCurrentWorkspace() {
   const ws = workspaces.value.find(w => w.id === currentWorkspace.value)
   if (ws && confirm(`Delete workspace "${ws.name}"?`)) await _deleteCurrentWorkspace()
@@ -150,7 +158,6 @@ const {
   allTags,
   trashedItems,
   orphanedNodes,
-  showLostFound,
   buildChildTree,
   loadSidebarTree,
   loadRecentItems,
@@ -171,17 +178,42 @@ const selectTag = tag => {
   showSearch.value = true
   onSearchInput()
 }
+watch(viewMode, mode => {
+  if (mode === 'trash') loadTrashedItems()
+})
 
-// Detail panel resize
-const { detailWidth, isResizing: isResizingDetail, onResizeStart: onDetailResizeStart } = useDetailResize()
+// Snapshots
+const { availableSnapshots, snapshotMessage, loadSnapshots, createSnapshot, restoreSnapshot, reloadDatabase } =
+  useSnapshots({
+    onListBackups: api.listBackups,
+    onCreateBackup: api.backup,
+    onRestoreBackup: api.restoreBackup,
+    onReload: api.reload,
+    onAfterRestore: async () => {
+      await loadChildren(null)
+      await loadSidebarTree()
+      selectedNode.value = null
+      currentContainerId.value = null
+      breadcrumbs.value = []
+    },
+    onAfterReload: async () => {
+      await loadChildren(currentContainerId.value)
+      await loadSidebarTree()
+      loadRecentItems()
+      if (selectedNode.value?.id) selectedNode.value = await api.getNode(selectedNode.value.id)
+    },
+  })
 
-const closeDetail = () => {
-  showDetail.value = false
-  fullscreenDetail.value = false
-  detailPinned.value = false
+function toggleSnapshots() {
+  showSnapshotList.value = !showSnapshotList.value
+  loadSnapshots()
+}
+function toggleLostFound() {
+  loadOrphanedNodes()
+  showLostFound.value = !showLostFound.value
 }
 
-// Tooltip composable
+// Tooltip
 const {
   showTooltip,
   hideTooltip,
@@ -194,8 +226,11 @@ const {
   getHideSensitive: () => hideSensitive.value,
   shouldShowTooltip: () => hoverPreviewEnabled.value && !showDetail.value,
 })
+watch(showDetail, isOpen => {
+  if (isOpen) forceHideTooltip()
+})
 
-// Detached window for cross-window sync
+// Detached window
 const {
   openDetachedWindow,
   broadcastNodeUpdate,
@@ -203,11 +238,7 @@ const {
   onMessage: onDetachedMessage,
 } = useDetachedWindow()
 
-// Additional UI state
-const showSettings = ref(false)
-const sortAlphabetically = ref(false)
-
-// Cards layout - filtering, grid computation, color inheritance, and flat tree
+// Cards layout
 const {
   filteredChildren,
   sortedChildren,
@@ -227,68 +258,7 @@ const {
   inheritColors,
 })
 
-// Snapshot/backup management (callbacks reference functions defined below via closure)
-const {
-  availableSnapshots,
-  showSnapshotList,
-  snapshotMessage,
-  loadSnapshots,
-  createSnapshot,
-  restoreSnapshot,
-  reloadDatabase,
-} = useSnapshots({
-  onListBackups: api.listBackups,
-  onCreateBackup: api.backup,
-  onRestoreBackup: api.restoreBackup,
-  onReload: api.reload,
-  onAfterRestore: async () => {
-    await loadChildren(null)
-    await loadSidebarTree()
-    selectedNode.value = null
-    currentContainerId.value = null
-    breadcrumbs.value = []
-  },
-  onAfterReload: async () => {
-    await loadChildren(currentContainerId.value)
-    await loadSidebarTree()
-    loadRecentItems()
-    if (selectedNode.value?.id) selectedNode.value = await api.getNode(selectedNode.value.id)
-  },
-})
-
-// Toggle handlers for MainToolbar
-function toggleSnapshots() {
-  showSnapshotList.value = !showSnapshotList.value
-  loadSnapshots()
-}
-
-function toggleLostFound() {
-  loadOrphanedNodes()
-  showLostFound.value = !showLostFound.value
-}
-
-// Load trash items when switching to trash view
-watch(viewMode, mode => {
-  if (mode === 'trash') loadTrashedItems()
-})
-
-// Close tooltips when detail panel opens
-watch(showDetail, isOpen => {
-  if (isOpen) forceHideTooltip()
-})
-
-// Component refs
-const viewRendererRef = ref(null)
-const detailPanelRef = ref(null)
-const addChildParentId = ref(null) // Parent ID when adding via card + button
-
-// Add node modal state
-const addNodeModal = ref({
-  visible: false,
-  parentId: null,
-})
-
-// Undo/redo using Command pattern
+// Undo/redo
 const { undoStack, redoStack, pushCommand, undo, redo } = useUndoRedo({
   api,
   showNotification: showToast,
@@ -298,7 +268,7 @@ const { undoStack, redoStack, pushCommand, undo, redo } = useUndoRedo({
   },
 })
 
-// Node operations (CRUD with undo/redo)
+// Node operations
 const nodeOps = useNodeOperations({
   api,
   pushCommand,
@@ -313,12 +283,11 @@ const nodeOps = useNodeOperations({
   broadcastDelete: broadcastNodeDelete,
 })
 
-// Graph depth: use root setting at root level
 const effectiveGraphMaxDepth = computed(() =>
   currentContainerId.value === null ? graphRootMaxDepth.value : graphMaxDepth.value
 )
 
-// Tree expand/collapse
+// Tree expand
 const { expandedIds, toggleExpand, expandAll, collapseAll, loadExpandedState } = useTreeExpand({
   workspace: currentWorkspace,
   flatChildren,
@@ -346,13 +315,15 @@ const {
   onError: handleError,
 })
 
-// Wrap selectNode to respect pin state - don't deselect when pinned
 function selectNode(node, options = {}) {
   if (!node && detailPinned.value) return
   _selectNode(node, options)
 }
+watch(selectedNode, node => {
+  if (!node && !detailPinned.value) showDetail.value = false
+})
 
-// Cards drag (supports multi-select)
+// Card drag
 const {
   dropTarget,
   dropPosition,
@@ -368,7 +339,7 @@ const {
   onReorder: (src, tgt, pos) => handleReorder({ nodeId: src.id, targetId: tgt.id, position: pos }),
 })
 
-// Navigation composable
+// Navigation
 const navigation = useNavigation({
   api,
   workspace: currentWorkspace,
@@ -394,7 +365,6 @@ const navigation = useNavigation({
   },
 })
 
-// Sync navigation state to local refs (preserves reactivity for composables initialized earlier)
 watch(
   [navigation.children, navigation.breadcrumbs, navigation.currentContainer, navigation.currentContainerId],
   ([c, b, cont, id]) => {
@@ -405,6 +375,7 @@ watch(
   },
   { immediate: true, deep: true }
 )
+
 const {
   loading,
   loadChildren,
@@ -439,9 +410,8 @@ const {
   selectedNode,
   onSearch: async (query, mode, workspaceId, paginationOptions = {}) => {
     const searchOptions = { hideCompleted: hideCompleted.value, ...paginationOptions }
-    if (query.startsWith('#') && query.length > 1) {
+    if (query.startsWith('#') && query.length > 1)
       return await api.getNodesByTag(query.slice(1), workspaceId, searchOptions)
-    }
     return await api.search(query, null, workspaceId, searchOptions)
   },
   onLink: async (targetNode, sourceId) => {
@@ -458,9 +428,7 @@ const {
     try {
       await api.moveNode(sourceId, targetId)
       await refreshGraphAfterStructureChange()
-      if (selectedNode.value?.id === sourceId) {
-        selectedNode.value = await api.getNode(sourceId)
-      }
+      if (selectedNode.value?.id === sourceId) selectedNode.value = await api.getNode(sourceId)
     } catch (e) {
       handleError(e, { context: 'Moving node' })
     }
@@ -473,12 +441,7 @@ const {
   getWorkspace: () => currentWorkspace.value,
 })
 
-// Close detail panel when node is deselected (if not pinned)
-watch(selectedNode, node => {
-  if (!node && !detailPinned.value) showDetail.value = false
-})
-
-// Inline editing
+// Inline edit
 const {
   editingCardId,
   editingTitle,
@@ -502,33 +465,6 @@ const {
   },
 })
 
-// Graph operations (initialized after refreshAfterChange)
-let graphOps = null
-
-async function createNode() {
-  if (!newNodeTitle.value.trim()) return
-  const targetParentId = addChildParentId.value || currentContainerId.value
-  const newNode = await nodeOps.createNode({
-    title: newNodeTitle.value,
-    type: newNodeType.value,
-    parentId: targetParentId,
-  })
-  if (newNode) {
-    if (addChildParentId.value) {
-      expandedIds.value.add(addChildParentId.value)
-      await loadSidebarTree()
-    }
-    newNodeTitle.value = ''
-    addChildParentId.value = null
-    await loadChildren(currentContainerId.value, { silent: true })
-  }
-}
-
-const addChildFromDetail = async payload => {
-  await addChildNode(payload)
-  detailPanelRef.value?.loadChildren()
-}
-
 // Refresh operations
 const {
   refreshAfterChange,
@@ -547,8 +483,8 @@ const {
   detailPanelRef,
 })
 
-// Initialize graph operations now that refreshAfterChange is defined
-graphOps = useGraphOperations({
+// Graph operations
+const graphOps = useGraphOperations({
   api,
   currentContainerId,
   currentWorkspace,
@@ -556,10 +492,9 @@ graphOps = useGraphOperations({
   getWorkspaceIdForNode,
   refreshAfterChange,
 })
-
 const { saveNodePosition, insertBetween } = graphOps
 
-// Node actions with UI state management
+// Node actions UI
 const {
   addChildNode,
   clearSelectionAfterDelete,
@@ -607,6 +542,31 @@ const {
   loadTags,
 })
 
+// Node creation
+async function createNode() {
+  if (!newNodeTitle.value.trim()) return
+  const targetParentId = addChildParentId.value || currentContainerId.value
+  const newNode = await nodeOps.createNode({
+    title: newNodeTitle.value,
+    type: newNodeType.value,
+    parentId: targetParentId,
+  })
+  if (newNode) {
+    if (addChildParentId.value) {
+      expandedIds.value.add(addChildParentId.value)
+      await loadSidebarTree()
+    }
+    newNodeTitle.value = ''
+    addChildParentId.value = null
+    await loadChildren(currentContainerId.value, { silent: true })
+  }
+}
+
+const addChildFromDetail = async payload => {
+  await addChildNode(payload)
+  detailPanelRef.value?.loadChildren()
+}
+
 async function createNodeAtPosition({ title, type, x, y }) {
   const newNode = await nodeOps.createNode({ title, type, parentId: currentContainerId.value, x, y })
   if (newNode) {
@@ -615,10 +575,9 @@ async function createNodeAtPosition({ title, type, x, y }) {
   }
 }
 
-// Open node in detached window
 const handleDetach = node => node && openDetachedWindow(node.id, node.title)
 
-// Context menu - using composable
+// Context menu
 const {
   contextMenu,
   showContextMenu,
@@ -654,7 +613,6 @@ const {
   },
 })
 
-// Tooltip wrapper that checks editing state
 const showCardTooltip = (e, node) => {
   if (!editingCardId.value && !inlineNotesId.value) showTooltip(e, node)
 }
@@ -665,7 +623,6 @@ const showAddNodeModal = (parentId = null) => {
   addNodeModal.value = { visible: true, parentId }
 }
 
-// Unified add-child handler (Graph: object with title, Cards: parentId)
 function handleAddChild(payload, e) {
   if (payload?.title) {
     addChildNode(payload)
@@ -676,7 +633,6 @@ function handleAddChild(payload, e) {
   showAddNodeModal(payload)
 }
 
-// Unified create handler (Graph: object with position, Cards: opens modal)
 function handleCreate(payload) {
   if (payload?.title) {
     createNodeAtPosition(payload)
@@ -686,7 +642,7 @@ function handleCreate(payload) {
   showAddNodeModal(currentContainerId.value)
 }
 
-// Keyboard shortcuts via composable
+// Keyboard shortcuts
 const { handleKeydown } = useKeyboardShortcuts({
   actions: {
     openSearch,
@@ -723,40 +679,27 @@ const { handleKeydown } = useKeyboardShortcuts({
   },
 })
 
-// Custom open-link-search event handler
 const handleOpenLinkSearchEvent = e => {
   if (e.detail?.nodeId === selectedNode.value?.id) openLinkSearch()
 }
 
-// Demo workspace management
-const { createDemo, resetDemo } = useDemoWorkspace({
-  api,
-  currentWorkspace,
-  loadWorkspaces,
-})
+// Demo workspace
+const { createDemo, resetDemo } = useDemoWorkspace({ api, currentWorkspace, loadWorkspaces })
 
-// Settings panel event handlers
 function handleShowOnboarding() {
   showSettings.value = false
   showOnboarding.value = true
 }
-
 function handleCreateDemo() {
   showSettings.value = false
   createDemo()
 }
-
 function handleResetDemo() {
   showSettings.value = false
   resetDemo()
 }
 
-// Show onboarding on first run
-if (!hasSeenOnboarding.value) {
-  showOnboarding.value = true
-}
-
-// App lifecycle management (initialization, event listeners, cleanup)
+// App lifecycle
 useAppLifecycle({
   loadWorkspaces,
   loadChildren,
@@ -786,10 +729,8 @@ useAppLifecycle({
 
 <template>
   <div class="app" :class="{ 'is-resizing': isResizingDetail }">
-    <!-- Sidebar hover trigger when collapsed -->
     <div v-if="!sidebarPinned" class="sidebar-trigger" @mouseenter="onSidebarEnter" @mouseleave="onSidebarLeave"></div>
 
-    <!-- Sidebar -->
     <AppSidebar
       :visible="sidebarVisible"
       :pinned="sidebarPinned"
@@ -810,12 +751,9 @@ useAppLifecycle({
       @mouseleave="onSidebarLeave"
     />
 
-    <!-- Main Content -->
     <main class="main-content">
-      <!-- Header with breadcrumbs -->
       <div class="content-header">
         <div class="header-row">
-          <!-- Workspace Selector -->
           <WorkspaceSelector
             :workspaces="workspaces"
             :model-value="currentWorkspace"
@@ -824,7 +762,6 @@ useAppLifecycle({
             @delete="deleteCurrentWorkspace"
             @rename="renameWorkspace($event.id, $event.name)"
           />
-
           <MainToolbar
             v-model:view-mode="viewMode"
             v-model:sort-alphabetically="sortAlphabetically"
@@ -855,6 +792,7 @@ useAppLifecycle({
             :available-snapshots="availableSnapshots"
             :show-lost-found="showLostFound"
             :orphaned-nodes="orphanedNodes"
+            :current-workspace="currentWorkspace"
             @toggle-completed="hideCompleted = !hideCompleted"
             @open-search="openSearch"
             @undo="undo"
@@ -866,7 +804,6 @@ useAppLifecycle({
             @toggle-lost-found="toggleLostFound"
             @move-to-root="moveToRoot"
             @delete-orphan="deleteOrphanedNode"
-            :current-workspace="currentWorkspace"
             @import-complete="loadChildren()"
             @show-onboarding="handleShowOnboarding"
             @create-demo="handleCreateDemo"
@@ -875,25 +812,19 @@ useAppLifecycle({
         </div>
       </div>
 
-      <!-- Add Node Input -->
       <AddNodeBar v-model:node-type="newNodeType" v-model:node-title="newNodeTitle" @create="createNode" />
 
-      <!-- Content wrapper (breadcrumbs + body + detail panel) -->
       <div class="content-wrapper">
-        <!-- Main content area (breadcrumbs + body) -->
         <div class="content-main">
-          <!-- Breadcrumbs / Path -->
           <Breadcrumbs :breadcrumbs="breadcrumbs" @navigate="navigateToBreadcrumb" />
-          <!-- Content with transition -->
           <div
             class="content-body"
             :class="{
-              transitioning: transitioning,
+              transitioning,
               'transition-forward': transitionDirection === 'forward',
               'transition-back': transitionDirection === 'back',
             }"
           >
-            <!-- View Renderer - handles all view modes -->
             <ViewRenderer
               ref="viewRendererRef"
               :view-mode="viewMode"
@@ -977,7 +908,7 @@ useAppLifecycle({
             />
           </div>
         </div>
-        <!-- Detail Panel (inside content-wrapper) -->
+
         <Transition name="detail-panel">
           <DetailPanel
             v-if="showDetail && selectedNode"
@@ -1009,7 +940,6 @@ useAppLifecycle({
       </div>
     </main>
 
-    <!-- Add Node Modal -->
     <AddNodeModal
       :visible="addNodeModal.visible"
       :parent-id="addNodeModal.parentId"
@@ -1017,7 +947,6 @@ useAppLifecycle({
       @create="addChildNode"
     />
 
-    <!-- Node Context Menu -->
     <NodeContextMenu
       :visible="contextMenu.visible"
       :x="contextMenu.x"
@@ -1039,7 +968,6 @@ useAppLifecycle({
       @open-in-window="handleDetach"
     />
 
-    <!-- Spotlight Search Modal -->
     <SpotlightSearch
       :visible="showSearch"
       :search-mode="searchMode"
@@ -1058,21 +986,14 @@ useAppLifecycle({
       @load-more="loadMoreResults"
     />
 
-    <!-- Toast notifications -->
     <ToastContainer />
-
-    <!-- Keyboard Shortcuts Modal -->
     <KeyboardShortcutsModal :visible="showShortcutsModal" @close="showShortcutsModal = false" />
-
-    <!-- Onboarding Modal -->
     <OnboardingModal
       :visible="showOnboarding"
       @close="showOnboarding = false"
       @dismiss-forever="hasSeenOnboarding = true"
       @create-demo="createDemo"
     />
-
-    <!-- Hint Bar -->
     <HintBar
       :visible="showHintBar"
       :current-workspace="currentWorkspace"
@@ -1083,24 +1004,14 @@ useAppLifecycle({
 </template>
 
 <style scoped>
-/* Resize state */
 .app.is-resizing {
   cursor: ew-resize;
   user-select: none;
 }
-
 .app.is-resizing * {
   cursor: ew-resize !important;
 }
 
-/*
- * Window drag region fix (2026-01-19):
- * The content-header must NOT have app-region:drag directly, because native
- * Electron drag regions don't respect CSS z-index. This caused the sidebar
- * pin button to be unclickable when the fixed-position sidebar overlaid this area.
- * Solution: Use a ::before pseudo-element with z-index:-1 for the drag region,
- * so the sidebar (z-index:9000) remains interactive.
- */
 .content-header {
   padding-top: 35px;
   background: var(--bg-primary);
@@ -1130,21 +1041,17 @@ useAppLifecycle({
   justify-content: space-between;
 }
 
-/* Transition animations */
 .content-body {
   transition:
     opacity 0.15s ease,
     transform 0.15s ease;
 }
-
 .content-body.transitioning {
   opacity: 0;
 }
-
 .content-body.transitioning.transition-forward {
   transform: translateX(20px);
 }
-
 .content-body.transitioning.transition-back {
   transform: translateX(-20px);
 }
