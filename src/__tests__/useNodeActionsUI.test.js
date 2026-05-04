@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { ref, provide, inject } from 'vue'
 import { useNodeActionsUI } from '../composables/useNodeActionsUI.js'
-import { APP_CONTEXT_KEY } from '../composables/useAppContext.js'
+import { APP_CONTEXT_KEY } from '../composables/useAppContext'
 
 // Mock the commands module
 vi.mock('../commands/index.js', () => ({

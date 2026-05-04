@@ -16,10 +16,11 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "lint": "eslint src electron --ext .js,.vue",
-    "lint:fix": "eslint src electron --ext .js,.vue --fix",
-    "format": "prettier --write \"src/**/*.{js,vue,css}\" \"electron/**/*.js\"",
-    "format:check": "prettier --check \"src/**/*.{js,vue,css}\" \"electron/**/*.js\"",
+    "lint": "eslint src electron --ext .js,.ts,.vue",
+    "lint:fix": "eslint src electron --ext .js,.ts,.vue --fix",
+    "format": "prettier --write \"src/**/*.{js,ts,vue,css}\" \"electron/**/*.js\"",
+    "format:check": "prettier --check \"src/**/*.{js,ts,vue,css}\" \"electron/**/*.js\"",
+    "type-check": "vue-tsc --noEmit",
     "electron": "electron .",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:9743 && NODE_ENV=development electron .\"",
     "electron:build": "npm run build && electron-builder",
@@ -71,8 +72,10 @@
     "jsdom": "^27.4.0",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.0",
+    "typescript": "^6.0.3",
     "vite": "^8.0.8",
     "vitest": "^4.0.17",
+    "vue-tsc": "^3.2.8",
     "wait-on": "^9.0.3"
   },
   "build": {
@@ -146,7 +149,7 @@
     "lodash-es": "^4.17.23"
   },
   "lint-staged": {
-    "src/**/*.{js,vue}": [
+    "src/**/*.{js,ts,vue}": [
       "eslint --fix",
       "prettier --write"
     ],

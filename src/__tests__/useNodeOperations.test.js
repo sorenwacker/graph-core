@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { useNodeOperations } from '../composables/useNodeOperations.js'
+import { useNodeOperations } from '../composables/useNodeOperations'
 
 describe('useNodeOperations composable', () => {
   let mockApi

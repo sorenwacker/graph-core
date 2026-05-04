@@ -1,16 +1,17 @@
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
 import { serializeStack, deserializeStack } from '../commands/commandFactory.js'
 import { useErrorHandler } from './useErrorHandler'
+import type { Api, Command } from '../types'
 
 const UNDO_STORAGE_KEY = 'graphcore-undoStack'
 const REDO_STORAGE_KEY = 'graphcore-redoStack'
 
 /**
  * Save a command stack to sessionStorage.
- * @param {string} key - Storage key
- * @param {Command[]} stack - Array of commands
+ * @param key - Storage key
+ * @param stack - Array of commands
  */
-function saveStack(key, stack) {
+function saveStack(key: string, stack: Command[]): void {
   if (typeof window === 'undefined' || !window.sessionStorage) return
   try {
     const serialized = JSON.stringify(serializeStack(stack))
@@ -22,10 +23,10 @@ function saveStack(key, stack) {
 
 /**
  * Restore a command stack from sessionStorage.
- * @param {string} key - Storage key
- * @returns {Command[]} - Array of deserialized commands
+ * @param key - Storage key
+ * @returns Array of deserialized commands
  */
-function restoreStack(key) {
+function restoreStack(key: string): Command[] {
   if (typeof window === 'undefined' || !window.sessionStorage) return []
   try {
     const stored = window.sessionStorage.getItem(key)
@@ -39,26 +40,81 @@ function restoreStack(key) {
 }
 
 /**
+ * Options for useUndoRedo composable.
+ */
+export interface UseUndoRedoOptions {
+  /** API service for making backend calls */
+  api: Api
+  /** Callback after successful undo/redo (receives { command, action }) */
+  onSuccess?: (result: { command: Command; action: 'undo' | 'redo' }) => void | Promise<void>
+  /** Callback on error (receives error and command) */
+  onError?: (error: Error, command: Command) => void
+  /** Callback to show notification (receives message string) */
+  showNotification?: (message: string) => void
+  /** Maximum stack size (default: 50) */
+  maxStackSize?: number
+  /** Whether to persist stacks to sessionStorage (default: true) */
+  persist?: boolean
+}
+
+/**
+ * Result of an undo/redo operation.
+ */
+export interface UndoRedoResult {
+  command: Command
+  description: string
+}
+
+/**
+ * Return type for useUndoRedo composable.
+ */
+export interface UseUndoRedoReturn {
+  /** Undo command stack */
+  undoStack: Ref<Command[]>
+  /** Redo command stack */
+  redoStack: Ref<Command[]>
+  /** Whether an undo/redo operation is in progress */
+  isProcessing: Ref<boolean>
+  /** Whether undo is available */
+  canUndo: ComputedRef<boolean>
+  /** Whether redo is available */
+  canRedo: ComputedRef<boolean>
+  /** Number of commands in undo stack */
+  undoCount: ComputedRef<number>
+  /** Number of commands in redo stack */
+  redoCount: ComputedRef<number>
+  /** Push a command onto the undo stack */
+  pushCommand: (command: Command) => void
+  /** Undo the most recent command */
+  undo: () => Promise<UndoRedoResult | null>
+  /** Redo the most recently undone command */
+  redo: () => Promise<UndoRedoResult | null>
+  /** Clear both undo and redo stacks */
+  clear: () => void
+}
+
+/**
  * Composable for managing undo/redo operations using the Command pattern.
  *
- * @param {Object} options
- * @param {Object} options.api - API service for making backend calls
- * @param {Function} options.onSuccess - Callback after successful undo/redo (receives { command, action })
- * @param {Function} options.onError - Callback on error (receives error and command)
- * @param {Function} options.showNotification - Callback to show notification (receives message string)
- * @param {number} options.maxStackSize - Maximum stack size (default: 50)
- * @param {boolean} options.persist - Whether to persist stacks to sessionStorage (default: true)
- * @returns {Object} Undo/redo state and functions
+ * @param options - Configuration options
+ * @returns Undo/redo state and functions
  */
-export function useUndoRedo({ api, onSuccess, onError, showNotification, maxStackSize = 50, persist = true } = {}) {
+export function useUndoRedo({
+  api,
+  onSuccess,
+  onError,
+  showNotification,
+  maxStackSize = 50,
+  persist = true,
+}: UseUndoRedoOptions): UseUndoRedoReturn {
   const { handleError } = useErrorHandler()
 
   // Restore from sessionStorage if persistence enabled
   const restoredUndo = persist ? restoreStack(UNDO_STORAGE_KEY) : []
   const restoredRedo = persist ? restoreStack(REDO_STORAGE_KEY) : []
 
-  const undoStack = ref(restoredUndo)
-  const redoStack = ref(restoredRedo)
+  const undoStack = ref<Command[]>(restoredUndo)
+  const redoStack = ref<Command[]>(restoredRedo)
   const isProcessing = ref(false)
 
   // Persist stacks to sessionStorage when they change
@@ -68,10 +124,10 @@ export function useUndoRedo({ api, onSuccess, onError, showNotification, maxStac
   }
 
   /**
-   * Push a command onto the undo stack
-   * @param {Command} command - Command instance
+   * Push a command onto the undo stack.
+   * @param command - Command instance
    */
-  function pushCommand(command) {
+  function pushCommand(command: Command): void {
     undoStack.value.push(command)
     redoStack.value = [] // Clear redo stack on new action
     if (undoStack.value.length > maxStackSize) {
@@ -80,14 +136,14 @@ export function useUndoRedo({ api, onSuccess, onError, showNotification, maxStac
   }
 
   /**
-   * Undo the most recent command
-   * @returns {Object|null} { command, description } or null if nothing to undo
+   * Undo the most recent command.
+   * @returns { command, description } or null if nothing to undo
    */
-  async function undo() {
+  async function undo(): Promise<UndoRedoResult | null> {
     if (undoStack.value.length === 0 || isProcessing.value) return null
 
     isProcessing.value = true
-    const command = undoStack.value.pop()
+    const command = undoStack.value.pop()!
 
     try {
       await command.undo(api)
@@ -97,9 +153,9 @@ export function useUndoRedo({ api, onSuccess, onError, showNotification, maxStac
       if (showNotification) showNotification(`Undo: ${description}`)
       return { command, description }
     } catch (error) {
-      handleError(error, { context: 'Undo' })
+      handleError(error as Error, { context: 'Undo' })
       undoStack.value.push(command) // Restore to stack on failure
-      if (onError) onError(error, command)
+      if (onError) onError(error as Error, command)
       return null
     } finally {
       isProcessing.value = false
@@ -107,14 +163,14 @@ export function useUndoRedo({ api, onSuccess, onError, showNotification, maxStac
   }
 
   /**
-   * Redo the most recently undone command
-   * @returns {Object|null} { command, description } or null if nothing to redo
+   * Redo the most recently undone command.
+   * @returns { command, description } or null if nothing to redo
    */
-  async function redo() {
+  async function redo(): Promise<UndoRedoResult | null> {
     if (redoStack.value.length === 0 || isProcessing.value) return null
 
     isProcessing.value = true
-    const command = redoStack.value.pop()
+    const command = redoStack.value.pop()!
 
     try {
       await command.execute(api)
@@ -124,9 +180,9 @@ export function useUndoRedo({ api, onSuccess, onError, showNotification, maxStac
       if (showNotification) showNotification(`Redo: ${description}`)
       return { command, description }
     } catch (error) {
-      handleError(error, { context: 'Redo' })
+      handleError(error as Error, { context: 'Redo' })
       redoStack.value.push(command) // Restore to stack on failure
-      if (onError) onError(error, command)
+      if (onError) onError(error as Error, command)
       return null
     } finally {
       isProcessing.value = false
@@ -134,9 +190,9 @@ export function useUndoRedo({ api, onSuccess, onError, showNotification, maxStac
   }
 
   /**
-   * Clear both undo and redo stacks
+   * Clear both undo and redo stacks.
    */
-  function clear() {
+  function clear(): void {
     undoStack.value = []
     redoStack.value = []
   }
