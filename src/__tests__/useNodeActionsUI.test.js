@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { ref } from 'vue'
+import { ref, provide, inject } from 'vue'
 import { useNodeActionsUI } from '../composables/useNodeActionsUI.js'
+import { APP_CONTEXT_KEY } from '../composables/useAppContext.js'
 
 // Mock the commands module
 vi.mock('../commands/index.js', () => ({
@@ -19,6 +20,21 @@ vi.mock('../commands/index.js', () => ({
   },
 }))
 
+// Mock Vue's inject to return our test context
+let mockAppContext = null
+vi.mock('vue', async () => {
+  const actual = await vi.importActual('vue')
+  return {
+    ...actual,
+    inject: key => {
+      if (key === APP_CONTEXT_KEY) {
+        return mockAppContext
+      }
+      return actual.inject(key)
+    },
+  }
+})
+
 describe('useNodeActionsUI', () => {
   let mockApi
   let mockNodeOps
@@ -33,6 +49,7 @@ describe('useNodeActionsUI', () => {
   let expandedIds
   let flatChildren
   let viewRendererRef
+  let detailPanelRef
   let error
   let mockEnterContainer
   let mockNavigateBack
@@ -88,6 +105,7 @@ describe('useNodeActionsUI', () => {
     expandedIds = ref(new Set())
     flatChildren = ref([])
     viewRendererRef = ref({ loadTasks: vi.fn() })
+    detailPanelRef = ref(null)
     error = ref(null)
 
     // Navigation mocks
@@ -105,36 +123,42 @@ describe('useNodeActionsUI', () => {
     mockInvalidateSidebarCache = vi.fn()
     mockLoadRecentItems = vi.fn().mockResolvedValue(undefined)
     mockLoadTags = vi.fn().mockResolvedValue(undefined)
-  })
 
-  function createNodeActionsUI() {
-    return useNodeActionsUI({
+    // Set up mock app context
+    mockAppContext = {
       api: mockApi,
-      nodeOps: mockNodeOps,
-      pushCommand: mockPushCommand,
-      getWorkspaceIdForNode: mockGetWorkspaceIdForNode,
+      currentWorkspace: ref(1),
+      currentContainerId,
       selectedNode,
       selectedIds,
       showDetail,
-      currentContainerId,
+      expandedIds,
       breadcrumbs,
       children,
-      expandedIds,
       flatChildren,
       viewRendererRef,
+      detailPanelRef,
       error,
       enterContainer: mockEnterContainer,
       navigateBack: mockNavigateBack,
+      loadChildren: mockLoadChildren,
+      loadSidebarTree: mockLoadSidebarTree,
+      loadFavorites: mockLoadFavorites,
+      loadRecentItems: mockLoadRecentItems,
+      loadTags: mockLoadTags,
+      invalidateSidebarCache: mockInvalidateSidebarCache,
       refreshAfterChange: mockRefreshAfterChange,
       refreshAfterDelete: mockRefreshAfterDelete,
       refreshGraphAfterStructureChange: mockRefreshGraphAfterStructureChange,
       refreshDetailPanelLinks: mockRefreshDetailPanelLinks,
-      loadSidebarTree: mockLoadSidebarTree,
-      loadFavorites: mockLoadFavorites,
-      loadChildren: mockLoadChildren,
-      invalidateSidebarCache: mockInvalidateSidebarCache,
-      loadRecentItems: mockLoadRecentItems,
-      loadTags: mockLoadTags,
+    }
+  })
+
+  function createNodeActionsUI() {
+    return useNodeActionsUI({
+      nodeOps: mockNodeOps,
+      pushCommand: mockPushCommand,
+      getWorkspaceIdForNode: mockGetWorkspaceIdForNode,
     })
   }
 
