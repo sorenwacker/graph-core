@@ -946,8 +946,8 @@ onMounted(() => {
   window.addEventListener('graph-center-node', handleCenterEvent)
   window.addEventListener('keydown', handleGlobalKeydown)
   nextTick(() => {
-    if (graphControlsRef.value)
-      graphControlsRef.value.querySelectorAll('button[title]').forEach(b => {
+    if (graphControlsRef.value?.$el)
+      graphControlsRef.value.$el.querySelectorAll('button[title]').forEach(b => {
         const c = b.getAttribute('title')
         if (c) {
           graphControlTippyInstances.push(
