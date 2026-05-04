@@ -3,6 +3,98 @@ const path = require('path')
 const https = require('https')
 const http = require('http')
 const Database = require('./database')
+const {
+  // Database - Node CRUD
+  DB_GET_NODES,
+  DB_GET_NODE,
+  DB_CREATE_NODE,
+  DB_UPDATE_NODE,
+  DB_DELETE_NODE,
+  // Database - Tree Operations
+  DB_GET_ROOTS,
+  DB_GET_PROJECTS,
+  DB_GET_INBOX,
+  DB_GET_RECENT,
+  DB_GET_FAVORITES,
+  DB_GET_TASKS,
+  DB_GET_CHILDREN,
+  DB_GET_DESCENDANTS,
+  DB_GET_DESCENDANTS_BATCH,
+  DB_GET_ANCESTORS,
+  DB_MOVE_NODE,
+  // Database - Links
+  DB_LINK_NODES,
+  DB_UNLINK_NODES,
+  DB_GET_ALL_LINKS,
+  DB_GET_LINKED_NODES,
+  // Database - Tree View
+  DB_GET_TREE,
+  // Database - Search
+  DB_SEARCH,
+  DB_SEARCH_COUNT,
+  // Database - Reorder
+  DB_REORDER_NODE,
+  // Database - Export
+  DB_EXPORT_MARKDOWN,
+  DB_EXPORT_JSON,
+  DB_EXPORT_CSV,
+  // Database - Import
+  DB_IMPORT_JSON,
+  DB_IMPORT_CSV,
+  // Database - Trash
+  DB_GET_TRASH,
+  DB_RESTORE_NODE,
+  DB_EMPTY_TRASH,
+  // Database - Lost & Found
+  DB_GET_ORPHANED_NODES,
+  DB_REPARENT_TO_ROOT,
+  // Database - Tags
+  DB_GET_ALL_TAGS,
+  DB_GET_NODES_BY_TAG,
+  // Database - Workspaces
+  DB_GET_WORKSPACES,
+  DB_GET_WORKSPACE,
+  DB_CREATE_WORKSPACE,
+  DB_UPDATE_WORKSPACE,
+  DB_DELETE_WORKSPACE,
+  // Database - Backups & Reload
+  DB_BACKUP,
+  DB_LIST_BACKUPS,
+  DB_RESTORE_BACKUP,
+  DB_RELOAD,
+  DB_REPAIR_WORKSPACES,
+  DB_GET_DATA_PATH,
+  // Database - Node Tables
+  DB_GET_NODE_TABLE,
+  DB_CREATE_NODE_TABLE,
+  DB_UPDATE_NODE_TABLE,
+  DB_DELETE_NODE_TABLE,
+  DB_GET_TABLE_CELLS,
+  DB_SET_CELLS,
+  DB_CLEAR_CELLS,
+  // Shell
+  SHELL_OPEN_EXTERNAL,
+  // Window
+  WINDOW_OPEN_DETACHED,
+  WINDOW_CLOSE_DETACHED,
+  // Ollama
+  OLLAMA_GENERATE,
+  OLLAMA_TEST_CONNECTION,
+  OLLAMA_LIST_MODELS,
+  // OpenAI
+  OPENAI_GENERATE,
+  OPENAI_TEST_CONNECTION,
+  OPENAI_LIST_MODELS,
+  // App
+  APP_GET_VERSION,
+  // Menu Events
+  MENU_UNDO,
+  MENU_REDO,
+  OPEN_SETTINGS,
+  SHOW_SHORTCUTS,
+  // App Lifecycle
+  APP_BEFORE_QUIT,
+} = require('./ipcChannels')
 
 let mainWindow
 let db
@@ -161,7 +253,7 @@ function createMenu() {
                 label: 'Settings...',
                 accelerator: 'CmdOrCtrl+,',
                 click: () => {
-                  mainWindow?.webContents.send('open-settings')
+                  mainWindow?.webContents.send(OPEN_SETTINGS)
                 },
               },
               { type: 'separator' },
@@ -184,14 +276,14 @@ function createMenu() {
           label: 'Undo',
           accelerator: 'CmdOrCtrl+Z',
           click: () => {
-            mainWindow?.webContents.send('menu-undo')
+            mainWindow?.webContents.send(MENU_UNDO)
           },
         },
         {
           label: 'Redo',
           accelerator: 'CmdOrCtrl+Shift+Z',
           click: () => {
-            mainWindow?.webContents.send('menu-redo')
+            mainWindow?.webContents.send(MENU_REDO)
           },
         },
         { type: 'separator' },
@@ -247,7 +339,7 @@ function createMenu() {
           label: 'Keyboard Shortcuts',
           accelerator: 'CmdOrCtrl+/',
           click: () => {
-            mainWindow?.webContents.send('show-shortcuts')
+            mainWindow?.webContents.send(SHOW_SHORTCUTS)
           },
         },
         { type: 'separator' },
@@ -309,112 +401,112 @@ app.on('window-all-closed', () => {
 // Notify renderer to save before quitting
 app.on('before-quit', event => {
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('app-before-quit')
+    mainWindow.webContents.send(APP_BEFORE_QUIT)
   }
 })
 
 // IPC Handlers - Node CRUD
-ipcMain.handle('db:getNodes', (event, params) => db.getNodes(params))
-ipcMain.handle('db:getNode', (event, id) => db.getNode(id))
-ipcMain.handle('db:createNode', (event, data) => db.createNode(data))
-ipcMain.handle('db:updateNode', (event, id, data) => db.updateNode(id, data))
-ipcMain.handle('db:deleteNode', (event, id, hard) => db.deleteNode(id, hard))
+ipcMain.handle(DB_GET_NODES, (event, params) => db.getNodes(params))
+ipcMain.handle(DB_GET_NODE, (event, id) => db.getNode(id))
+ipcMain.handle(DB_CREATE_NODE, (event, data) => db.createNode(data))
+ipcMain.handle(DB_UPDATE_NODE, (event, id, data) => db.updateNode(id, data))
+ipcMain.handle(DB_DELETE_NODE, (event, id, hard) => db.deleteNode(id, hard))
 
 // Tree operations
-ipcMain.handle('db:getRoots', (event, workspaceId) => db.getRoots(workspaceId))
-ipcMain.handle('db:getProjects', () => db.getProjects())
-ipcMain.handle('db:getInbox', () => db.getInbox())
-ipcMain.handle('db:getRecent', (event, limit, workspaceId) => db.getRecent(limit, workspaceId))
-ipcMain.handle('db:getFavorites', (event, workspaceId) => db.getFavorites(workspaceId))
-ipcMain.handle('db:getTasks', (event, params) => db.getTasks(params))
-ipcMain.handle('db:getChildren', (event, id, type) => db.getChildren(id, type))
-ipcMain.handle('db:getDescendants', (event, id, maxDepth) => db.getDescendants(id, maxDepth))
-ipcMain.handle('db:getDescendantsBatch', (event, rootIds) => {
+ipcMain.handle(DB_GET_ROOTS, (event, workspaceId) => db.getRoots(workspaceId))
+ipcMain.handle(DB_GET_PROJECTS, () => db.getProjects())
+ipcMain.handle(DB_GET_INBOX, () => db.getInbox())
+ipcMain.handle(DB_GET_RECENT, (event, limit, workspaceId) => db.getRecent(limit, workspaceId))
+ipcMain.handle(DB_GET_FAVORITES, (event, workspaceId) => db.getFavorites(workspaceId))
+ipcMain.handle(DB_GET_TASKS, (event, params) => db.getTasks(params))
+ipcMain.handle(DB_GET_CHILDREN, (event, id, type) => db.getChildren(id, type))
+ipcMain.handle(DB_GET_DESCENDANTS, (event, id, maxDepth) => db.getDescendants(id, maxDepth))
+ipcMain.handle(DB_GET_DESCENDANTS_BATCH, (event, rootIds) => {
   const result = db.getDescendantsBatch(rootIds)
   // Convert Map to plain object for IPC serialization
   return Object.fromEntries(result)
 })
-ipcMain.handle('db:getAncestors', (event, id) => db.getAncestors(id))
-ipcMain.handle('db:moveNode', (event, id, newParentId) => db.moveNode(id, newParentId))
+ipcMain.handle(DB_GET_ANCESTORS, (event, id) => db.getAncestors(id))
+ipcMain.handle(DB_MOVE_NODE, (event, id, newParentId) => db.moveNode(id, newParentId))
 
 // Links
-ipcMain.handle('db:linkNodes', (event, sourceId, targetId) => db.linkNodes(sourceId, targetId))
-ipcMain.handle('db:unlinkNodes', (event, sourceId, targetId) => db.unlinkNodes(sourceId, targetId))
-ipcMain.handle('db:getAllLinks', (event, nodeIds) => db.getAllLinks(nodeIds))
-ipcMain.handle('db:getLinkedNodes', (event, id) => db.getLinkedNodes(id))
+ipcMain.handle(DB_LINK_NODES, (event, sourceId, targetId) => db.linkNodes(sourceId, targetId))
+ipcMain.handle(DB_UNLINK_NODES, (event, sourceId, targetId) => db.unlinkNodes(sourceId, targetId))
+ipcMain.handle(DB_GET_ALL_LINKS, (event, nodeIds) => db.getAllLinks(nodeIds))
+ipcMain.handle(DB_GET_LINKED_NODES, (event, id) => db.getLinkedNodes(id))
 
 // Tree view
-ipcMain.handle('db:getTree', (event, rootId) => db.getTree(rootId))
+ipcMain.handle(DB_GET_TREE, (event, rootId) => db.getTree(rootId))
 
 // Search
-ipcMain.handle('db:search', (event, query, type, workspaceId, options) => db.search(query, type, workspaceId, options))
-ipcMain.handle('db:searchCount', (event, query, type, workspaceId, options) =>
+ipcMain.handle(DB_SEARCH, (event, query, type, workspaceId, options) => db.search(query, type, workspaceId, options))
+ipcMain.handle(DB_SEARCH_COUNT, (event, query, type, workspaceId, options) =>
   db.searchCount(query, type, workspaceId, options)
 )
 
 // Reorder
-ipcMain.handle('db:reorderNode', (event, nodeId, targetId, position) => db.reorderNode(nodeId, targetId, position))
+ipcMain.handle(DB_REORDER_NODE, (event, nodeId, targetId, position) => db.reorderNode(nodeId, targetId, position))
 
 // Export
-ipcMain.handle('db:exportMarkdown', (event, nodeId) => db.exportMarkdown(nodeId))
-ipcMain.handle('db:exportJSON', (event, nodeId, options) => db.exportJSON(nodeId, options))
-ipcMain.handle('db:exportCSV', (event, nodeId, workspaceId) => db.exportCSV(nodeId, workspaceId))
+ipcMain.handle(DB_EXPORT_MARKDOWN, (event, nodeId) => db.exportMarkdown(nodeId))
+ipcMain.handle(DB_EXPORT_JSON, (event, nodeId, options) => db.exportJSON(nodeId, options))
+ipcMain.handle(DB_EXPORT_CSV, (event, nodeId, workspaceId) => db.exportCSV(nodeId, workspaceId))
 
 // Import
-ipcMain.handle('db:importJSON', (event, data, targetParentId, workspaceId) =>
+ipcMain.handle(DB_IMPORT_JSON, (event, data, targetParentId, workspaceId) =>
   db.importJSON(data, targetParentId, workspaceId)
 )
-ipcMain.handle('db:importCSV', (event, csvData, targetParentId, workspaceId) =>
+ipcMain.handle(DB_IMPORT_CSV, (event, csvData, targetParentId, workspaceId) =>
   db.importCSV(csvData, targetParentId, workspaceId)
 )
 
 // Trash
-ipcMain.handle('db:getTrash', (event, limit) => db.getTrash(limit))
-ipcMain.handle('db:restoreNode', (event, id) => db.restoreNode(id))
-ipcMain.handle('db:emptyTrash', () => db.emptyTrash())
+ipcMain.handle(DB_GET_TRASH, (event, limit) => db.getTrash(limit))
+ipcMain.handle(DB_RESTORE_NODE, (event, id) => db.restoreNode(id))
+ipcMain.handle(DB_EMPTY_TRASH, () => db.emptyTrash())
 
 // Lost & Found
-ipcMain.handle('db:getOrphanedNodes', () => db.getOrphanedNodes())
-ipcMain.handle('db:reparentToRoot', (event, id) => db.reparentToRoot(id))
+ipcMain.handle(DB_GET_ORPHANED_NODES, () => db.getOrphanedNodes())
+ipcMain.handle(DB_REPARENT_TO_ROOT, (event, id) => db.reparentToRoot(id))
 
 // Tags
-ipcMain.handle('db:getAllTags', (event, workspaceId) => db.getAllTags(workspaceId))
-ipcMain.handle('db:getNodesByTag', (event, tag, workspaceId, options) => db.getNodesByTag(tag, workspaceId, options))
+ipcMain.handle(DB_GET_ALL_TAGS, (event, workspaceId) => db.getAllTags(workspaceId))
+ipcMain.handle(DB_GET_NODES_BY_TAG, (event, tag, workspaceId, options) => db.getNodesByTag(tag, workspaceId, options))
 
 // =========================================
 // WORKSPACES
 // =========================================
-ipcMain.handle('db:getWorkspaces', () => db.getWorkspaces())
-ipcMain.handle('db:getWorkspace', (event, id) => db.getWorkspace(id))
-ipcMain.handle('db:createWorkspace', (event, data) => db.createWorkspace(data))
-ipcMain.handle('db:updateWorkspace', (event, id, data) => db.updateWorkspace(id, data))
-ipcMain.handle('db:deleteWorkspace', (event, id) => db.deleteWorkspace(id))
+ipcMain.handle(DB_GET_WORKSPACES, () => db.getWorkspaces())
+ipcMain.handle(DB_GET_WORKSPACE, (event, id) => db.getWorkspace(id))
+ipcMain.handle(DB_CREATE_WORKSPACE, (event, data) => db.createWorkspace(data))
+ipcMain.handle(DB_UPDATE_WORKSPACE, (event, id, data) => db.updateWorkspace(id, data))
+ipcMain.handle(DB_DELETE_WORKSPACE, (event, id) => db.deleteWorkspace(id))
 
 // =========================================
 // DATABASE BACKUPS & RELOAD
 // =========================================
-ipcMain.handle('db:backup', (event, suffix) => db.backup(suffix))
-ipcMain.handle('db:listBackups', () => db.listBackups())
-ipcMain.handle('db:restoreBackup', (event, backupPath) => db.restoreBackup(backupPath))
-ipcMain.handle('db:reload', () => db.reload())
-ipcMain.handle('db:repairWorkspaces', () => db.repairWorkspaces())
-ipcMain.handle('db:getDataPath', () => app.getPath('userData'))
+ipcMain.handle(DB_BACKUP, (event, suffix) => db.backup(suffix))
+ipcMain.handle(DB_LIST_BACKUPS, () => db.listBackups())
+ipcMain.handle(DB_RESTORE_BACKUP, (event, backupPath) => db.restoreBackup(backupPath))
+ipcMain.handle(DB_RELOAD, () => db.reload())
+ipcMain.handle(DB_REPAIR_WORKSPACES, () => db.repairWorkspaces())
+ipcMain.handle(DB_GET_DATA_PATH, () => app.getPath('userData'))
 
 // =========================================
 // NODE TABLES
 // =========================================
-ipcMain.handle('db:getNodeTable', (event, nodeId) => db.getNodeTable(nodeId))
-ipcMain.handle('db:createNodeTable', (event, nodeId, data) => db.createNodeTable(nodeId, data))
-ipcMain.handle('db:updateNodeTable', (event, nodeId, data) => db.updateNodeTable(nodeId, data))
-ipcMain.handle('db:deleteNodeTable', (event, nodeId) => db.deleteNodeTable(nodeId))
-ipcMain.handle('db:getTableCells', (event, nodeId) => db.getTableCells(nodeId))
-ipcMain.handle('db:setCells', (event, nodeId, cells) => db.setCells(nodeId, cells))
-ipcMain.handle('db:clearCells', (event, nodeId) => db.clearCells(nodeId))
+ipcMain.handle(DB_GET_NODE_TABLE, (event, nodeId) => db.getNodeTable(nodeId))
+ipcMain.handle(DB_CREATE_NODE_TABLE, (event, nodeId, data) => db.createNodeTable(nodeId, data))
+ipcMain.handle(DB_UPDATE_NODE_TABLE, (event, nodeId, data) => db.updateNodeTable(nodeId, data))
+ipcMain.handle(DB_DELETE_NODE_TABLE, (event, nodeId) => db.deleteNodeTable(nodeId))
+ipcMain.handle(DB_GET_TABLE_CELLS, (event, nodeId) => db.getTableCells(nodeId))
+ipcMain.handle(DB_SET_CELLS, (event, nodeId, cells) => db.setCells(nodeId, cells))
+ipcMain.handle(DB_CLEAR_CELLS, (event, nodeId) => db.clearCells(nodeId))
 
 // =========================================
 // SHELL
 // =========================================
-ipcMain.handle('shell:openExternal', (event, url) => {
+ipcMain.handle(SHELL_OPEN_EXTERNAL, (event, url) => {
   if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
     return shell.openExternal(url)
   }
@@ -423,11 +515,11 @@ ipcMain.handle('shell:openExternal', (event, url) => {
 // =========================================
 // DETACHED WINDOWS
 // =========================================
-ipcMain.handle('window:openDetached', (event, nodeId, nodeTitle) => {
+ipcMain.handle(WINDOW_OPEN_DETACHED, (event, nodeId, nodeTitle) => {
   return createDetachedWindow(nodeId, nodeTitle)
 })
 
-ipcMain.handle('window:closeDetached', (event, nodeId) => {
+ipcMain.handle(WINDOW_CLOSE_DETACHED, (event, nodeId) => {
   if (detachedWindows.has(nodeId)) {
     const window = detachedWindows.get(nodeId)
     if (!window.isDestroyed()) {
@@ -440,181 +532,221 @@ ipcMain.handle('window:closeDetached', (event, nodeId) => {
 })
 
 // =========================================
-// HTTP REQUEST UTILITY
+// HTTP CLIENT
 // =========================================
 
 /**
- * HTTP request using Node's https module with SSL verification disabled for localhost only
- * Used for self-hosted endpoints (like Ollama) with self-signed certificates
+ * Unified HTTP client that handles both standard requests (via Electron's net module)
+ * and requests requiring SSL verification bypass (via Node's http/https modules).
  */
-async function httpRequestWithoutSslVerification(url, options = {}) {
-  const {
-    method = 'GET',
-    body,
-    headers = {},
-    errorPrefix = 'API',
-    connectionError = 'Cannot connect to API endpoint',
-  } = options
+class HttpClient {
+  /**
+   * Create an HttpClient instance.
+   * @param {Object} config - Client configuration
+   * @param {string} config.errorPrefix - Prefix for error messages (default: 'API')
+   * @param {string} config.connectionError - Custom connection refused message
+   */
+  constructor(config = {}) {
+    this.errorPrefix = config.errorPrefix || 'API'
+    this.connectionError = config.connectionError || 'Cannot connect to API endpoint'
+  }
 
-  return new Promise((resolve, reject) => {
-    const urlObj = new URL(url)
-    const isHttps = urlObj.protocol === 'https:'
-    const transport = isHttps ? https : http
+  /**
+   * Check if a hostname is localhost (safe for SSL bypass).
+   * @param {string} hostname - The hostname to check
+   * @returns {boolean} True if localhost
+   */
+  static isLocalhost(hostname) {
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname.endsWith('.local')
+  }
 
-    // Only skip SSL verification for localhost to prevent MITM attacks
-    const isLocalhost =
-      urlObj.hostname === 'localhost' ||
-      urlObj.hostname === '127.0.0.1' ||
-      urlObj.hostname === '::1' ||
-      urlObj.hostname.endsWith('.local')
-
-    const requestOptions = {
-      hostname: urlObj.hostname,
-      port: urlObj.port || (isHttps ? 443 : 80),
-      path: urlObj.pathname + urlObj.search,
-      method,
-      headers: { ...headers },
-      rejectUnauthorized: !isLocalhost,
+  /**
+   * Parse response data, attempting JSON parse first.
+   * @param {string} data - Raw response data
+   * @returns {Object|string} Parsed JSON or raw string
+   */
+  static parseResponse(data) {
+    try {
+      return JSON.parse(data)
+    } catch {
+      return data
     }
+  }
 
-    if (body) {
-      const bodyStr = JSON.stringify(body)
-      requestOptions.headers['Content-Type'] = 'application/json'
-      requestOptions.headers['Content-Length'] = Buffer.byteLength(bodyStr)
+  /**
+   * Create an error with status code and data attached.
+   * @param {string} prefix - Error message prefix
+   * @param {number} statusCode - HTTP status code
+   * @param {string} responseData - Raw response data
+   * @returns {Error} Error with statusCode and data properties
+   */
+  static createHttpError(prefix, statusCode, responseData) {
+    const error = new Error(`${prefix} error: ${statusCode}`)
+    error.statusCode = statusCode
+    error.data = HttpClient.parseResponse(responseData)
+    return error
+  }
+
+  /**
+   * Handle request errors with appropriate messages.
+   * @param {Error} error - Original error
+   * @param {string} connectionError - Custom connection error message
+   * @param {boolean} includeSslHint - Whether to include SSL hint for cert errors
+   * @returns {Error} Processed error
+   */
+  static handleRequestError(error, connectionError, includeSslHint = false) {
+    if (error.code === 'ECONNREFUSED') {
+      return new Error(connectionError)
     }
+    if (
+      includeSslHint &&
+      (error.message?.includes('SSL') ||
+        error.message?.includes('ERR_SSL') ||
+        error.message?.includes('CERT') ||
+        error.message?.includes('certificate'))
+    ) {
+      return new Error(
+        `SSL/TLS error: ${error.message}. For self-signed certificates, enable "Skip SSL verification" in settings.`
+      )
+    }
+    return error
+  }
 
-    const request = transport.request(requestOptions, response => {
+  /**
+   * Make an HTTP request using Node's http/https modules.
+   * Allows SSL verification bypass for localhost.
+   * @param {string} url - Full URL to request
+   * @param {Object} options - Request options
+   * @returns {Promise<Object|string>} Response data
+   */
+  requestWithNode(url, options = {}) {
+    const { method = 'GET', body, headers = {} } = options
+
+    return new Promise((resolve, reject) => {
+      const urlObj = new URL(url)
+      const isHttps = urlObj.protocol === 'https:'
+      const transport = isHttps ? https : http
+
+      const requestOptions = {
+        hostname: urlObj.hostname,
+        port: urlObj.port || (isHttps ? 443 : 80),
+        path: urlObj.pathname + urlObj.search,
+        method,
+        headers: { ...headers },
+        rejectUnauthorized: !HttpClient.isLocalhost(urlObj.hostname),
+      }
+
+      if (body) {
+        const bodyStr = JSON.stringify(body)
+        requestOptions.headers['Content-Type'] = 'application/json'
+        requestOptions.headers['Content-Length'] = Buffer.byteLength(bodyStr)
+      }
+
+      const request = transport.request(requestOptions, response => {
+        let responseData = ''
+
+        response.on('data', chunk => {
+          responseData += chunk.toString()
+        })
+
+        response.on('end', () => {
+          if (response.statusCode >= 200 && response.statusCode < 300) {
+            resolve(HttpClient.parseResponse(responseData))
+          } else {
+            reject(HttpClient.createHttpError(this.errorPrefix, response.statusCode, responseData))
+          }
+        })
+      })
+
+      request.on('error', error => {
+        reject(HttpClient.handleRequestError(error, this.connectionError, false))
+      })
+
+      if (body) {
+        request.write(JSON.stringify(body))
+      }
+
+      request.end()
+    })
+  }
+
+  /**
+   * Make an HTTP request using Electron's net module.
+   * @param {string} url - Full URL to request
+   * @param {Object} options - Request options
+   * @returns {Promise<Object|string>} Response data
+   */
+  requestWithNet(url, options = {}) {
+    const { method = 'GET', body, headers = {} } = options
+
+    return new Promise((resolve, reject) => {
+      const request = net.request({ method, url })
+
+      Object.entries(headers).forEach(([key, value]) => {
+        request.setHeader(key, value)
+      })
+      if (body) {
+        request.setHeader('Content-Type', 'application/json')
+      }
+
       let responseData = ''
 
-      response.on('data', chunk => {
-        responseData += chunk.toString()
+      request.on('response', response => {
+        response.on('data', chunk => {
+          responseData += chunk.toString()
+        })
+
+        response.on('end', () => {
+          if (response.statusCode >= 200 && response.statusCode < 300) {
+            resolve(HttpClient.parseResponse(responseData))
+          } else {
+            reject(HttpClient.createHttpError(this.errorPrefix, response.statusCode, responseData))
+          }
+        })
       })
 
-      response.on('end', () => {
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          try {
-            resolve(JSON.parse(responseData))
-          } catch {
-            resolve(responseData)
-          }
-        } else {
-          const error = new Error(`${errorPrefix} error: ${response.statusCode}`)
-          error.statusCode = response.statusCode
-          try {
-            error.data = JSON.parse(responseData)
-          } catch {
-            error.data = responseData
-          }
-          reject(error)
-        }
+      request.on('error', error => {
+        reject(HttpClient.handleRequestError(error, this.connectionError, true))
       })
-    })
 
-    request.on('error', error => {
-      if (error.code === 'ECONNREFUSED') {
-        reject(new Error(connectionError))
-      } else {
-        reject(error)
+      if (body) {
+        request.write(JSON.stringify(body))
       }
+
+      request.end()
     })
+  }
 
-    if (body) {
-      request.write(JSON.stringify(body))
+  /**
+   * Make an HTTP request.
+   * @param {string} url - Full URL to request
+   * @param {Object} options - Request options
+   * @param {string} options.method - HTTP method (default: 'GET')
+   * @param {Object} options.body - Request body (will be JSON stringified)
+   * @param {Object} options.headers - Additional headers
+   * @param {boolean} options.skipSslVerification - Skip SSL certificate verification
+   * @returns {Promise<Object|string>} Response data
+   */
+  request(url, options = {}) {
+    const { skipSslVerification = false, ...requestOptions } = options
+
+    if (skipSslVerification && url.startsWith('https://')) {
+      return this.requestWithNode(url, requestOptions)
     }
-
-    request.end()
-  })
+    return this.requestWithNet(url, requestOptions)
+  }
 }
 
 /**
- * Generic HTTP request using Electron's net module
+ * Generic HTTP request function (convenience wrapper).
  * @param {string} url - Full URL to request
  * @param {Object} options - Request options
- * @param {string} options.method - HTTP method (default: 'GET')
- * @param {Object} options.body - Request body (will be JSON stringified)
- * @param {Object} options.headers - Additional headers
- * @param {string} options.errorPrefix - Prefix for error messages (default: 'API')
- * @param {string} options.connectionError - Custom connection refused message
- * @param {boolean} options.skipSslVerification - Skip SSL certificate verification
+ * @returns {Promise<Object|string>} Response data
  */
-async function httpRequest(url, options = {}) {
-  const {
-    method = 'GET',
-    body,
-    headers = {},
-    errorPrefix = 'API',
-    connectionError = 'Cannot connect to API endpoint',
-    skipSslVerification = false,
-  } = options
-
-  // For SSL bypass, use Node's https module directly
-  if (skipSslVerification && url.startsWith('https://')) {
-    return httpRequestWithoutSslVerification(url, { method, body, headers, errorPrefix, connectionError })
-  }
-
-  return new Promise((resolve, reject) => {
-    const request = net.request({ method, url })
-
-    // Set headers
-    Object.entries(headers).forEach(([key, value]) => {
-      request.setHeader(key, value)
-    })
-    if (body) {
-      request.setHeader('Content-Type', 'application/json')
-    }
-
-    let responseData = ''
-
-    request.on('response', response => {
-      response.on('data', chunk => {
-        responseData += chunk.toString()
-      })
-
-      response.on('end', () => {
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          try {
-            resolve(JSON.parse(responseData))
-          } catch {
-            resolve(responseData)
-          }
-        } else {
-          const error = new Error(`${errorPrefix} error: ${response.statusCode}`)
-          error.statusCode = response.statusCode
-          try {
-            error.data = JSON.parse(responseData)
-          } catch {
-            error.data = responseData
-          }
-          reject(error)
-        }
-      })
-    })
-
-    request.on('error', error => {
-      if (error.code === 'ECONNREFUSED') {
-        reject(new Error(connectionError))
-      } else if (
-        error.message?.includes('SSL') ||
-        error.message?.includes('ERR_SSL') ||
-        error.message?.includes('CERT') ||
-        error.message?.includes('certificate')
-      ) {
-        reject(
-          new Error(
-            `SSL/TLS error: ${error.message}. For self-signed certificates, enable "Skip SSL verification" in settings.`
-          )
-        )
-      } else {
-        reject(error)
-      }
-    })
-
-    if (body) {
-      request.write(JSON.stringify(body))
-    }
-
-    request.end()
-  })
+function httpRequest(url, options = {}) {
+  const { errorPrefix, connectionError, ...requestOptions } = options
+  const client = new HttpClient({ errorPrefix, connectionError })
+  return client.request(url, requestOptions)
 }
 
 // =========================================
@@ -633,7 +765,7 @@ function ollamaRequest(endpoint, path, options = {}) {
   })
 }
 
-ipcMain.handle('ollama:generate', async (event, { prompt, content, model, endpoint, contextSize }) => {
+ipcMain.handle(OLLAMA_GENERATE, async (event, { prompt, content, model, endpoint, contextSize }) => {
   const fullPrompt = `${prompt}\n\n---\n\n${content}`
 
   try {
@@ -657,7 +789,7 @@ ipcMain.handle('ollama:generate', async (event, { prompt, content, model, endpoi
   }
 })
 
-ipcMain.handle('ollama:testConnection', async (event, endpoint) => {
+ipcMain.handle(OLLAMA_TEST_CONNECTION, async (event, endpoint) => {
   try {
     await ollamaRequest(endpoint, '/api/tags')
     return { success: true }
@@ -669,7 +801,7 @@ ipcMain.handle('ollama:testConnection', async (event, endpoint) => {
   }
 })
 
-ipcMain.handle('ollama:listModels', async (event, endpoint) => {
+ipcMain.handle(OLLAMA_LIST_MODELS, async (event, endpoint) => {
   const response = await ollamaRequest(endpoint, '/api/tags')
   return (response.models || []).map(m => m.name)
 })
@@ -690,7 +822,7 @@ function openaiRequest(endpoint, path, apiKey, options = {}) {
   })
 }
 
-ipcMain.handle('openai:generate', async (event, { prompt, content, model, endpoint, apiKey, skipSslVerification }) => {
+ipcMain.handle(OPENAI_GENERATE, async (event, { prompt, content, model, endpoint, apiKey, skipSslVerification }) => {
   if (!apiKey) {
     throw new Error('API key is required')
   }
@@ -720,7 +852,7 @@ ipcMain.handle('openai:generate', async (event, { prompt, content, model, endpoi
   }
 })
 
-ipcMain.handle('openai:testConnection', async (event, endpoint, apiKey, skipSslVerification) => {
+ipcMain.handle(OPENAI_TEST_CONNECTION, async (event, endpoint, apiKey, skipSslVerification) => {
   if (!apiKey) {
     return { success: false, error: 'API key is required' }
   }
@@ -738,7 +870,7 @@ ipcMain.handle('openai:testConnection', async (event, endpoint, apiKey, skipSslV
   }
 })
 
-ipcMain.handle('openai:listModels', async (event, endpoint, apiKey, skipSslVerification) => {
+ipcMain.handle(OPENAI_LIST_MODELS, async (event, endpoint, apiKey, skipSslVerification) => {
   if (!apiKey) {
     throw new Error('API key is required')
   }
@@ -747,4 +879,4 @@ ipcMain.handle('openai:listModels', async (event, endpoint, apiKey, skipSslVerif
 })
 
 // App info
-ipcMain.handle('app:getVersion', () => app.getVersion())
+ipcMain.handle(APP_GET_VERSION, () => app.getVersion())
