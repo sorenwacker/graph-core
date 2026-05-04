@@ -1,41 +1,45 @@
 import { OllamaImproveNotesCommand, ReorderCommand } from '../commands/index.js'
+import { useAppContext } from './useAppContext.js'
 
 /**
  * Composable for node actions that require UI state management.
  * Wraps core node operations with selection, navigation, and refresh logic.
+ *
+ * Uses the app context for shared state and functions, reducing parameter count.
+ *
+ * @param {Object} options
+ * @param {Object} options.nodeOps - Node operations composable (from useNodeOperations)
+ * @param {Function} options.pushCommand - Push undo/redo command (from useUndoRedo)
+ * @param {Function} options.getWorkspaceIdForNode - Get workspace ID for node type
  */
-export function useNodeActionsUI({
-  api,
-  nodeOps,
-  pushCommand,
-  getWorkspaceIdForNode,
-  // State refs
-  selectedNode,
-  selectedIds,
-  showDetail,
-  currentContainerId,
-  breadcrumbs,
-  children,
-  expandedIds,
-  flatChildren,
-  viewRendererRef,
-  error,
-  // Navigation
-  enterContainer,
-  navigateBack,
-  // Refresh functions
-  refreshAfterChange,
-  refreshAfterDelete,
-  refreshGraphAfterStructureChange,
-  refreshDetailPanelLinks,
-  loadSidebarTree,
-  loadFavorites,
-  loadChildren,
-  // Additional dependencies for updateNode
-  invalidateSidebarCache,
-  loadRecentItems,
-  loadTags,
-}) {
+export function useNodeActionsUI({ nodeOps, pushCommand, getWorkspaceIdForNode }) {
+  // Get shared state and functions from app context
+  const {
+    api,
+    selectedNode,
+    selectedIds,
+    showDetail,
+    currentContainerId,
+    breadcrumbs,
+    children,
+    expandedIds,
+    flatChildren,
+    viewRendererRef,
+    error,
+    enterContainer,
+    navigateBack,
+    refreshAfterChange,
+    refreshAfterDelete,
+    refreshGraphAfterStructureChange,
+    refreshDetailPanelLinks,
+    loadSidebarTree,
+    loadFavorites,
+    loadChildren,
+    invalidateSidebarCache,
+    loadRecentItems,
+    loadTags,
+  } = useAppContext()
+
   /**
    * Clear selection state after delete operations
    */

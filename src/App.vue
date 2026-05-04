@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { api } from './services/api.js'
 import { handleExternalLinkClick } from './utils/markdown.js'
+import { provideAppContext } from './composables/useAppContext.js'
 import { useAppLifecycle } from './composables/useAppLifecycle.js'
 import { useNodeTooltip } from './composables/useNodeTooltip.js'
 import { useDetachedWindow } from './composables/useDetachedWindow.js'
@@ -483,6 +484,40 @@ const {
   detailPanelRef,
 })
 
+// Provide app context for composables using provide/inject pattern
+provideAppContext({
+  // Services
+  api,
+  // State refs
+  currentWorkspace,
+  currentContainerId,
+  selectedNode,
+  selectedIds,
+  showDetail,
+  expandedIds,
+  breadcrumbs,
+  children,
+  flatChildren,
+  viewRendererRef,
+  detailPanelRef,
+  error,
+  // Navigation
+  enterContainer,
+  navigateBack,
+  // Data loading
+  loadChildren,
+  loadSidebarTree,
+  loadFavorites,
+  loadRecentItems,
+  loadTags,
+  invalidateSidebarCache,
+  // Refresh operations
+  refreshAfterChange,
+  refreshAfterDelete,
+  refreshGraphAfterStructureChange,
+  refreshDetailPanelLinks,
+})
+
 // Graph operations
 const graphOps = useGraphOperations({
   api,
@@ -494,7 +529,7 @@ const graphOps = useGraphOperations({
 })
 const { saveNodePosition, insertBetween } = graphOps
 
-// Node actions UI
+// Node actions UI (uses app context for shared state)
 const {
   addChildNode,
   clearSelectionAfterDelete,
@@ -514,32 +549,9 @@ const {
   updateNode,
   clearSelection,
 } = useNodeActionsUI({
-  api,
   nodeOps,
   pushCommand,
   getWorkspaceIdForNode,
-  selectedNode,
-  selectedIds,
-  showDetail,
-  currentContainerId,
-  breadcrumbs,
-  children,
-  expandedIds,
-  flatChildren,
-  viewRendererRef,
-  error,
-  enterContainer,
-  navigateBack,
-  refreshAfterChange,
-  refreshAfterDelete,
-  refreshGraphAfterStructureChange,
-  refreshDetailPanelLinks,
-  loadSidebarTree,
-  loadFavorites,
-  loadChildren,
-  invalidateSidebarCache,
-  loadRecentItems,
-  loadTags,
 })
 
 // Node creation
