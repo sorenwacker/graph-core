@@ -157,26 +157,40 @@ export interface DetailPanelRef {
 export const APP_CONTEXT_KEY: InjectionKey<AppContext> = Symbol('AppContext')
 
 /**
- * Provide the application context for child components.
+ * Module-level context storage for same-component access.
+ * This allows composables called in the same setup function to access the context.
+ */
+let currentContext: AppContext | null = null
+
+/**
+ * Provide the application context for child components and same-component composables.
  * Should be called once in App.vue during setup.
  *
  * @param context - The context object to provide
  */
 export function provideAppContext(context: AppContext): void {
+  // Store in module-level variable for same-component access
+  currentContext = context
+  // Also provide via Vue's provide/inject for child components
   provide(APP_CONTEXT_KEY, context)
 }
 
 /**
- * Inject the application context.
- * Should be called in composables or components that need shared state.
+ * Get the application context.
+ * Works both within the same component (via module storage) and in child components (via inject).
  *
  * @returns The application context
- * @throws Error if called outside of a component that has AppContext provided
+ * @throws Error if called before provideAppContext
  */
 export function useAppContext(): AppContext {
+  // First try module-level storage (for same-component access)
+  if (currentContext) {
+    return currentContext
+  }
+  // Fall back to inject (for child components)
   const context = inject(APP_CONTEXT_KEY)
   if (!context) {
-    throw new Error('useAppContext must be used within a component that has AppContext provided')
+    throw new Error('useAppContext must be used after provideAppContext is called')
   }
   return context
 }
