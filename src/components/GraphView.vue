@@ -498,50 +498,11 @@ function handleGlobalKeydown(e) {
   }
 }
 
-async function initGraph() {
-  if (!container.value) return
-  isInitializing = true
-  const savedPos = _loadPos()
-  const elements = buildElements({
-    nodeList: props.nodes,
-    parentNode: props.parent,
-    savedPositions: savedPos,
-    detailThreshold: props.detailThreshold,
-    maxDepth: maxDepth.value,
-    hideCompleted: props.hideCompleted,
-    hideSensitive: props.hideSensitive,
-    sortAlphabetically: props.sortAlphabetically,
-    visibleTypes: visibleTypes.value,
-    showRootNode: showRootNode.value,
-    selectedIds: props.selectedIds,
-    selectedId: props.selectedId,
-    ancestorColor: props.ancestorColor,
-    inheritColors: props.inheritColors,
-  })
-
-  if (showExternalLinks.value) {
-    try {
-      const ids = elements.filter(e => !e.data.source).map(e => parseInt(e.data.id))
-      if (ids.length > 0) {
-        const links = await api.getAllLinks(ids)
-        await fetchLinkedNodes({
-          elements,
-          links,
-          savedPositions: savedPos,
-          hideCompleted: props.hideCompleted,
-          selectedIds: props.selectedIds,
-          selectedId: props.selectedId,
-          handleError,
-        })
-        addLinkEdges(elements, links)
-      }
-    } catch (e) {
-      handleError(e, { context: 'Loading links', silent: true })
-    }
-  }
-
-  const hasPos = Object.keys(savedPos).length > 0
-  cy = cytoscape({
+/**
+ * Create the cytoscape instance with configuration.
+ */
+function createCytoscapeInstance(elements, hasPos) {
+  return cytoscape({
     container: container.value,
     elements,
     boxSelectionEnabled: true,
@@ -588,8 +549,12 @@ async function initGraph() {
     ],
     layout: hasPos ? { name: 'preset' } : getLayoutOptions(),
   })
+}
 
-  cy.nodes().grabify()
+/**
+ * Configure the node HTML label plugin for rendering custom node templates.
+ */
+function setupHtmlLabels() {
   cy.nodeHtmlLabel([
     {
       query: 'node',
@@ -619,9 +584,12 @@ async function initGraph() {
       },
     },
   ])
+}
 
-  events.setupEvents()
-
+/**
+ * Run layout and save positions for initial graph setup.
+ */
+function applyInitialLayout(hasPos) {
   if (props.selectedIds?.size > 0) props.selectedIds.forEach(id => cy.$(`#${id}`).select())
   else if (props.selectedId) cy.$(`#${props.selectedId}`).select()
 
@@ -643,23 +611,10 @@ async function initGraph() {
   }
 }
 
-async function updateGraph() {
-  if (isInitializing) return
-  if (!cy) {
-    await initGraph()
-    return
-  }
-
-  const savedZoom = cy.zoom(),
-    savedPan = { ...cy.pan() },
-    savedPos = _loadPos()
-  const existingIds = new Set()
-  cy.nodes().forEach(n => {
-    existingIds.add(n.id())
-    const p = n.position()
-    if (p.x !== 0 || p.y !== 0) savedPos[n.id()] = { x: p.x, y: p.y }
-  })
-
+async function initGraph() {
+  if (!container.value) return
+  isInitializing = true
+  const savedPos = _loadPos()
   const elements = buildElements({
     nodeList: props.nodes,
     parentNode: props.parent,
@@ -698,18 +653,91 @@ async function updateGraph() {
     }
   }
 
-  const hasPos = Object.keys(savedPos).length > 0,
-    elemPos = {}
+  const hasPos = Object.keys(savedPos).length > 0
+  cy = createCytoscapeInstance(elements, hasPos)
+  cy.nodes().grabify()
+  setupHtmlLabels()
+  events.setupEvents()
+  applyInitialLayout(hasPos)
+}
+
+/**
+ * Save current zoom, pan, and node positions from the graph.
+ */
+function collectCurrentState() {
+  const savedZoom = cy.zoom()
+  const savedPan = { ...cy.pan() }
+  const savedPos = _loadPos()
+  const existingIds = new Set()
+  cy.nodes().forEach(n => {
+    existingIds.add(n.id())
+    const p = n.position()
+    if (p.x !== 0 || p.y !== 0) savedPos[n.id()] = { x: p.x, y: p.y }
+  })
+  return { savedZoom, savedPan, savedPos, existingIds }
+}
+
+/**
+ * Build elements array with external links if enabled.
+ */
+async function buildUpdatedElements(savedPos) {
+  const elements = buildElements({
+    nodeList: props.nodes,
+    parentNode: props.parent,
+    savedPositions: savedPos,
+    detailThreshold: props.detailThreshold,
+    maxDepth: maxDepth.value,
+    hideCompleted: props.hideCompleted,
+    hideSensitive: props.hideSensitive,
+    sortAlphabetically: props.sortAlphabetically,
+    visibleTypes: visibleTypes.value,
+    showRootNode: showRootNode.value,
+    selectedIds: props.selectedIds,
+    selectedId: props.selectedId,
+    ancestorColor: props.ancestorColor,
+    inheritColors: props.inheritColors,
+  })
+
+  if (showExternalLinks.value) {
+    try {
+      const ids = elements.filter(e => !e.data.source).map(e => parseInt(e.data.id))
+      if (ids.length > 0) {
+        const links = await api.getAllLinks(ids)
+        await fetchLinkedNodes({
+          elements,
+          links,
+          savedPositions: savedPos,
+          hideCompleted: props.hideCompleted,
+          selectedIds: props.selectedIds,
+          selectedId: props.selectedId,
+          handleError,
+        })
+        addLinkEdges(elements, links)
+      }
+    } catch (e) {
+      handleError(e, { context: 'Loading links', silent: true })
+    }
+  }
+
+  return elements
+}
+
+/**
+ * Determine what changed and apply updates. Returns diff info or null if only data updates needed.
+ */
+function diffAndApply(elements, existingIds, savedPos) {
+  const hasPos = Object.keys(savedPos).length > 0
+  const elemPos = {}
   elements.forEach(e => {
     if (!e.data.source && e.position) elemPos[e.data.id] = e.position
   })
 
-  let hasNew = false,
-    hasEdge = false
-  const newIds = new Set(),
-    newEdges = new Set(),
-    newNodeIds = [],
-    extNeedRelax = []
+  let hasNew = false
+  let hasEdge = false
+  const newIds = new Set()
+  const newEdges = new Set()
+  const newNodeIds = []
+  const extNeedRelax = []
   const existEdges = new Set()
   cy.edges().forEach(e => existEdges.add(`${e.source().id()}-${e.target().id()}`))
 
@@ -720,8 +748,8 @@ async function updateGraph() {
       if (!existEdges.has(k)) hasEdge = true
     } else {
       newIds.add(e.data.id)
-      const isNew = !existingIds.has(e.data.id),
-        isExt = e.data.isLinkedExternal
+      const isNew = !existingIds.has(e.data.id)
+      const isExt = e.data.isLinkedExternal
       if (isNew && !isExt) {
         hasNew = true
         if (!e.position) newNodeIds.push(e.data.id)
@@ -753,6 +781,7 @@ async function updateGraph() {
       break
     }
 
+  // If only data changed (no structural changes), update in place
   if (!hasNew && !hasRemoved && !hasEdge && hasPos) {
     const map = new Map()
     elements.forEach(e => {
@@ -765,9 +794,47 @@ async function updateGraph() {
       })
     })
     _savePos()
+    return null // Signal that we're done
+  }
+
+  return { hasPos, newNodeIds, extNeedRelax }
+}
+
+/**
+ * Position and relax new nodes after graph update.
+ */
+function handleNewNodes(diffResult, savedZoom, savedPan) {
+  const { hasPos, newNodeIds, extNeedRelax } = diffResult
+  const allNeed = [...newNodeIds, ...extNeedRelax]
+
+  if (!hasPos) {
+    cy.layout(getLayoutOptions()).run()
+    setTimeout(_savePos, 600)
+  } else if (allNeed.length > 0) {
+    setTimeout(() => layout.autoRelaxNewNodes(allNeed), 100)
+  } else {
+    requestAnimationFrame(() => {
+      cy.viewport({ zoom: savedZoom, pan: savedPan })
+      _savePos()
+    })
+  }
+}
+
+async function updateGraph() {
+  if (isInitializing) return
+  if (!cy) {
+    await initGraph()
     return
   }
 
+  const { savedZoom, savedPan, savedPos, existingIds } = collectCurrentState()
+  const elements = await buildUpdatedElements(savedPos)
+  const diffResult = diffAndApply(elements, existingIds, savedPos)
+
+  // If diffAndApply returned null, only data updates were needed
+  if (diffResult === null) return
+
+  // Apply structural changes
   cy.batch(() => {
     cy.elements().remove()
     cy.add(elements)
@@ -775,16 +842,7 @@ async function updateGraph() {
   })
   cy.viewport({ zoom: savedZoom, pan: savedPan })
 
-  const allNeed = [...newNodeIds, ...extNeedRelax]
-  if (!hasPos) {
-    cy.layout(getLayoutOptions()).run()
-    setTimeout(_savePos, 600)
-  } else if (allNeed.length > 0) setTimeout(() => layout.autoRelaxNewNodes(allNeed), 100)
-  else
-    requestAnimationFrame(() => {
-      cy.viewport({ zoom: savedZoom, pan: savedPan })
-      _savePos()
-    })
+  handleNewNodes(diffResult, savedZoom, savedPan)
 }
 
 const setLayout = m => {
