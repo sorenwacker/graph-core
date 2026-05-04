@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { useUndoRedo } from '../composables/useUndoRedo.js'
+import { useUndoRedo } from '../composables/useUndoRedo'
 import {
   CreateCommand,
   DeleteCommand,

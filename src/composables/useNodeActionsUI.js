@@ -1,5 +1,5 @@
 import { OllamaImproveNotesCommand, ReorderCommand } from '../commands/index.js'
-import { useAppContext } from './useAppContext.js'
+import { useAppContext } from './useAppContext'
 
 /**
  * Composable for node actions that require UI state management.
