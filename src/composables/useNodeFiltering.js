@@ -1,3 +1,5 @@
+import { computed } from 'vue'
+
 /**
  * Composable for node filtering and transformation operations.
  * Provides functions for flattening, filtering by depth, completion status,
@@ -130,5 +132,87 @@ export function useNodeFiltering() {
     sortNodesRecursively,
     filterByType,
     buildInheritedColorMap,
+  }
+}
+
+/**
+ * Calculate progress from children nodes.
+ *
+ * @param {Array} nodeChildren - Array of child nodes
+ * @returns {Object|null} Progress object with completed, total, percent or null
+ */
+export function calculateProgress(nodeChildren) {
+  if (!nodeChildren?.length) return null
+  const tasks = nodeChildren.filter(c => c && (c.type === 'task' || c.type === 'project'))
+  if (tasks.length === 0) return null
+  const completed = tasks.filter(c => c.completed).length
+  return {
+    completed,
+    total: tasks.length,
+    percent: Math.round((completed / tasks.length) * 100),
+  }
+}
+
+/**
+ * Recursively filter children, removing completed nodes when hideCompleted is true.
+ * Preserves original progress counts in _progress property.
+ *
+ * @param {Array} nodeList - Array of nodes to filter
+ * @param {boolean} hideCompleted - Whether to hide completed items
+ * @returns {Array} Filtered array of nodes
+ */
+export function filterChildrenRecursive(nodeList, hideCompleted) {
+  if (!nodeList) return []
+  if (!hideCompleted) return nodeList.filter(Boolean)
+  return nodeList
+    .filter(node => node && !node.completed && !node.inheritedCompleted)
+    .map(node => ({
+      ...node,
+      _progress: calculateProgress(node.children),
+      children: node.children ? filterChildrenRecursive(node.children, hideCompleted) : [],
+    }))
+}
+
+/**
+ * Reactive composable for filtered and sorted children.
+ * Provides computed refs that react to changes in source data.
+ *
+ * @param {Object} options
+ * @param {Ref<Array>} options.children - Raw children nodes
+ * @param {Ref<boolean>} options.hideCompleted - Whether to hide completed items
+ * @param {Ref<boolean>} options.sortAlphabetically - Whether to sort alphabetically
+ * @returns {Object} Reactive computeds for filtered and sorted children
+ */
+export function useChildrenFiltering({ children, hideCompleted, sortAlphabetically }) {
+  /**
+   * Internal filter function using current hideCompleted value.
+   */
+  function filterRecursive(nodeList) {
+    return filterChildrenRecursive(nodeList, hideCompleted.value)
+  }
+
+  /**
+   * Filtered and optionally sorted children for cards view.
+   */
+  const filteredChildren = computed(() => {
+    let result = filterRecursive(children.value)
+    if (sortAlphabetically.value) {
+      result = [...result].sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+    }
+    return result
+  })
+
+  /**
+   * Sorted children for graph/timeline views (no completion filtering).
+   */
+  const sortedChildren = computed(() => {
+    if (!sortAlphabetically.value) return children.value
+    return [...children.value].sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+  })
+
+  return {
+    filteredChildren,
+    sortedChildren,
+    filterChildrenRecursive: filterRecursive,
   }
 }
