@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import { ALL_NODE_TYPES } from '../composables/useGraphSettings.js'
+import { ALL_NODE_TYPES } from '../composables/useGraphSettings'
 
 defineProps({
   layoutMode: { type: String, required: true },

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { useModalController } from '../composables/useModalController.js'
+import { useModalController } from '../composables/useModalController'
 
 describe('useModalController composable', () => {
   beforeEach(() => {

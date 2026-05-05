@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { ref } from 'vue'
-import { useDataLoading, sidebarCache } from '../composables/useDataLoading.js'
+import { useDataLoading, sidebarCache } from '../composables/useDataLoading'
 import { api } from '../services/api.js'
 
 vi.mock('../services/api.js', () => ({

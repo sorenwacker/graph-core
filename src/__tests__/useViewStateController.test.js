@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { ref, nextTick } from 'vue'
-import { useViewStateController } from '../composables/useViewStateController.js'
+import { useViewStateController } from '../composables/useViewStateController'
 
 describe('useViewStateController composable', () => {
   beforeEach(() => {

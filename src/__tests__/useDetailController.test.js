@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { ref } from 'vue'
-import { useDetailController } from '../composables/useDetailController.js'
+import { useDetailController } from '../composables/useDetailController'
 
 // Mock useDetailResize
 vi.mock('../composables/useDetailResize.js', () => ({

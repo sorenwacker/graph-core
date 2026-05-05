@@ -39,23 +39,23 @@ export interface AppContext {
   /** Current error message */
   error: Ref<string | null>
   /** Navigate into a container */
-  enterContainer: (nodeId: number) => void | Promise<void>
+  enterContainer: (node: Node | { id: number }) => void | Promise<void>
   /** Navigate back */
   navigateBack: () => void | Promise<void>
   /** Refresh after data change */
-  refreshAfterChange: (node?: Node) => void | Promise<void>
+  refreshAfterChange: (options?: { sidebar?: boolean; recent?: boolean }) => void | Promise<void>
   /** Refresh after delete operation */
-  refreshAfterDelete: (nodeId: number, descendants?: Node[]) => void | Promise<void>
+  refreshAfterDelete: () => void | Promise<void>
   /** Refresh graph view */
   refreshGraphAfterStructureChange: () => void | Promise<void>
   /** Refresh detail panel links */
-  refreshDetailPanelLinks: () => void | Promise<void>
+  refreshDetailPanelLinks: (sourceId?: number, targetId?: number) => void | Promise<void>
   /** Load sidebar tree */
   loadSidebarTree: () => void | Promise<void>
   /** Load favorite items */
   loadFavorites: () => void | Promise<void>
   /** Load children nodes */
-  loadChildren: () => void | Promise<void>
+  loadChildren: (containerId?: number | null, options?: { silent?: boolean }) => void | Promise<void>
   /** Invalidate sidebar cache */
   invalidateSidebarCache: () => void
   /** Load recent items */

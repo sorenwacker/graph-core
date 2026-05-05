@@ -1,7 +1,7 @@
 import { ref, computed, watch } from 'vue'
-import { useDetailController } from './useDetailController.js'
-import { useModalController } from './useModalController.js'
-import { useViewStateController } from './useViewStateController.js'
+import { useDetailController } from './useDetailController'
+import { useModalController } from './useModalController'
+import { useViewStateController } from './useViewStateController'
 
 /**
  * Main orchestration composable for App.vue.
