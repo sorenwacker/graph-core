@@ -72,6 +72,12 @@ const {
   DB_GET_TABLE_CELLS,
   DB_SET_CELLS,
   DB_CLEAR_CELLS,
+  // Database - Settings
+  DB_GET_SETTING,
+  DB_GET_ALL_SETTINGS,
+  DB_SET_SETTING,
+  DB_SET_SETTINGS,
+  DB_DELETE_SETTING,
   // Shell
   SHELL_OPEN_EXTERNAL,
   // Window
@@ -502,6 +508,15 @@ ipcMain.handle(DB_DELETE_NODE_TABLE, (event, nodeId) => db.deleteNodeTable(nodeI
 ipcMain.handle(DB_GET_TABLE_CELLS, (event, nodeId) => db.getTableCells(nodeId))
 ipcMain.handle(DB_SET_CELLS, (event, nodeId, cells) => db.setCells(nodeId, cells))
 ipcMain.handle(DB_CLEAR_CELLS, (event, nodeId) => db.clearCells(nodeId))
+
+// =========================================
+// SETTINGS
+// =========================================
+ipcMain.handle(DB_GET_SETTING, (event, key) => db.getSetting(key))
+ipcMain.handle(DB_GET_ALL_SETTINGS, () => db.getAllSettings())
+ipcMain.handle(DB_SET_SETTING, (event, key, value) => db.setSetting(key, value))
+ipcMain.handle(DB_SET_SETTINGS, (event, settings) => db.setSettings(settings))
+ipcMain.handle(DB_DELETE_SETTING, (event, key) => db.deleteSetting(key))
 
 // =========================================
 // SHELL

@@ -152,6 +152,14 @@ function createTables(db) {
       UNIQUE(table_id, row_index, col_index)
     )
   `)
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
 }
 
 /**

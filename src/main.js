@@ -9,26 +9,45 @@ import './themes/dark.css'
 import './themes/light.css'
 import App from './App.vue'
 import DetachedView from './components/DetachedView.vue'
+import { initSettings, migrateSettingsToDatabase } from './composables/useSettings.js'
 
 const pinia = createPinia()
 
-// Check if this is a detached window
-const params = new URLSearchParams(window.location.search)
-const detachedNodeId = params.get('detached')
+// Initialize settings from database before mounting app
+async function bootstrap() {
+  // Initialize settings cache from database
+  await initSettings()
 
-if (detachedNodeId) {
-  // Mount DetachedView for detached windows
-  const nodeId = parseInt(detachedNodeId, 10)
-  const detachedApp = createApp({
-    render() {
-      return h(DetachedView, { nodeId })
-    },
-  })
-  detachedApp.use(pinia)
-  detachedApp.mount('#app')
-} else {
-  // Mount main App
-  const app = createApp(App)
-  app.use(pinia)
-  app.mount('#app')
+  // Migrate localStorage settings to database (one-time migration)
+  try {
+    const result = await migrateSettingsToDatabase()
+    if (result.migrated > 0) {
+      console.log(`Migrated ${result.migrated} settings to database`)
+    }
+  } catch (e) {
+    console.error('Settings migration failed:', e)
+  }
+
+  // Check if this is a detached window
+  const params = new URLSearchParams(window.location.search)
+  const detachedNodeId = params.get('detached')
+
+  if (detachedNodeId) {
+    // Mount DetachedView for detached windows
+    const nodeId = parseInt(detachedNodeId, 10)
+    const detachedApp = createApp({
+      render() {
+        return h(DetachedView, { nodeId })
+      },
+    })
+    detachedApp.use(pinia)
+    detachedApp.mount('#app')
+  } else {
+    // Mount main App
+    const app = createApp(App)
+    app.use(pinia)
+    app.mount('#app')
+  }
 }
+
+bootstrap()
