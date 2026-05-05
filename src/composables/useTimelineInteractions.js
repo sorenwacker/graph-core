@@ -3,7 +3,7 @@
  * Handles clicks, context menus, panning, and column resizing.
  */
 
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref } from 'vue'
 
 // Column resize constants
 const MIN_LABELS_WIDTH = 100

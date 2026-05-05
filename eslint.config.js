@@ -116,7 +116,10 @@ export default [
       'release/**',
       'node_modules/**',
       'coverage/**',
-      '*.config.js'
+      '*.config.js',
+      // TypeScript files are checked by vue-tsc, not ESLint
+      '**/*.ts',
+      '**/*.d.ts'
     ]
   }
 ]
