@@ -116,6 +116,15 @@ const DB_SET_CELLS = 'db:setCells'
 const DB_CLEAR_CELLS = 'db:clearCells'
 
 // ===========================================
+// DATABASE - Settings
+// ===========================================
+const DB_GET_SETTING = 'db:getSetting'
+const DB_GET_ALL_SETTINGS = 'db:getAllSettings'
+const DB_SET_SETTING = 'db:setSetting'
+const DB_SET_SETTINGS = 'db:setSettings'
+const DB_DELETE_SETTING = 'db:deleteSetting'
+
+// ===========================================
 // SHELL
 // ===========================================
 const SHELL_OPEN_EXTERNAL = 'shell:openExternal'
@@ -240,6 +249,13 @@ module.exports = {
   DB_GET_TABLE_CELLS,
   DB_SET_CELLS,
   DB_CLEAR_CELLS,
+
+  // Database - Settings
+  DB_GET_SETTING,
+  DB_GET_ALL_SETTINGS,
+  DB_SET_SETTING,
+  DB_SET_SETTINGS,
+  DB_DELETE_SETTING,
 
   // Shell
   SHELL_OPEN_EXTERNAL,

@@ -1,8 +1,40 @@
-import { ref, watch } from 'vue'
+import { ref, watch, shallowRef } from 'vue'
+
+// Cache for loaded settings from database
+let settingsCache = null
+let settingsLoaded = false
 
 /**
- * Create a ref that automatically persists to localStorage
- * @param {string} key - localStorage key
+ * Check if running in Electron environment with database access.
+ * @returns {boolean}
+ */
+function hasElectronAPI() {
+  return typeof window !== 'undefined' && window.electronAPI?.getAllSettings
+}
+
+/**
+ * Load all settings from database (called once on first use).
+ * @returns {Promise<Object>} Settings object
+ */
+async function loadSettingsFromDatabase() {
+  if (settingsLoaded && settingsCache) {
+    return settingsCache
+  }
+  try {
+    settingsCache = await window.electronAPI.getAllSettings()
+    settingsLoaded = true
+    return settingsCache
+  } catch (e) {
+    console.error('Failed to load settings from database:', e)
+    settingsCache = {}
+    settingsLoaded = true
+    return settingsCache
+  }
+}
+
+/**
+ * Create a ref that automatically persists to database (or localStorage fallback).
+ * @param {string} key - Setting key
  * @param {*} defaultValue - Default value if not in storage
  * @param {Object} options - Options for parsing and serialization
  * @param {string} options.type - 'string' | 'boolean' | 'number' | 'nullable' | 'json'
@@ -11,42 +43,77 @@ import { ref, watch } from 'vue'
 function persistedRef(key, defaultValue, { type = 'string' } = {}) {
   // Parse stored value based on type
   function parse(stored) {
-    if (stored === null) return defaultValue
+    if (stored === null || stored === undefined) return defaultValue
+    const str = String(stored)
     switch (type) {
       case 'boolean':
-        return stored === 'true'
+        return str === 'true'
       case 'number': {
-        const parsed = parseInt(stored, 10)
+        const parsed = parseInt(str, 10)
         return isNaN(parsed) ? defaultValue : parsed
       }
       case 'nullable':
-        return stored || null
+        return str || null
       case 'json':
         try {
-          return JSON.parse(stored)
+          return JSON.parse(str)
         } catch {
           return defaultValue
         }
       default:
-        return stored
+        return str
     }
   }
 
-  // Get initial value from localStorage
-  const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null
-  const value = ref(parse(stored))
+  // Serialize value for storage
+  function serialize(val) {
+    if (val === null && type === 'nullable') {
+      return null
+    }
+    if (type === 'json') {
+      return JSON.stringify(val)
+    }
+    return String(val)
+  }
+
+  // Get initial value from cache or localStorage
+  let initialValue = defaultValue
+  if (hasElectronAPI() && settingsCache) {
+    initialValue = parse(settingsCache[key])
+  } else if (typeof localStorage !== 'undefined') {
+    initialValue = parse(localStorage.getItem(key))
+  }
+
+  const value = ref(initialValue)
 
   // Watch for changes and persist
   watch(
     value,
-    val => {
-      if (typeof localStorage === 'undefined') return
-      if (val === null && type === 'nullable') {
-        localStorage.removeItem(key)
-      } else if (type === 'json') {
-        localStorage.setItem(key, JSON.stringify(val))
-      } else {
-        localStorage.setItem(key, String(val))
+    async val => {
+      const serialized = serialize(val)
+
+      // Save to database if available
+      if (hasElectronAPI()) {
+        try {
+          if (serialized === null) {
+            await window.electronAPI.deleteSetting(key)
+            if (settingsCache) delete settingsCache[key]
+          } else {
+            await window.electronAPI.setSetting(key, serialized)
+            if (settingsCache) settingsCache[key] = serialized
+          }
+        } catch (e) {
+          console.error('Failed to save setting to database:', key, e)
+        }
+      }
+
+      // Also save to localStorage as fallback/backup
+      if (typeof localStorage !== 'undefined') {
+        if (serialized === null) {
+          localStorage.removeItem(key)
+        } else {
+          localStorage.setItem(key, serialized)
+        }
       }
     },
     { deep: true }
@@ -55,14 +122,96 @@ function persistedRef(key, defaultValue, { type = 'string' } = {}) {
   return value
 }
 
+// Singleton state for settings initialization
+const settingsReady = shallowRef(false)
+let initPromise = null
+
 /**
- * Composable for managing application settings with localStorage persistence.
- * Centralizes all settings to prevent scattered localStorage access throughout the app.
+ * Initialize settings from database (call once at app startup).
+ * @returns {Promise<void>}
+ */
+export async function initSettings() {
+  if (settingsReady.value) return
+  if (initPromise) return initPromise
+
+  initPromise = (async () => {
+    if (hasElectronAPI()) {
+      await loadSettingsFromDatabase()
+    }
+    settingsReady.value = true
+  })()
+
+  return initPromise
+}
+
+/**
+ * Migrate settings from localStorage to database.
+ * Call this once during app initialization to move existing localStorage settings to the database.
+ * @returns {Promise<Object>} Migration result
+ */
+export async function migrateSettingsToDatabase() {
+  if (!hasElectronAPI() || typeof localStorage === 'undefined') {
+    return { migrated: 0, skipped: 'No electronAPI or localStorage' }
+  }
+
+  const prefix = 'graphcore-'
+  const settingsToMigrate = {}
+  let count = 0
+
+  // Find all graphcore- prefixed localStorage keys
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key && key.startsWith(prefix)) {
+      const value = localStorage.getItem(key)
+      if (value !== null) {
+        settingsToMigrate[key] = value
+        count++
+      }
+    }
+  }
+
+  if (count === 0) {
+    return { migrated: 0, message: 'No localStorage settings to migrate' }
+  }
+
+  // Check if database already has settings
+  const existingSettings = await window.electronAPI.getAllSettings()
+  const existingCount = Object.keys(existingSettings).length
+
+  if (existingCount > 0) {
+    // Database already has settings, only migrate missing ones
+    for (const key of Object.keys(settingsToMigrate)) {
+      if (key in existingSettings) {
+        delete settingsToMigrate[key]
+        count--
+      }
+    }
+  }
+
+  if (count === 0) {
+    return { migrated: 0, message: 'All settings already in database' }
+  }
+
+  // Migrate to database
+  await window.electronAPI.setSettings(settingsToMigrate)
+
+  // Update cache
+  settingsCache = { ...settingsCache, ...settingsToMigrate }
+
+  return { migrated: count, settings: Object.keys(settingsToMigrate) }
+}
+
+/**
+ * Composable for managing application settings with database persistence.
+ * Centralizes all settings to prevent scattered storage access throughout the app.
  *
  * @returns {Object} Settings refs with auto-persistence
  */
 export function useSettings() {
   return {
+    // Ready state
+    settingsReady,
+
     // View mode: tree, graph, timeline, table, persons, tasks, trash
     viewMode: persistedRef('graphcore-viewMode', 'graph'),
 

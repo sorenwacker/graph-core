@@ -16,6 +16,7 @@ const { createTreeOperations } = require('./tree')
 const { createExportOperations } = require('./export')
 const { createBackupOperations } = require('./backup')
 const { createTableOperations } = require('./tables')
+const { createSettingsOperations } = require('./settings')
 
 let SQL = null
 
@@ -70,6 +71,7 @@ class Database {
     const exportOps = createExportOperations(this)
     const backupOps = createBackupOperations(this)
     const tableOps = createTableOperations(this)
+    const settingsOps = createSettingsOperations(this)
 
     // Bind all operations to this instance
     // Workspaces
@@ -141,6 +143,14 @@ class Database {
     this.getTableCells = tableOps.getTableCells.bind(tableOps)
     this.setCells = tableOps.setCells.bind(tableOps)
     this.clearCells = tableOps.clearCells.bind(tableOps)
+
+    // Settings
+    this.getSetting = settingsOps.getSetting.bind(settingsOps)
+    this.getAllSettings = settingsOps.getAllSettings.bind(settingsOps)
+    this.setSetting = settingsOps.setSetting.bind(settingsOps)
+    this.setSettings = settingsOps.setSettings.bind(settingsOps)
+    this.deleteSetting = settingsOps.deleteSetting.bind(settingsOps)
+    this.clearSettings = settingsOps.clearSettings.bind(settingsOps)
   }
 
   _save() {

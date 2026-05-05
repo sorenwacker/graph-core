@@ -87,6 +87,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setCells: (nodeId, cells) => ipcRenderer.invoke('db:setCells', nodeId, cells),
   clearCells: nodeId => ipcRenderer.invoke('db:clearCells', nodeId),
 
+  // Settings
+  getSetting: key => ipcRenderer.invoke('db:getSetting', key),
+  getAllSettings: () => ipcRenderer.invoke('db:getAllSettings'),
+  setSetting: (key, value) => ipcRenderer.invoke('db:setSetting', key, value),
+  setSettings: settings => ipcRenderer.invoke('db:setSettings', settings),
+  deleteSetting: key => ipcRenderer.invoke('db:deleteSetting', key),
+
   // Shell
   openExternal: url => ipcRenderer.invoke('shell:openExternal', url),
 
