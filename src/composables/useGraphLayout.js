@@ -1,5 +1,3 @@
-import { ref } from 'vue'
-
 // Constants for edge length calculation based on graph density
 const EDGE_LENGTH = {
   BASE_LARGE: 60, // >100 nodes
