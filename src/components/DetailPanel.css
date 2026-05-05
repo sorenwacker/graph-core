@@ -274,6 +274,9 @@
   flex: 1 1 auto;
   overflow: hidden;
   min-height: 200px;
+  padding: 8px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
 }
 
 .table-section.collapsed {
