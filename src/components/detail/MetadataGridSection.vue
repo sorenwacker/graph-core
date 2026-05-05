@@ -257,6 +257,9 @@ function clearLocation() {
 .meta-section {
   display: flex;
   flex-direction: column;
+  padding: 8px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
 }
 
 .section-header {
