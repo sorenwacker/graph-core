@@ -1,21 +1,90 @@
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, type Ref } from 'vue'
 import { useErrorHandler } from './useErrorHandler'
+import type { Node, SearchOptions } from '../types'
 
 const SEARCH_PAGE_SIZE = 50
+
+/**
+ * Search mode discriminator.
+ */
+export type SearchMode = 'normal' | 'link' | 'move'
+
+/**
+ * Search result with optional breadcrumb.
+ */
+export interface SearchResult extends Node {
+  breadcrumb?: string
+}
+
+/**
+ * Pagination options for search.
+ */
+export interface SearchPaginationOptions {
+  limit: number
+  offset: number
+}
+
+/**
+ * Options for useSearch composable.
+ */
+export interface UseSearchOptions {
+  /** Called to perform search */
+  onSearch?: (
+    query: string,
+    mode: SearchMode,
+    workspaceId: number | null,
+    paginationOptions: SearchPaginationOptions
+  ) => Promise<Node[]>
+  /** Called when a result is selected (legacy callback) */
+  onSelect?: (node: Node, mode: SearchMode, linkSourceId: number | null) => void
+  /** Called when linking */
+  onLink?: (targetNode: Node, sourceId: number) => Promise<void>
+  /** Called when moving */
+  onMove?: (sourceId: number, targetId: number) => Promise<void>
+  /** Called for navigation */
+  onNavigate?: (node: Node) => Promise<void>
+  /** Called to fetch ancestors for a node */
+  getAncestors?: (nodeId: number) => Promise<Node[]>
+  /** Ref to the currently selected node (for link mode) */
+  selectedNode?: Ref<Node | null>
+  /** Function that returns current workspace ID */
+  getWorkspace?: () => number | null
+}
+
+/**
+ * Return type for useSearch composable.
+ */
+export interface UseSearchReturn {
+  // State
+  searchQuery: Ref<string>
+  searchResults: Ref<SearchResult[]>
+  showSearch: Ref<boolean>
+  selectedResultIndex: Ref<number>
+  searchMode: Ref<SearchMode>
+  linkSourceNodeId: Ref<number | null>
+  searchInputRef: Ref<HTMLInputElement | null>
+  hasMoreResults: Ref<boolean>
+  isLoadingMore: Ref<boolean>
+
+  // Methods
+  openSearch: () => void
+  openLinkSearch: (node?: Node | null) => void
+  openMoveSearch: (node?: Node | null) => void
+  closeSearch: () => void
+  handleSearch: (workspaceId: number | null, loadMore?: boolean) => Promise<void>
+  onSearchInput: () => void
+  handleSearchKeydown: (e: KeyboardEvent) => void
+  goToSearchResult: (node: SearchResult) => Promise<void>
+  isResultSelected: (index: number) => boolean
+  loadMoreResults: () => Promise<void>
+}
 
 /**
  * Composable for spotlight-style search functionality.
  * Handles search state, debounced input, and navigation through results.
  *
- * @param {Object} options
- * @param {Function} options.onSearch - Called to perform search: onSearch(query, mode, workspaceId, paginationOptions) => results[]
- * @param {Function} options.onSelect - Called when a result is selected: onSelect(node, mode, linkSourceId) - legacy callback
- * @param {Function} options.onLink - Called when linking: onLink(targetNode, sourceId) - returns promise
- * @param {Function} options.onMove - Called when moving: onMove(sourceId, targetId) - returns promise
- * @param {Function} options.onNavigate - Called for navigation: onNavigate(node) - returns promise
- * @param {Function} options.getAncestors - Called to fetch ancestors for a node: getAncestors(nodeId) => ancestors[]
- * @param {Object} options.selectedNode - Ref to the currently selected node (for link mode)
- * @param {Function} options.getWorkspace - Function that returns current workspace ID
+ * @param options - Configuration options
+ * @returns Search state and functions
  */
 export function useSearch({
   onSearch,
@@ -26,22 +95,22 @@ export function useSearch({
   getAncestors,
   selectedNode,
   getWorkspace,
-} = {}) {
+}: UseSearchOptions = {}): UseSearchReturn {
   const { handleError } = useErrorHandler()
 
   const searchQuery = ref('')
-  const searchResults = ref([])
+  const searchResults = ref<SearchResult[]>([])
   const showSearch = ref(false)
-  const searchTimeout = ref(null)
+  const searchTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
   const selectedResultIndex = ref(0)
-  const searchMode = ref('normal') // 'normal', 'link', or 'move'
-  const linkSourceNodeId = ref(null)
-  const searchInputRef = ref(null)
+  const searchMode = ref<SearchMode>('normal')
+  const linkSourceNodeId = ref<number | null>(null)
+  const searchInputRef = ref<HTMLInputElement | null>(null)
   const searchOffset = ref(0)
   const hasMoreResults = ref(false)
   const isLoadingMore = ref(false)
 
-  function openSearch() {
+  function openSearch(): void {
     showSearch.value = true
     searchQuery.value = ''
     searchResults.value = []
@@ -55,7 +124,7 @@ export function useSearch({
     })
   }
 
-  function openLinkSearch(node = null) {
+  function openLinkSearch(node: Node | null = null): void {
     const targetNode = node || selectedNode?.value
     if (!targetNode) return
     showSearch.value = true
@@ -71,7 +140,7 @@ export function useSearch({
     })
   }
 
-  function openMoveSearch(node = null) {
+  function openMoveSearch(node: Node | null = null): void {
     const targetNode = node || selectedNode?.value
     if (!targetNode) return
     showSearch.value = true
@@ -87,7 +156,7 @@ export function useSearch({
     })
   }
 
-  function closeSearch() {
+  function closeSearch(): void {
     showSearch.value = false
     searchQuery.value = ''
     searchResults.value = []
@@ -99,7 +168,7 @@ export function useSearch({
     isLoadingMore.value = false
   }
 
-  async function handleSearch(workspaceId, loadMore = false) {
+  async function handleSearch(workspaceId: number | null, loadMore = false): Promise<void> {
     if (!searchQuery.value.trim()) {
       searchResults.value = []
       searchOffset.value = 0
@@ -115,7 +184,7 @@ export function useSearch({
           searchOffset.value = 0
         }
 
-        const paginationOptions = {
+        const paginationOptions: SearchPaginationOptions = {
           limit: SEARCH_PAGE_SIZE,
           offset: searchOffset.value,
         }
@@ -126,7 +195,7 @@ export function useSearch({
         hasMoreResults.value = results.length === SEARCH_PAGE_SIZE
 
         // Fetch breadcrumbs for each result if getAncestors is provided
-        let processedResults = results
+        let processedResults: SearchResult[] = results
         if (getAncestors && results.length > 0) {
           processedResults = await Promise.all(
             results.map(async result => {
@@ -151,25 +220,27 @@ export function useSearch({
         }
       }
     } catch (e) {
-      handleError(e, { context: 'Searching' })
+      handleError(e as Error, { context: 'Searching' })
       isLoadingMore.value = false
     }
   }
 
-  async function loadMoreResults() {
+  async function loadMoreResults(): Promise<void> {
     if (!hasMoreResults.value || isLoadingMore.value) return
     searchOffset.value += SEARCH_PAGE_SIZE
     const workspaceId = getWorkspace ? getWorkspace() : null
     await handleSearch(workspaceId, true)
   }
 
-  function onSearchInput() {
-    clearTimeout(searchTimeout.value)
+  function onSearchInput(): void {
+    if (searchTimeout.value) {
+      clearTimeout(searchTimeout.value)
+    }
     const workspaceId = getWorkspace ? getWorkspace() : null
     searchTimeout.value = setTimeout(() => handleSearch(workspaceId), 200)
   }
 
-  function handleSearchKeydown(e) {
+  function handleSearchKeydown(e: KeyboardEvent): void {
     if (e.key === 'Escape') {
       closeSearch()
     } else if (e.key === 'ArrowDown') {
@@ -192,7 +263,7 @@ export function useSearch({
     }
   }
 
-  async function goToSearchResult(node) {
+  async function goToSearchResult(node: SearchResult): Promise<void> {
     const mode = searchMode.value
     const sourceId = linkSourceNodeId.value
     closeSearch()
@@ -217,7 +288,7 @@ export function useSearch({
     }
   }
 
-  function isResultSelected(index) {
+  function isResultSelected(index: number): boolean {
     return selectedResultIndex.value === index
   }
 
