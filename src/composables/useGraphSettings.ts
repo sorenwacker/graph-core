@@ -1,10 +1,11 @@
-import { ref, reactive, watch, isRef } from 'vue'
+import { ref, reactive, watch, isRef, type Ref, type UnwrapRef } from 'vue'
 import { RADIAL_DEFAULTS, STORAGE_KEYS } from '../utils/uiConstants.js'
+import type { NodeType } from '../types'
 
 /**
  * All node types available in the graph
  */
-export const ALL_NODE_TYPES = [
+export const ALL_NODE_TYPES: NodeType[] = [
   'task',
   'note',
   'project',
@@ -18,34 +19,81 @@ export const ALL_NODE_TYPES = [
 ]
 
 /**
+ * Radial layout settings
+ */
+export interface RadialLayoutSettings {
+  nodeRepulsion: number
+  edgeLength: number
+  elasticity: number
+  gravity: number
+  gravityRange: number
+  nestingFactor: number
+  iterations: number
+}
+
+/**
+ * Options for useGraphSettings composable.
+ */
+export interface UseGraphSettingsOptions {
+  /** Current workspace ID (ref or number) */
+  workspace?: Ref<number> | number
+}
+
+/**
+ * Return type for useGraphSettings composable.
+ */
+export interface UseGraphSettingsReturn {
+  /** Layout mode (tree, radial, etc.) */
+  layoutMode: Ref<string>
+  /** Whether relax mode is locked */
+  relaxLocked: Ref<boolean>
+  /** Whether fit mode is locked */
+  fitLocked: Ref<boolean>
+  /** Whether to show external links */
+  showExternalLinks: Ref<boolean>
+  /** Whether to show root node */
+  showRootNode: Ref<boolean>
+  /** Visible node types */
+  visibleTypes: Ref<NodeType[]>
+  /** Radial layout settings */
+  radialSettings: UnwrapRef<RadialLayoutSettings>
+  /** Toggle visibility of a node type */
+  toggleTypeVisibility: (type: NodeType) => void
+  /** Reset radial settings to defaults */
+  resetRadialSettings: () => void
+  /** Check if a node type is visible */
+  isTypeVisible: (type: NodeType) => boolean
+  /** Reload all settings from localStorage */
+  reload: () => void
+}
+
+/**
  * Composable for managing graph display settings with localStorage persistence.
  * Settings are stored per-workspace to ensure isolation between workspaces.
- *
- * @param {Object} options
- * @param {Ref<string>|string} options.workspace - Current workspace ID (ref or string)
- * @returns {Object} Graph settings state and functions
  */
-export function useGraphSettings({ workspace } = {}) {
-  // Get workspace value (support both ref and plain string)
-  const getWorkspace = () => (isRef(workspace) ? workspace.value : workspace || 'work')
+export function useGraphSettings(options: UseGraphSettingsOptions = {}): UseGraphSettingsReturn {
+  const { workspace } = options
+
+  // Get workspace value (support both ref and plain number)
+  const getWorkspace = (): number | string => (isRef(workspace) ? workspace.value : workspace || 'work')
 
   // Build workspace-specific storage key
-  const wsKey = baseKey => `${baseKey}-${getWorkspace()}`
+  const wsKey = (baseKey: string): string => `${baseKey}-${getWorkspace()}`
 
   // Helper functions for localStorage
-  function getString(key, defaultValue) {
+  function getString(key: string, defaultValue: string): string {
     if (typeof localStorage === 'undefined') return defaultValue
     return localStorage.getItem(wsKey(key)) || defaultValue
   }
 
-  function getBoolean(key, defaultValue) {
+  function getBoolean(key: string, defaultValue: boolean): boolean {
     if (typeof localStorage === 'undefined') return defaultValue
     const stored = localStorage.getItem(wsKey(key))
     if (stored === null) return defaultValue
     return stored === 'true'
   }
 
-  function getNumber(key, defaultValue) {
+  function getNumber(key: string, defaultValue: number): number {
     if (typeof localStorage === 'undefined') return defaultValue
     const stored = localStorage.getItem(wsKey(key))
     if (stored === null) return defaultValue
@@ -53,12 +101,12 @@ export function useGraphSettings({ workspace } = {}) {
     return isNaN(parsed) ? defaultValue : parsed
   }
 
-  function getArray(key, defaultValue) {
+  function getArray<T>(key: string, defaultValue: T[]): T[] {
     if (typeof localStorage === 'undefined') return defaultValue
     const stored = localStorage.getItem(wsKey(key))
     if (!stored) return defaultValue
     try {
-      return JSON.parse(stored)
+      return JSON.parse(stored) as T[]
     } catch {
       return defaultValue
     }
@@ -74,10 +122,10 @@ export function useGraphSettings({ workspace } = {}) {
   const showRootNode = ref(getBoolean(STORAGE_KEYS.GRAPH_SHOW_ROOT_NODE, true))
 
   // Node type filter
-  const visibleTypes = ref(getArray(STORAGE_KEYS.GRAPH_TYPE_FILTER, [...ALL_NODE_TYPES]))
+  const visibleTypes = ref<NodeType[]>(getArray(STORAGE_KEYS.GRAPH_TYPE_FILTER, [...ALL_NODE_TYPES]))
 
   // Radial layout settings
-  const radialSettings = reactive({
+  const radialSettings = reactive<RadialLayoutSettings>({
     nodeRepulsion: getNumber(STORAGE_KEYS.GRAPH_RADIAL_REPULSION, RADIAL_DEFAULTS.repulsion),
     edgeLength: getNumber(STORAGE_KEYS.GRAPH_RADIAL_EDGE_LENGTH, RADIAL_DEFAULTS.edgeLength),
     elasticity: getNumber(STORAGE_KEYS.GRAPH_RADIAL_ELASTICITY, RADIAL_DEFAULTS.elasticity),
@@ -90,7 +138,7 @@ export function useGraphSettings({ workspace } = {}) {
   /**
    * Reload all settings from localStorage for current workspace
    */
-  function reload() {
+  function reload(): void {
     layoutMode.value = getString(STORAGE_KEYS.GRAPH_LAYOUT_MODE, 'tree')
     relaxLocked.value = getBoolean(STORAGE_KEYS.GRAPH_RELAX_LOCKED, false)
     fitLocked.value = getBoolean(STORAGE_KEYS.GRAPH_FIT_LOCKED, false)
@@ -113,29 +161,41 @@ export function useGraphSettings({ workspace } = {}) {
 
   // Persistence watchers
   watch(layoutMode, val => {
-    localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_LAYOUT_MODE), val)
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_LAYOUT_MODE), val)
+    }
   })
 
   watch(relaxLocked, val => {
-    localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RELAX_LOCKED), String(val))
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RELAX_LOCKED), String(val))
+    }
   })
 
   watch(fitLocked, val => {
-    localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_FIT_LOCKED), String(val))
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_FIT_LOCKED), String(val))
+    }
   })
 
   watch(showExternalLinks, val => {
-    localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_SHOW_EXTERNAL_LINKS), String(val))
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_SHOW_EXTERNAL_LINKS), String(val))
+    }
   })
 
   watch(showRootNode, val => {
-    localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_SHOW_ROOT_NODE), String(val))
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_SHOW_ROOT_NODE), String(val))
+    }
   })
 
   watch(
     visibleTypes,
     val => {
-      localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_TYPE_FILTER), JSON.stringify(val))
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_TYPE_FILTER), JSON.stringify(val))
+      }
     },
     { deep: true }
   )
@@ -144,51 +204,64 @@ export function useGraphSettings({ workspace } = {}) {
   watch(
     () => radialSettings.nodeRepulsion,
     val => {
-      localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RADIAL_REPULSION), String(val))
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RADIAL_REPULSION), String(val))
+      }
     }
   )
   watch(
     () => radialSettings.edgeLength,
     val => {
-      localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RADIAL_EDGE_LENGTH), String(val))
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RADIAL_EDGE_LENGTH), String(val))
+      }
     }
   )
   watch(
     () => radialSettings.elasticity,
     val => {
-      localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RADIAL_ELASTICITY), String(val))
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RADIAL_ELASTICITY), String(val))
+      }
     }
   )
   watch(
     () => radialSettings.gravity,
     val => {
-      localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RADIAL_GRAVITY), String(val))
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RADIAL_GRAVITY), String(val))
+      }
     }
   )
   watch(
     () => radialSettings.gravityRange,
     val => {
-      localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RADIAL_GRAVITY_RANGE), String(val))
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RADIAL_GRAVITY_RANGE), String(val))
+      }
     }
   )
   watch(
     () => radialSettings.nestingFactor,
     val => {
-      localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RADIAL_NESTING), String(val))
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RADIAL_NESTING), String(val))
+      }
     }
   )
   watch(
     () => radialSettings.iterations,
     val => {
-      localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RADIAL_ITERATIONS), String(val))
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_RADIAL_ITERATIONS), String(val))
+      }
     }
   )
 
   /**
    * Toggle visibility of a node type
-   * @param {string} type - Node type to toggle
    */
-  function toggleTypeVisibility(type) {
+  function toggleTypeVisibility(type: NodeType): void {
     const index = visibleTypes.value.indexOf(type)
     if (index >= 0) {
       visibleTypes.value.splice(index, 1)
@@ -200,7 +273,7 @@ export function useGraphSettings({ workspace } = {}) {
   /**
    * Reset radial settings to defaults
    */
-  function resetRadialSettings() {
+  function resetRadialSettings(): void {
     radialSettings.nodeRepulsion = RADIAL_DEFAULTS.repulsion
     radialSettings.edgeLength = RADIAL_DEFAULTS.edgeLength
     radialSettings.elasticity = RADIAL_DEFAULTS.elasticity
@@ -212,10 +285,8 @@ export function useGraphSettings({ workspace } = {}) {
 
   /**
    * Check if a node type is visible
-   * @param {string} type - Node type to check
-   * @returns {boolean}
    */
-  function isTypeVisible(type) {
+  function isTypeVisible(type: NodeType): boolean {
     return visibleTypes.value.includes(type)
   }
 

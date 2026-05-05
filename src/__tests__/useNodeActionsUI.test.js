@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { ref, provide, inject } from 'vue'
-import { useNodeActionsUI } from '../composables/useNodeActionsUI.js'
+import { useNodeActionsUI } from '../composables/useNodeActionsUI'
 import { APP_CONTEXT_KEY } from '../composables/useAppContext'
 
 // Mock the commands module

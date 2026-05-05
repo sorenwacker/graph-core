@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ref } from 'vue'
-import { useSidebar } from '../composables/useSidebar.js'
+import { useSidebar } from '../composables/useSidebar'
 
 describe('useSidebar composable', () => {
   let sidebar

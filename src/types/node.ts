@@ -5,7 +5,19 @@
 /**
  * Node type discriminator values.
  */
-export type NodeType = 'task' | 'project' | 'note' | 'person' | 'container' | 'link'
+export type NodeType =
+  | 'task'
+  | 'project'
+  | 'note'
+  | 'person'
+  | 'container'
+  | 'link'
+  | 'milestone'
+  | 'topic'
+  | 'component'
+  | 'group'
+  | 'event'
+  | 'organization'
 
 /**
  * Graph layout options for container nodes.

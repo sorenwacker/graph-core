@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { nextTick, ref } from 'vue'
-import { useGraphSettings } from '../composables/useGraphSettings.js'
+import { useGraphSettings } from '../composables/useGraphSettings'
 
 describe('useGraphSettings composable', () => {
   let settings

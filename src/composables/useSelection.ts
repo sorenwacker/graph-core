@@ -276,7 +276,7 @@ export function useSelection({
     if (showDetail?.value) {
       showDetail.value = false
       if (fullscreenDetail) fullscreenDetail.value = false
-    } else {
+    } else if (showDetail) {
       // If nothing selected, select the current container
       const nodeToShow = selectedNode.value || currentContainer?.value
       if (nodeToShow) {

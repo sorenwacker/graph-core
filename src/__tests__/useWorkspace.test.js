@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { nextTick } from 'vue'
-import { useWorkspace } from '../composables/useWorkspace.js'
+import { useWorkspace } from '../composables/useWorkspace'
 
 describe('useWorkspace composable', () => {
   let mockApi, workspace
