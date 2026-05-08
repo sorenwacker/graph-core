@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { useSettings } from '../composables/useSettings.js'
+import { useSettings, _resetSettingsForTesting } from '../composables/useSettings'
 
 describe('useSettings composable', () => {
   let mockStorage = {}
 
   beforeEach(() => {
+    // Reset singleton state before each test
+    _resetSettingsForTesting()
     mockStorage = {}
     // Mock localStorage directly on window
     Object.defineProperty(window, 'localStorage', {

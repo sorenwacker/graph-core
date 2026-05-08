@@ -5,6 +5,7 @@
 
 import { ref, watch, onMounted } from 'vue'
 import { api } from '../services/api.js'
+import { handleError } from './useErrorHandler.js'
 
 /**
  * Create AI provider connection manager.
@@ -54,16 +55,18 @@ export function useAIProviderConnection({
         ollamaConnectionStatus.value = 'success'
         try {
           ollamaModels.value = await api.ollamaListModels(getOllamaEndpoint())
-        } catch {
+        } catch (e) {
+          handleError(e, { context: 'Listing Ollama models', silent: true })
           ollamaModels.value = []
         }
       } else {
         ollamaConnectionStatus.value = 'error'
         ollamaConnectionError.value = result.error || 'Connection failed'
       }
-    } catch (error) {
+    } catch (e) {
+      handleError(e, { context: 'Testing Ollama connection', silent: true })
       ollamaConnectionStatus.value = 'error'
-      ollamaConnectionError.value = error.message || 'Connection failed'
+      ollamaConnectionError.value = e.message || 'Connection failed'
     }
   }
 
@@ -80,16 +83,18 @@ export function useAIProviderConnection({
         openaiConnectionStatus.value = 'success'
         try {
           openaiModels.value = await api.openaiListModels(getOpenaiEndpoint(), getOpenaiApiKey(), getOpenaiSkipSsl())
-        } catch {
+        } catch (e) {
+          handleError(e, { context: 'Listing OpenAI models', silent: true })
           openaiModels.value = []
         }
       } else {
         openaiConnectionStatus.value = 'error'
         openaiConnectionError.value = result.error || 'Connection failed'
       }
-    } catch (error) {
+    } catch (e) {
+      handleError(e, { context: 'Testing OpenAI connection', silent: true })
       openaiConnectionStatus.value = 'error'
-      openaiConnectionError.value = error.message || 'Connection failed'
+      openaiConnectionError.value = e.message || 'Connection failed'
     }
   }
 
@@ -107,7 +112,8 @@ export function useAIProviderConnection({
         ollamaConnectionStatus.value = 'success'
         ollamaConnectionError.value = ''
       }
-    } catch {
+    } catch (e) {
+      handleError(e, { context: 'Fetching Ollama models', silent: true })
       ollamaModels.value = []
     } finally {
       ollamaModelsLoading.value = false
@@ -130,10 +136,11 @@ export function useAIProviderConnection({
         openaiConnectionStatus.value = 'success'
         openaiConnectionError.value = ''
       }
-    } catch (error) {
+    } catch (e) {
+      handleError(e, { context: 'Fetching OpenAI models', silent: true })
       openaiModels.value = []
       openaiConnectionStatus.value = 'error'
-      openaiConnectionError.value = error.message || 'Failed to fetch models'
+      openaiConnectionError.value = e.message || 'Failed to fetch models'
     } finally {
       openaiModelsLoading.value = false
     }

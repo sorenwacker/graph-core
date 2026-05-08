@@ -1,6 +1,7 @@
 import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
 import { serializeStack, deserializeStack } from '../commands/commandFactory.js'
 import { useErrorHandler } from './useErrorHandler'
+import { MAX_UNDO_STACK_SIZE } from '../utils/settingsConstants'
 import type { Api, Command } from '../types'
 
 const UNDO_STORAGE_KEY = 'graphcore-undoStack'
@@ -51,7 +52,7 @@ export interface UseUndoRedoOptions {
   onError?: (error: Error, command: Command) => void
   /** Callback to show notification (receives message string) */
   showNotification?: (message: string) => void
-  /** Maximum stack size (default: 50) */
+  /** Maximum stack size (default: MAX_UNDO_STACK_SIZE) */
   maxStackSize?: number
   /** Whether to persist stacks to sessionStorage (default: true) */
   persist?: boolean
@@ -104,7 +105,7 @@ export function useUndoRedo({
   onSuccess,
   onError,
   showNotification,
-  maxStackSize = 50,
+  maxStackSize = MAX_UNDO_STACK_SIZE,
   persist = true,
 }: UseUndoRedoOptions): UseUndoRedoReturn {
   const { handleError } = useErrorHandler()

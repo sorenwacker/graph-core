@@ -13,7 +13,7 @@ import { useInlineEdit } from './composables/useInlineEdit.js'
 import { useSnapshots } from './composables/useSnapshots.js'
 import { useContextMenu } from './composables/useContextMenu.js'
 import { useUndoRedo } from './composables/useUndoRedo'
-import { useSettings } from './composables/useSettings.js'
+import { useSettings } from './composables/useSettings'
 import { useWorkspace } from './composables/useWorkspace'
 import { useSidebar } from './composables/useSidebar'
 import { useNodeOperations } from './composables/useNodeOperations'
@@ -28,6 +28,7 @@ import { useNodeActionsUI } from './composables/useNodeActionsUI'
 import { useDetailController } from './composables/useDetailController'
 import { useModalController } from './composables/useModalController'
 import { useViewStateController } from './composables/useViewStateController'
+import { useNavigationState } from './composables/useNavigationState'
 import DetailPanel from './components/DetailPanel.vue'
 import ViewRenderer from './components/ViewRenderer.vue'
 import NodeContextMenu from './components/NodeContextMenu.vue'
@@ -96,11 +97,9 @@ if (!hasSeenOnboarding.value) showOnboarding.value = true
 const viewStateController = useViewStateController({ viewMode })
 const { sortAlphabetically, transitioning, transitionDirection } = viewStateController
 
-// Navigation state refs
-let currentContainerId = ref(null)
-let currentContainer = ref(null)
-let breadcrumbs = ref([])
-let children = ref([])
+// Navigation state
+const { currentContainerId, currentContainer, breadcrumbs, children, syncFromNavigation, resetNavigationState } =
+  useNavigationState()
 
 // Core state
 const error = ref(null)
@@ -366,16 +365,7 @@ const navigation = useNavigation({
   },
 })
 
-watch(
-  [navigation.children, navigation.breadcrumbs, navigation.currentContainer, navigation.currentContainerId],
-  ([c, b, cont, id]) => {
-    children.value = c
-    breadcrumbs.value = b
-    currentContainer.value = cont
-    currentContainerId.value = id
-  },
-  { immediate: true, deep: true }
-)
+syncFromNavigation(navigation)
 
 const {
   loading,

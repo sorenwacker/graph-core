@@ -6,6 +6,14 @@ import { getInitials, getContrastColor } from '../utils/formatting.js'
 import NotesEditor from './NotesEditor.vue'
 import TagInput from './TagInput.vue'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
+import {
+  personsTableColumns,
+  defaultPersonsSort,
+  defaultPersonColor,
+  legacyDefaultColor,
+  createDefaultPerson,
+  maskEmail as maskEmailUtil,
+} from './config/personsGridColumns.js'
 
 const { handleError } = useErrorHandler()
 
@@ -29,8 +37,8 @@ const organizations = ref([]) // Organization nodes from People workspace
 const loading = ref(true)
 const editingPerson = ref(null)
 const viewMode = ref('cards') // 'cards' or 'table'
-const sortBy = ref('title')
-const sortDir = ref('asc')
+const sortBy = ref(defaultPersonsSort.field)
+const sortDir = ref(defaultPersonsSort.direction)
 const hideSensitive = ref(true) // Hide email, phone, notes by default
 
 // Organization autocomplete state
@@ -39,16 +47,11 @@ const showOrgDropdown = ref(false)
 const selectedOrgIndex = ref(0)
 const linkedOrganizations = ref([]) // Currently linked organizations for editing person
 
-function maskEmail(email) {
-  if (!email || !hideSensitive.value) return email
-  const [user, domain] = email.split('@')
-  if (!domain) return '***'
-  return user.charAt(0) + '***@' + domain
-}
+// Expose column definitions for template
+const tableColumns = personsTableColumns
 
-function _maskPhone(phone) {
-  if (!phone || !hideSensitive.value) return phone
-  return phone.slice(0, 4) + '****' + phone.slice(-2)
+function maskEmail(email) {
+  return maskEmailUtil(email, hideSensitive.value)
 }
 
 onMounted(async () => {
@@ -125,24 +128,24 @@ function getRandomColor() {
 // Get effective color for a person (own color or inherited from parent/organization)
 function getEffectiveColor(person) {
   // Use own color if set
-  if (person.color && person.color !== '#0f4c75') {
+  if (person.color && person.color !== legacyDefaultColor) {
     return person.color
   }
   // Try to get color from parent
   if (person.parent_id) {
     const parent = organizations.value.find(o => o.id === person.parent_id)
-    if (parent?.color && parent.color !== '#0f4c75') {
+    if (parent?.color && parent.color !== legacyDefaultColor) {
       return parent.color
     }
   }
   // Try to get color from linked organization
   const links = personLinks.value[person.id] || []
-  const linkedOrg = links.find(n => n.type === 'organization' && n.color && n.color !== '#0f4c75')
+  const linkedOrg = links.find(n => n.type === 'organization' && n.color && n.color !== legacyDefaultColor)
   if (linkedOrg) {
     return linkedOrg.color
   }
   // Neutral gray default
-  return '#6b7280'
+  return defaultPersonColor
 }
 
 // Get full organization path (e.g., "TU Delft / REIT group")
@@ -229,17 +232,7 @@ async function loadLinkedOrganizations(personId) {
 }
 
 function showAddPerson() {
-  editingPerson.value = {
-    title: '',
-    email: '',
-    phone: '',
-    organization: '',
-    role: '',
-    website: '',
-    notes: '',
-    color: getRandomColor(),
-    type: 'person',
-  }
+  editingPerson.value = createDefaultPerson(getRandomColor)
   linkedOrganizations.value = []
   orgQuery.value = ''
   showOrgDropdown.value = false
@@ -265,7 +258,7 @@ async function savePerson() {
       role: editingPerson.value.role || '',
       website: editingPerson.value.website || '',
       notes: editingPerson.value.notes || '',
-      color: editingPerson.value.color || '#0f4c75',
+      color: editingPerson.value.color || legacyDefaultColor,
       tags: editingPerson.value.tags || [],
       workspace_id: props.workspaceId,
     }
@@ -485,25 +478,17 @@ function getOrganizationsForPerson(personId) {
       <table class="persons-table">
         <thead>
           <tr>
-            <th class="col-color"></th>
-            <th class="col-name sortable" @click="toggleSort('title')">
-              Name
-              <span v-if="sortBy === 'title'" class="sort-icon">{{ sortDir === 'asc' ? '^' : 'v' }}</span>
+            <th
+              v-for="col in tableColumns"
+              :key="col.id"
+              :class="[col.cssClass, { sortable: col.sortable }]"
+              @click="col.sortable && toggleSort(col.id)"
+            >
+              {{ col.label }}
+              <span v-if="col.sortable && sortBy === col.id" class="sort-icon">
+                {{ sortDir === 'asc' ? '^' : 'v' }}
+              </span>
             </th>
-            <th class="col-role sortable" @click="toggleSort('role')">
-              Role
-              <span v-if="sortBy === 'role'" class="sort-icon">{{ sortDir === 'asc' ? '^' : 'v' }}</span>
-            </th>
-            <th class="col-email sortable" @click="toggleSort('email')">
-              Email
-              <span v-if="sortBy === 'email'" class="sort-icon">{{ sortDir === 'asc' ? '^' : 'v' }}</span>
-            </th>
-            <th class="col-company sortable" @click="toggleSort('organization')">
-              Organization
-              <span v-if="sortBy === 'organization'" class="sort-icon">{{ sortDir === 'asc' ? '^' : 'v' }}</span>
-            </th>
-            <th class="col-links">Links</th>
-            <th class="col-actions"></th>
           </tr>
         </thead>
         <tbody>
@@ -631,18 +616,18 @@ function getOrganizationsForPerson(personId) {
           <div class="color-picker">
             <label
               >Color
-              <span v-if="!editingPerson.color || editingPerson.color === '#0f4c75'" class="inherit-hint"
+              <span v-if="!editingPerson.color || editingPerson.color === legacyDefaultColor" class="inherit-hint"
                 >(inherits from parent)</span
               ></label
             >
             <div class="color-field">
               <input
                 type="color"
-                :value="editingPerson.color || '#6b7280'"
+                :value="editingPerson.color || defaultPersonColor"
                 @input="editingPerson.color = $event.target.value"
               />
               <button
-                v-if="editingPerson.color && editingPerson.color !== '#0f4c75'"
+                v-if="editingPerson.color && editingPerson.color !== legacyDefaultColor"
                 class="clear-btn"
                 title="Inherit from parent"
                 @click="editingPerson.color = null"

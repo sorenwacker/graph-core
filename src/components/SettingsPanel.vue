@@ -1,14 +1,14 @@
 <script setup>
-import { ref, computed, onMounted, toRef } from 'vue'
+import { ref, onMounted } from 'vue'
 import { api } from '../services/api.js'
-import { useOllama } from '../composables/useOllama.js'
-import { useTheme } from '../composables/useTheme.js'
-import { useAIProviderConnection } from '../composables/useAIProviderConnection.js'
+import { useErrorHandler } from '../composables/useErrorHandler.js'
 import { demoWorkspaceExists } from '../utils/demoData.js'
+import GeneralSettings from './settings/GeneralSettings.vue'
+import AISettings from './settings/AISettings.vue'
+import DataSettings from './settings/DataSettings.vue'
+import AboutSettings from './settings/AboutSettings.vue'
 
-const { presetPrompts, savePrompt, deletePrompt, resetPrompt, isPromptModified, isDefaultPrompt } = useOllama()
-
-const { currentTheme, setTheme, themes } = useTheme()
+const { handleError } = useErrorHandler()
 
 const props = defineProps({
   graphDetailThreshold: { type: Number, required: true },
@@ -77,34 +77,6 @@ const emit = defineEmits([
   'reset-demo',
 ])
 
-// Computed for current provider's enabled state (needed before composable)
-const isAiEnabled = computed(() => props.aiEnabled ?? props.ollamaEnabled)
-
-// AI provider connection management
-const {
-  ollamaConnectionStatus,
-  ollamaConnectionError,
-  ollamaModels,
-  ollamaModelsLoading,
-  openaiConnectionStatus,
-  openaiConnectionError,
-  openaiModels,
-  openaiModelsLoading,
-  testOllamaConnection,
-  testOpenaiConnection,
-  fetchOllamaModels,
-  fetchOpenaiModels,
-  setupWatchers: setupAIWatchers,
-  initOnMount: initAIOnMount,
-} = useAIProviderConnection({
-  getAiEnabled: () => isAiEnabled.value,
-  getAiProvider: () => props.aiProvider,
-  getOllamaEndpoint: () => props.ollamaEndpoint,
-  getOpenaiEndpoint: () => props.openaiEndpoint,
-  getOpenaiApiKey: () => props.openaiApiKey,
-  getOpenaiSkipSsl: () => props.openaiSkipSslVerification,
-})
-
 // Tab navigation
 const activeTab = ref('general')
 
@@ -117,117 +89,13 @@ const demoExists = ref(false)
 // Data storage path
 const dataPath = ref('')
 
-// Prompt management
-const showPromptEditor = ref(false)
-const showPromptList = ref(false)
-const editingPrompt = ref(null)
-const promptForm = ref({ id: '', label: '', prompt: '' })
-
-function openPromptEditor(prompt = null) {
-  if (prompt) {
-    editingPrompt.value = prompt.id
-    promptForm.value = { ...prompt }
-  } else {
-    editingPrompt.value = null
-    promptForm.value = { id: '', label: '', prompt: '' }
-  }
-  showPromptEditor.value = true
-}
-
-function closePromptEditor() {
-  showPromptEditor.value = false
-  editingPrompt.value = null
-  promptForm.value = { id: '', label: '', prompt: '' }
-}
-
-function handleSavePrompt() {
-  if (!promptForm.value.label.trim() || !promptForm.value.prompt.trim()) return
-
-  const id = editingPrompt.value || promptForm.value.label.toLowerCase().replace(/\s+/g, '-')
-  savePrompt({
-    id,
-    label: promptForm.value.label.trim(),
-    prompt: promptForm.value.prompt.trim(),
-  })
-  closePromptEditor()
-}
-
-function handleDeletePrompt(id) {
-  deletePrompt(id)
-}
-
-function handleResetPrompt(id) {
-  resetPrompt(id)
-}
-
-function formatSnapshotDate(timestamp) {
-  if (!timestamp) return 'Unknown'
-  const d = new Date(timestamp)
-  return d.toLocaleString()
-}
-
-// Import functionality
-const importFileInput = ref(null)
-const importType = ref('json')
-const importAccept = computed(() => (importType.value === 'json' ? '.json' : '.csv'))
-
-function triggerImport(type) {
-  importType.value = type
-  // Need to wait for accept attribute to update
-  setTimeout(() => {
-    importFileInput.value?.click()
-  }, 0)
-}
-
-async function handleImportFile(e) {
-  const file = e.target.files?.[0]
-  if (!file) return
-
-  try {
-    const text = await file.text()
-    let result
-
-    if (importType.value === 'json') {
-      const data = JSON.parse(text)
-      result = await api.importJSON(data, null, props.currentWorkspace)
-    } else {
-      result = await api.importCSV(text, null, props.currentWorkspace)
-    }
-
-    emit('import-complete', result)
-    alert(`Imported ${result.nodesImported} nodes${result.linksCreated ? ` and ${result.linksCreated} links` : ''}`)
-  } catch (err) {
-    alert(`Import failed: ${err.message}`)
-  }
-
-  // Reset file input
-  e.target.value = ''
-}
-
-function onAiEnabledChange(event) {
-  emit('update:aiEnabled', event.target.checked)
-  emit('update:ollamaEnabled', event.target.checked)
-}
-
-// Set up AI watchers for settings changes
-setupAIWatchers({
-  ollamaEndpoint: toRef(props, 'ollamaEndpoint'),
-  openaiEndpoint: toRef(props, 'openaiEndpoint'),
-  openaiApiKey: toRef(props, 'openaiApiKey'),
-  openaiSkipSsl: toRef(props, 'openaiSkipSslVerification'),
-  aiProvider: toRef(props, 'aiProvider'),
-  aiEnabled: isAiEnabled,
-})
-
-// Initialize AI provider connection on mount
-initAIOnMount()
-
 // Fetch app info on mount
 onMounted(async () => {
   // Fetch app version
   try {
     appVersion.value = await api.getVersion()
-  } catch {
+  } catch (e) {
+    handleError(e, { context: 'Fetching app version', silent: true })
     appVersion.value = 'Unknown'
   }
 
@@ -237,7 +105,8 @@ onMounted(async () => {
   // Get data storage path
   try {
     dataPath.value = await api.getDataPath()
-  } catch {
+  } catch (e) {
+    handleError(e, { context: 'Fetching data path', silent: true })
     dataPath.value = ''
   }
 })
@@ -262,600 +131,84 @@ onMounted(async () => {
         </button>
       </div>
 
-      <div class="settings-grid">
-        <!-- Graph Settings -->
-        <section v-show="activeTab === 'general'" class="settings-section">
-          <h3 class="section-title">Graph</h3>
-          <div class="settings-item">
-            <label>Detail threshold</label>
-            <input
-              type="number"
-              :value="graphDetailThreshold"
-              min="5"
-              max="100"
-              @input="emit('update:graphDetailThreshold', Number($event.target.value))"
-            />
-            <span class="settings-hint">Show details when &le; {{ graphDetailThreshold }} nodes</span>
-          </div>
-          <div class="settings-item">
-            <label
-              >Max depth <span class="slider-value">{{ graphMaxDepth === 0 ? 'All' : graphMaxDepth }}</span></label
-            >
-            <input
-              type="range"
-              :value="graphMaxDepth"
-              min="0"
-              max="20"
-              step="1"
-              class="settings-slider"
-              @input="emit('update:graphMaxDepth', Number($event.target.value))"
-            />
-            <span class="settings-hint">{{
-              graphMaxDepth === 0 ? 'Show all levels' : `Show up to ${graphMaxDepth} levels`
-            }}</span>
-          </div>
-          <div class="settings-item">
-            <label
-              >Root depth
-              <span class="slider-value">{{ graphRootMaxDepth === 0 ? 'All' : graphRootMaxDepth }}</span></label
-            >
-            <input
-              type="range"
-              :value="graphRootMaxDepth"
-              min="0"
-              max="10"
-              step="1"
-              class="settings-slider"
-              @input="emit('update:graphRootMaxDepth', Number($event.target.value))"
-            />
-            <span class="settings-hint">{{
-              graphRootMaxDepth === 0 ? 'Show all levels at root' : `Show ${graphRootMaxDepth} levels at root`
-            }}</span>
-          </div>
-          <div class="settings-item">
-            <label
-              >Notes preview <span class="slider-value">{{ graphNotesPreviewLength }}</span></label
-            >
-            <input
-              type="range"
-              :value="graphNotesPreviewLength"
-              min="50"
-              max="500"
-              step="10"
-              class="settings-slider"
-              @input="emit('update:graphNotesPreviewLength', Number($event.target.value))"
-            />
-            <span class="settings-hint">Max characters shown in node notes preview</span>
-          </div>
-        </section>
-
-        <!-- Display Settings -->
-        <section v-show="activeTab === 'general'" class="settings-section">
-          <h3 class="section-title">Display</h3>
-          <div class="settings-item">
-            <label>Theme</label>
-            <div class="theme-switcher">
-              <button
-                v-for="theme in themes"
-                :key="theme"
-                class="theme-btn"
-                :class="{ active: currentTheme === theme }"
-                @click="setTheme(theme)"
-              >
-                <span class="theme-icon">
-                  {{ theme === 'light' ? 'sun' : theme === 'dark' ? 'moon' : 'auto' }}
-                </span>
-                <span class="theme-label">{{ theme.charAt(0).toUpperCase() + theme.slice(1) }}</span>
-              </button>
-            </div>
-            <span class="settings-hint">Choose light, dark, or follow system preference</span>
-          </div>
-          <div class="settings-item">
-            <label>
-              <input
-                type="checkbox"
-                :checked="openDetailFullscreen"
-                @change="emit('update:openDetailFullscreen', $event.target.checked)"
-              />
-              Open details fullscreen
-            </label>
-            <span class="settings-hint">Open detail panel in fullscreen mode by default</span>
-          </div>
-          <div class="settings-item">
-            <label>
-              <input
-                type="checkbox"
-                :checked="hoverPreviewEnabled"
-                @change="emit('update:hoverPreviewEnabled', $event.target.checked)"
-              />
-              Hover preview
-            </label>
-            <span class="settings-hint">Show preview tooltip when hovering over nodes</span>
-          </div>
-          <div class="settings-item">
-            <label>
-              <input
-                type="checkbox"
-                :checked="inheritColors"
-                @change="emit('update:inheritColors', $event.target.checked)"
-              />
-              Inherit colors
-            </label>
-            <span class="settings-hint">Child nodes inherit colors from parent nodes</span>
-          </div>
-          <div class="settings-item">
-            <label>
-              <input
-                type="checkbox"
-                :checked="showHintBar"
-                @change="emit('update:showHintBar', $event.target.checked)"
-              />
-              Show hint bar
-            </label>
-            <span class="settings-hint">Show keyboard shortcut hints at bottom of screen</span>
-          </div>
-        </section>
-
-        <!-- AI Settings -->
-        <section v-show="activeTab === 'ai'" class="settings-section">
-          <h3 class="section-title">AI</h3>
-          <div class="settings-item">
-            <label>
-              <input type="checkbox" :checked="isAiEnabled" @change="onAiEnabledChange" />
-              Enable AI
-            </label>
-            <span class="settings-hint">Use LLM to improve notes</span>
-          </div>
-
-          <div v-if="isAiEnabled" class="ai-settings">
-            <div class="settings-item">
-              <label>Provider</label>
-              <select
-                :value="aiProvider"
-                @change="emit('update:aiProvider', $event.target.value)"
-                class="settings-select"
-              >
-                <option value="ollama">Ollama (Local)</option>
-                <option value="openai">OpenAI-compatible</option>
-              </select>
-            </div>
-
-            <!-- Ollama Settings -->
-            <template v-if="aiProvider === 'ollama'">
-              <div class="settings-item">
-                <label>Endpoint</label>
-                <input
-                  type="text"
-                  :value="ollamaEndpoint"
-                  @input="emit('update:ollamaEndpoint', $event.target.value)"
-                  placeholder="http://localhost:11434"
-                  class="text-input"
-                />
-              </div>
-
-              <div class="settings-item">
-                <label>
-                  Model
-                  <span v-if="ollamaModelsLoading" class="loading-indicator">loading...</span>
-                </label>
-                <div class="model-input-row">
-                  <select
-                    v-if="ollamaModels.length > 0"
-                    :value="ollamaModel"
-                    @change="emit('update:ollamaModel', $event.target.value)"
-                    class="settings-select"
-                  >
-                    <option v-for="model in ollamaModels" :key="model" :value="model">{{ model }}</option>
-                    <option v-if="!ollamaModels.includes(ollamaModel)" :value="ollamaModel">
-                      {{ ollamaModel }} (not installed)
-                    </option>
-                  </select>
-                  <input
-                    v-else
-                    type="text"
-                    :value="ollamaModel"
-                    @input="emit('update:ollamaModel', $event.target.value)"
-                    placeholder="llama3.2"
-                    class="text-input"
-                  />
-                  <button
-                    class="refresh-btn"
-                    @click="fetchOllamaModels"
-                    :disabled="ollamaModelsLoading"
-                    title="Refresh model list"
-                  >
-                    refresh
-                  </button>
-                </div>
-                <span class="settings-hint">
-                  <template v-if="ollamaModels.length > 0">{{ ollamaModels.length }} models available</template>
-                  <template v-else>Run: ollama pull {{ ollamaModel }} to download</template>
-                </span>
-              </div>
-
-              <div class="settings-item">
-                <label
-                  >Context Size <span class="slider-value">{{ (ollamaContextSize / 1024).toFixed(0) }}K</span></label
-                >
-                <input
-                  type="range"
-                  :value="ollamaContextSize"
-                  min="4096"
-                  max="131072"
-                  step="4096"
-                  class="settings-slider"
-                  @input="emit('update:ollamaContextSize', Number($event.target.value))"
-                />
-                <span class="settings-hint">Larger context for longer notes (requires more RAM)</span>
-              </div>
-
-              <div class="settings-item">
-                <button
-                  class="snapshot-btn test-btn"
-                  :class="{ testing: ollamaConnectionStatus === 'testing' }"
-                  @click="testOllamaConnection"
-                  :disabled="ollamaConnectionStatus === 'testing'"
-                >
-                  <span v-if="ollamaConnectionStatus === 'testing'">Testing...</span>
-                  <span v-else>Test Connection</span>
-                </button>
-                <span v-if="ollamaConnectionStatus === 'success'" class="connection-status success"> Connected </span>
-                <span v-else-if="ollamaConnectionStatus === 'error'" class="connection-status error">
-                  {{ ollamaConnectionError }}
-                </span>
-              </div>
-            </template>
-
-            <!-- OpenAI Settings -->
-            <template v-else-if="aiProvider === 'openai'">
-              <div class="settings-item">
-                <label>Endpoint</label>
-                <input
-                  type="text"
-                  :value="openaiEndpoint"
-                  @input="emit('update:openaiEndpoint', $event.target.value)"
-                  placeholder="https://api.openai.com/v1"
-                  class="text-input"
-                />
-                <span class="settings-hint">OpenAI or compatible API endpoint</span>
-              </div>
-
-              <div class="settings-item">
-                <label>API Key</label>
-                <input
-                  type="password"
-                  :value="openaiApiKey"
-                  @input="emit('update:openaiApiKey', $event.target.value)"
-                  placeholder="sk-..."
-                  class="text-input"
-                />
-              </div>
-
-              <div class="settings-item">
-                <label>
-                  <input
-                    type="checkbox"
-                    :checked="openaiSkipSslVerification"
-                    @change="emit('update:openaiSkipSslVerification', $event.target.checked)"
-                  />
-                  Skip SSL verification
-                </label>
-                <span class="settings-hint">For endpoints with certificate issues (self-signed or untrusted CA)</span>
-                <span v-if="openaiSkipSslVerification" class="ssl-warning">
-                  Warning: Disabling SSL verification exposes data to potential interception. Only use on trusted
-                  networks.
-                </span>
-              </div>
-
-              <div class="settings-item">
-                <label>
-                  Model
-                  <span v-if="openaiModelsLoading" class="loading-indicator">loading...</span>
-                </label>
-                <div class="model-input-row">
-                  <select
-                    v-if="openaiModels.length > 0"
-                    :value="openaiModel"
-                    @change="emit('update:openaiModel', $event.target.value)"
-                    class="settings-select"
-                  >
-                    <option v-for="model in openaiModels" :key="model" :value="model">{{ model }}</option>
-                    <option v-if="!openaiModels.includes(openaiModel)" :value="openaiModel">{{ openaiModel }}</option>
-                  </select>
-                  <input
-                    v-else
-                    type="text"
-                    :value="openaiModel"
-                    @input="emit('update:openaiModel', $event.target.value)"
-                    placeholder="gpt-4o-mini"
-                    class="text-input"
-                  />
-                  <button
-                    class="refresh-btn"
-                    @click="fetchOpenaiModels"
-                    :disabled="openaiModelsLoading || !openaiApiKey"
-                    title="Refresh model list"
-                  >
-                    refresh
-                  </button>
-                </div>
-                <span v-if="openaiModels.length > 0" class="settings-hint"
-                  >{{ openaiModels.length }} models available</span
-                >
-              </div>
-
-              <div class="settings-item">
-                <button
-                  class="snapshot-btn test-btn"
-                  :class="{ testing: openaiConnectionStatus === 'testing' }"
-                  @click="testOpenaiConnection"
-                  :disabled="openaiConnectionStatus === 'testing' || !openaiApiKey"
-                >
-                  <span v-if="openaiConnectionStatus === 'testing'">Testing...</span>
-                  <span v-else>Test Connection</span>
-                </button>
-                <span v-if="openaiConnectionStatus === 'success'" class="connection-status success"> Connected </span>
-                <span v-else-if="openaiConnectionStatus === 'error'" class="connection-status error">
-                  {{ openaiConnectionError }}
-                </span>
-              </div>
-            </template>
-          </div>
-        </section>
-
-        <!-- AI Prompts -->
-        <section v-show="activeTab === 'ai' && isAiEnabled" class="settings-section">
-          <h3 class="section-title">AI Prompts</h3>
-          <div class="settings-item">
-            <div class="snapshot-actions">
-              <button class="snapshot-btn" @click="showPromptList = !showPromptList" title="Show or hide AI prompts">
-                {{ showPromptList ? 'Hide' : 'Show' }} Prompts
-              </button>
-              <button class="snapshot-btn" @click="openPromptEditor()" title="Create a new custom prompt">
-                Add New
-              </button>
-            </div>
-          </div>
-
-          <div v-if="showPromptList" class="prompt-list">
-            <div v-for="prompt in presetPrompts" :key="prompt.id" class="prompt-item">
-              <div class="prompt-info">
-                <span class="prompt-label">{{ prompt.label }}</span>
-                <span v-if="isPromptModified(prompt.id)" class="prompt-modified">(modified)</span>
-              </div>
-              <div class="prompt-actions">
-                <button class="snapshot-restore-btn" @click="openPromptEditor(prompt)" title="Edit">Edit</button>
-                <button
-                  v-if="isPromptModified(prompt.id) && isDefaultPrompt(prompt.id)"
-                  class="snapshot-restore-btn"
-                  @click="handleResetPrompt(prompt.id)"
-                  title="Reset to default"
-                >
-                  Reset
-                </button>
-                <button
-                  v-if="!isDefaultPrompt(prompt.id)"
-                  class="snapshot-restore-btn danger"
-                  @click="handleDeletePrompt(prompt.id)"
-                  title="Delete"
-                >
-                  Del
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Data Management -->
-        <section v-show="activeTab === 'data'" class="settings-section">
-          <h3 class="section-title">Data</h3>
-          <div v-if="dataPath" class="settings-item">
-            <label>Storage Location</label>
-            <code class="data-path">{{ dataPath }}</code>
-            <span class="settings-hint">Database and backups are stored here</span>
-          </div>
-          <div class="settings-item">
-            <label>Snapshots</label>
-            <div class="snapshot-actions">
-              <button class="snapshot-btn" @click="emit('create-snapshot')" title="Create a backup snapshot">
-                Create
-              </button>
-              <button class="snapshot-btn" @click="emit('toggle-snapshots')" title="Show available snapshots">
-                {{ showSnapshotList ? 'Hide' : 'Show' }}
-              </button>
-            </div>
-            <span v-if="snapshotMessage" class="settings-hint snapshot-message">{{ snapshotMessage }}</span>
-          </div>
-          <div v-if="showSnapshotList && availableSnapshots.length > 0" class="snapshot-list">
-            <div v-for="snapshot in availableSnapshots.slice(0, 10)" :key="snapshot.path" class="snapshot-item">
-              <span class="snapshot-date">{{ formatSnapshotDate(snapshot.created) }}</span>
-              <button
-                class="snapshot-restore-btn"
-                @click="emit('restore-snapshot', snapshot.path)"
-                title="Restore this snapshot"
-              >
-                Restore
-              </button>
-            </div>
-          </div>
-          <div v-else-if="showSnapshotList" class="settings-hint">No snapshots available</div>
-
-          <div class="settings-item">
-            <button class="snapshot-btn reload-btn" @click="emit('reload-database')" title="Reload database from disk">
-              Reload Database
-            </button>
-            <span class="settings-hint">Reload from disk (picks up external changes)</span>
-          </div>
-
-          <div class="settings-item">
-            <label>Import</label>
-            <div class="snapshot-actions">
-              <button class="snapshot-btn" @click="triggerImport('json')" title="Import JSON export file">JSON</button>
-              <button class="snapshot-btn" @click="triggerImport('csv')" title="Import CSV file">CSV</button>
-            </div>
-            <span class="settings-hint">Import data into current workspace root</span>
-            <input
-              ref="importFileInput"
-              type="file"
-              :accept="importAccept"
-              style="display: none"
-              @change="handleImportFile"
-            />
-          </div>
-        </section>
-
-        <!-- Lost & Found -->
-        <section v-show="activeTab === 'data'" class="settings-section">
-          <h3 class="section-title">Lost & Found</h3>
-          <div class="settings-item">
-            <div class="snapshot-actions">
-              <button
-                class="snapshot-btn"
-                @click="emit('toggle-lost-found')"
-                title="Show orphaned nodes without parents"
-              >
-                {{ showLostFound ? 'Hide' : 'Show' }} ({{ orphanedNodes.length }})
-              </button>
-            </div>
-          </div>
-          <div v-if="showLostFound && orphanedNodes.length > 0" class="snapshot-list">
-            <div v-for="node in orphanedNodes" :key="node.id" class="snapshot-item">
-              <span class="snapshot-date"
-                >{{ node.title }} <span class="orphan-type">({{ node.type }})</span></span
-              >
-              <div class="lost-actions">
-                <button class="snapshot-restore-btn" @click="emit('move-to-root', node)" title="Move to root">
-                  Root
-                </button>
-                <button
-                  class="snapshot-restore-btn danger"
-                  @click="emit('delete-orphan', node)"
-                  title="Delete permanently"
-                >
-                  Del
-                </button>
-              </div>
-            </div>
-          </div>
-          <div v-else-if="showLostFound" class="settings-hint">No orphaned nodes</div>
-        </section>
-
-        <!-- About / Legal -->
-        <section v-show="activeTab === 'about'" class="settings-section">
-          <h3 class="section-title">About</h3>
-          <div class="settings-item">
-            <label>Version</label>
-            <span class="version-text">{{ appVersion }}</span>
-          </div>
-          <div class="settings-item">
-            <span class="copyright-text">Copyright 2026 GraphCore. All rights reserved.</span>
-          </div>
-          <div class="settings-item">
-            <button class="snapshot-btn" @click="emit('show-onboarding')" title="Show the welcome tutorial">
-              Show Welcome
-            </button>
-          </div>
-          <div class="settings-item">
-            <div class="snapshot-actions">
-              <button
-                v-if="!demoExists"
-                class="snapshot-btn"
-                @click="emit('create-demo')"
-                title="Create a demo workspace with sample data"
-              >
-                Create Demo Workspace
-              </button>
-              <button
-                v-else
-                class="snapshot-btn"
-                @click="emit('reset-demo')"
-                title="Reset demo workspace with fresh sample data"
-              >
-                Reset Demo Workspace
-              </button>
-            </div>
-            <span class="settings-hint">{{
-              demoExists ? 'Reset to get fresh sample data' : 'Creates sample nodes to explore features'
-            }}</span>
-          </div>
-        </section>
-
-        <section v-show="activeTab === 'about'" class="settings-section legal-section">
-          <h3 class="section-title">Warranty Disclaimer</h3>
-          <div class="legal-text">
-            <p>
-              THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
-              LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
-            </p>
-            <p>
-              IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY,
-              WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE
-              SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-            </p>
-            <p>
-              You assume all responsibility and risk for the use of this software. The developers make no guarantees
-              regarding data integrity, availability, or security.
-            </p>
-          </div>
-        </section>
-
-        <section v-show="activeTab === 'about'" class="settings-section legal-section">
-          <h3 class="section-title">Privacy Notice</h3>
-          <div class="legal-text">
-            <p>
-              <strong>Data Storage:</strong> All your data is stored locally on your device. GraphCore does not transmit
-              your data to external servers unless you explicitly configure AI features.
-            </p>
-            <p>
-              <strong>AI Features:</strong> When AI features are enabled, note content may be sent to the configured AI
-              provider (Ollama running locally, or an external OpenAI-compatible API). You control which provider
-              receives your data through the AI settings.
-            </p>
-            <p>
-              <strong>No Analytics:</strong> GraphCore does not collect usage analytics, telemetry, or personal
-              information.
-            </p>
-            <p><strong>Local Backups:</strong> Snapshots and backups are stored locally on your device.</p>
-          </div>
-        </section>
+      <!-- Tab content - each wrapped in template for v-if since child components have multiple roots -->
+      <div v-if="activeTab === 'general'" class="settings-grid">
+        <GeneralSettings
+          :graph-detail-threshold="graphDetailThreshold"
+          :graph-max-depth="graphMaxDepth"
+          :graph-root-max-depth="graphRootMaxDepth"
+          :graph-notes-preview-length="graphNotesPreviewLength"
+          :open-detail-fullscreen="openDetailFullscreen"
+          :hover-preview-enabled="hoverPreviewEnabled"
+          :inherit-colors="inheritColors"
+          :show-hint-bar="showHintBar"
+          @update:graph-detail-threshold="emit('update:graphDetailThreshold', $event)"
+          @update:graph-max-depth="emit('update:graphMaxDepth', $event)"
+          @update:graph-root-max-depth="emit('update:graphRootMaxDepth', $event)"
+          @update:graph-notes-preview-length="emit('update:graphNotesPreviewLength', $event)"
+          @update:open-detail-fullscreen="emit('update:openDetailFullscreen', $event)"
+          @update:hover-preview-enabled="emit('update:hoverPreviewEnabled', $event)"
+          @update:inherit-colors="emit('update:inheritColors', $event)"
+          @update:show-hint-bar="emit('update:showHintBar', $event)"
+        />
       </div>
 
-      <!-- Prompt Editor Modal -->
-      <div v-if="showPromptEditor" class="prompt-editor-overlay" @click.self="closePromptEditor">
-        <div class="prompt-editor">
-          <div class="prompt-editor-header">
-            <span>{{ editingPrompt ? 'Edit Prompt' : 'New Prompt' }}</span>
-            <button class="close-btn" @click="closePromptEditor">&times;</button>
-          </div>
-          <div class="prompt-editor-body">
-            <div class="settings-item">
-              <label>Label</label>
-              <input v-model="promptForm.label" type="text" class="text-input" placeholder="e.g., Make Formal" />
-            </div>
-            <div class="settings-item">
-              <label>Prompt</label>
-              <textarea
-                v-model="promptForm.prompt"
-                class="text-input prompt-textarea"
-                placeholder="Instructions for the AI..."
-                rows="4"
-              ></textarea>
-            </div>
-          </div>
-          <div class="prompt-editor-footer">
-            <button class="snapshot-btn" @click="closePromptEditor">Cancel</button>
-            <button
-              class="snapshot-btn primary"
-              @click="handleSavePrompt"
-              :disabled="!promptForm.label.trim() || !promptForm.prompt.trim()"
-            >
-              Save
-            </button>
-          </div>
-        </div>
+      <div v-if="activeTab === 'ai'" class="settings-grid">
+        <AISettings
+          :ai-enabled="aiEnabled"
+          :ai-provider="aiProvider"
+          :ollama-endpoint="ollamaEndpoint"
+          :ollama-model="ollamaModel"
+          :ollama-context-size="ollamaContextSize"
+          :openai-endpoint="openaiEndpoint"
+          :openai-api-key="openaiApiKey"
+          :openai-model="openaiModel"
+          :openai-skip-ssl-verification="openaiSkipSslVerification"
+          :ollama-enabled="ollamaEnabled"
+          @update:ai-enabled="emit('update:aiEnabled', $event)"
+          @update:ai-provider="emit('update:aiProvider', $event)"
+          @update:ollama-endpoint="emit('update:ollamaEndpoint', $event)"
+          @update:ollama-model="emit('update:ollamaModel', $event)"
+          @update:ollama-context-size="emit('update:ollamaContextSize', $event)"
+          @update:openai-endpoint="emit('update:openaiEndpoint', $event)"
+          @update:openai-api-key="emit('update:openaiApiKey', $event)"
+          @update:openai-model="emit('update:openaiModel', $event)"
+          @update:openai-skip-ssl-verification="emit('update:openaiSkipSslVerification', $event)"
+          @update:ollama-enabled="emit('update:ollamaEnabled', $event)"
+        />
+      </div>
+
+      <div v-if="activeTab === 'data'" class="settings-grid">
+        <DataSettings
+          :snapshot-message="snapshotMessage"
+          :show-snapshot-list="showSnapshotList"
+          :available-snapshots="availableSnapshots"
+          :show-lost-found="showLostFound"
+          :orphaned-nodes="orphanedNodes"
+          :data-path="dataPath"
+          :current-workspace="currentWorkspace"
+          @create-snapshot="emit('create-snapshot')"
+          @toggle-snapshots="emit('toggle-snapshots')"
+          @restore-snapshot="emit('restore-snapshot', $event)"
+          @reload-database="emit('reload-database')"
+          @toggle-lost-found="emit('toggle-lost-found')"
+          @move-to-root="emit('move-to-root', $event)"
+          @delete-orphan="emit('delete-orphan', $event)"
+          @import-complete="emit('import-complete', $event)"
+        />
+      </div>
+
+      <div v-if="activeTab === 'about'" class="settings-grid">
+        <AboutSettings
+          :app-version="appVersion"
+          :demo-exists="demoExists"
+          @show-onboarding="emit('show-onboarding')"
+          @create-demo="emit('create-demo')"
+          @reset-demo="emit('reset-demo')"
+        />
       </div>
     </div>
   </div>
 </template>
 
-<style scoped src="./SettingsPanel.css"></style>
+<style src="./SettingsPanel.css"></style>

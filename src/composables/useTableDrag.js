@@ -1,0 +1,234 @@
+/**
+ * Composable for drag and drop functionality in table views.
+ * Handles node reordering and reparenting via mouse drag.
+ */
+import { ref } from 'vue'
+
+/**
+ * Creates a drag ghost element for visual feedback during drag.
+ */
+function createDragGhost(node, x, y) {
+  const ghost = document.createElement('div')
+  ghost.className = 'drag-ghost'
+  ghost.innerHTML = `
+    <span class="ghost-type" style="background: ${node.color || '#0f4c75'}">${node.type[0].toUpperCase()}</span>
+    <span class="ghost-title">${node.title}</span>
+    <span class="ghost-action"></span>
+  `
+  ghost.style.cssText = `
+    position: fixed;
+    left: ${x + 10}px;
+    top: ${y + 10}px;
+    background: var(--bg-primary, #1a1a2e);
+    border: 2px solid var(--accent-color, #4a9eff);
+    color: var(--text-primary, #fff);
+    padding: 6px 10px;
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 9999;
+    font-size: 13px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 300px;
+  `
+  document.body.appendChild(ghost)
+  return ghost
+}
+
+/**
+ * Determines drop position based on cursor Y position within row.
+ * Top 35% = before, bottom 35% = after, middle 30% = inside (unless shift key).
+ */
+function calculateDropPosition(e, rect, reorderOnly) {
+  const y = e.clientY - rect.top
+  const height = rect.height
+
+  if (y < height * 0.35) {
+    return 'before'
+  } else if (y > height * 0.65) {
+    return 'after'
+  } else if (reorderOnly) {
+    return y < height * 0.5 ? 'before' : 'after'
+  } else {
+    return 'inside'
+  }
+}
+
+/**
+ * Provides drag and drop functionality for table rows.
+ */
+export function useTableDrag({ findNodeById, selectedIds, onMove, onMoveMultiple, onReorder }) {
+  const draggedNode = ref(null)
+  const dropTarget = ref(null)
+  const dropPosition = ref(null) // 'before', 'after', 'inside'
+  const isDragging = ref(false)
+  const dragGhost = ref(null)
+  const justFinishedDrag = ref(false)
+
+  let lastTargetId = null
+  let lastPosition = null
+
+  function onMouseDown(e, node) {
+    // Don't start drag from interactive elements
+    if (e.target.closest('input, button, .expand-btn')) return
+
+    e.preventDefault()
+    draggedNode.value = node
+
+    // Reset tracking variables for new drag
+    lastTargetId = null
+    lastPosition = null
+
+    dragGhost.value = createDragGhost(node, e.clientX, e.clientY)
+    isDragging.value = true
+
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }
+
+  function onMouseMove(e) {
+    if (!isDragging.value || !dragGhost.value) return
+
+    // Move ghost
+    dragGhost.value.style.left = `${e.clientX + 10}px`
+    dragGhost.value.style.top = `${e.clientY + 10}px`
+
+    const actionEl = dragGhost.value.querySelector('.ghost-action')
+
+    // Find drop target
+    const elemBelow = document.elementFromPoint(e.clientX, e.clientY)
+    const row = elemBelow?.closest('tr.node-row')
+    const table = elemBelow?.closest('.table-view')
+
+    let newTargetId = null
+    let newPosition = null
+
+    if (row) {
+      const nodeId = parseInt(row.dataset.nodeId)
+      if (nodeId && nodeId !== draggedNode.value?.id) {
+        newTargetId = nodeId
+
+        const rect = row.getBoundingClientRect()
+        const reorderOnly = e.shiftKey
+        newPosition = calculateDropPosition(e, rect, reorderOnly)
+      }
+    } else if (table) {
+      newTargetId = 'root'
+      newPosition = 'root'
+    }
+
+    // Only update DOM if target or position changed
+    if (newTargetId !== lastTargetId || newPosition !== lastPosition) {
+      // Clear previous drop indicators
+      document.querySelectorAll('.drop-before, .drop-after, .drop-inside').forEach(el => {
+        el.classList.remove('drop-before', 'drop-after', 'drop-inside')
+      })
+
+      if (newTargetId && newTargetId !== 'root' && row) {
+        const targetNode = findNodeById(newTargetId)
+        if (targetNode) {
+          dropTarget.value = targetNode
+          dropPosition.value = newPosition
+          row.classList.add(`drop-${newPosition}`)
+
+          if (actionEl) {
+            if (newPosition === 'before') actionEl.textContent = '\u2191 before'
+            else if (newPosition === 'after') actionEl.textContent = '\u2193 after'
+            else actionEl.textContent = '\u2192 as child'
+          }
+        }
+      } else if (newTargetId === 'root') {
+        dropTarget.value = 'root'
+        dropPosition.value = null
+        if (actionEl) actionEl.textContent = '\u2192 to root'
+      } else {
+        dropTarget.value = null
+        dropPosition.value = null
+        if (actionEl) actionEl.textContent = ''
+      }
+
+      lastTargetId = newTargetId
+      lastPosition = newPosition
+    }
+  }
+
+  function onMouseUp() {
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
+
+    // Clear drop indicators
+    document.querySelectorAll('.drop-before, .drop-after, .drop-inside').forEach(el => {
+      el.classList.remove('drop-before', 'drop-after', 'drop-inside')
+    })
+
+    if (dragGhost.value) {
+      dragGhost.value.remove()
+      dragGhost.value = null
+    }
+
+    if (draggedNode.value && dropTarget.value) {
+      const sourceNode = draggedNode.value
+      const targetNode = dropTarget.value
+
+      // Check if we're moving multiple selected items
+      const hasMultipleSelected = selectedIds?.value?.size > 1 && selectedIds.value.has(sourceNode.id)
+
+      if (targetNode === 'root') {
+        // Move to root (no parent)
+        if (hasMultipleSelected) {
+          onMoveMultiple({ nodeIds: Array.from(selectedIds.value), newParentId: null })
+        } else {
+          onMove({ nodeId: sourceNode.id, oldParentId: sourceNode.parent_id, newParentId: null })
+        }
+      } else if (dropPosition.value === 'inside') {
+        // Move as child of target
+        if (hasMultipleSelected) {
+          onMoveMultiple({ nodeIds: Array.from(selectedIds.value), newParentId: targetNode.id })
+        } else {
+          onMove({ nodeId: sourceNode.id, oldParentId: sourceNode.parent_id, newParentId: targetNode.id })
+        }
+      } else {
+        // Reorder: move before or after target
+        onReorder({
+          nodeId: sourceNode.id,
+          targetId: targetNode.id,
+          position: dropPosition.value,
+        })
+      }
+    }
+
+    isDragging.value = false
+    draggedNode.value = null
+    dropTarget.value = null
+    dropPosition.value = null
+    lastTargetId = null
+    lastPosition = null
+
+    // Prevent accidental expand clicks right after drag
+    justFinishedDrag.value = true
+    setTimeout(() => {
+      justFinishedDrag.value = false
+    }, 200)
+  }
+
+  function getDropClass(node) {
+    if (!dropTarget.value || dropTarget.value.id !== node.id) return {}
+    return {
+      'drop-before': dropPosition.value === 'before',
+      'drop-after': dropPosition.value === 'after',
+      'drop-inside': dropPosition.value === 'inside',
+    }
+  }
+
+  return {
+    draggedNode,
+    dropTarget,
+    dropPosition,
+    isDragging,
+    justFinishedDrag,
+    onMouseDown,
+    getDropClass,
+  }
+}

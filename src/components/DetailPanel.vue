@@ -13,6 +13,7 @@ import { api } from '../services/api'
 import { useMentions } from '../composables/useMentions.js'
 import { useNodeTable } from '../composables/useNodeTable.js'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
+import { AUTOSAVE_DELAY_MS } from '../utils/settingsConstants'
 
 const props = defineProps({
   node: Object,
@@ -100,11 +101,11 @@ const { handleError } = useErrorHandler()
 
 function onCodeMirrorNotesUpdate(newValue) {
   editedNode.value.notes = newValue
-  // Debounced autosave after 500ms of inactivity
+  // Debounced autosave after inactivity
   if (notesAutosaveTimeout) clearTimeout(notesAutosaveTimeout)
   notesAutosaveTimeout = setTimeout(() => {
     saveChanges()
-  }, 500)
+  }, AUTOSAVE_DELAY_MS)
 }
 
 function onMentionSelect(index) {

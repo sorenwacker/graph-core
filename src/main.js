@@ -9,7 +9,7 @@ import './themes/dark.css'
 import './themes/light.css'
 import App from './App.vue'
 import DetachedView from './components/DetachedView.vue'
-import { initSettings, migrateSettingsToDatabase } from './composables/useSettings.js'
+import { initSettings, migrateSettingsToDatabase } from './composables/useSettings'
 
 const pinia = createPinia()
 

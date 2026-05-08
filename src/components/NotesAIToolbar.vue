@@ -1,7 +1,7 @@
 <script setup>
 import { ref, nextTick } from 'vue'
 import { useOllama } from '../composables/useOllama.js'
-import { useSettings } from '../composables/useSettings.js'
+import { useSettings } from '../composables/useSettings'
 import OllamaPromptModal from './OllamaPromptModal.vue'
 import OllamaDiffPreview from './OllamaDiffPreview.vue'
 

@@ -1,19 +1,70 @@
 /**
- * Export and import operations.
+ * Export and import operations for nodes in various formats.
+ * Supports Markdown, JSON, and CSV formats for data interchange.
  * @module database/export
  */
 
 /**
- * Create export/import operations bound to database context.
- * @param {Object} ctx - Database context with _query, getNode, getDescendants, getNodes, createNode, linkNodes methods
- * @returns {Object} Export/import operations
+ * @typedef {Object} MarkdownExportResult
+ * @property {string} markdown - The exported markdown content
+ */
+
+/**
+ * @typedef {Object} JSONExportResult
+ * @property {number} version - Export format version
+ * @property {string} exportedAt - ISO timestamp of export
+ * @property {Object} root - Root node with nested children
+ * @property {Array} [links] - Array of link objects if includeLinks is true
+ */
+
+/**
+ * @typedef {Object} CSVExportResult
+ * @property {string} csv - The exported CSV content
+ * @property {string[]} headers - Array of column header names
+ * @property {number} rowCount - Number of data rows exported
+ */
+
+/**
+ * @typedef {Object} JSONImportResult
+ * @property {number} rootId - ID of the newly created root node
+ * @property {number} nodesImported - Total number of nodes imported
+ * @property {number} linksCreated - Number of links recreated
+ */
+
+/**
+ * @typedef {Object} CSVImportResult
+ * @property {number} nodesImported - Total number of nodes imported
+ */
+
+/**
+ * @typedef {Object} JSONExportOptions
+ * @property {boolean} [includeLinks=true] - Whether to include node links in export
+ */
+
+/**
+ * @typedef {Object} DatabaseContext
+ * @property {Function} _query - Execute SQL query returning array of rows
+ * @property {Function} getNode - Get a single node by ID
+ * @property {Function} getDescendants - Get all descendants of a node
+ * @property {Function} getNodes - Get nodes with filtering
+ * @property {Function} createNode - Create a new node
+ * @property {Function} linkNodes - Create a link between nodes
+ */
+
+/**
+ * Creates export and import operations bound to a database context.
+ * Handles conversion between internal node format and external formats.
+ * @param {DatabaseContext} ctx - Database context with query methods
+ * @returns {Object} Object containing all export/import operations
  */
 function createExportOperations(ctx) {
   return {
     /**
-     * Export node and descendants as markdown.
-     * @param {number} nodeId - Root node to export
-     * @returns {Object} Markdown string
+     * Exports a node and its descendants as a Markdown document.
+     * Node titles become headings based on depth (max h6).
+     * Headings within notes are adjusted to maintain hierarchy.
+     * @param {number} nodeId - ID of the root node to export
+     * @returns {MarkdownExportResult} Object containing the markdown string
      */
     exportMarkdown(nodeId) {
       const root = ctx.getNode(nodeId)
@@ -60,11 +111,12 @@ function createExportOperations(ctx) {
     },
 
     /**
-     * Export node and descendants as JSON.
-     * @param {number} nodeId - Root node to export
-     * @param {Object} options - Export options
-     * @param {boolean} options.includeLinks - Include node links (default: true)
-     * @returns {Object} JSON export
+     * Exports a node and its descendants as a JSON object.
+     * Includes full node data with nested children structure.
+     * Optionally includes links between nodes in the exported subtree.
+     * @param {number} nodeId - ID of the root node to export
+     * @param {JSONExportOptions} [options={}] - Export options
+     * @returns {JSONExportResult} Versioned JSON export with root node and optional links
      */
     exportJSON(nodeId, options = {}) {
       const { includeLinks = true } = options
@@ -114,10 +166,12 @@ function createExportOperations(ctx) {
     },
 
     /**
-     * Export nodes as CSV.
-     * @param {number|null} nodeId - Root node or null for all
-     * @param {string|null} workspaceId - Workspace filter
-     * @returns {Object} CSV string and metadata
+     * Exports nodes as a CSV file.
+     * Can export a subtree starting from a node or all nodes in a workspace.
+     * Tags are exported as semicolon-separated values.
+     * @param {number|null} [nodeId=null] - Root node ID or null for all nodes
+     * @param {string|null} [workspaceId=null] - Workspace filter when nodeId is null
+     * @returns {CSVExportResult} Object with CSV string, headers, and row count
      */
     exportCSV(nodeId = null, workspaceId = null) {
       let nodes
@@ -172,11 +226,16 @@ function createExportOperations(ctx) {
     },
 
     /**
-     * Import nodes from JSON export.
-     * @param {Object} data - JSON export data
-     * @param {number|null} targetParentId - Parent to import under
-     * @param {string} workspaceId - Target workspace
-     * @returns {Object} Import result
+     * Imports nodes from a JSON export.
+     * Creates new nodes with new IDs while preserving the tree structure.
+     * Recreates links between imported nodes using ID mapping.
+     * @param {Object} data - JSON export data with version, root, and optional links
+     * @param {Object} data.root - Root node object with nested children
+     * @param {Array} [data.links] - Optional array of link objects to recreate
+     * @param {number|null} [targetParentId=null] - Parent ID to import under, or null for root level
+     * @param {string} [workspaceId='work'] - Workspace to assign to imported nodes
+     * @returns {JSONImportResult} Object with new root ID and import counts
+     * @throws {Error} If data is invalid or missing root node
      */
     importJSON(data, targetParentId = null, workspaceId = 'work') {
       if (!data || !data.root) {
@@ -234,11 +293,15 @@ function createExportOperations(ctx) {
     },
 
     /**
-     * Import nodes from CSV.
-     * @param {string} csvData - CSV string
-     * @param {number|null} targetParentId - Parent to import under
-     * @param {string} workspaceId - Target workspace
-     * @returns {Object} Import result
+     * Imports nodes from a CSV file.
+     * Requires a 'title' column; other columns are optional.
+     * Attempts to preserve parent-child relationships using ID mapping.
+     * Tags should be semicolon-separated in the CSV.
+     * @param {string} csvData - CSV content with header row and data rows
+     * @param {number|null} [targetParentId=null] - Parent ID for imported nodes without a mapped parent
+     * @param {string} [workspaceId='work'] - Workspace to assign to imported nodes
+     * @returns {CSVImportResult} Object with count of imported nodes
+     * @throws {Error} If CSV has fewer than 2 lines or missing title column
      */
     importCSV(csvData, targetParentId = null, workspaceId = 'work') {
       const lines = csvData.trim().split('\n')
