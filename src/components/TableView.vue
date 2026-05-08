@@ -1,77 +1,20 @@
 <script setup>
-import { ref, computed, onUnmounted } from 'vue'
+import { computed } from 'vue'
 import { useNodeTooltip } from '../composables/useNodeTooltip.js'
 import { useNodeInteractions } from '../composables/useNodeInteractions.js'
+import { useColumnResize } from '../composables/useColumnResize.js'
+import { useTableDrag } from '../composables/useTableDrag.js'
 import { getTypeIcon, personIconSvg } from '../utils/constants.js'
-import { decodeHtmlEntities } from '../utils/html.js'
-
-// Column widths (resizable)
-const defaultColWidths = {
-  expand: 30,
-  type: 60,
-  check: 30,
-  title: 300,
-  notes: 200,
-  due: 90,
-  children: 40,
-  fav: 30,
-  actions: 60,
-}
-
-// Load saved widths from localStorage
-function loadColWidths() {
-  const saved = localStorage.getItem('graphcore-table-colwidths')
-  if (saved) {
-    try {
-      return { ...defaultColWidths, ...JSON.parse(saved) }
-    } catch {
-      return { ...defaultColWidths }
-    }
-  }
-  return { ...defaultColWidths }
-}
-
-const colWidths = ref(loadColWidths())
-
-// Save widths to localStorage
-function saveColWidths() {
-  localStorage.setItem('graphcore-table-colwidths', JSON.stringify(colWidths.value))
-}
-
-// Resize state
-const resizing = ref(null) // column name being resized
-const resizeStartX = ref(0)
-const resizeStartWidth = ref(0)
-
-function startResize(e, colName) {
-  e.preventDefault()
-  resizing.value = colName
-  resizeStartX.value = e.clientX
-  resizeStartWidth.value = colWidths.value[colName]
-  document.addEventListener('mousemove', onResizeMove)
-  document.addEventListener('mouseup', onResizeEnd)
-}
-
-function onResizeMove(e) {
-  if (!resizing.value) return
-  const diff = e.clientX - resizeStartX.value
-  const newWidth = Math.max(30, resizeStartWidth.value + diff)
-  colWidths.value[resizing.value] = newWidth
-}
-
-function onResizeEnd() {
-  if (resizing.value) {
-    saveColWidths()
-    resizing.value = null
-  }
-  document.removeEventListener('mousemove', onResizeMove)
-  document.removeEventListener('mouseup', onResizeEnd)
-}
-
-onUnmounted(() => {
-  document.removeEventListener('mousemove', onResizeMove)
-  document.removeEventListener('mouseup', onResizeEnd)
-})
+import {
+  formatDate,
+  truncateNotes,
+  isOverdue,
+  getBadgeStyle,
+  getIndentPadding,
+  getTreePrefix,
+  getDepthRowClass,
+  getRowStyle,
+} from './config/tableFormatters.js'
 
 const props = defineProps({
   nodes: { type: Array, default: () => [] },
@@ -107,6 +50,9 @@ const emit = defineEmits([
   'context-menu',
 ])
 
+// Setup column resize
+const { colWidths, resizing, startResize } = useColumnResize()
+
 // Setup tooltips
 const { showTooltip, hideTooltip } = useNodeTooltip({
   onOpenDetail: nodeId => emit('open-fullscreen', nodeId),
@@ -128,20 +74,6 @@ const { handleHover, handleLeave, handleClick, handleDoubleClick } = useNodeInte
   hideTooltip,
 })
 
-// Context menu handler
-function handleContextMenu(e, node) {
-  e.preventDefault()
-  emit('context-menu', { event: e, node })
-}
-
-function getRowStyle(node) {
-  const color = props.colorMap[node.id] || node.color
-  if (color && color !== '#0f4c75') {
-    return { background: `linear-gradient(90deg, ${color}55 0%, transparent 50%)` }
-  }
-  return {}
-}
-
 // Filter nodes recursively to hide completed items
 function filterNodes(nodeList) {
   if (!props.hideCompleted) return nodeList
@@ -156,7 +88,6 @@ function filterNodes(nodeList) {
 const filteredNodes = computed(() => filterNodes(props.nodes))
 
 // Flatten tree into a list of rows based on expanded state
-// Each row includes metadata for rendering: isLast (for tree prefix)
 const flattenedRows = computed(() => {
   const rows = []
 
@@ -180,291 +111,6 @@ const flattenedRows = computed(() => {
   return rows
 })
 
-// Get tree prefix for visual hierarchy - uses parentIsLastStack for correct lines
-function getTreePrefixFlat(node, isLast, parentIsLastStack) {
-  const depth = node.depth || 0
-  if (depth === 0) return ''
-
-  let prefix = ''
-  // Add continuation lines for each ancestor level
-  for (let i = 0; i < parentIsLastStack.length; i++) {
-    prefix += parentIsLastStack[i] ? '  ' : '│ '
-  }
-  // Add branch and horizontal line
-  prefix += isLast ? '└─' : '├─'
-  return prefix
-}
-
-// Drag state
-const draggedNode = ref(null)
-const dropTarget = ref(null)
-const dropPosition = ref(null) // 'before', 'after', 'inside'
-const isDragging = ref(false)
-const dragGhost = ref(null)
-const justFinishedDrag = ref(false)
-
-function handleExpand(nodeId) {
-  // Don't expand while dragging or just after drag
-  if (isDragging.value || justFinishedDrag.value) return
-  emit('toggle-expand', nodeId)
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return ''
-  return dateStr.split('T')[0]
-}
-
-function truncateNotes(notes) {
-  if (!notes) return ''
-  let text = notes.replace(/[#*_`[\]]/g, '').trim()
-  text = decodeHtmlEntities(text)
-  return text.length > 50 ? text.substring(0, 50) + '...' : text
-}
-
-function isOverdue(dateStr) {
-  if (!dateStr) return false
-  const due = new Date(dateStr)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return due < today
-}
-
-// getTypeIcon imported from constants.js
-
-// Get badge style for person nodes - uses CSS variables, no inline colors needed
-function getBadgeStyle() {
-  // CSS variables handle all type colors including person
-  return {}
-}
-
-// Get indentation based on database depth
-function getIndentPadding(node) {
-  const depth = node.depth || 0
-  const basePadding = 8
-  const indentPerLevel = 24
-  return `${basePadding + depth * indentPerLevel}px`
-}
-
-// Get tree prefix for visual hierarchy - uses Unicode box-drawing chars
-function _getTreePrefix(node, isLast = false) {
-  const depth = node.depth || 0
-  if (depth === 0) return ''
-
-  let prefix = ''
-  // Add continuation lines for each ancestor level
-  for (let i = 1; i < depth; i++) {
-    prefix += '│ '
-  }
-  // Add branch and horizontal line
-  prefix += isLast ? '└─' : '├─'
-  return prefix
-}
-
-// Get row class based on database depth
-function getDepthRowClass(node) {
-  const depth = node.depth || 0
-  if (depth === 0) return 'depth-row-0'
-  if (depth === 1) return 'depth-row-1'
-  if (depth === 2) return 'depth-row-2'
-  if (depth === 3) return 'depth-row-3'
-  return 'depth-row-deep'
-}
-
-function confirmDelete(nodeId) {
-  emit('delete', nodeId)
-}
-
-// Mouse-based Drag and Drop
-function onMouseDown(e, node) {
-  // Don't start drag from interactive elements
-  if (e.target.closest('input, button, .expand-btn')) return
-
-  e.preventDefault()
-  draggedNode.value = node
-
-  // Reset tracking variables for new drag
-  lastTargetId = null
-  lastPosition = null
-
-  // Create ghost element with node preview
-  const ghost = document.createElement('div')
-  ghost.className = 'drag-ghost'
-  ghost.innerHTML = `
-    <span class="ghost-type" style="background: ${node.color || '#0f4c75'}">${node.type[0].toUpperCase()}</span>
-    <span class="ghost-title">${node.title}</span>
-    <span class="ghost-action"></span>
-  `
-  ghost.style.cssText = `
-    position: fixed;
-    left: ${e.clientX + 10}px;
-    top: ${e.clientY + 10}px;
-    background: var(--bg-primary, #1a1a2e);
-    border: 2px solid var(--accent-color, #4a9eff);
-    color: var(--text-primary, #fff);
-    padding: 6px 10px;
-    border-radius: 6px;
-    pointer-events: none;
-    z-index: 9999;
-    font-size: 13px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    max-width: 300px;
-  `
-  document.body.appendChild(ghost)
-  dragGhost.value = ghost
-  isDragging.value = true
-
-  document.addEventListener('mousemove', onMouseMove)
-  document.addEventListener('mouseup', onMouseUp)
-}
-
-let lastTargetId = null
-let lastPosition = null
-
-function onMouseMove(e) {
-  if (!isDragging.value || !dragGhost.value) return
-
-  // Move ghost
-  dragGhost.value.style.left = `${e.clientX + 10}px`
-  dragGhost.value.style.top = `${e.clientY + 10}px`
-
-  const actionEl = dragGhost.value.querySelector('.ghost-action')
-
-  // Find drop target
-  const elemBelow = document.elementFromPoint(e.clientX, e.clientY)
-  const row = elemBelow?.closest('tr.node-row')
-  const table = elemBelow?.closest('.table-view')
-
-  let newTargetId = null
-  let newPosition = null
-
-  if (row) {
-    const nodeId = parseInt(row.dataset.nodeId)
-    if (nodeId && nodeId !== draggedNode.value?.id) {
-      newTargetId = nodeId
-
-      // Determine position
-      const rect = row.getBoundingClientRect()
-      const y = e.clientY - rect.top
-      const height = rect.height
-
-      // Shift key forces reorder-only mode (no nesting)
-      const reorderOnly = e.shiftKey
-
-      // Top 35% = before, bottom 35% = after, middle 30% = inside
-      // This makes it easier to reorder without accidentally nesting
-      if (y < height * 0.35) {
-        newPosition = 'before'
-      } else if (y > height * 0.65) {
-        newPosition = 'after'
-      } else if (reorderOnly) {
-        // In reorder-only mode, use top/bottom half for before/after
-        newPosition = y < height * 0.5 ? 'before' : 'after'
-      } else {
-        newPosition = 'inside'
-      }
-    }
-  } else if (table) {
-    newTargetId = 'root'
-    newPosition = 'root'
-  }
-
-  // Only update DOM if target or position changed
-  if (newTargetId !== lastTargetId || newPosition !== lastPosition) {
-    // Clear previous drop indicators
-    document.querySelectorAll('.drop-before, .drop-after, .drop-inside').forEach(el => {
-      el.classList.remove('drop-before', 'drop-after', 'drop-inside')
-    })
-
-    if (newTargetId && newTargetId !== 'root' && row) {
-      const targetNode = findNodeById(newTargetId)
-      if (targetNode) {
-        dropTarget.value = targetNode
-        dropPosition.value = newPosition
-        row.classList.add(`drop-${newPosition}`)
-
-        if (actionEl) {
-          if (newPosition === 'before') actionEl.textContent = '↑ before'
-          else if (newPosition === 'after') actionEl.textContent = '↓ after'
-          else actionEl.textContent = '→ as child'
-        }
-      }
-    } else if (newTargetId === 'root') {
-      dropTarget.value = 'root'
-      dropPosition.value = null
-      if (actionEl) actionEl.textContent = '→ to root'
-    } else {
-      dropTarget.value = null
-      dropPosition.value = null
-      if (actionEl) actionEl.textContent = ''
-    }
-
-    lastTargetId = newTargetId
-    lastPosition = newPosition
-  }
-}
-
-function onMouseUp(_e) {
-  document.removeEventListener('mousemove', onMouseMove)
-  document.removeEventListener('mouseup', onMouseUp)
-
-  // Clear drop indicators
-  document.querySelectorAll('.drop-before, .drop-after, .drop-inside').forEach(el => {
-    el.classList.remove('drop-before', 'drop-after', 'drop-inside')
-  })
-
-  if (dragGhost.value) {
-    dragGhost.value.remove()
-    dragGhost.value = null
-  }
-
-  if (draggedNode.value && dropTarget.value) {
-    const sourceNode = draggedNode.value
-    const targetNode = dropTarget.value
-
-    // Check if we're moving multiple selected items
-    const hasMultipleSelected = props.selectedIds?.size > 1 && props.selectedIds.has(sourceNode.id)
-
-    if (targetNode === 'root') {
-      // Move to root (no parent)
-      if (hasMultipleSelected) {
-        emit('move-multiple', { nodeIds: Array.from(props.selectedIds), newParentId: null })
-      } else {
-        emit('move', { nodeId: sourceNode.id, oldParentId: sourceNode.parent_id, newParentId: null })
-      }
-    } else if (dropPosition.value === 'inside') {
-      // Move as child of target
-      if (hasMultipleSelected) {
-        emit('move-multiple', { nodeIds: Array.from(props.selectedIds), newParentId: targetNode.id })
-      } else {
-        emit('move', { nodeId: sourceNode.id, oldParentId: sourceNode.parent_id, newParentId: targetNode.id })
-      }
-    } else {
-      // Reorder: move before or after target
-      emit('reorder', {
-        nodeId: sourceNode.id,
-        targetId: targetNode.id,
-        position: dropPosition.value,
-      })
-    }
-  }
-
-  isDragging.value = false
-  draggedNode.value = null
-  dropTarget.value = null
-  dropPosition.value = null
-  lastTargetId = null
-  lastPosition = null
-
-  // Prevent accidental expand clicks right after drag
-  justFinishedDrag.value = true
-  setTimeout(() => {
-    justFinishedDrag.value = false
-  }, 200)
-}
-
 // Helper to find node by ID in the tree
 function findNodeById(id) {
   function search(nodes) {
@@ -480,20 +126,39 @@ function findNodeById(id) {
   return search(filteredNodes.value)
 }
 
-function getDropClass(node) {
-  if (!dropTarget.value || dropTarget.value.id !== node.id) return {}
-  return {
-    'drop-before': dropPosition.value === 'before',
-    'drop-after': dropPosition.value === 'after',
-    'drop-inside': dropPosition.value === 'inside',
-  }
+// Setup drag and drop
+const { isDragging, justFinishedDrag, onMouseDown, getDropClass } = useTableDrag({
+  findNodeById,
+  selectedIds: computed(() => props.selectedIds),
+  onMove: data => emit('move', data),
+  onMoveMultiple: data => emit('move-multiple', data),
+  onReorder: data => emit('reorder', data),
+})
+
+// Context menu handler
+function handleContextMenu(e, node) {
+  e.preventDefault()
+  emit('context-menu', { event: e, node })
+}
+
+function handleExpand(nodeId) {
+  // Don't expand while dragging or just after drag
+  if (isDragging.value || justFinishedDrag.value) return
+  emit('toggle-expand', nodeId)
+}
+
+function confirmDelete(nodeId) {
+  emit('delete', nodeId)
 }
 
 function isSelected(nodeId) {
   return props.selectedIds?.has(nodeId) || props.selectedId === nodeId
 }
 
-// handleHover and handleClick are provided by useNodeInteractions
+// Create bound version of getRowStyle that includes colorMap
+function getNodeRowStyle(node) {
+  return getRowStyle(node, props.colorMap)
+}
 </script>
 
 <template>
@@ -570,7 +235,7 @@ function isSelected(nodeId) {
               ...getDropClass(row.node),
             },
           ]"
-          :style="{ '--indent': getIndentPadding(row.node), ...getRowStyle(row.node) }"
+          :style="{ '--indent': getIndentPadding(row.node), ...getNodeRowStyle(row.node) }"
           :data-node-id="row.node.id"
           @mousedown="onMouseDown($event, row.node)"
           @dragstart.prevent
@@ -586,7 +251,7 @@ function isSelected(nodeId) {
             </button>
           </td>
           <td class="col-type">
-            <span class="tree-prefix">{{ getTreePrefixFlat(row.node, row.isLast, row.parentIsLastStack) }}</span>
+            <span class="tree-prefix">{{ getTreePrefix(row.node, row.isLast, row.parentIsLastStack) }}</span>
             <span
               v-if="row.node.type === 'person'"
               class="type-badge person"

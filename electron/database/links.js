@@ -1,20 +1,43 @@
 /**
- * Node link operations.
+ * Node link operations for creating and managing relationships between nodes.
+ * Supports bidirectional links stored in the node_links table.
  * @module database/links
  */
 
 /**
- * Create link operations bound to database context.
- * @param {Object} ctx - Database context with _query, _run, _rowToNode methods
- * @returns {Object} Link operations
+ * @typedef {Object} Link
+ * @property {number} source_id - Source node ID
+ * @property {number} target_id - Target node ID
+ * @property {string} created_at - Creation timestamp
+ */
+
+/**
+ * @typedef {Object} DatabaseContext
+ * @property {Function} _query - Execute SQL query returning array of rows
+ * @property {Function} _run - Execute SQL statement returning result info
+ * @property {Function} _rowToNode - Convert database row to Node object
+ */
+
+/**
+ * @typedef {Object} LinkResult
+ * @property {boolean} success - Whether the operation succeeded
+ * @property {string} [error] - Error message if operation failed
+ */
+
+/**
+ * Creates link operations bound to a database context.
+ * Links represent relationships between nodes independent of the parent-child hierarchy.
+ * @param {DatabaseContext} ctx - Database context with query methods
+ * @returns {Object} Object containing all link operations
  */
 function createLinkOperations(ctx) {
   return {
     /**
-     * Create a link between two nodes.
-     * @param {number} sourceId - Source node ID
-     * @param {number} targetId - Target node ID
-     * @returns {Object} Success status
+     * Creates a bidirectional link between two nodes.
+     * Updates the updated_at timestamp on both nodes.
+     * @param {number} sourceId - ID of the source node
+     * @param {number} targetId - ID of the target node
+     * @returns {LinkResult} Success status with optional error message
      */
     linkNodes(sourceId, targetId) {
       try {
@@ -27,10 +50,11 @@ function createLinkOperations(ctx) {
     },
 
     /**
-     * Remove a link between two nodes.
-     * @param {number} sourceId - Source node ID
-     * @param {number} targetId - Target node ID
-     * @returns {Object} Success status
+     * Removes a link between two nodes.
+     * Only removes the link in the specified direction (source -> target).
+     * @param {number} sourceId - ID of the source node
+     * @param {number} targetId - ID of the target node
+     * @returns {LinkResult} Success status object
      */
     unlinkNodes(sourceId, targetId) {
       ctx._run('DELETE FROM node_links WHERE source_id = ? AND target_id = ?', [sourceId, targetId])
@@ -38,9 +62,10 @@ function createLinkOperations(ctx) {
     },
 
     /**
-     * Get all links, optionally filtered by node IDs.
-     * @param {number[]|null} nodeIds - Filter to links involving these nodes
-     * @returns {Array} Link objects
+     * Retrieves all links, optionally filtered to links involving specific nodes.
+     * When nodeIds is provided, returns links where either source or target is in the list.
+     * @param {number[]|null} [nodeIds=null] - Optional array of node IDs to filter by
+     * @returns {Link[]} Array of link objects with source_id and target_id
      */
     getAllLinks(nodeIds = null) {
       if (nodeIds && nodeIds.length > 0) {
@@ -54,9 +79,11 @@ function createLinkOperations(ctx) {
     },
 
     /**
-     * Get all nodes linked to a given node.
-     * @param {number} id - Node ID
-     * @returns {Array} Linked node objects
+     * Retrieves all nodes that are linked to a given node.
+     * Returns nodes on either end of links where the given node is source or target.
+     * Does not include deleted nodes.
+     * @param {number} id - ID of the node to find linked nodes for
+     * @returns {Node[]} Array of linked node objects (excluding the queried node itself)
      */
     getLinkedNodes(id) {
       const numId = Number(id)

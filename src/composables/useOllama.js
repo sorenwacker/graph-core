@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import { api } from '../services/api.js'
-import { useSettings } from './useSettings.js'
+import { useSettings } from './useSettings'
+import { handleError } from './useErrorHandler.js'
 
 /**
  * Supported AI providers
@@ -234,6 +235,7 @@ export function useOllama() {
       generatedContent.value = result
       return result
     } catch (e) {
+      handleError(e, { context: 'AI note improvement', silent: true })
       error.value = e.message
       return null
     } finally {

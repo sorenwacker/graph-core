@@ -1,19 +1,63 @@
 /**
- * Node CRUD operations.
+ * Node CRUD operations for creating, reading, updating, and deleting nodes.
+ * Provides hierarchical node management with path-based ancestry tracking.
  * @module database/nodes
  */
 
 const { NODE_FIELDS } = require('./schema')
 
 /**
- * Create node operations bound to database context.
- * @param {Object} ctx - Database context with _query, _run, _get, _rowToNode, _applyWorkspaceFilter methods
- * @returns {Object} Node operations
+ * @typedef {Object} Node
+ * @property {number} id - Unique node identifier
+ * @property {string} title - Node title
+ * @property {string} type - Node type (note, task, project, person, etc.)
+ * @property {number|null} parent_id - Parent node ID or null for root nodes
+ * @property {string|null} workspace_id - Workspace identifier
+ * @property {string|null} notes - Node content/notes in markdown
+ * @property {boolean} completed - Whether the node is completed (for tasks)
+ * @property {number|null} importance - Importance level (1-5)
+ * @property {string|null} due_date - Due date in ISO format
+ * @property {string|null} start_date - Start date in ISO format
+ * @property {string|null} end_date - End date in ISO format
+ * @property {string[]} tags - Array of tag strings
+ * @property {boolean} favorite - Whether the node is marked as favorite
+ * @property {number} sort_order - Sort order within siblings
+ * @property {number} depth - Depth in the tree hierarchy (0 for root)
+ * @property {string} path - Slash-separated ancestor IDs (e.g., "1/5/12")
+ * @property {boolean} has_table - Whether node has an associated table
+ * @property {string} created_at - Creation timestamp
+ * @property {string} updated_at - Last update timestamp
+ * @property {string|null} deleted_at - Soft delete timestamp or null
+ */
+
+/**
+ * @typedef {Object} DatabaseContext
+ * @property {Function} _query - Execute SQL query returning array of rows
+ * @property {Function} _run - Execute SQL statement returning result info
+ * @property {Function} _get - Execute SQL query returning single row
+ * @property {Function} _rowToNode - Convert database row to Node object
+ * @property {Function} _applyWorkspaceFilter - Add workspace filter to SQL query
+ */
+
+/**
+ * @typedef {Object} NodeFilterParams
+ * @property {string} [type] - Filter by node type
+ * @property {number|null} [parent_id] - Filter by parent ID (null for root nodes)
+ * @property {string|null} [workspace_id] - Filter by workspace
+ */
+
+/**
+ * Creates node CRUD operations bound to a database context.
+ * All operations use the context's methods for database access.
+ * @param {DatabaseContext} ctx - Database context with query methods
+ * @returns {Object} Object containing all node operations
  */
 function createNodeOperations(ctx) {
   /**
-   * Update paths for all descendants of a node.
-   * @param {number} nodeId - Parent node ID
+   * Recursively updates path and depth for all descendants of a node.
+   * Called after moving or reparenting operations to maintain path consistency.
+   * @param {number} nodeId - ID of the node whose descendants should be updated
+   * @private
    */
   function updateDescendantPaths(nodeId) {
     const node = ops.getNode(nodeId)
@@ -30,12 +74,10 @@ function createNodeOperations(ctx) {
 
   const ops = {
     /**
-     * Get nodes with optional filtering.
-     * @param {Object} params - Filter parameters
-     * @param {string} params.type - Filter by node type
-     * @param {number|null} params.parent_id - Filter by parent ID
-     * @param {string|null} params.workspace_id - Filter by workspace
-     * @returns {Array} Node objects
+     * Retrieves nodes with optional filtering by type, parent, and workspace.
+     * Returns nodes ordered by sort_order then created_at.
+     * @param {NodeFilterParams} [params={}] - Filter parameters
+     * @returns {Node[]} Array of matching node objects
      */
     getNodes(params = {}) {
       let sql = 'SELECT * FROM nodes WHERE deleted_at IS NULL'
@@ -61,9 +103,10 @@ function createNodeOperations(ctx) {
     },
 
     /**
-     * Get a single node by ID.
-     * @param {number} id - Node ID
-     * @returns {Object|null} Node object or null
+     * Retrieves a single node by its ID.
+     * Includes has_table flag indicating if node has an associated table.
+     * @param {number} id - The node ID to retrieve
+     * @returns {Node|null} The node object or null if not found or deleted
      */
     getNode(id) {
       const row = ctx._get(
@@ -75,9 +118,19 @@ function createNodeOperations(ctx) {
     },
 
     /**
-     * Create a new node.
-     * @param {Object} data - Node data
-     * @returns {Object} Created node
+     * Creates a new node with the provided data.
+     * Automatically calculates depth and path based on parent.
+     * @param {Object} data - Node data to create
+     * @param {string} data.title - Node title (required)
+     * @param {string} [data.type='note'] - Node type
+     * @param {number|null} [data.parent_id] - Parent node ID
+     * @param {string|null} [data.workspace_id] - Workspace identifier
+     * @param {string|null} [data.notes] - Node content
+     * @param {boolean} [data.completed=false] - Completion status
+     * @param {number|null} [data.importance] - Importance level
+     * @param {string|null} [data.due_date] - Due date
+     * @param {string[]} [data.tags] - Array of tags
+     * @returns {Node} The created node with generated id, depth, and path
      */
     createNode(data) {
       const presentFields = NODE_FIELDS.filter(f => data[f] !== undefined)
@@ -109,10 +162,12 @@ function createNodeOperations(ctx) {
     },
 
     /**
-     * Update an existing node.
-     * @param {number} id - Node ID
-     * @param {Object} data - Fields to update
-     * @returns {Object} Updated node
+     * Updates an existing node with the provided fields.
+     * Only fields present in data are updated; others remain unchanged.
+     * Automatically updates the updated_at timestamp.
+     * @param {number} id - ID of the node to update
+     * @param {Object} data - Fields to update (partial node data)
+     * @returns {Node} The updated node object
      */
     updateNode(id, data) {
       const updates = []
@@ -141,10 +196,12 @@ function createNodeOperations(ctx) {
     },
 
     /**
-     * Delete a node (soft or hard delete).
-     * @param {number} id - Node ID
-     * @param {boolean} hard - If true, permanently delete
-     * @returns {Object} Success status
+     * Deletes a node, reassigning its children to its parent.
+     * Supports soft delete (default) or hard delete.
+     * Children are moved up to the deleted node's parent to prevent orphans.
+     * @param {number} id - ID of the node to delete
+     * @param {boolean} [hard=false] - If true, permanently removes the node; otherwise soft deletes
+     * @returns {{success: boolean}} Success status object
      */
     deleteNode(id, hard = false) {
       const node = ops.getNode(id)
@@ -169,10 +226,11 @@ function createNodeOperations(ctx) {
     },
 
     /**
-     * Move a node to a new parent.
-     * @param {number} id - Node ID
-     * @param {number|null} newParentId - New parent ID
-     * @returns {Object|null} Updated node
+     * Moves a node to a new parent, updating its depth and path.
+     * Also recursively updates all descendant paths.
+     * @param {number} id - ID of the node to move
+     * @param {number|null} newParentId - ID of the new parent, or null to make it a root node
+     * @returns {Node|null} The updated node, or null if node not found
      */
     moveNode(id, newParentId) {
       const node = ops.getNode(id)
@@ -201,11 +259,12 @@ function createNodeOperations(ctx) {
     },
 
     /**
-     * Reorder a node relative to a target.
-     * @param {number} nodeId - Node to reorder
-     * @param {number} targetId - Target node
-     * @param {string} position - 'before' or 'after'
-     * @returns {Object|null} Updated node
+     * Reorders a node relative to a target sibling.
+     * Updates sort_order and parent_id to position the node before or after target.
+     * @param {number} nodeId - ID of the node to reorder
+     * @param {number} targetId - ID of the target node to position relative to
+     * @param {string} position - Position relative to target: 'before' or 'after'
+     * @returns {Node|null} The updated node, or null if either node not found
      */
     reorderNode(nodeId, targetId, position) {
       const node = ops.getNode(nodeId)
@@ -228,11 +287,12 @@ function createNodeOperations(ctx) {
     },
 
     /**
-     * Get children of a node.
+     * Retrieves all children of a node, optionally filtered by type.
+     * Includes has_table flag for each child.
      * @param {number} id - Parent node ID
-     * @param {string|null} type - Filter by type
-     * @param {string|undefined} workspaceId - Workspace filter
-     * @returns {Array} Child nodes
+     * @param {string|null} [type=null] - Optional type filter
+     * @param {string|undefined} [workspaceId] - Optional workspace filter (defaults to parent's workspace)
+     * @returns {Node[]} Array of child nodes ordered by sort_order then created_at
      */
     getChildren(id, type = null, workspaceId = undefined) {
       const parent = ops.getNode(id)
@@ -253,10 +313,11 @@ function createNodeOperations(ctx) {
     },
 
     /**
-     * Get all descendants of a node.
-     * @param {number} id - Root node ID
-     * @param {number|null} maxDepth - Maximum depth to traverse
-     * @returns {Array} Descendant nodes
+     * Retrieves all descendants of a node using path-based lookup.
+     * More efficient than recursive queries for large subtrees.
+     * @param {number} id - Root node ID to get descendants of
+     * @param {number|null} [maxDepth=null] - Maximum depth to traverse (null for unlimited)
+     * @returns {Node[]} Array of descendant nodes ordered by depth, sort_order, created_at
      */
     getDescendants(id, maxDepth = null) {
       const node = ops.getNode(id)
@@ -280,9 +341,10 @@ function createNodeOperations(ctx) {
     },
 
     /**
-     * Batch fetch descendants for multiple root IDs.
+     * Batch retrieves descendants for multiple root nodes in a single query.
+     * More efficient than calling getDescendants multiple times.
      * @param {number[]} rootIds - Array of root node IDs
-     * @returns {Map<number, Object[]>} Map of rootId -> descendants
+     * @returns {Map<number, Node[]>} Map where keys are root IDs and values are arrays of their descendants
      */
     getDescendantsBatch(rootIds) {
       const result = new Map()
@@ -336,9 +398,10 @@ function createNodeOperations(ctx) {
     },
 
     /**
-     * Get ancestors of a node.
-     * @param {number} id - Node ID
-     * @returns {Array} Ancestor nodes
+     * Retrieves all ancestors of a node by parsing its path.
+     * Returns nodes from root to immediate parent.
+     * @param {number} id - Node ID to get ancestors of
+     * @returns {Node[]} Array of ancestor nodes ordered by depth (root first)
      */
     getAncestors(id) {
       const node = ops.getNode(id)
@@ -353,7 +416,11 @@ function createNodeOperations(ctx) {
         .map(r => ctx._rowToNode(r))
     },
 
-    // Internal helper exposed for migrations
+    /**
+     * Internal helper exposed for migrations and tree operations.
+     * Updates path and depth for all descendants of a node.
+     * @private
+     */
     _updateDescendantPaths: updateDescendantPaths,
   }
 

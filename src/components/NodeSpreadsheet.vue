@@ -12,6 +12,13 @@ import {
 import { useSpreadsheetSelection } from '../composables/useSpreadsheetSelection.js'
 import { useSpreadsheetKeyboard } from '../composables/useSpreadsheetKeyboard.js'
 import { useColumnOperations } from '../composables/useColumnOperations.js'
+import { isFormula, getColumnName } from '../utils/spreadsheetFormulas.js'
+import {
+  getCellStyleFromData,
+  selectionHasStyle as checkSelectionHasStyle,
+  getSelectionColor as getSelectionColorFromData,
+  createCellStyleCallback,
+} from '../utils/spreadsheetCellStyles.js'
 
 // ============================================================================
 // Constants
@@ -146,58 +153,18 @@ const columnOps = useColumnOperations({
 // ============================================================================
 
 function getCellStyle(row, col) {
-  const cell = props.cellData.find(c => c.row_index === row && c.col_index === col)
-  if (!cell?.style) return null
-  try {
-    return typeof cell.style === 'string' ? JSON.parse(cell.style) : cell.style
-  } catch {
-    return null
-  }
+  return getCellStyleFromData(props.cellData, row, col)
 }
 
 function selectionHasStyle(styleProp) {
-  const bounds = selection.selectionBounds.value
-  if (!bounds) return false
-
-  for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
-    for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
-      const style = getCellStyle(r, c)
-      if (style?.[styleProp]) return true
-    }
-  }
-  return false
+  return checkSelectionHasStyle(selection.selectionBounds.value, props.cellData, styleProp)
 }
 
 function getSelectionColor() {
-  const bounds = selection.selectionBounds.value
-  if (!bounds) return null
-
-  let commonColor = undefined
-  for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
-    for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
-      const style = getCellStyle(r, c)
-      const color = style?.color || null
-      if (commonColor === undefined) {
-        commonColor = color
-      } else if (commonColor !== color) {
-        return null
-      }
-    }
-  }
-  return commonColor
+  return getSelectionColorFromData(selection.selectionBounds.value, props.cellData)
 }
 
-function cellStyleCallback(params) {
-  const colIndex = params.colDef.context?.colIndex
-  if (colIndex === undefined) return null
-  const style = getCellStyle(params.node.rowIndex, colIndex)
-  if (!style) return null
-  return {
-    fontWeight: style.bold ? '700' : 'normal',
-    fontStyle: style.italic ? 'italic' : 'normal',
-    color: style.color || null,
-  }
-}
+const cellStyleCallback = computed(() => createCellStyleCallback(props.cellData))
 
 // ============================================================================
 // Style Operations
@@ -324,7 +291,7 @@ const columnDefs = computed(() => {
     editable: true,
     width: col.width || 100,
     context: { colIndex: idx },
-    cellStyle: cellStyleCallback,
+    cellStyle: cellStyleCallback.value,
     cellClassRules: {
       'cell-selected': params => selection.isCellSelected(params.node.rowIndex, idx),
     },
@@ -397,13 +364,12 @@ function onCellValueChanged(params) {
     if (colIndex < 0) return
     const value = params.newValue ?? ''
     const valueStr = String(value)
-    const isFormula = valueStr.startsWith('=')
 
     emit('cell-change', {
       row: rowIndex,
       col: colIndex,
       value: valueStr,
-      isFormula: isFormula,
+      isFormula: isFormula(valueStr),
     })
   }, 300)
 }
@@ -439,16 +405,6 @@ function addColumn() {
   const newColName = getColumnName(plainCols.length)
   const newCols = [...plainCols, { id: `col${plainCols.length}`, name: newColName, type: 'text', width: 100 }]
   emit('structure-change', { type: 'column_definitions', value: newCols })
-}
-
-function getColumnName(index) {
-  let name = ''
-  let i = index
-  while (i >= 0) {
-    name = String.fromCharCode(65 + (i % 26)) + name
-    i = Math.floor(i / 26) - 1
-  }
-  return name
 }
 
 function createTable() {

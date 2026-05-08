@@ -18,6 +18,13 @@ import {
 } from '../composables/useNodePositions.js'
 import { typeConfig } from '../utils/constants.js'
 import { getContrastColor } from '../utils/formatting.js'
+import {
+  DEBOUNCE_DELAY_MS,
+  LAYOUT_SETTLE_DELAY_MS,
+  LAYOUT_SAVE_DELAY_MS,
+  LAYOUT_RELAYOUT_DELAY_MS,
+  NODE_POSITION_SETTLE_DELAY_MS,
+} from '../utils/settingsConstants'
 import cytoscape from 'cytoscape'
 import coseBilkent from 'cytoscape-cose-bilkent'
 import cola from 'cytoscape-cola'
@@ -277,7 +284,7 @@ const debounce =
     if (updateDebounceTimer) clearTimeout(updateDebounceTimer)
     updateDebounceTimer = setTimeout(() => fn(...a), d)
   }
-const debouncedUpdateGraph = debounce(() => updateGraph(), 50)
+const debouncedUpdateGraph = debounce(() => updateGraph(), DEBOUNCE_DELAY_MS)
 
 // Helper for saving node settings with consistent error handling
 function saveNodeSetting(nodeId, field, value, errorContext) {
@@ -602,8 +609,8 @@ function applyInitialLayout(hasPos) {
         isInitializing = false
         if (relaxLocked.value) layout.startContinuousRelax()
         if (fitLocked.value) layout.startContinuousFit()
-      }, 500)
-    }, 100)
+      }, LAYOUT_SETTLE_DELAY_MS)
+    }, NODE_POSITION_SETTLE_DELAY_MS)
   } else {
     isInitializing = false
     if (relaxLocked.value) layout.startContinuousRelax()
@@ -611,76 +618,10 @@ function applyInitialLayout(hasPos) {
   }
 }
 
-async function initGraph() {
-  if (!container.value) return
-  isInitializing = true
-  const savedPos = _loadPos()
-  const elements = buildElements({
-    nodeList: props.nodes,
-    parentNode: props.parent,
-    savedPositions: savedPos,
-    detailThreshold: props.detailThreshold,
-    maxDepth: maxDepth.value,
-    hideCompleted: props.hideCompleted,
-    hideSensitive: props.hideSensitive,
-    sortAlphabetically: props.sortAlphabetically,
-    visibleTypes: visibleTypes.value,
-    showRootNode: showRootNode.value,
-    selectedIds: props.selectedIds,
-    selectedId: props.selectedId,
-    ancestorColor: props.ancestorColor,
-    inheritColors: props.inheritColors,
-  })
-
-  if (showExternalLinks.value) {
-    try {
-      const ids = elements.filter(e => !e.data.source).map(e => parseInt(e.data.id))
-      if (ids.length > 0) {
-        const links = await api.getAllLinks(ids)
-        await fetchLinkedNodes({
-          elements,
-          links,
-          savedPositions: savedPos,
-          hideCompleted: props.hideCompleted,
-          selectedIds: props.selectedIds,
-          selectedId: props.selectedId,
-          handleError,
-        })
-        addLinkEdges(elements, links)
-      }
-    } catch (e) {
-      handleError(e, { context: 'Loading links', silent: true })
-    }
-  }
-
-  const hasPos = Object.keys(savedPos).length > 0
-  cy = createCytoscapeInstance(elements, hasPos)
-  cy.nodes().grabify()
-  setupHtmlLabels()
-  events.setupEvents()
-  applyInitialLayout(hasPos)
-}
-
 /**
- * Save current zoom, pan, and node positions from the graph.
+ * Build graph elements and optionally fetch external links.
  */
-function collectCurrentState() {
-  const savedZoom = cy.zoom()
-  const savedPan = { ...cy.pan() }
-  const savedPos = _loadPos()
-  const existingIds = new Set()
-  cy.nodes().forEach(n => {
-    existingIds.add(n.id())
-    const p = n.position()
-    if (p.x !== 0 || p.y !== 0) savedPos[n.id()] = { x: p.x, y: p.y }
-  })
-  return { savedZoom, savedPan, savedPos, existingIds }
-}
-
-/**
- * Build elements array with external links if enabled.
- */
-async function buildUpdatedElements(savedPos) {
+async function buildElementsWithLinks(savedPos) {
   const elements = buildElements({
     nodeList: props.nodes,
     parentNode: props.parent,
@@ -720,6 +661,40 @@ async function buildUpdatedElements(savedPos) {
   }
 
   return elements
+}
+
+/**
+ * Initialize the graph with nodes and edges.
+ */
+async function initGraph() {
+  if (!container.value) return
+  isInitializing = true
+
+  const savedPos = _loadPos()
+  const elements = await buildElementsWithLinks(savedPos)
+  const hasPos = Object.keys(savedPos).length > 0
+
+  cy = createCytoscapeInstance(elements, hasPos)
+  cy.nodes().grabify()
+  setupHtmlLabels()
+  events.setupEvents()
+  applyInitialLayout(hasPos)
+}
+
+/**
+ * Save current zoom, pan, and node positions from the graph.
+ */
+function collectCurrentState() {
+  const savedZoom = cy.zoom()
+  const savedPan = { ...cy.pan() }
+  const savedPos = _loadPos()
+  const existingIds = new Set()
+  cy.nodes().forEach(n => {
+    existingIds.add(n.id())
+    const p = n.position()
+    if (p.x !== 0 || p.y !== 0) savedPos[n.id()] = { x: p.x, y: p.y }
+  })
+  return { savedZoom, savedPan, savedPos, existingIds }
 }
 
 /**
@@ -809,9 +784,9 @@ function handleNewNodes(diffResult, savedZoom, savedPan) {
 
   if (!hasPos) {
     cy.layout(getLayoutOptions()).run()
-    setTimeout(_savePos, 600)
+    setTimeout(_savePos, LAYOUT_SAVE_DELAY_MS)
   } else if (allNeed.length > 0) {
-    setTimeout(() => layout.autoRelaxNewNodes(allNeed), 100)
+    setTimeout(() => layout.autoRelaxNewNodes(allNeed), NODE_POSITION_SETTLE_DELAY_MS)
   } else {
     requestAnimationFrame(() => {
       cy.viewport({ zoom: savedZoom, pan: savedPan })
@@ -828,7 +803,7 @@ async function updateGraph() {
   }
 
   const { savedZoom, savedPan, savedPos, existingIds } = collectCurrentState()
-  const elements = await buildUpdatedElements(savedPos)
+  const elements = await buildElementsWithLinks(savedPos)
   const diffResult = diffAndApply(elements, existingIds, savedPos)
 
   // If diffAndApply returned null, only data updates were needed
@@ -861,7 +836,7 @@ const reLayout = () => {
   if (cy) {
     _clearPos()
     cy.layout(getLayoutOptions()).run()
-    setTimeout(_savePos, 800)
+    setTimeout(_savePos, LAYOUT_RELAYOUT_DELAY_MS)
   }
 }
 

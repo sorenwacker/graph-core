@@ -1,19 +1,43 @@
 /**
- * Tree operations - roots, projects, inbox, tree building.
+ * Tree operations for hierarchical node navigation and management.
+ * Provides root access, tree building, trash management, and tree repair utilities.
  * @module database/tree
  */
 
 /**
- * Create tree operations bound to database context.
- * @param {Object} ctx - Database context with _query, _rowToNode, _applyWorkspaceFilter, getNode, getDescendants methods
- * @returns {Object} Tree operations
+ * @typedef {Object} TreeNode
+ * @property {number} id - Node ID
+ * @property {string} title - Node title
+ * @property {string} type - Node type
+ * @property {number|null} parent_id - Parent node ID
+ * @property {TreeNode[]} children - Array of child tree nodes
+ */
+
+/**
+ * @typedef {Object} DatabaseContext
+ * @property {Function} _query - Execute SQL query returning array of rows
+ * @property {Function} _run - Execute SQL statement returning result info
+ * @property {Function} _rowToNode - Convert database row to Node object
+ * @property {Function} _applyWorkspaceFilter - Add workspace filter to SQL query
+ * @property {Function} _save - Persist changes to disk
+ * @property {Function} getNode - Get a single node by ID
+ * @property {Function} getDescendants - Get all descendants of a node
+ * @property {Function} _updateDescendantPaths - Update paths for node descendants
+ */
+
+/**
+ * Creates tree navigation and management operations bound to a database context.
+ * Handles tree traversal, root access, trash management, and tree integrity repair.
+ * @param {DatabaseContext} ctx - Database context with query methods
+ * @returns {Object} Object containing all tree operations
  */
 function createTreeOperations(ctx) {
   return {
     /**
-     * Get root nodes (no parent).
-     * @param {string|null|undefined} workspaceId - Workspace filter
-     * @returns {Array} Root nodes
+     * Retrieves all root nodes (nodes without a parent).
+     * Includes has_table flag for each node.
+     * @param {string|null|undefined} [workspaceId] - Workspace filter
+     * @returns {Node[]} Array of root nodes ordered by sort_order then created_at
      */
     getRoots(workspaceId = undefined) {
       let sql =
@@ -29,8 +53,9 @@ function createTreeOperations(ctx) {
     },
 
     /**
-     * Get all project nodes.
-     * @returns {Array} Project nodes
+     * Retrieves all project-type nodes across all workspaces.
+     * Projects are top-level organizational units in the hierarchy.
+     * @returns {Node[]} Array of project nodes ordered by sort_order then created_at
      */
     getProjects() {
       return ctx
@@ -39,8 +64,9 @@ function createTreeOperations(ctx) {
     },
 
     /**
-     * Get inbox (root nodes).
-     * @returns {Array} Inbox nodes
+     * Retrieves all root nodes as the inbox.
+     * The inbox represents uncategorized top-level items.
+     * @returns {Node[]} Array of inbox (root) nodes
      */
     getInbox() {
       return ctx
@@ -49,9 +75,10 @@ function createTreeOperations(ctx) {
     },
 
     /**
-     * Build tree view with nested children.
-     * @param {number|null} rootId - Root node ID or null for all
-     * @returns {Array} Tree structure
+     * Builds a nested tree structure from flat node data.
+     * Each node includes a children array with its nested descendants.
+     * @param {number|null} [rootId=null] - Starting node ID, or null to build from all root nodes
+     * @returns {TreeNode[]} Array of tree nodes with nested children arrays
      */
     getTree(rootId = null) {
       const nodes = rootId
@@ -76,9 +103,10 @@ function createTreeOperations(ctx) {
     },
 
     /**
-     * Get trash (deleted nodes).
-     * @param {number} limit - Maximum results
-     * @returns {Array} Deleted nodes
+     * Retrieves soft-deleted nodes from trash.
+     * Nodes in trash can be restored or permanently deleted.
+     * @param {number} [limit=100] - Maximum number of nodes to return
+     * @returns {Node[]} Array of deleted nodes ordered by deleted_at descending
      */
     getTrash(limit = 100) {
       return ctx
@@ -87,9 +115,10 @@ function createTreeOperations(ctx) {
     },
 
     /**
-     * Restore a deleted node.
-     * @param {number} id - Node ID
-     * @returns {Object} Restored node
+     * Restores a soft-deleted node from trash.
+     * Clears the deleted_at timestamp, making the node active again.
+     * @param {number} id - ID of the node to restore
+     * @returns {Node} The restored node object
      */
     restoreNode(id) {
       ctx._run('UPDATE nodes SET deleted_at = NULL WHERE id = ?', [id])
@@ -97,8 +126,9 @@ function createTreeOperations(ctx) {
     },
 
     /**
-     * Permanently delete all trashed nodes.
-     * @returns {Object} Count of deleted nodes
+     * Permanently deletes all nodes in trash.
+     * This operation cannot be undone.
+     * @returns {{deleted: number}} Object with count of permanently deleted nodes
      */
     emptyTrash() {
       const result = ctx._query('SELECT COUNT(*) as count FROM nodes WHERE deleted_at IS NOT NULL')
@@ -108,8 +138,9 @@ function createTreeOperations(ctx) {
     },
 
     /**
-     * Get orphaned nodes (parent doesn't exist).
-     * @returns {Array} Orphaned nodes
+     * Finds orphaned nodes whose parent no longer exists.
+     * Orphans can occur when a parent is deleted without reassigning children.
+     * @returns {Node[]} Array of orphaned nodes ordered by updated_at descending
      */
     getOrphanedNodes() {
       return ctx
@@ -130,9 +161,10 @@ function createTreeOperations(ctx) {
     },
 
     /**
-     * Move orphaned node to root.
-     * @param {number} nodeId - Node ID
-     * @returns {Object} Updated node
+     * Moves an orphaned node to root level.
+     * Clears the parent_id and updates descendant paths.
+     * @param {number} nodeId - ID of the orphaned node to reparent
+     * @returns {Node} The updated node with parent_id set to null
      */
     reparentToRoot(nodeId) {
       ctx._run('UPDATE nodes SET parent_id = NULL WHERE id = ?', [nodeId])
@@ -141,8 +173,10 @@ function createTreeOperations(ctx) {
     },
 
     /**
-     * Repair workspace_id for descendants to match root.
-     * @returns {Object} Count of fixed nodes
+     * Repairs workspace_id inconsistencies in the tree.
+     * Ensures all descendants inherit their root node's workspace_id.
+     * Automatically saves changes to disk if any fixes are made.
+     * @returns {{fixed: number}} Object with count of nodes that were fixed
      */
     repairWorkspaces() {
       const roots = ctx._query('SELECT * FROM nodes WHERE parent_id IS NULL AND deleted_at IS NULL')

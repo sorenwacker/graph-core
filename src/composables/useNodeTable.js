@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { api } from '../services/api'
+import { handleError } from './useErrorHandler.js'
 
 /**
  * Composable for managing node table (spreadsheet) data
@@ -58,6 +59,7 @@ export function useNodeTable() {
         cells.value = []
       }
     } catch (err) {
+      handleError(err, { context: 'Loading table', silent: true })
       error.value = err.message
       table.value = null
       cells.value = []
@@ -79,6 +81,7 @@ export function useNodeTable() {
       await api.createNodeTable(nodeId, options)
       await loadTable(nodeId)
     } catch (err) {
+      handleError(err, { context: 'Creating table', silent: true })
       error.value = err.message
     } finally {
       loading.value = false
@@ -95,6 +98,7 @@ export function useNodeTable() {
       const updatedTable = await api.updateNodeTable(nodeId, updates)
       table.value = updatedTable
     } catch (err) {
+      handleError(err, { context: 'Updating table', silent: true })
       error.value = err.message
     }
   }
@@ -109,6 +113,7 @@ export function useNodeTable() {
       table.value = null
       cells.value = []
     } catch (err) {
+      handleError(err, { context: 'Deleting table' })
       error.value = err.message
     }
   }
@@ -161,6 +166,7 @@ export function useNodeTable() {
         cell.formula = undefined
       }
     } catch (err) {
+      handleError(err, { context: 'Saving cell', silent: true })
       error.value = err.message
     }
   }
@@ -193,6 +199,7 @@ export function useNodeTable() {
       await api.setCells(nodeId, [cellData])
       cell.style = JSON.stringify(style)
     } catch (err) {
+      handleError(err, { context: 'Saving cell style', silent: true })
       error.value = err.message
     }
   }
@@ -206,6 +213,7 @@ export function useNodeTable() {
     try {
       await api.setCells(nodeId, cellsToSave)
     } catch (err) {
+      handleError(err, { context: 'Saving cells', silent: true })
       error.value = err.message
     }
   }
@@ -219,6 +227,7 @@ export function useNodeTable() {
       await api.clearCells(nodeId)
       cells.value = []
     } catch (err) {
+      handleError(err, { context: 'Clearing cells' })
       error.value = err.message
     }
   }

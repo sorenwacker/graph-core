@@ -106,10 +106,13 @@ let mainWindow
 let db
 const detachedWindows = new Map() // Track open detached windows by nodeId
 
-function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
+/**
+ * Create common BrowserWindow configuration with optional overrides.
+ * @param {Object} options - Window-specific options to merge
+ * @returns {Object} Complete BrowserWindow configuration
+ */
+function createWindowConfig(options = {}) {
+  const baseConfig = {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -119,7 +122,47 @@ function createWindow() {
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#0a0a0f',
     icon: path.join(__dirname, '../assets/icon.png'),
+  }
+
+  return { ...baseConfig, ...options }
+}
+
+/**
+ * Set up external link handling for a BrowserWindow.
+ * Opens http/https links in the default browser instead of the app.
+ * @param {BrowserWindow} window - The window to configure
+ */
+function setupExternalLinkHandling(window) {
+  // Open external links in default browser
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      shell.openExternal(url)
+      return { action: 'deny' }
+    }
+    return { action: 'allow' }
   })
+
+  // Also handle clicks on links within the page
+  window.webContents.on('will-navigate', (event, url) => {
+    const appUrl =
+      process.env.NODE_ENV === 'development'
+        ? 'http://localhost:9743'
+        : `file://${path.join(__dirname, '../dist/index.html')}`
+
+    if (!url.startsWith(appUrl) && (url.startsWith('http://') || url.startsWith('https://'))) {
+      event.preventDefault()
+      shell.openExternal(url)
+    }
+  })
+}
+
+function createWindow() {
+  mainWindow = new BrowserWindow(
+    createWindowConfig({
+      width: 1400,
+      height: 900,
+    })
+  )
 
   // Set Content Security Policy (stricter in production)
   const isDev = process.env.NODE_ENV === 'development'
@@ -136,27 +179,7 @@ function createWindow() {
     })
   })
 
-  // Open external links in default browser
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      shell.openExternal(url)
-      return { action: 'deny' }
-    }
-    return { action: 'allow' }
-  })
-
-  // Also handle clicks on links within the page
-  mainWindow.webContents.on('will-navigate', (event, url) => {
-    const appUrl =
-      process.env.NODE_ENV === 'development'
-        ? 'http://localhost:9743'
-        : `file://${path.join(__dirname, '../dist/index.html')}`
-
-    if (!url.startsWith(appUrl) && (url.startsWith('http://') || url.startsWith('https://'))) {
-      event.preventDefault()
-      shell.openExternal(url)
-    }
-  })
+  setupExternalLinkHandling(mainWindow)
 
   // In development, load from Vite dev server
   if (process.env.NODE_ENV === 'development') {
@@ -186,22 +209,15 @@ function createDetachedWindow(nodeId, nodeTitle) {
     detachedWindows.delete(nodeId)
   }
 
-  const detachedWindow = new BrowserWindow({
-    width: 700,
-    height: 800,
-    minWidth: 400,
-    minHeight: 300,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
-    titleBarStyle: 'hiddenInset',
-    backgroundColor: '#0a0a0f',
-    title: nodeTitle || 'Detached Node',
-    icon: path.join(__dirname, '../assets/icon.png'),
-  })
+  const detachedWindow = new BrowserWindow(
+    createWindowConfig({
+      width: 700,
+      height: 800,
+      minWidth: 400,
+      minHeight: 300,
+      title: nodeTitle || 'Detached Node',
+    })
+  )
 
   // Track the window
   detachedWindows.set(nodeId, detachedWindow)
@@ -211,26 +227,7 @@ function createDetachedWindow(nodeId, nodeTitle) {
     detachedWindows.delete(nodeId)
   })
 
-  // Open external links in default browser
-  detachedWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      shell.openExternal(url)
-      return { action: 'deny' }
-    }
-    return { action: 'allow' }
-  })
-
-  detachedWindow.webContents.on('will-navigate', (event, url) => {
-    const appUrl =
-      process.env.NODE_ENV === 'development'
-        ? 'http://localhost:9743'
-        : `file://${path.join(__dirname, '../dist/index.html')}`
-
-    if (!url.startsWith(appUrl) && (url.startsWith('http://') || url.startsWith('https://'))) {
-      event.preventDefault()
-      shell.openExternal(url)
-    }
-  })
+  setupExternalLinkHandling(detachedWindow)
 
   // Load the app with detached query param
   if (process.env.NODE_ENV === 'development') {

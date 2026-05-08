@@ -1,0 +1,511 @@
+{
+  "workspace": {
+    "id": "demo",
+    "name": "Demo",
+    "color": "#9333ea",
+    "icon": "sparkles"
+  },
+  "nodes": [
+    {
+      "ref": "project-learn",
+      "type": "project",
+      "title": "Learn GraphCore",
+      "color": "#3b82f6",
+      "favorite": true,
+      "notes": "# Welcome to GraphCore\n\nThis demo project will help you learn how to use GraphCore effectively.\n\n## What you'll learn\n\n- Creating and organizing nodes\n- Using different view modes\n- Linking related items\n- Keyboard shortcuts for power users\n\n## Getting started\n\n1. **Drill down** into this project by pressing `Enter` or double-clicking\n2. Explore the child nodes to see examples of different types\n3. Try the graph view to see relationships visually\n\n> Tip: Press `Space` on any node to see its full details in the side panel.\n\n#tutorial #getting-started"
+    },
+    {
+      "ref": "group-team",
+      "type": "group",
+      "title": "Team & Contacts",
+      "color": "#22c55e",
+      "notes": "# Team Directory\n\nThis group contains people, organizations, and departments you work with.\n\n## Use cases for Groups\n\n- **Team rosters** - Keep track of team members\n- **Departments** - Organize by business unit\n- **External contacts** - Vendors, clients, partners\n\nGroups are containers that help you organize related items together without implying a project workflow.\n\n#team #contacts"
+    },
+    {
+      "ref": "topic-features",
+      "type": "topic",
+      "title": "GraphCore Features",
+      "color": "#f59e0b",
+      "notes": "# Feature Documentation\n\nThis topic contains documentation about GraphCore's capabilities.\n\n## Topics vs Projects\n\n- **Topics** are for knowledge, documentation, and reference material\n- **Projects** are for work that has tasks, milestones, and deadlines\n\nUse topics to build your personal knowledge base!\n\n#documentation #features"
+    },
+    {
+      "ref": "project-launch",
+      "type": "project",
+      "title": "Product Launch Q2",
+      "color": "#ec4899",
+      "notes": "# Q2 Product Launch\n\nA sample project showing how to track a product launch with milestones, tasks, and team assignments.\n\n## Timeline\n\n- **Planning**: Complete\n- **Development**: In Progress\n- **Marketing**: Starting Soon\n- **Launch**: Q2 Target\n\n## Success Metrics\n\n- [ ] 1000 signups in first week\n- [ ] 4.5+ app store rating\n- [ ] <2% churn in first month\n\n#project #launch #q2"
+    },
+    {
+      "ref": "project-website",
+      "type": "project",
+      "title": "Website Redesign",
+      "color": "#8b5cf6",
+      "notes": "# Website Redesign Project\n\nComplete overhaul of the company website.\n\n## Goals\n\n- Modern, responsive design\n- Improved performance (Core Web Vitals)\n- Better SEO\n- Accessibility compliance (WCAG 2.1)\n\n## Stakeholders\n\n- Marketing team\n- Design agency (PixelPerfect)\n- Engineering\n\n#project #website #design"
+    },
+    {
+      "ref": "milestone-started",
+      "type": "milestone",
+      "title": "Getting Started",
+      "parentRef": "project-learn",
+      "completed": true,
+      "notes": "# Getting Started Milestone\n\nYou've completed the first milestone by opening the demo workspace.\n\n## What you accomplished\n\n- Opened the demo workspace\n- Started exploring the interface\n- Found this milestone node\n\n## Next steps\n\nContinue exploring the other nodes in this project to learn more features.\n\n#milestone #complete"
+    },
+    {
+      "ref": "milestone-intermediate",
+      "type": "milestone",
+      "title": "Become Proficient",
+      "parentRef": "project-learn",
+      "notes": "# Intermediate Skills\n\nMaster these skills to become proficient with GraphCore.\n\n## Skills to develop\n\n- [ ] Navigate using keyboard shortcuts\n- [ ] Create and organize nodes efficiently\n- [ ] Use links to connect related items\n- [ ] Customize views and settings\n\n#milestone #learning"
+    },
+    {
+      "ref": "task-explore",
+      "type": "task",
+      "title": "Explore graph view",
+      "parentRef": "project-learn",
+      "completed": true,
+      "importance": 2,
+      "notes": "# Explore the Graph View\n\nThe graph view shows your nodes as an interactive visual network.\n\n## How to access\n\nClick the graph icon in the toolbar, or use the view switcher.\n\n## Features\n\n- **Drag nodes** to rearrange the layout\n- **Zoom** with scroll wheel or pinch\n- **Pan** by dragging the background\n- **Double-click** a node to drill down\n- **Right-click** for context menu\n\n#task #views #graph"
+    },
+    {
+      "ref": "task-create",
+      "type": "task",
+      "title": "Create your first node",
+      "parentRef": "project-learn",
+      "importance": 3,
+      "notes": "# Create Your First Node\n\nTime to create something of your own!\n\n## Methods to create nodes\n\n### 1. Quick Input Bar\nUse the input bar at the top of the screen:\n1. Select a node type from the dropdown\n2. Type a title\n3. Press Enter\n\n### 2. Keyboard Shortcut\nPress `N` to open the new node dialog with more options.\n\n### 3. Context Menu\nRight-click on any node and select \"Add Child\" to create a nested node.\n\n## Try it now\n\nCreate a simple task node to track something you need to do today.\n\n#task #creating-nodes"
+    },
+    {
+      "ref": "task-shortcuts",
+      "type": "task",
+      "title": "Learn keyboard shortcuts",
+      "parentRef": "project-learn",
+      "notes": "# Keyboard Shortcuts\n\nKeyboard shortcuts make you much faster at navigating and editing.\n\n## Essential shortcuts\n\n| Shortcut | Action |\n|----------|--------|\n| `Space` | View details panel |\n| `Enter` | Drill down into node |\n| `Backspace` | Go back to parent |\n| `N` | Create new node |\n| `Cmd/Ctrl + K` | Quick search |\n| `Cmd/Ctrl + /` | Show all shortcuts |\n\nPress `Cmd/Ctrl + /` right now to see the full shortcuts reference!\n\n#task #keyboard #productivity"
+    },
+    {
+      "ref": "note-tips",
+      "type": "note",
+      "title": "Tips & Tricks",
+      "parentRef": "project-learn",
+      "notes": "# Power User Tips\n\nA collection of tips to help you get the most out of GraphCore.\n\n## Organization\n\n1. **Use colors consistently** - Assign colors to top-level nodes and let children inherit them\n2. **Keep hierarchies shallow** - 3-4 levels deep is usually enough\n3. **Link, don't duplicate** - Use links to connect related items instead of copying\n\n## Productivity\n\n1. **Pin the detail panel** - Click the pin icon to keep it open while navigating\n2. **Use quick search** - `Cmd/Ctrl + K` finds anything instantly\n3. **Keyboard navigation** - Learn the shortcuts for 10x faster navigation\n\n## Markdown\n\nNotes support full Markdown:\n- **Bold** and *italic* text\n- `Code` and code blocks\n- Lists, tables, and blockquotes\n- Links and images\n\n> Pro tip: Use tags like #important or #todo to categorize nodes!\n\n#tips #productivity #guide"
+    },
+    {
+      "ref": "task-learn-nav",
+      "type": "task",
+      "title": "Practice navigation shortcuts",
+      "parentRef": "task-shortcuts",
+      "notes": "# Navigation Shortcuts Practice\n\n## Key shortcuts to practice\n\n- `↑` / `↓` - Move between siblings\n- `Enter` - Drill down\n- `Backspace` - Go back\n- `Cmd/Ctrl + ↑` - Jump to parent\n\nTry navigating this demo using only the keyboard!\n\n#task #shortcuts"
+    },
+    {
+      "ref": "task-learn-editing",
+      "type": "task",
+      "title": "Practice editing shortcuts",
+      "parentRef": "task-shortcuts",
+      "notes": "# Editing Shortcuts Practice\n\n## Key shortcuts to practice\n\n- `N` - Create new node\n- `E` or `F2` - Edit title\n- `Delete` - Delete node\n- `Cmd/Ctrl + Z` - Undo\n\n#task #shortcuts"
+    },
+    {
+      "ref": "task-learn-search",
+      "type": "task",
+      "title": "Try quick search",
+      "parentRef": "task-shortcuts",
+      "completed": true,
+      "notes": "# Quick Search\n\nPress `Cmd/Ctrl + K` to open quick search.\n\n## Features\n\n- Fuzzy search across all nodes\n- Filter by type\n- Recent items\n- Tag search with #\n\n#task #search #complete"
+    },
+    {
+      "ref": "group-internal",
+      "type": "group",
+      "title": "Internal Team",
+      "parentRef": "group-team",
+      "color": "#06b6d4",
+      "notes": "# Internal Team Members\n\nOur company's team members organized by department.\n\n#team #internal"
+    },
+    {
+      "ref": "group-clients",
+      "type": "group",
+      "title": "Clients",
+      "parentRef": "group-team",
+      "color": "#f97316",
+      "notes": "# Client Organizations\n\nCompanies and individuals we work with as clients.\n\n#clients #external"
+    },
+    {
+      "ref": "group-vendors",
+      "type": "group",
+      "title": "Vendors & Partners",
+      "parentRef": "group-team",
+      "color": "#84cc16",
+      "notes": "# Vendors and Partners\n\nExternal organizations we partner with or purchase from.\n\n#vendors #partners"
+    },
+    {
+      "ref": "org-engineering",
+      "type": "organization",
+      "title": "Engineering Department",
+      "parentRef": "group-internal",
+      "notes": "# Engineering Department\n\nThe engineering team responsible for product development.\n\n## Teams\n\n- Frontend\n- Backend\n- Infrastructure\n- QA\n\n## Head Count\n\n12 engineers\n\n#engineering #department"
+    },
+    {
+      "ref": "org-product",
+      "type": "organization",
+      "title": "Product Department",
+      "parentRef": "group-internal",
+      "notes": "# Product Department\n\nProduct management and design.\n\n## Teams\n\n- Product Management\n- UX Design\n- User Research\n\n## Head Count\n\n5 members\n\n#product #department"
+    },
+    {
+      "ref": "org-marketing",
+      "type": "organization",
+      "title": "Marketing Department",
+      "parentRef": "group-internal",
+      "notes": "# Marketing Department\n\nMarketing, communications, and growth.\n\n## Teams\n\n- Growth Marketing\n- Content\n- Brand\n\n## Head Count\n\n4 members\n\n#marketing #department"
+    },
+    {
+      "ref": "person-alice",
+      "type": "person",
+      "title": "Alice Chen",
+      "parentRef": "org-engineering",
+      "notes": "# Alice Chen\n\n**Role:** Engineering Manager\n**Email:** alice@example.com\n**Location:** San Francisco\n\n## Responsibilities\n\n- Team leadership\n- Technical architecture\n- Code review\n- Hiring\n\n## Current Focus\n\nLeading the API v2 migration project.\n\n#team #engineering #manager"
+    },
+    {
+      "ref": "person-bob",
+      "type": "person",
+      "title": "Bob Martinez",
+      "parentRef": "org-engineering",
+      "notes": "# Bob Martinez\n\n**Role:** Senior Backend Engineer\n**Email:** bob@example.com\n**Location:** Austin\n\n## Expertise\n\n- Go, Python\n- PostgreSQL, Redis\n- API design\n- Performance optimization\n\n#team #engineering #backend"
+    },
+    {
+      "ref": "person-carol",
+      "type": "person",
+      "title": "Carol Johnson",
+      "parentRef": "org-product",
+      "notes": "# Carol Johnson\n\n**Role:** Lead UX Designer\n**Email:** carol@example.com\n**Location:** New York\n\n## Expertise\n\n- User research\n- Interaction design\n- Prototyping\n- Design systems\n\n#team #design #ux"
+    },
+    {
+      "ref": "person-david",
+      "type": "person",
+      "title": "David Kim",
+      "parentRef": "org-product",
+      "notes": "# David Kim\n\n**Role:** Product Manager\n**Email:** david@example.com\n**Location:** Seattle\n\n## Responsibilities\n\n- Roadmap planning\n- Feature specs\n- Stakeholder management\n- Analytics\n\n#team #product #pm"
+    },
+    {
+      "ref": "person-emma",
+      "type": "person",
+      "title": "Emma Wilson",
+      "parentRef": "org-marketing",
+      "notes": "# Emma Wilson\n\n**Role:** Marketing Director\n**Email:** emma@example.com\n**Location:** Chicago\n\n## Responsibilities\n\n- Marketing strategy\n- Campaign planning\n- Brand management\n- Budget allocation\n\n#team #marketing #director"
+    },
+    {
+      "ref": "org-acme",
+      "type": "organization",
+      "title": "Acme Corp",
+      "parentRef": "group-clients",
+      "notes": "# Acme Corp\n\n**Type:** Enterprise Client\n**Industry:** Manufacturing\n**Size:** 5000+ employees\n**Website:** acme.example.com\n\n## Relationship\n\nKey enterprise client since 2024. Enterprise license agreement.\n\n## Contract Value\n\n$250K/year\n\n## Primary Contact\n\nJohn Smith, CTO\n\n#client #enterprise"
+    },
+    {
+      "ref": "org-techstart",
+      "type": "organization",
+      "title": "TechStart Inc",
+      "parentRef": "group-clients",
+      "notes": "# TechStart Inc\n\n**Type:** Startup Client\n**Industry:** SaaS\n**Size:** 50 employees\n**Website:** techstart.example.com\n\n## Relationship\n\nEarly adopter, great for case studies and feedback.\n\n## Contract Value\n\n$24K/year\n\n## Primary Contact\n\nSarah Lee, CEO\n\n#client #startup"
+    },
+    {
+      "ref": "org-globalfin",
+      "type": "organization",
+      "title": "Global Finance Ltd",
+      "parentRef": "group-clients",
+      "notes": "# Global Finance Ltd\n\n**Type:** Enterprise Client\n**Industry:** Financial Services\n**Size:** 10000+ employees\n**Website:** globalfin.example.com\n\n## Relationship\n\nOnboarding in progress. High compliance requirements.\n\n## Contract Value\n\n$500K/year (pending)\n\n## Primary Contact\n\nMichael Brown, VP Engineering\n\n#client #enterprise #finance"
+    },
+    {
+      "ref": "person-john",
+      "type": "person",
+      "title": "John Smith",
+      "parentRef": "org-acme",
+      "notes": "# John Smith\n\n**Role:** CTO at Acme Corp\n**Email:** john.smith@acme.example.com\n\n## Notes\n\nKey decision maker. Prefers technical deep-dives.\nMet at TechConf 2024.\n\n#contact #acme #cto"
+    },
+    {
+      "ref": "person-sarah",
+      "type": "person",
+      "title": "Sarah Lee",
+      "parentRef": "org-techstart",
+      "notes": "# Sarah Lee\n\n**Role:** CEO at TechStart Inc\n**Email:** sarah@techstart.example.com\n\n## Notes\n\nVery hands-on, provides great product feedback.\nInterested in partnership opportunities.\n\n#contact #techstart #ceo"
+    },
+    {
+      "ref": "org-cloudhost",
+      "type": "organization",
+      "title": "CloudHost",
+      "parentRef": "group-vendors",
+      "notes": "# CloudHost\n\n**Type:** Infrastructure Vendor\n**Service:** Cloud Hosting\n**Website:** cloudhost.example.com\n\n## Services Used\n\n- Kubernetes hosting\n- Managed databases\n- CDN\n\n## Monthly Spend\n\n$15K/month\n\n## Account Manager\n\nTom Davis\n\n#vendor #infrastructure #cloud"
+    },
+    {
+      "ref": "org-pixelperfect",
+      "type": "organization",
+      "title": "PixelPerfect Agency",
+      "parentRef": "group-vendors",
+      "notes": "# PixelPerfect Agency\n\n**Type:** Design Agency\n**Service:** Brand & Web Design\n**Website:** pixelperfect.example.com\n\n## Current Projects\n\n- Website redesign\n- Brand refresh\n\n## Contract\n\nProject-based, currently $50K engagement\n\n#vendor #design #agency"
+    },
+    {
+      "ref": "org-secureauth",
+      "type": "organization",
+      "title": "SecureAuth",
+      "parentRef": "group-vendors",
+      "notes": "# SecureAuth\n\n**Type:** Security Vendor\n**Service:** Identity & Access Management\n**Website:** secureauth.example.com\n\n## Services Used\n\n- SSO integration\n- MFA provider\n- Identity verification\n\n## Annual Cost\n\n$36K/year\n\n#vendor #security #iam"
+    },
+    {
+      "ref": "person-tom",
+      "type": "person",
+      "title": "Tom Davis",
+      "parentRef": "org-cloudhost",
+      "notes": "# Tom Davis\n\n**Role:** Account Manager at CloudHost\n**Email:** tom.davis@cloudhost.example.com\n**Phone:** 555-0123\n\n## Notes\n\nVery responsive. Good for escalations.\nQuarterly business reviews scheduled.\n\n#contact #vendor #cloudhost"
+    },
+    {
+      "ref": "component-graph",
+      "type": "component",
+      "title": "Graph View",
+      "parentRef": "topic-features",
+      "notes": "# Graph View Component\n\nThe graph view renders your nodes as an interactive force-directed graph.\n\n## Technical Details\n\n- Uses D3.js for force simulation\n- WebGL acceleration for large graphs\n- Supports up to 1000+ nodes smoothly\n\n## Features\n\n| Feature | Description |\n|---------|-------------|\n| Force Layout | Automatic positioning based on relationships |\n| Manual Override | Drag nodes to custom positions |\n| Zoom/Pan | Navigate large graphs |\n| Link Visualization | See connections between nodes |\n\n#component #graph #visualization"
+    },
+    {
+      "ref": "component-list",
+      "type": "component",
+      "title": "List View",
+      "parentRef": "topic-features",
+      "notes": "# List View Component\n\nThe list/tree view shows nodes in a traditional hierarchical outline.\n\n## Features\n\n- **Expand/Collapse** - Click arrows to show/hide children\n- **Inline Editing** - Double-click to edit titles\n- **Drag Reorder** - Drag nodes to reorder within a level\n- **Keyboard Navigation** - Full arrow key support\n- **Multi-select** - Shift/Cmd click for multiple selection\n\n#component #list #tree"
+    },
+    {
+      "ref": "component-cards",
+      "type": "component",
+      "title": "Cards View",
+      "parentRef": "topic-features",
+      "notes": "# Cards View Component\n\nCards view displays nodes as visual cards in a responsive grid.\n\n## Features\n\n- **Visual scanning** - See many items at once\n- **Color coding** - Cards inherit parent colors\n- **Completion status** - Visual indicators for tasks\n- **Hover preview** - Quick peek at notes\n\n#component #cards #grid"
+    },
+    {
+      "ref": "event-review",
+      "type": "event",
+      "title": "Weekly Review",
+      "parentRef": "topic-features",
+      "notes": "# Weekly Review\n\nAn example event node showing recurring activities.\n\n## Suggested Weekly Review Agenda\n\n1. Review completed tasks\n2. Update project statuses\n3. Plan next week's priorities\n4. Clear inbox items\n5. Archive old items\n\n#event #recurring #review"
+    },
+    {
+      "ref": "note-linking",
+      "type": "note",
+      "title": "Linking Nodes",
+      "parentRef": "topic-features",
+      "notes": "# How to Link Nodes\n\nLinks create relationships between nodes without changing the hierarchy.\n\n## Links vs Parent-Child\n\n| Relationship | Use Case |\n|--------------|----------|\n| **Parent-Child** | \"Contains\" or \"Part of\" |\n| **Link** | \"Related to\" or \"References\" |\n\n## Creating Links\n\n### Method 1: Keyboard\n1. Select a node\n2. Press `Cmd/Ctrl + L`\n3. Search for target node\n4. Press Enter to link\n\n### Method 2: Context Menu\n1. Right-click a node\n2. Select \"Link to...\"\n3. Choose target\n\n#guide #links #relationships"
+    },
+    {
+      "ref": "topic-workspaces",
+      "type": "topic",
+      "title": "Workspaces",
+      "parentRef": "topic-features",
+      "notes": "# Workspaces\n\nWorkspaces let you organize completely separate sets of nodes.\n\n## Use Cases\n\n- **Work vs Personal** - Keep work and personal items separate\n- **Client Projects** - One workspace per client\n- **Archive** - Move old projects to an archive workspace\n\n## Workspace Features\n\n- Each workspace has its own root-level nodes\n- Switch workspaces from the dropdown in the header\n- Workspaces can have custom colors and icons\n\n#workspaces #organization"
+    },
+    {
+      "ref": "topic-nodetypes",
+      "type": "topic",
+      "title": "Node Types Guide",
+      "parentRef": "topic-features",
+      "notes": "# Node Types\n\nGraphCore supports 10 different node types, each suited for different purposes.\n\n## Action-Oriented Types\n\n- **Task** - Individual work items\n- **Project** - Collections of related tasks and milestones\n- **Milestone** - Key checkpoints or deliverables\n\n## People & Organizations\n\n- **Person** - Individual contacts\n- **Organization** - Companies, departments, teams\n- **Group** - Containers for organizing related items\n\n## Knowledge & Content\n\n- **Note** - Freeform text and documentation\n- **Topic** - Knowledge areas and reference material\n\n## Structure & Events\n\n- **Component** - Reusable elements or modules\n- **Event** - Meetings, deadlines, activities\n\n#guide #types"
+    },
+    {
+      "ref": "note-graph-controls",
+      "type": "note",
+      "title": "Graph Controls",
+      "parentRef": "component-graph",
+      "notes": "# Graph View Controls\n\n## Mouse Controls\n\n- **Click** - Select node\n- **Double-click** - Drill down\n- **Drag node** - Reposition\n- **Drag background** - Pan view\n- **Scroll** - Zoom in/out\n- **Right-click** - Context menu\n\n## Keyboard\n\n- **Arrow keys** - Navigate selection\n- **Enter** - Drill down\n- **Space** - Open detail panel\n\n#graph #controls"
+    },
+    {
+      "ref": "note-graph-performance",
+      "type": "note",
+      "title": "Performance Tips",
+      "parentRef": "component-graph",
+      "notes": "# Graph Performance\n\nTips for working with large graphs.\n\n## Settings to Adjust\n\n1. **Max Depth** - Reduce to show fewer levels\n2. **Detail Threshold** - Hide details for large graphs\n3. **Notes Preview** - Shorter previews = faster rendering\n\n## Best Practices\n\n- Drill down into sections rather than viewing everything\n- Use \"Collapse All\" before navigating\n\n#graph #performance #tips"
+    },
+    {
+      "ref": "milestone-planning",
+      "type": "milestone",
+      "title": "Planning Complete",
+      "parentRef": "project-launch",
+      "completed": true,
+      "notes": "# Planning Phase\n\nCompleted planning activities:\n\n- [x] Market research\n- [x] Feature prioritization\n- [x] Resource allocation\n- [x] Timeline finalized\n\n#milestone #planning #complete"
+    },
+    {
+      "ref": "milestone-development",
+      "type": "milestone",
+      "title": "Development",
+      "parentRef": "project-launch",
+      "notes": "# Development Phase\n\nCurrent phase - building the product.\n\n## Status\n\n- Core features: 80% complete\n- API integration: In progress\n- Testing: Starting next week\n\n#milestone #development"
+    },
+    {
+      "ref": "milestone-launch",
+      "type": "milestone",
+      "title": "Launch Day",
+      "parentRef": "project-launch",
+      "notes": "# Launch Day\n\nTarget: End of Q2\n\n## Launch Checklist\n\n- [ ] Final QA sign-off\n- [ ] Marketing materials ready\n- [ ] Support team briefed\n- [ ] Monitoring in place\n- [ ] Rollback plan documented\n\n#milestone #launch"
+    },
+    {
+      "ref": "task-api-v2",
+      "type": "task",
+      "title": "Complete API v2",
+      "parentRef": "project-launch",
+      "importance": 1,
+      "notes": "# API v2 Migration\n\n**Priority:** Critical\n**Assigned:** Bob Martinez\n\n## Requirements\n\n- Backwards compatible\n- 50% performance improvement\n- Full OpenAPI documentation\n- Rate limiting\n\n#task #api #critical"
+    },
+    {
+      "ref": "task-onboarding",
+      "type": "task",
+      "title": "New user onboarding",
+      "parentRef": "project-launch",
+      "importance": 2,
+      "notes": "# Onboarding Redesign\n\n**Priority:** High\n**Assigned:** Carol Johnson\n\n## Goals\n\n- Reduce time-to-value\n- Increase activation rate\n- Lower support tickets\n\n#task #design #ux"
+    },
+    {
+      "ref": "task-marketing-prep",
+      "type": "task",
+      "title": "Marketing preparation",
+      "parentRef": "project-launch",
+      "importance": 2,
+      "notes": "# Marketing Prep\n\n**Priority:** High\n**Assigned:** Emma Wilson\n\n## Deliverables\n\n- Launch announcement\n- Press kit\n- Social media campaign\n- Email sequence\n\n#task #marketing"
+    },
+    {
+      "ref": "event-launch-meeting",
+      "type": "event",
+      "title": "Weekly Launch Planning",
+      "parentRef": "project-launch",
+      "notes": "# Weekly Launch Planning\n\n**When:** Tuesdays at 10am\n**Where:** Zoom\n**Duration:** 1 hour\n\n## Attendees\n\n- Product: David\n- Engineering: Alice, Bob\n- Design: Carol\n- Marketing: Emma\n\n## Agenda\n\n1. Status updates\n2. Blockers\n3. Next week priorities\n\n#event #meeting #recurring"
+    },
+    {
+      "ref": "task-api-auth",
+      "type": "task",
+      "title": "Implement OAuth2",
+      "parentRef": "task-api-v2",
+      "completed": true,
+      "notes": "# OAuth2 Implementation\n\n- [x] Authorization code flow\n- [x] Refresh tokens\n- [x] Scope management\n- [x] Token revocation\n\n#task #auth #complete"
+    },
+    {
+      "ref": "task-api-endpoints",
+      "type": "task",
+      "title": "Migrate endpoints",
+      "parentRef": "task-api-v2",
+      "notes": "# Endpoint Migration\n\n## Endpoints to migrate\n\n- [ ] /users (80%)\n- [ ] /projects (100%)\n- [ ] /tasks (50%)\n- [ ] /reports (0%)\n\n#task #api #migration"
+    },
+    {
+      "ref": "task-api-docs",
+      "type": "task",
+      "title": "Write API documentation",
+      "parentRef": "task-api-v2",
+      "notes": "# API Documentation\n\nCreate comprehensive API docs using OpenAPI.\n\n## Sections\n\n- [ ] Authentication guide\n- [ ] Endpoint reference\n- [ ] Code examples (Python, JS, Go)\n- [ ] Rate limiting info\n- [ ] Changelog\n\n#task #documentation"
+    },
+    {
+      "ref": "task-api-testing",
+      "type": "task",
+      "title": "Integration tests",
+      "parentRef": "task-api-v2",
+      "notes": "# Integration Testing\n\n## Coverage Goals\n\n- 90% endpoint coverage\n- All error cases\n- Rate limiting behavior\n- Concurrent access\n- Performance benchmarks\n\n#task #testing #qa"
+    },
+    {
+      "ref": "task-onboarding-research",
+      "type": "task",
+      "title": "User research",
+      "parentRef": "task-onboarding",
+      "completed": true,
+      "notes": "# User Research\n\n- [x] Interviewed 10 new users\n- [x] Identified pain points\n- [x] Created user journey map\n- [x] Documented findings\n\n#task #research #complete"
+    },
+    {
+      "ref": "task-onboarding-wireframes",
+      "type": "task",
+      "title": "Create wireframes",
+      "parentRef": "task-onboarding",
+      "completed": true,
+      "notes": "# Onboarding Wireframes\n\n- [x] Welcome screen\n- [x] Account setup\n- [x] First project creation\n- [x] Feature tour\n\n#task #design #complete"
+    },
+    {
+      "ref": "task-onboarding-prototype",
+      "type": "task",
+      "title": "Build prototype",
+      "parentRef": "task-onboarding",
+      "notes": "# Interactive Prototype\n\nBuild clickable prototype for user testing.\n\n## Status\n\nIn progress using Figma.\n\n## Next Steps\n\n5 user testing sessions scheduled.\n\n#task #design #prototype"
+    },
+    {
+      "ref": "task-onboarding-implement",
+      "type": "task",
+      "title": "Implement in app",
+      "parentRef": "task-onboarding",
+      "notes": "# Implementation\n\nBuild the new onboarding flow in the app.\n\n## Dependencies\n\n- Prototype approval\n- Engineering availability\n- Copy finalized\n\n#task #implementation"
+    },
+    {
+      "ref": "task-marketing-announcement",
+      "type": "task",
+      "title": "Draft announcement",
+      "parentRef": "task-marketing-prep",
+      "notes": "# Launch Announcement\n\nDraft the official launch announcement.\n\n## Channels\n\n- Blog post\n- Email to customers\n- Social media posts\n- Press release\n\n#task #marketing #content"
+    },
+    {
+      "ref": "task-marketing-presskit",
+      "type": "task",
+      "title": "Prepare press kit",
+      "parentRef": "task-marketing-prep",
+      "notes": "# Press Kit\n\n## Contents\n\n- [ ] Company overview\n- [ ] Product screenshots\n- [ ] Executive bios\n- [ ] Logo assets\n- [ ] Fact sheet\n\n#task #marketing #pr"
+    },
+    {
+      "ref": "task-marketing-email",
+      "type": "task",
+      "title": "Email campaign",
+      "parentRef": "task-marketing-prep",
+      "notes": "# Email Campaign\n\n## Sequence\n\n1. Teaser (1 week before)\n2. Launch day announcement\n3. Feature highlights (day 3)\n4. Early feedback request (day 7)\n\n#task #marketing #email"
+    },
+    {
+      "ref": "milestone-website-design",
+      "type": "milestone",
+      "title": "Design Approved",
+      "parentRef": "project-website",
+      "completed": true,
+      "notes": "# Design Phase Complete\n\nFinal designs approved by stakeholders.\n\n- [x] Homepage\n- [x] Product pages\n- [x] Pricing page\n- [x] Blog templates\n- [x] Mobile responsive designs\n\n#milestone #design #complete"
+    },
+    {
+      "ref": "milestone-website-dev",
+      "type": "milestone",
+      "title": "Development",
+      "parentRef": "project-website",
+      "notes": "# Development Phase\n\nCurrently building the new site.\n\n## Tech Stack\n\n- Next.js 14\n- Tailwind CSS\n- Contentful CMS\n- Vercel hosting\n\n#milestone #development"
+    },
+    {
+      "ref": "task-website-homepage",
+      "type": "task",
+      "title": "Build homepage",
+      "parentRef": "project-website",
+      "completed": true,
+      "notes": "# Homepage Development\n\n- [x] Hero section\n- [x] Features grid\n- [x] Testimonials\n- [x] CTA sections\n- [x] Footer\n\n#task #website #complete"
+    },
+    {
+      "ref": "task-website-product",
+      "type": "task",
+      "title": "Build product pages",
+      "parentRef": "project-website",
+      "notes": "# Product Pages\n\n## Pages to build\n\n- [ ] Product overview\n- [ ] Features detail\n- [ ] Integrations\n- [ ] Security\n\n#task #website"
+    },
+    {
+      "ref": "task-website-cms",
+      "type": "task",
+      "title": "CMS integration",
+      "parentRef": "project-website",
+      "notes": "# CMS Setup\n\nSet up Contentful for content management.\n\n## Content Types\n\n- [ ] Blog posts\n- [ ] Case studies\n- [ ] Team bios\n- [ ] Changelog\n\n#task #website #cms"
+    },
+    {
+      "ref": "task-website-seo",
+      "type": "task",
+      "title": "SEO optimization",
+      "parentRef": "task-website-product",
+      "notes": "# SEO Optimization\n\n## Tasks\n\n- [ ] Meta tags\n- [ ] Schema markup\n- [ ] Sitemap\n- [ ] robots.txt\n- [ ] Core Web Vitals\n\n#task #seo"
+    },
+    {
+      "ref": "task-website-analytics",
+      "type": "task",
+      "title": "Analytics setup",
+      "parentRef": "task-website-product",
+      "notes": "# Analytics\n\n## Tools to set up\n\n- [ ] Google Analytics 4\n- [ ] Hotjar heatmaps\n- [ ] Conversion tracking\n- [ ] A/B testing framework\n\n#task #analytics"
+    }
+  ],
+  "links": [
+    { "sourceRef": "person-alice", "targetRef": "project-launch" },
+    { "sourceRef": "person-bob", "targetRef": "task-api-v2" },
+    { "sourceRef": "person-carol", "targetRef": "project-website" },
+    { "sourceRef": "org-pixelperfect", "targetRef": "project-website" },
+    { "sourceRef": "note-tips", "targetRef": "task-shortcuts" }
+  ]
+}
