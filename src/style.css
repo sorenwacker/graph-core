@@ -488,6 +488,15 @@ a:hover {
   text-overflow: ellipsis;
 }
 
+.sidebar-tree-item .child-count {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  padding: 1px 5px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
 .tree-expand-btn {
   width: 16px;
   height: 16px;

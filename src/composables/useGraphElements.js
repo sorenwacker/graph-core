@@ -24,6 +24,38 @@ export function darkenColor(hex) {
 }
 
 /**
+ * Recursively count all descendants of a node.
+ * @param {Object} node - Node with children array
+ * @returns {number} Total descendant count
+ */
+function countAllDescendants(node) {
+  if (!node?.children?.length) return 0
+  let count = node.children.length
+  for (const child of node.children) {
+    count += countAllDescendants(child)
+  }
+  return count
+}
+
+/**
+ * Build a map of node ID -> total descendant count from a tree.
+ * @param {Array} nodeList - Array of nodes with children
+ * @param {Object} countMap - Accumulator map
+ * @returns {Object} Map of nodeId -> descendantCount
+ */
+function buildDescendantCountMap(nodeList, countMap = {}) {
+  if (!nodeList) return countMap
+  for (const node of nodeList) {
+    if (!node?.id) continue
+    countMap[node.id] = countAllDescendants(node)
+    if (node.children?.length) {
+      buildDescendantCountMap(node.children, countMap)
+    }
+  }
+  return countMap
+}
+
+/**
  * Build cytoscape elements from a node list.
  * @param {Object} options - Build options
  * @param {Array} options.nodeList - Array of nodes
@@ -60,6 +92,8 @@ export function buildElements(options) {
 
   // Filter out null entries from the start
   const cleanNodeList = (nodeList || []).filter(n => n && n.id)
+  // Build descendant count map from original tree BEFORE filtering
+  const descendantCountMap = buildDescendantCountMap(cleanNodeList)
   // Apply depth filter first
   const depthFiltered = filterByDepth(cleanNodeList, maxDepth)
   // Filter completed nodes and their children if hideCompleted is enabled
@@ -117,7 +151,8 @@ export function buildElements(options) {
     const isCurrentContainer = parentNode && node.id === parentNode.id
     const isTopLevelNode = !parentNode && topLevelIds.has(node.id)
     const shouldGlow = isCurrentContainer || isTopLevelNode
-    const hasChildren = node.children?.length > 0
+    const childCount = descendantCountMap[node.id] || 0
+    const hasChildren = childCount > 0
     const isCompleted = node.completed
 
     // Label is just the title - HTML rendering handles the rest
@@ -145,6 +180,7 @@ export function buildElements(options) {
         textColor,
         customBgTint,
         hasChildren,
+        childCount,
         isCurrentContainer,
         shouldGlow,
         isCompleted,
