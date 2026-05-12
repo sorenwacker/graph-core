@@ -770,6 +770,7 @@
 
 /* HTML Node styling - like old app */
 :global(.node-html) {
+  position: relative;
   background: var(--bg-secondary);
   border: 3px solid #1a6fab;
   border-radius: 8px;

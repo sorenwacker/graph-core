@@ -587,7 +587,8 @@ function setupHtmlLabels() {
               ? '<span style="opacity:0.5"></span>'
               : renderMarkdownHtml(n.notes, props.notesPreviewLength)
         }
-        return `<div class="node-html ${n.completed ? 'completed' : ''} ${d.shouldGlow ? 'current-container' : ''} ${n.favorite ? 'favorite' : ''}" data-node-id="${n.id}" data-selected="${d.isSelected}" style="border-color:${bc};--glow-color:${bc};${bg}"><div class="node-html-title">${n.title || 'Untitled'}${n.notes && !d.showDetails ? '<span class="notes-indicator"></span>' : ''}</div>${notes ? `<div class="node-html-notes">${notes}</div>` : ''}</div>`
+        const childBadge = `<div style="font-size:10px;color:white;text-align:right;margin-top:4px">${d.childCount || 0}</div>`
+        return `<div class="node-html ${n.completed ? 'completed' : ''} ${d.shouldGlow ? 'current-container' : ''} ${n.favorite ? 'favorite' : ''}" data-node-id="${n.id}" data-selected="${d.isSelected}" style="border-color:${bc};--glow-color:${bc};${bg}"><div class="node-html-title">${n.title || 'Untitled'}${n.notes && !d.showDetails ? '<span class="notes-indicator"></span>' : ''}</div>${notes ? `<div class="node-html-notes">${notes}</div>` : ''}${childBadge}</div>`
       },
     },
   ])

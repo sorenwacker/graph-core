@@ -37,6 +37,7 @@ function getIndentStyle() {
     <span v-else class="tree-spacer"></span>
     <span class="type-icon" :class="node.type"><span v-html="getTypeIcon(node.type)"></span></span>
     <span class="label" @click="emit('enter', node)">{{ node.title }}</span>
+    <span v-if="node.children?.length" class="child-count">{{ node.children.length }}</span>
   </div>
 
   <!-- Recursively render children -->
