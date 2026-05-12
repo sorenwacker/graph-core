@@ -94,8 +94,8 @@ function onDragEnd() {
   <div class="children-section" :class="{ collapsed }">
     <div class="section-header" @click="toggleCollapsed">
       <span class="section-title">Tasks</span>
-      <span class="collapse-indicator">{{ collapsed ? '+' : '-' }}</span>
       <span v-if="children.length" class="section-count">{{ completedCount }}/{{ children.length }}</span>
+      <span class="collapse-indicator">{{ collapsed ? '+' : '-' }}</span>
     </div>
     <div v-show="!collapsed" class="section-content">
       <!-- Add task input -->
@@ -225,16 +225,17 @@ function onDragEnd() {
   letter-spacing: 0.5px;
 }
 
-.collapse-indicator {
-  margin-left: 8px;
-  font-size: 14px;
-  color: var(--text-tertiary);
-}
-
 .section-count {
   margin-left: auto;
   font-size: 11px;
   color: var(--text-tertiary);
+}
+
+.collapse-indicator {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  margin-left: 8px;
 }
 
 .section-content {

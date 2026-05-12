@@ -2,7 +2,6 @@
 import { ref, watch } from 'vue'
 import { api } from '../../services/api'
 import { useErrorHandler } from '../../composables/useErrorHandler.js'
-import { useAutocomplete } from '../../composables/useAutocomplete.js'
 import { getInitials } from '../../utils/formatting.js'
 import { nodeTypes } from '../../utils/constants.js'
 import NotesSection from './NotesSection.vue'
@@ -31,33 +30,14 @@ const emit = defineEmits([
 const { handleError } = useErrorHandler()
 
 // Members linking state
-const allPersons = ref([])
 const linkedMembers = ref([])
-
-// Use autocomplete composable for member search
-const {
-  query: memberQuery,
-  showDropdown: showMemberDropdown,
-  selectedIndex: selectedMemberIndex,
-  filteredItems: filteredMembers,
-  exactMatch: exactMemberMatch,
-  handleKeydown: memberAutocompleteKeydown,
-  handleInput: handleMemberInput,
-  reset: resetMemberAutocomplete,
-} = useAutocomplete({ items: allPersons })
 
 // Notes section ref
 const notesSectionRef = ref(null)
 
-// Load all persons for member autocomplete
-async function loadAllPersons() {
-  try {
-    allPersons.value = await api.getNodes({ type: 'person', workspace_id: props.currentWorkspace })
-  } catch (err) {
-    handleError(err, { context: 'Loading persons', silent: true })
-    allPersons.value = []
-  }
-}
+// Collapsible section state
+const notesCollapsed = ref(false)
+const metadataCollapsed = ref(true)
 
 // Load members (persons linked to this organization)
 async function loadLinkedMembers() {
@@ -73,17 +53,6 @@ async function loadLinkedMembers() {
   }
 }
 
-async function linkMember(person) {
-  if (!props.editedNode?.id) return
-  try {
-    await api.linkNodes(props.editedNode.id, person.id)
-    await loadLinkedMembers()
-  } catch (err) {
-    handleError(err, { context: 'Linking member' })
-  }
-  resetMemberAutocomplete()
-}
-
 async function unlinkMember(person) {
   if (!props.editedNode?.id) return
   try {
@@ -92,29 +61,6 @@ async function unlinkMember(person) {
   } catch (err) {
     handleError(err, { context: 'Unlinking member' })
   }
-}
-
-async function createAndLinkMember() {
-  if (!memberQuery.value.trim() || !props.editedNode?.id) return
-  try {
-    const newPerson = await api.createNode({
-      title: memberQuery.value.trim(),
-      type: 'person',
-      workspace_id: props.currentWorkspace,
-    })
-    allPersons.value.push(newPerson)
-    await linkMember(newPerson)
-  } catch (err) {
-    handleError(err, { context: 'Creating member' })
-  }
-}
-
-function handleMemberKeydown(e) {
-  memberAutocompleteKeydown(e, {
-    onSelect: linkMember,
-    onCreate: () => createAndLinkMember(),
-    linkedItems: linkedMembers.value,
-  })
 }
 
 function updateField(field, value) {
@@ -155,8 +101,6 @@ watch(
   () => props.editedNode?.id,
   async newId => {
     if (newId) {
-      resetMemberAutocomplete()
-      await loadAllPersons()
       await loadLinkedMembers()
     }
   },
@@ -180,116 +124,123 @@ defineExpose({ loadLinkedMembers, getNotesSelection })
 </script>
 
 <template>
-  <div class="organization-form">
-    <!-- Organization header -->
-    <div class="org-header-row">
-      <div class="org-icon-large" :style="{ backgroundColor: editedNode.color || '#e67e22' }">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-          <path
-            d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"
-          />
-        </svg>
+  <div class="organization-form collapsible-sections">
+    <!-- Notes Section -->
+    <div class="notes-section" :class="{ collapsed: notesCollapsed }">
+      <div class="section-header" @click="notesCollapsed = !notesCollapsed">
+        <span class="section-title">Notes</span>
+        <span class="collapse-indicator">{{ notesCollapsed ? '+' : '-' }}</span>
       </div>
-      <div class="org-quick-info">
-        <div v-if="linkedMembers.length" class="org-members-count">
-          {{ linkedMembers.length }} member{{ linkedMembers.length !== 1 ? 's' : '' }}
-        </div>
-      </div>
-    </div>
-
-    <!-- Members section -->
-    <div class="form-field full-width">
-      <label>Members</label>
-      <div class="member-tags">
-        <div
-          v-for="member in linkedMembers"
-          :key="member.id"
-          class="member-tag"
-          :style="{ backgroundColor: member.color || '#3498db' }"
-          @click="$emit('select-child', member.id)"
-        >
-          <span class="member-initials">{{ getInitials(member.title) }}</span>
-          <span class="member-name">{{ member.title }}</span>
-          <button class="member-remove" @click.stop="unlinkMember(member)" title="Remove">&times;</button>
-        </div>
-      </div>
-      <div class="member-autocomplete">
-        <input
-          v-model="memberQuery"
-          placeholder="Search or create person..."
-          @input="handleMemberInput"
-          @keydown="handleMemberKeydown"
-          @focus="showMemberDropdown = true"
-          @blur="setTimeout(() => (showMemberDropdown = false), 200)"
+      <div v-show="!notesCollapsed" class="section-content">
+        <NotesSection
+          ref="notesSectionRef"
+          :notes="editedNode.notes || ''"
+          :node-id="editedNode.id"
+          :active-tab="activeTab"
+          css-class="org-notes"
+          @update:notes="onNotesUpdate"
+          @update:active-tab="$emit('update:activeTab', $event)"
+          @blur="saveChanges"
+          @ai-improve="$emit('ai-improve-notes', $event)"
         />
-        <div v-if="showMemberDropdown && (filteredMembers.length > 0 || memberQuery.trim())" class="member-dropdown">
-          <div
-            v-for="(person, index) in filteredMembers"
-            :key="person.id"
-            class="member-option"
-            :class="{ selected: selectedMemberIndex === index, linked: linkedMembers.find(m => m.id === person.id) }"
-            @mousedown.prevent="linkMember(person)"
-          >
-            <span class="member-option-avatar" :style="{ backgroundColor: person.color || '#3498db' }">
-              {{ getInitials(person.title) }}
-            </span>
-            {{ person.title }}
-            <span v-if="linkedMembers.find(m => m.id === person.id)" class="linked-badge">member</span>
-          </div>
-          <div
-            v-if="!exactMemberMatch && memberQuery.trim()"
-            class="member-option create-option"
-            :class="{ selected: selectedMemberIndex === filteredMembers.length }"
-            @mousedown.prevent="createAndLinkMember"
-          >
-            + Create "{{ memberQuery.trim() }}"
-          </div>
-        </div>
       </div>
     </div>
 
-    <!-- Notes section -->
-    <div class="form-field full-width notes-field">
-      <NotesSection
-        ref="notesSectionRef"
-        :notes="editedNode.notes || ''"
-        :node-id="editedNode.id"
-        :active-tab="activeTab"
-        css-class="org-notes"
-        @update:notes="onNotesUpdate"
-        @update:active-tab="$emit('update:activeTab', $event)"
-        @blur="saveChanges"
-        @ai-improve="$emit('ai-improve-notes', $event)"
-      />
+    <!-- Metadata Section -->
+    <div class="meta-section" :class="{ collapsed: metadataCollapsed }">
+      <div class="section-header" @click="metadataCollapsed = !metadataCollapsed">
+        <span class="section-title">Details</span>
+        <span class="collapse-indicator">{{ metadataCollapsed ? '+' : '-' }}</span>
+      </div>
+      <div v-show="!metadataCollapsed" class="section-content">
+        <!-- Organization header -->
+        <div class="org-header-row">
+          <div class="org-icon-large" :style="{ backgroundColor: editedNode.color || '#e67e22' }">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"
+              />
+            </svg>
+          </div>
+          <div class="org-quick-info">
+            <div v-if="linkedMembers.length" class="org-members-count">
+              {{ linkedMembers.length }} member{{ linkedMembers.length !== 1 ? 's' : '' }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Organization form fields -->
+        <div class="org-form-grid">
+          <div class="form-field">
+            <label>Email</label>
+            <input
+              type="email"
+              :value="editedNode.email || ''"
+              @input="updateField('email', $event.target.value)"
+              @blur="saveChanges"
+              placeholder="contact@organization.com"
+            />
+          </div>
+
+          <div class="form-field">
+            <label>Website</label>
+            <input
+              type="url"
+              :value="editedNode.website || ''"
+              @input="updateField('website', $event.target.value)"
+              @blur="saveChanges"
+              placeholder="https://..."
+            />
+          </div>
+        </div>
+
+        <!-- Members section -->
+        <div v-if="linkedMembers.length > 0" class="form-field full-width">
+          <label>Members</label>
+          <div class="member-tags">
+            <div
+              v-for="member in linkedMembers"
+              :key="member.id"
+              class="member-tag"
+              :style="{ backgroundColor: member.color || '#3498db' }"
+              @click="$emit('select-child', member.id)"
+            >
+              <span class="member-initials">{{ getInitials(member.title) }}</span>
+              <span class="member-name">{{ member.title }}</span>
+              <button class="member-remove" @click.stop="unlinkMember(member)" title="Remove">&times;</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Color picker -->
+        <ColorPickerSection :color="editedNode.color" default-color="#e67e22" @update:color="onColorUpdate" />
+
+        <!-- Type selector -->
+        <div class="type-section">
+          <label>Convert to</label>
+          <select :value="editedNode.type" @change="onTypeChange">
+            <option v-for="t in nodeTypes" :key="t" :value="t">{{ t }}</option>
+          </select>
+        </div>
+
+        <!-- Tags -->
+        <TagsSection :tags="editedNode.tags || []" @update:tags="onTagsUpdate" />
+
+        <!-- System info -->
+        <MetaInfoSection :id="editedNode.id" :created-at="editedNode.created_at" :updated-at="editedNode.updated_at" />
+
+        <!-- Links section -->
+        <LinkedItemsSection
+          :linked-nodes="linkedNodes"
+          :show-links="editedNode.show_links ?? 1"
+          exclude-type="person"
+          @update:show-links="onShowLinksUpdate"
+          @select="$emit('select-child', $event)"
+          @remove="$emit('remove-link', $event)"
+          @add="$emit('open-link-search')"
+        />
+      </div>
     </div>
-
-    <!-- Color picker -->
-    <ColorPickerSection :color="editedNode.color" default-color="#e67e22" @update:color="onColorUpdate" />
-
-    <!-- Type selector -->
-    <div class="type-section">
-      <label>Convert to</label>
-      <select :value="editedNode.type" @change="onTypeChange">
-        <option v-for="t in nodeTypes" :key="t" :value="t">{{ t }}</option>
-      </select>
-    </div>
-
-    <!-- Tags -->
-    <TagsSection :tags="editedNode.tags || []" @update:tags="onTagsUpdate" />
-
-    <!-- System info -->
-    <MetaInfoSection :id="editedNode.id" :created-at="editedNode.created_at" :updated-at="editedNode.updated_at" />
-
-    <!-- Links section - at bottom like metadata -->
-    <LinkedItemsSection
-      :linked-nodes="linkedNodes"
-      :show-links="editedNode.show_links ?? 1"
-      exclude-type="person"
-      @update:show-links="onShowLinksUpdate"
-      @select="$emit('select-child', $event)"
-      @remove="$emit('remove-link', $event)"
-      @add="$emit('open-link-search')"
-    />
   </div>
 </template>
 
@@ -297,10 +248,82 @@ defineExpose({ loadLinkedMembers, getNotesSelection })
 .organization-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
   overflow-y: auto;
   flex: 1;
-  padding-bottom: 8px;
+  min-height: 0;
+}
+
+/* Collapsible sections */
+.section-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  user-select: none;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  margin-bottom: 4px;
+}
+
+.section-header:hover {
+  background: var(--bg-hover);
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.collapse-indicator {
+  margin-left: auto;
+  font-size: 14px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.notes-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 100px;
+  padding: 8px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.notes-section.collapsed {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+.notes-section .section-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.meta-section {
+  padding: 8px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+}
+
+.meta-section.collapsed .section-content {
+  display: none;
+}
+
+.meta-section .section-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 8px;
 }
 
 .org-header-row {
@@ -330,6 +353,12 @@ defineExpose({ loadLinkedMembers, getNotesSelection })
   font-weight: 500;
 }
 
+.org-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
 .form-field {
   display: flex;
   flex-direction: column;
@@ -348,12 +377,18 @@ defineExpose({ loadLinkedMembers, getNotesSelection })
   letter-spacing: 0.3px;
 }
 
-/* Give notes more space */
-.notes-field {
-  flex: 1;
-  min-height: 200px;
-  display: flex;
-  flex-direction: column;
+.form-field input {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.form-field input:focus {
+  outline: none;
+  border-color: var(--accent-color);
 }
 
 /* Member tags */
@@ -361,7 +396,6 @@ defineExpose({ loadLinkedMembers, getNotesSelection })
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 6px;
 }
 
 .member-tag {
@@ -410,85 +444,6 @@ defineExpose({ loadLinkedMembers, getNotesSelection })
 
 .member-remove:hover {
   color: white;
-}
-
-/* Member autocomplete */
-.member-autocomplete {
-  position: relative;
-}
-
-.member-autocomplete input {
-  width: 100%;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  padding: 8px 10px;
-  border-radius: 6px;
-  font-size: 13px;
-}
-
-.member-autocomplete input:focus {
-  outline: none;
-  border-color: var(--accent-color);
-}
-
-.member-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  margin-top: 4px;
-  max-height: 200px;
-  overflow-y: auto;
-  z-index: 100;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.member-option {
-  padding: 8px 12px;
-  cursor: pointer;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.member-option:hover,
-.member-option.selected {
-  background: var(--bg-hover);
-}
-
-.member-option.linked {
-  opacity: 0.6;
-}
-
-.member-option.create-option {
-  color: var(--accent-color);
-  border-top: 1px solid var(--border-color);
-}
-
-.member-option-avatar {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: 600;
-  color: white;
-}
-
-.linked-badge {
-  margin-left: auto;
-  font-size: 10px;
-  background: var(--bg-tertiary);
-  padding: 2px 6px;
-  border-radius: 8px;
-  color: var(--text-tertiary);
 }
 
 .type-section {

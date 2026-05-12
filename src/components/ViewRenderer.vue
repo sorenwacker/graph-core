@@ -3,7 +3,6 @@ import TableView from './TableView.vue'
 import CardsView from './CardsView.vue'
 import GraphView from './GraphView.vue'
 import TimelineView from './TimelineView.vue'
-import CalendarView from './CalendarView.vue'
 import PersonsView from './PersonsView.vue'
 import TasksView from './TasksView.vue'
 import TrashView from './TrashView.vue'
@@ -251,21 +250,6 @@ defineExpose({
   <!-- Timeline View -->
   <TimelineView
     v-else-if="viewMode === 'timeline'"
-    :nodes="sortedChildren"
-    :selected-id="selectedNode?.id"
-    :hide-completed="hideCompleted"
-    :color-map="colorMap"
-    @select="emit('select', $event)"
-    @enter="emit('enter', $event)"
-    @show-tooltip="(e, node) => emit('show-tooltip', e, node)"
-    @hide-tooltip="emit('hide-tooltip')"
-    @context-menu="emit('context-menu', $event)"
-    @update="emit('update', $event)"
-  />
-
-  <!-- Calendar View -->
-  <CalendarView
-    v-else-if="viewMode === 'calendar'"
     :nodes="sortedChildren"
     :selected-id="selectedNode?.id"
     :hide-completed="hideCompleted"
