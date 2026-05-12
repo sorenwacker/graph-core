@@ -7,17 +7,7 @@ import type { Ref } from 'vue'
 /**
  * Available view modes for displaying nodes.
  */
-export type ViewMode =
-  | 'graph'
-  | 'cards'
-  | 'list'
-  | 'table'
-  | 'timeline'
-  | 'calendar'
-  | 'persons'
-  | 'tasks'
-  | 'trash'
-  | 'tree'
+export type ViewMode = 'graph' | 'cards' | 'list' | 'table' | 'timeline' | 'persons' | 'tasks' | 'trash' | 'tree'
 
 /**
  * AI provider options.

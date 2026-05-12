@@ -286,9 +286,10 @@ function clearLocation() {
 }
 
 .collapse-indicator {
-  margin-left: 8px;
+  margin-left: auto;
   font-size: 14px;
   color: var(--text-tertiary);
+  flex-shrink: 0;
 }
 
 .section-content {

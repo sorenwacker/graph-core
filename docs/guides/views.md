@@ -257,23 +257,6 @@ Displays nodes with dates on a horizontal timeline.
 
 **Best for:** Project planning, scheduling
 
-## Calendar View
-
-Monthly calendar displaying nodes by date.
-
-**Features:**
-
-- Standard calendar grid (7 days x 6 weeks)
-- Navigate months with arrow buttons
-- "Go to Today" button for quick navigation
-- Nodes grouped by due_date/start_date/end_date
-- Multi-day events spanning multiple days
-- Weekend highlighting
-- Adjacent month date padding
-- Color-coded by node type
-
-**Best for:** Date-focused browsing, deadlines
-
 ## Tasks View
 
 Filtered view showing task-type nodes from the current container and its descendants.
