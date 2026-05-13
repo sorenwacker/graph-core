@@ -315,25 +315,19 @@ defineExpose({ loadLinkedOrganizations, getNotesSelection })
 </template>
 
 <style scoped>
-.person-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-}
-
-/* Collapsible sections */
 .section-header {
   display: flex;
   align-items: center;
-  padding: 8px 12px;
+  justify-content: flex-start;
+  padding: 2px 6px;
   cursor: pointer;
   user-select: none;
-  background: var(--bg-secondary);
-  border-radius: 6px;
-  margin-bottom: 4px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  margin: 0;
+  min-height: 0;
+  line-height: 1;
 }
 
 .section-header:hover {
@@ -341,18 +335,25 @@ defineExpose({ loadLinkedOrganizations, getNotesSelection })
 }
 
 .section-title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  text-decoration: none;
+  border: none;
+  line-height: 1;
+  margin: 0;
+  padding: 0;
 }
 
-.collapse-indicator {
-  margin-left: auto;
-  font-size: 14px;
-  color: var(--text-tertiary);
-  flex-shrink: 0;
+.person-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .notes-section {

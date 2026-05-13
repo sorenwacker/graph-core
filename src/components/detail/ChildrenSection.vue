@@ -95,7 +95,6 @@ function onDragEnd() {
     <div class="section-header" @click="toggleCollapsed">
       <span class="section-title">Tasks</span>
       <span v-if="children.length" class="section-count">{{ completedCount }}/{{ children.length }}</span>
-      <span class="collapse-indicator">{{ collapsed ? '+' : '-' }}</span>
     </div>
     <div v-show="!collapsed" class="section-content">
       <!-- Add task input -->
@@ -197,20 +196,29 @@ function onDragEnd() {
 .children-section {
   display: flex;
   flex-direction: column;
-  padding: 8px;
+  padding: 4px;
   background: var(--bg-secondary);
   border-radius: 6px;
+}
+
+.children-section.collapsed {
+  padding: 0;
+  background: transparent;
 }
 
 .section-header {
   display: flex;
   align-items: center;
-  padding: 8px 12px;
+  justify-content: flex-start;
+  padding: 2px 6px;
   cursor: pointer;
   user-select: none;
-  background: var(--bg-secondary);
-  border-radius: 6px;
-  margin-bottom: 4px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  margin: 0;
+  min-height: 0;
+  line-height: 1;
 }
 
 .section-header:hover {
@@ -218,28 +226,23 @@ function onDragEnd() {
 }
 
 .section-title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  text-decoration: none;
+  border: none;
+  line-height: 1;
+  margin: 0;
+  padding: 0;
 }
 
 .section-count {
-  margin-left: auto;
+  margin-left: 6px;
   font-size: 11px;
   color: var(--text-tertiary);
-}
-
-.collapse-indicator {
-  font-size: 14px;
-  color: var(--text-tertiary);
-  flex-shrink: 0;
-  margin-left: 8px;
-}
-
-.section-content {
-  padding: 8px 0;
+  line-height: 1;
 }
 
 .add-task-row {
