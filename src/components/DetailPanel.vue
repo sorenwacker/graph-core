@@ -81,11 +81,52 @@ const titleInput = ref(null)
 const notesEditorRef = ref(null)
 const notesEditorSplitRef = ref(null)
 
+// Scroll sync for split view
+let isScrollSyncing = false
+
+function syncEditorToPreview() {
+  if (isScrollSyncing || !notesEditorSplitRef.value || !splitPreview.value) return
+  isScrollSyncing = true
+
+  const info = notesEditorSplitRef.value.getScrollInfo()
+  const scrollableHeight = info.scrollHeight - info.clientHeight
+  if (scrollableHeight > 0) {
+    const percent = info.scrollTop / scrollableHeight
+    const previewScrollable = splitPreview.value.scrollHeight - splitPreview.value.clientHeight
+    splitPreview.value.scrollTop = percent * previewScrollable
+  }
+
+  requestAnimationFrame(() => {
+    isScrollSyncing = false
+  })
+}
+
+function syncPreviewToEditor() {
+  if (isScrollSyncing || !notesEditorSplitRef.value || !splitPreview.value) return
+  isScrollSyncing = true
+
+  const preview = splitPreview.value
+  const scrollableHeight = preview.scrollHeight - preview.clientHeight
+  if (scrollableHeight > 0) {
+    const percent = preview.scrollTop / scrollableHeight
+    const info = notesEditorSplitRef.value.getScrollInfo()
+    const editorScrollable = info.scrollHeight - info.clientHeight
+    notesEditorSplitRef.value.setScrollTop(percent * editorScrollable)
+  }
+
+  requestAnimationFrame(() => {
+    isScrollSyncing = false
+  })
+}
+
 // Panel resizing
 const isResizing = ref(false)
 
 // Notes autosave timeout
 let notesAutosaveTimeout = null
+
+// Scroll sync listener for split view
+let editorScrollListener = null
 
 // Mentions system
 const { showMentions, mentionPosition, filteredPersons, selectedMentionIndex, selectMention } = useMentions({
@@ -156,6 +197,13 @@ onUnmounted(() => {
     clearTimeout(notesAutosaveTimeout)
     notesAutosaveTimeout = null
   }
+  // Clean up scroll sync listener
+  if (editorScrollListener && notesEditorSplitRef.value) {
+    const scrollEl = notesEditorSplitRef.value.getScrollElement()
+    if (scrollEl) {
+      scrollEl.removeEventListener('scroll', editorScrollListener)
+    }
+  }
 })
 
 // Refs for child form components
@@ -203,6 +251,33 @@ watch(
     }
   },
   { immediate: true }
+)
+
+// Set up scroll sync when split view is activated
+watch(
+  () => activeTab.value,
+  async newTab => {
+    // Clean up old listener
+    if (editorScrollListener && notesEditorSplitRef.value) {
+      const scrollEl = notesEditorSplitRef.value.getScrollElement()
+      if (scrollEl) {
+        scrollEl.removeEventListener('scroll', editorScrollListener)
+      }
+      editorScrollListener = null
+    }
+
+    // Set up new listener for split view
+    if (newTab === 'split') {
+      await nextTick()
+      if (notesEditorSplitRef.value) {
+        const scrollEl = notesEditorSplitRef.value.getScrollElement()
+        if (scrollEl) {
+          editorScrollListener = syncEditorToPreview
+          scrollEl.addEventListener('scroll', editorScrollListener)
+        }
+      }
+    }
+  }
 )
 
 async function loadChildren() {
@@ -581,7 +656,6 @@ defineExpose({
           <div class="notes-section" :class="{ collapsed: notesCollapsed }">
             <div class="section-header" @click="notesCollapsed = !notesCollapsed">
               <span class="section-title">Notes</span>
-              <span class="collapse-indicator">{{ notesCollapsed ? '+' : '-' }}</span>
             </div>
             <div v-show="!notesCollapsed" class="section-content">
               <div class="tabs-row">
@@ -638,7 +712,7 @@ defineExpose({
                   @blur="saveChanges"
                   class="notes-codemirror split-editor"
                 />
-                <div ref="splitPreview" class="notes-preview markdown-body split-preview">
+                <div ref="splitPreview" class="notes-preview markdown-body split-preview" @scroll="syncPreviewToEditor">
                   <div v-if="editedNode.notes_sensitive && !showSensitivePreview" class="sensitive-hidden">
                     <p>Sensitive notes hidden</p>
                     <button class="unlock-btn" @click="showSensitivePreview = true" title="Show sensitive notes">
@@ -670,7 +744,6 @@ defineExpose({
             <div class="table-section" :class="{ collapsed: tableCollapsed }">
               <div class="section-header" @click="tableCollapsed = !tableCollapsed">
                 <span class="section-title">Table</span>
-                <span class="collapse-indicator">{{ tableCollapsed ? '+' : '-' }}</span>
               </div>
               <div v-show="!tableCollapsed" class="section-content">
                 <NodeSpreadsheet

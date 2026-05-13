@@ -184,7 +184,27 @@ function replaceSelection(newText) {
   })
 }
 
-defineExpose({ getSelection, replaceSelection })
+function getScrollElement() {
+  if (!editor) return null
+  return editor.scrollDOM
+}
+
+function getScrollInfo() {
+  if (!editor) return { scrollTop: 0, scrollHeight: 0, clientHeight: 0 }
+  const el = editor.scrollDOM
+  return {
+    scrollTop: el.scrollTop,
+    scrollHeight: el.scrollHeight,
+    clientHeight: el.clientHeight,
+  }
+}
+
+function setScrollTop(scrollTop) {
+  if (!editor) return
+  editor.scrollDOM.scrollTop = scrollTop
+}
+
+defineExpose({ getSelection, replaceSelection, getScrollElement, getScrollInfo, setScrollTop })
 </script>
 
 <template>

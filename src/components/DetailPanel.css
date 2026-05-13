@@ -27,28 +27,44 @@
   box-sizing: border-box;
 }
 
+/* Fullscreen / wide mode: Tasks and Metadata side by side */
 .detail-panel.fullscreen .bottom-sections {
-  flex-direction: column;
-  gap: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
 }
 
-.detail-panel.fullscreen .bottom-sections.all-collapsed {
-  flex-direction: row;
+/* Table always full width */
+.detail-panel.fullscreen .table-section {
+  flex: 1 1 100%;
 }
 
 .detail-panel.fullscreen .table-section:not(.collapsed) {
-  flex: 1 1 auto;
   min-height: 300px;
 }
 
-.detail-panel.fullscreen .bottom-sections:has(.table-section:not(.collapsed)) .children-section,
-.detail-panel.fullscreen .bottom-sections:has(.table-section:not(.collapsed)) .meta-section {
+/* Tasks and Metadata side by side when expanded */
+.detail-panel.fullscreen .children-section:not(.collapsed),
+.detail-panel.fullscreen .meta-section:not(.collapsed) {
+  flex: 1 1 45%;
+  min-width: 300px;
+}
+
+/* Collapsed sections stay compact */
+.detail-panel.fullscreen .children-section.collapsed,
+.detail-panel.fullscreen .meta-section.collapsed {
   flex: 0 0 auto;
 }
 
-.detail-panel.fullscreen .children-section {
-  flex: 1;
-  min-width: 0;
+/* Ensure section headers look the same in fullscreen */
+.detail-panel.fullscreen .section-header {
+  padding: 2px 6px;
+  line-height: 1;
+}
+
+.detail-panel.fullscreen .section-title {
+  font-size: 11px;
+  line-height: 1;
 }
 
 .detail-panel.fullscreen .children-list {
@@ -211,19 +227,23 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  gap: 8px;
+  gap: 4px;
   overflow-y: auto;
 }
 
 .section-header {
   display: flex;
   align-items: center;
-  padding: 8px 12px;
+  justify-content: flex-start;
+  padding: 2px 6px;
   cursor: pointer;
   user-select: none;
-  background: var(--bg-secondary);
-  border-radius: 6px;
-  margin-bottom: 4px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  margin: 0;
+  min-height: 0;
+  line-height: 1;
 }
 
 .section-header:hover {
@@ -231,23 +251,23 @@
 }
 
 .section-title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  text-decoration: none;
+  border: none;
+  line-height: 1;
+  margin: 0;
+  padding: 0;
 }
 
 .section-count {
+  margin-left: 6px;
   font-size: 11px;
   color: var(--text-tertiary);
-  margin-left: auto;
-}
-
-.collapse-indicator {
-  margin-left: auto;
-  font-size: 14px;
-  color: var(--text-tertiary);
+  line-height: 1;
 }
 
 /* Notes section */
@@ -256,7 +276,7 @@
   flex-direction: column;
   flex: 1 1 0;
   min-height: 100px;
-  padding: 8px;
+  padding: 4px;
   background: var(--bg-secondary);
   border-radius: 6px;
   overflow: hidden;
@@ -265,6 +285,29 @@
 .notes-section.collapsed {
   flex: 0 0 auto;
   min-height: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.notes-section.collapsed .section-header {
+  padding: 2px 6px;
+  margin: 0;
+  background: transparent;
+  border: none;
+  line-height: 1;
+}
+
+.notes-section .section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-decoration: none;
+  border: none;
+  line-height: 1;
+  margin: 0;
+  padding: 0;
 }
 
 /* Table section */
@@ -274,7 +317,7 @@
   flex: 1 1 auto;
   overflow: hidden;
   min-height: 200px;
-  padding: 8px;
+  padding: 4px;
   background: var(--bg-secondary);
   border-radius: 6px;
 }
@@ -285,7 +328,35 @@
 }
 
 .table-section .section-content {
-  padding-top: 4px;
+  padding-top: 0;
+}
+
+.table-section .section-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 2px 6px;
+  cursor: pointer;
+  user-select: none;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  margin: 0;
+  min-height: 0;
+  line-height: 1;
+}
+
+.table-section .section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-decoration: none;
+  border: none;
+  line-height: 1;
+  margin: 0;
+  padding: 0;
 }
 
 .notes-section .section-content {
@@ -300,7 +371,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .tabs {
@@ -446,30 +517,55 @@
   overflow-y: auto;
 }
 
-/* Bottom sections */
+/* Bottom sections - all full width in smaller/detached mode */
 .bottom-sections {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
-.bottom-sections.all-collapsed {
-  flex-direction: row;
-  gap: 8px;
+/* Collapsed sections: compact display */
+.bottom-sections .table-section.collapsed,
+.bottom-sections .children-section.collapsed,
+.bottom-sections .meta-section.collapsed {
+  padding: 0;
+  background: transparent;
 }
 
-.bottom-sections.all-collapsed .table-section,
-.bottom-sections.all-collapsed .children-section,
-.bottom-sections.all-collapsed .meta-section {
-  flex: 1;
+.bottom-sections .table-section.collapsed .section-header,
+.bottom-sections .children-section.collapsed .section-header,
+.bottom-sections .meta-section.collapsed .section-header {
+  padding: 2px 6px;
+  margin: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.bottom-sections .table-section.collapsed .section-header:hover,
+.bottom-sections .children-section.collapsed .section-header:hover,
+.bottom-sections .meta-section.collapsed .section-header:hover {
+  background: var(--bg-hover);
+}
+
+/* When all collapsed, show inline */
+.bottom-sections.all-collapsed {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 2px 8px;
 }
 
 /* Children section */
 .children-section {
-  padding: 8px;
+  padding: 4px;
   background: var(--bg-secondary);
   border-radius: 6px;
+}
+
+.children-section .section-content {
+  padding-top: 0;
 }
 
 .children-list {
@@ -804,9 +900,13 @@
 
 /* Metadata section */
 .meta-section {
-  padding: 8px;
+  padding: 4px;
   background: var(--bg-secondary);
   border-radius: 6px;
+}
+
+.meta-section .section-content {
+  padding-top: 0;
 }
 
 .meta-grid {

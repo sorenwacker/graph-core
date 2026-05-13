@@ -261,6 +261,12 @@ onMounted(renderContent)
   margin: 1em 0;
 }
 
+.markdown-content :deep(del),
+.markdown-content :deep(s) {
+  text-decoration: line-through;
+  color: var(--text-tertiary);
+}
+
 .markdown-content :deep(.mermaid-container) {
   margin: 1em 0;
   padding: 16px;
