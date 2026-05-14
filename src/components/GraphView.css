@@ -902,7 +902,7 @@
   font-weight: 600;
   cursor: pointer;
   opacity: 0.7;
-  transition: opacity 0.15s;
+  pointer-events: auto;
 }
 
 :global(.collapse-btn:hover) {

@@ -254,7 +254,6 @@ export function useGraphEvents(options = {}) {
         e.stopPropagation()
         backgroundClickPending = false
         const nodeId = parseInt(collapseBtn.dataset.collapseNode)
-        console.log('Collapse button clicked, nodeId:', nodeId, 'onToggleCollapse:', !!onToggleCollapse)
         if (nodeId && onToggleCollapse) {
           onToggleCollapse(nodeId)
         }
