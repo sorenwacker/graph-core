@@ -268,30 +268,33 @@ function toggleNodeCollapse(nodeId) {
   if (!cyNode || cyNode.length === 0) return
   const nodeData = cyNode.data('nodeData')
   if (!nodeData) return
-  emit('update', { ...nodeData, collapsed: !nodeData.collapsed })
+  // Only emit serializable data to avoid cloning errors
+  emit('update', { id: nodeData.id, collapsed: !nodeData.collapsed })
 }
 
 // Attach click handlers directly to collapse buttons
+let globalCollapseHandlerAttached = false
 function attachCollapseHandlers() {
-  const btns = document.querySelectorAll('.collapse-btn')
-  btns.forEach(btn => {
-    if (btn.dataset.handlerAttached) return
-    btn.dataset.handlerAttached = 'true'
-    // Use mousedown with capture to intercept before cytoscape
-    btn.addEventListener(
+  // Use document-level handler with capture
+  if (!globalCollapseHandlerAttached) {
+    globalCollapseHandlerAttached = true
+    document.addEventListener(
       'mousedown',
       e => {
-        e.preventDefault()
-        e.stopPropagation()
-        e.stopImmediatePropagation()
-        const nodeId = parseInt(btn.dataset.collapseNode)
-        if (nodeId) {
-          toggleNodeCollapse(nodeId)
+        const btn = e.target.closest('.collapse-btn')
+        if (btn) {
+          e.preventDefault()
+          e.stopPropagation()
+          e.stopImmediatePropagation()
+          const nodeId = parseInt(btn.dataset.collapseNode)
+          if (!isNaN(nodeId)) {
+            toggleNodeCollapse(nodeId)
+          }
         }
       },
       true
     )
-  })
+  }
 }
 
 // Events composable
@@ -786,7 +789,7 @@ async function initGraph() {
   setupWheelHandler()
   events.setupEvents()
   applyInitialLayout(hasPos)
-  setTimeout(attachCollapseHandlers, 300)
+  setTimeout(() => attachCollapseHandlers(), 300)
 }
 
 /**
