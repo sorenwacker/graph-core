@@ -172,6 +172,7 @@ const {
   showRootNode: _showRootNode,
   visibleTypes: _visibleTypes,
   radialSettings: _radialSettings,
+  trackpadZoomMode,
 } = useGraphSettings({ workspace: workspaceRef })
 const layoutMode = ref(props.parent?.graph_layout || _layoutMode.value)
 const showRootNode = ref(
@@ -261,6 +262,18 @@ const layout = useGraphLayout({
 })
 const getLayoutOptions = () => layout.getLayoutOptions(layoutMode.value)
 
+// Toggle collapsed state for a node
+function toggleNodeCollapse(nodeId) {
+  console.log('toggleNodeCollapse called with nodeId:', nodeId)
+  const cyNode = cy?.$(`#${nodeId}`)
+  console.log('cyNode found:', cyNode?.length)
+  if (!cyNode || cyNode.length === 0) return
+  const nodeData = cyNode.data('nodeData')
+  console.log('nodeData:', nodeData?.id, 'collapsed:', nodeData?.collapsed)
+  if (!nodeData) return
+  emit('update', { ...nodeData, collapsed: !nodeData.collapsed })
+}
+
 // Events composable
 const events = useGraphEvents({
   getCy: () => cy,
@@ -276,6 +289,7 @@ const events = useGraphEvents({
   hideTooltip,
   forceHideTooltip,
   savePositions: _savePos,
+  onToggleCollapse: toggleNodeCollapse,
 })
 
 const debounce =
@@ -514,6 +528,7 @@ function createCytoscapeInstance(elements, hasPos) {
     elements,
     boxSelectionEnabled: true,
     selectionType: 'additive',
+    userZoomingEnabled: false, // Disable default wheel zoom - we handle it custom
     style: [
       {
         selector: 'node',
@@ -588,7 +603,10 @@ function setupHtmlLabels() {
               : renderMarkdownHtml(n.notes, props.notesPreviewLength)
         }
         const childBadge = d.childCount > 0 ? `<span class="child-count-badge">${d.childCount}</span>` : ''
-        return `<div class="node-html ${n.completed ? 'completed' : ''} ${d.shouldGlow ? 'current-container' : ''} ${n.favorite ? 'favorite' : ''}" data-node-id="${n.id}" data-selected="${d.isSelected}" style="border-color:${bc};--glow-color:${bc};${bg}">${childBadge}<div class="node-html-title">${n.title || 'Untitled'}${n.notes && !d.showDetails ? '<span class="notes-indicator"></span>' : ''}</div>${notes ? `<div class="node-html-notes">${notes}</div>` : ''}</div>`
+        const collapseBtn = d.hasChildren
+          ? `<button class="collapse-btn" data-collapse-node="${n.id}" title="${d.isCollapsed ? 'Expand children' : 'Collapse children'}">${d.isCollapsed ? '+' : '-'}</button>`
+          : ''
+        return `<div class="node-html ${n.completed ? 'completed' : ''} ${d.shouldGlow ? 'current-container' : ''} ${n.favorite ? 'favorite' : ''} ${d.isCollapsed ? 'collapsed-node' : ''}" data-node-id="${n.id}" data-selected="${d.isSelected}" style="border-color:${bc};--glow-color:${bc};${bg}">${collapseBtn}${childBadge}<div class="node-html-title">${n.title || 'Untitled'}${n.notes && !d.showDetails ? '<span class="notes-indicator"></span>' : ''}</div>${notes ? `<div class="node-html-notes">${notes}</div>` : ''}</div>`
       },
     },
   ])
@@ -664,6 +682,70 @@ async function buildElementsWithLinks(savedPos) {
   return elements
 }
 
+// Trackpad zoom/pan state
+let wheelCleanup = null
+
+/**
+ * Set up custom wheel handling for trackpad zoom modes.
+ * Mode 'scroll': Two-finger vertical scroll zooms (like Google Maps)
+ * Mode 'pinch': Only pinch zooms, scroll pans (scroll-friendly)
+ */
+function setupWheelHandler() {
+  if (!container.value || !cy) return
+
+  // Clean up previous handler
+  if (wheelCleanup) {
+    wheelCleanup()
+    wheelCleanup = null
+  }
+
+  const el = container.value
+
+  function handleWheel(e) {
+    e.preventDefault()
+
+    const rect = el.getBoundingClientRect()
+    const mouseX = e.clientX - rect.left
+    const mouseY = e.clientY - rect.top
+
+    // Determine if this should zoom or pan based on mode
+    const isHorizontalPan = Math.abs(e.deltaX) > Math.abs(e.deltaY) * 0.3
+    const isPinch = e.ctrlKey // Browser synthesizes ctrlKey for pinch gestures
+
+    let shouldZoom
+    if (trackpadZoomMode.value === 'pinch') {
+      // Pinch mode: only pinch gesture zooms
+      shouldZoom = isPinch
+    } else {
+      // Scroll mode (default): vertical scroll zooms, horizontal pans
+      shouldZoom = !isHorizontalPan || isPinch
+    }
+
+    if (shouldZoom) {
+      // Zoom centered on mouse position
+      const intensity = isPinch ? 0.008 : 0.003
+      const multiplier = Math.exp(-e.deltaY * intensity)
+      const currentZoom = cy.zoom()
+      const newZoom = Math.min(Math.max(currentZoom * multiplier, 0.1), 3)
+
+      // Convert mouse position to model coordinates
+      const pan = cy.pan()
+      const modelX = (mouseX - pan.x) / currentZoom
+      const modelY = (mouseY - pan.y) / currentZoom
+
+      // Apply zoom centered on mouse
+      cy.zoom({ level: newZoom, renderedPosition: { x: mouseX, y: mouseY } })
+    } else {
+      // Pan
+      const pan = cy.pan()
+      cy.pan({ x: pan.x - e.deltaX, y: pan.y - e.deltaY })
+    }
+  }
+
+  el.addEventListener('wheel', handleWheel, { passive: false })
+  wheelCleanup = () => el.removeEventListener('wheel', handleWheel)
+}
+
 /**
  * Initialize the graph with nodes and edges.
  */
@@ -678,6 +760,7 @@ async function initGraph() {
   cy = createCytoscapeInstance(elements, hasPos)
   cy.nodes().grabify()
   setupHtmlLabels()
+  setupWheelHandler()
   events.setupEvents()
   applyInitialLayout(hasPos)
 }
@@ -939,6 +1022,10 @@ onUnmounted(() => {
   window.removeEventListener('graph-center-node', handleCenterEvent)
   window.removeEventListener('keydown', handleGlobalKeydown)
   if (updateDebounceTimer) clearTimeout(updateDebounceTimer)
+  if (wheelCleanup) {
+    wheelCleanup()
+    wheelCleanup = null
+  }
   layout.cleanup()
   if (cy) {
     cy.destroy()

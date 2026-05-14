@@ -94,6 +94,21 @@ export function filterByType(nodeList, types) {
 }
 
 /**
+ * Filter out children of collapsed nodes.
+ * A collapsed node is included, but its descendants are hidden.
+ * @param {Array} nodeList - Array of nodes to filter
+ * @returns {Array} Filtered array with collapsed node children removed
+ */
+export function filterCollapsedNodes(nodeList) {
+  if (!nodeList) return []
+  return nodeList.filter(Boolean).map(n => ({
+    ...n,
+    // If node is collapsed, remove its children; otherwise recurse
+    children: n.collapsed ? [] : n.children ? filterCollapsedNodes(n.children) : [],
+  }))
+}
+
+/**
  * Build a map of inherited colors from parent to children.
  * Colors flow down unless a child has its own color set.
  * @param {Array} nodeList - Array of nodes to process
@@ -131,6 +146,7 @@ export function useNodeFiltering() {
     filterCompletedNodes,
     sortNodesRecursively,
     filterByType,
+    filterCollapsedNodes,
     buildInheritedColorMap,
   }
 }

@@ -70,6 +70,7 @@ function isDescendant(parent, childId) {
  * @param {Function} options.hideTooltip - Hide tooltip
  * @param {Function} options.forceHideTooltip - Force hide tooltip
  * @param {Function} options.savePositions - Save positions function
+ * @param {Function} options.onToggleCollapse - Callback for toggling node collapse state
  * @returns {Object} Event setup function
  */
 export function useGraphEvents(options = {}) {
@@ -86,6 +87,7 @@ export function useGraphEvents(options = {}) {
     hideTooltip,
     forceHideTooltip,
     savePositions,
+    onToggleCollapse,
   } = options
 
   let backgroundClickPending = false
@@ -245,6 +247,20 @@ export function useGraphEvents(options = {}) {
     let htmlClickTimer = null
 
     container.addEventListener('click', e => {
+      // Handle collapse button click
+      const collapseBtn = e.target.closest('.collapse-btn')
+      if (collapseBtn) {
+        e.preventDefault()
+        e.stopPropagation()
+        backgroundClickPending = false
+        const nodeId = parseInt(collapseBtn.dataset.collapseNode)
+        console.log('Collapse button clicked, nodeId:', nodeId, 'onToggleCollapse:', !!onToggleCollapse)
+        if (nodeId && onToggleCollapse) {
+          onToggleCollapse(nodeId)
+        }
+        return
+      }
+
       const htmlLabel = e.target.closest('.node-html')
       if (!htmlLabel) return
 

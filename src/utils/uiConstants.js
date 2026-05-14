@@ -51,4 +51,5 @@ export const STORAGE_KEYS = {
   GRAPH_RADIAL_NESTING: 'graph-radial-nesting',
   GRAPH_RADIAL_ITERATIONS: 'graph-radial-iterations',
   GRAPH_NOTES_PREVIEW_LENGTH: 'graph-notes-preview-length',
+  GRAPH_TRACKPAD_ZOOM_MODE: 'graph-trackpad-zoom-mode',
 }
