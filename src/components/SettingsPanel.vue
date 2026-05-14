@@ -13,7 +13,6 @@ const { handleError } = useErrorHandler()
 const props = defineProps({
   graphDetailThreshold: { type: Number, required: true },
   graphMaxDepth: { type: Number, required: true },
-  graphRootMaxDepth: { type: Number, required: true },
   graphNotesPreviewLength: { type: Number, default: 200 },
   openDetailFullscreen: { type: Boolean, required: true },
   hoverPreviewEnabled: { type: Boolean, required: true },
@@ -45,7 +44,6 @@ const props = defineProps({
 const emit = defineEmits([
   'update:graphDetailThreshold',
   'update:graphMaxDepth',
-  'update:graphRootMaxDepth',
   'update:graphNotesPreviewLength',
   'update:openDetailFullscreen',
   'update:hoverPreviewEnabled',
@@ -136,7 +134,6 @@ onMounted(async () => {
         <GeneralSettings
           :graph-detail-threshold="graphDetailThreshold"
           :graph-max-depth="graphMaxDepth"
-          :graph-root-max-depth="graphRootMaxDepth"
           :graph-notes-preview-length="graphNotesPreviewLength"
           :open-detail-fullscreen="openDetailFullscreen"
           :hover-preview-enabled="hoverPreviewEnabled"
@@ -144,7 +141,6 @@ onMounted(async () => {
           :show-hint-bar="showHintBar"
           @update:graph-detail-threshold="emit('update:graphDetailThreshold', $event)"
           @update:graph-max-depth="emit('update:graphMaxDepth', $event)"
-          @update:graph-root-max-depth="emit('update:graphRootMaxDepth', $event)"
           @update:graph-notes-preview-length="emit('update:graphNotesPreviewLength', $event)"
           @update:open-detail-fullscreen="emit('update:openDetailFullscreen', $event)"
           @update:hover-preview-enabled="emit('update:hoverPreviewEnabled', $event)"

@@ -6,7 +6,6 @@ const { currentTheme, setTheme, themes } = useTheme()
 const props = defineProps({
   graphDetailThreshold: { type: Number, required: true },
   graphMaxDepth: { type: Number, required: true },
-  graphRootMaxDepth: { type: Number, required: true },
   graphNotesPreviewLength: { type: Number, default: 200 },
   openDetailFullscreen: { type: Boolean, required: true },
   hoverPreviewEnabled: { type: Boolean, required: true },
@@ -17,7 +16,6 @@ const props = defineProps({
 const emit = defineEmits([
   'update:graphDetailThreshold',
   'update:graphMaxDepth',
-  'update:graphRootMaxDepth',
   'update:graphNotesPreviewLength',
   'update:openDetailFullscreen',
   'update:hoverPreviewEnabled',
@@ -56,23 +54,6 @@ const emit = defineEmits([
       />
       <span class="settings-hint">{{
         graphMaxDepth === 0 ? 'Show all levels' : `Show up to ${graphMaxDepth} levels`
-      }}</span>
-    </div>
-    <div class="settings-item">
-      <label
-        >Root depth <span class="slider-value">{{ graphRootMaxDepth === 0 ? 'All' : graphRootMaxDepth }}</span></label
-      >
-      <input
-        type="range"
-        :value="graphRootMaxDepth"
-        min="0"
-        max="10"
-        step="1"
-        class="settings-slider"
-        @input="emit('update:graphRootMaxDepth', Number($event.target.value))"
-      />
-      <span class="settings-hint">{{
-        graphRootMaxDepth === 0 ? 'Show all levels at root' : `Show ${graphRootMaxDepth} levels at root`
       }}</span>
     </div>
     <div class="settings-item">

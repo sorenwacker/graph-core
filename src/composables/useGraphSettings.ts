@@ -66,6 +66,8 @@ export interface UseGraphSettingsReturn {
   radialSettings: UnwrapRef<RadialLayoutSettings>
   /** Trackpad zoom mode */
   trackpadZoomMode: Ref<TrackpadZoomMode>
+  /** Max depth for graph view (workspace default) */
+  maxDepth: Ref<number>
   /** Toggle visibility of a node type */
   toggleTypeVisibility: (type: NodeType) => void
   /** Reset radial settings to defaults */
@@ -138,6 +140,9 @@ export function useGraphSettings(options: UseGraphSettingsOptions = {}): UseGrap
     getString(STORAGE_KEYS.GRAPH_TRACKPAD_ZOOM_MODE, 'scroll') as TrackpadZoomMode
   )
 
+  // Max depth (workspace default for root level)
+  const maxDepth = ref(getNumber(STORAGE_KEYS.GRAPH_MAX_DEPTH, 0))
+
   // Radial layout settings
   const radialSettings = reactive<RadialLayoutSettings>({
     nodeRepulsion: getNumber(STORAGE_KEYS.GRAPH_RADIAL_REPULSION, RADIAL_DEFAULTS.repulsion),
@@ -167,6 +172,7 @@ export function useGraphSettings(options: UseGraphSettingsOptions = {}): UseGrap
     radialSettings.nestingFactor = getNumber(STORAGE_KEYS.GRAPH_RADIAL_NESTING, RADIAL_DEFAULTS.nestingFactor)
     radialSettings.iterations = getNumber(STORAGE_KEYS.GRAPH_RADIAL_ITERATIONS, RADIAL_DEFAULTS.iterations)
     trackpadZoomMode.value = getString(STORAGE_KEYS.GRAPH_TRACKPAD_ZOOM_MODE, 'scroll') as TrackpadZoomMode
+    maxDepth.value = getNumber(STORAGE_KEYS.GRAPH_MAX_DEPTH, 0)
   }
 
   // Watch workspace changes and reload settings
@@ -218,6 +224,12 @@ export function useGraphSettings(options: UseGraphSettingsOptions = {}): UseGrap
   watch(trackpadZoomMode, val => {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_TRACKPAD_ZOOM_MODE), val)
+    }
+  })
+
+  watch(maxDepth, val => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_MAX_DEPTH), String(val))
     }
   })
 
@@ -329,6 +341,9 @@ export function useGraphSettings(options: UseGraphSettingsOptions = {}): UseGrap
 
     // Trackpad zoom
     trackpadZoomMode,
+
+    // Max depth
+    maxDepth,
 
     // Methods
     toggleTypeVisibility,

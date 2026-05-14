@@ -35,7 +35,6 @@ describe('useSettings composable', () => {
       expect(settings.hideSensitive.value).toBe(false)
       expect(settings.graphDetailThreshold.value).toBe(50)
       expect(settings.graphMaxDepth.value).toBe(0)
-      expect(settings.graphRootMaxDepth.value).toBe(5)
       expect(settings.openDetailFullscreen.value).toBe(false)
       expect(settings.hoverPreviewEnabled.value).toBe(true)
       expect(settings.sidebarPinned.value).toBe(true)
@@ -63,11 +62,9 @@ describe('useSettings composable', () => {
     it('should restore number values from localStorage', () => {
       mockStorage['graphcore-graphDetailThreshold'] = '50'
       mockStorage['graphcore-graphMaxDepth'] = '3'
-      mockStorage['graphcore-graphRootMaxDepth'] = '5'
       const settings = useSettings()
       expect(settings.graphDetailThreshold.value).toBe(50)
       expect(settings.graphMaxDepth.value).toBe(3)
-      expect(settings.graphRootMaxDepth.value).toBe(5)
     })
 
     it('should handle invalid number values gracefully', () => {
