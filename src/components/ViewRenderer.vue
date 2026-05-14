@@ -31,7 +31,6 @@ const props = defineProps({
   showDetail: { type: Boolean, default: false },
   // Graph-specific
   graphDetailThreshold: { type: Number, default: 50 },
-  effectiveGraphMaxDepth: { type: Number, default: 3 },
   graphNotesPreviewLength: { type: Number, default: 200 },
   inheritColors: { type: Boolean, default: true },
   fullscreenDetail: { type: Boolean, default: false },
@@ -99,7 +98,6 @@ const emit = defineEmits([
   'go-first-child',
   'go-prev-sibling',
   'go-next-sibling',
-  'update:root-max-depth',
   // TasksView events
   'navigate',
   // TrashView events
@@ -212,7 +210,6 @@ defineExpose({
     :selected-id="selectedNode?.id"
     :selected-ids="selectedIdsArray"
     :detail-threshold="graphDetailThreshold"
-    :max-depth="effectiveGraphMaxDepth"
     :hide-completed="hideCompleted"
     :hide-sensitive="hideSensitive"
     :workspace="workspace"
@@ -244,7 +241,6 @@ defineExpose({
     @go-first-child="emit('go-first-child')"
     @go-prev-sibling="emit('go-prev-sibling')"
     @go-next-sibling="emit('go-next-sibling')"
-    @update:root-max-depth="emit('update:root-max-depth', $event)"
   />
 
   <!-- Timeline View -->

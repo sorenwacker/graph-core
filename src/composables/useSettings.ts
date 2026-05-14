@@ -209,7 +209,6 @@ function createSettingsRefs(): UseSettingsReturn & { settingsReady: ShallowRef<b
     // Graph settings
     graphDetailThreshold: persistedRef<number>('graphcore-graphDetailThreshold', 50, { type: 'number' }),
     graphMaxDepth: persistedRef<number>('graphcore-graphMaxDepth', 0, { type: 'number' }),
-    graphRootMaxDepth: persistedRef<number>('graphcore-graphRootMaxDepth', 5, { type: 'number' }),
     graphNotesPreviewLength: persistedRef<number>('graphcore-graphNotesPreviewLength', 200, { type: 'number' }),
 
     // Detail panel settings

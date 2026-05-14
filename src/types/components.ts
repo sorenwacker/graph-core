@@ -131,7 +131,6 @@ export interface GraphViewEmits {
   (e: 'go-first-child'): void
   (e: 'go-prev-sibling'): void
   (e: 'go-next-sibling'): void
-  (e: 'update:root-max-depth', depth: number): void
 }
 
 /**

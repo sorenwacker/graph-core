@@ -32,8 +32,6 @@ export interface GraphSettings {
   detailThreshold: number
   /** Maximum depth for graph rendering (0 = unlimited) */
   maxDepth: number
-  /** Maximum depth when viewing from root */
-  rootMaxDepth: number
   /** Maximum length of notes preview in graph nodes */
   notesPreviewLength: number
 }
@@ -126,7 +124,6 @@ export interface AppSettings {
   // Graph
   graphDetailThreshold: number
   graphMaxDepth: number
-  graphRootMaxDepth: number
   graphNotesPreviewLength: number
 
   // Detail panel
@@ -183,7 +180,6 @@ export interface UseSettingsReturn {
   // Graph
   graphDetailThreshold: Ref<number>
   graphMaxDepth: Ref<number>
-  graphRootMaxDepth: Ref<number>
   graphNotesPreviewLength: Ref<number>
 
   // Detail panel

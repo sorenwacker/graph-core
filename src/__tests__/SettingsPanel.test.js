@@ -31,7 +31,6 @@ vi.mock('../components/settings/GeneralSettings.vue', () => ({
     props: [
       'graphDetailThreshold',
       'graphMaxDepth',
-      'graphRootMaxDepth',
       'graphNotesPreviewLength',
       'openDetailFullscreen',
       'hoverPreviewEnabled',
@@ -88,7 +87,6 @@ describe('SettingsPanel', () => {
   const defaultProps = {
     graphDetailThreshold: 50,
     graphMaxDepth: 0,
-    graphRootMaxDepth: 5,
     openDetailFullscreen: false,
     hoverPreviewEnabled: true,
   }

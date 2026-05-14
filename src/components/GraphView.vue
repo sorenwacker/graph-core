@@ -85,7 +85,6 @@ const props = defineProps({
   selectedId: Number,
   selectedIds: { type: Array, default: () => [] },
   detailThreshold: { type: Number, default: 30 },
-  maxDepth: { type: Number, default: 0 },
   hideCompleted: { type: Boolean, default: false },
   hideSensitive: { type: Boolean, default: false },
   workspace: { type: String, default: 'work' },
@@ -123,7 +122,6 @@ const emit = defineEmits([
   'go-first-child',
   'go-prev-sibling',
   'go-next-sibling',
-  'update:root-max-depth',
 ])
 
 const container = ref(null),
@@ -173,6 +171,7 @@ const {
   visibleTypes: _visibleTypes,
   radialSettings: _radialSettings,
   trackpadZoomMode,
+  maxDepth: _maxDepth,
 } = useGraphSettings({ workspace: workspaceRef })
 const layoutMode = ref(props.parent?.graph_layout || _layoutMode.value)
 const showRootNode = ref(
@@ -187,7 +186,7 @@ const showExternalLinks = ref(
     ? Boolean(props.parent.show_external_links)
     : getWorkspaceShowExternalLinks()
 )
-const maxDepth = ref(props.parent?.graph_max_depth ?? props.maxDepth)
+const maxDepth = ref(props.parent?.graph_max_depth ?? _maxDepth.value)
 const visibleTypes = ref(
   Array.isArray(props.parent?.graph_type_filter) ? [...props.parent.graph_type_filter] : [..._visibleTypes.value]
 )
@@ -352,8 +351,8 @@ watch(maxDepth, v => {
   if (props.parent?.id) {
     saveNodeSetting(props.parent.id, 'graph_max_depth', v, 'max depth')
   } else {
-    // At root level, emit event to update global setting
-    emit('update:root-max-depth', v)
+    // At root level, save to workspace localStorage settings
+    _maxDepth.value = v
   }
 })
 watch(
@@ -384,7 +383,7 @@ watch(
 watch(
   () => props.parent?.id,
   (n, o) => {
-    const expectedMaxDepth = props.parent?.graph_max_depth ?? props.maxDepth
+    const expectedMaxDepth = props.parent?.graph_max_depth ?? _maxDepth.value
     const expectedVisibleTypes = Array.isArray(props.parent?.graph_type_filter)
       ? props.parent.graph_type_filter
       : _visibleTypes.value
@@ -413,7 +412,7 @@ watch(
         props.parent?.show_root_node != null ? Boolean(props.parent.show_root_node) : _showRootNode.value
       showExternalLinks.value =
         props.parent?.show_external_links != null ? Boolean(props.parent.show_external_links) : _showExternalLinks.value
-      maxDepth.value = props.parent?.graph_max_depth ?? props.maxDepth
+      maxDepth.value = props.parent?.graph_max_depth ?? _maxDepth.value
       visibleTypes.value = Array.isArray(props.parent?.graph_type_filter)
         ? [...props.parent.graph_type_filter]
         : [..._visibleTypes.value]
@@ -967,12 +966,11 @@ watch(
     initGraph()
   }
 )
-watch(
-  () => props.maxDepth,
-  v => {
-    maxDepth.value = props.parent?.graph_max_depth ?? v
+watch(_maxDepth, v => {
+  if (!props.parent?.id) {
+    maxDepth.value = v
   }
-)
+})
 watch(maxDepth, updateGraph)
 watch(() => props.hideCompleted, updateGraph)
 watch(

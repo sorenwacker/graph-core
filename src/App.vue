@@ -55,7 +55,6 @@ const {
   hideSensitive,
   graphDetailThreshold,
   graphMaxDepth,
-  graphRootMaxDepth,
   graphNotesPreviewLength,
   openDetailFullscreen,
   hoverPreviewEnabled,
@@ -282,10 +281,6 @@ const nodeOps = useNodeOperations({
   broadcastUpdate: broadcastNodeUpdate,
   broadcastDelete: broadcastNodeDelete,
 })
-
-const effectiveGraphMaxDepth = computed(() =>
-  currentContainerId.value === null ? graphRootMaxDepth.value : graphMaxDepth.value
-)
 
 // Tree expand
 const { expandedIds, toggleExpand, expandAll, collapseAll, loadExpandedState } = useTreeExpand({
@@ -770,7 +765,6 @@ useAppLifecycle({
             v-model:show-settings="showSettings"
             v-model:graph-detail-threshold="graphDetailThreshold"
             v-model:graph-max-depth="graphMaxDepth"
-            v-model:graph-root-max-depth="graphRootMaxDepth"
             v-model:graph-notes-preview-length="graphNotesPreviewLength"
             v-model:open-detail-fullscreen="openDetailFullscreen"
             v-model:hover-preview-enabled="hoverPreviewEnabled"
@@ -845,7 +839,6 @@ useAppLifecycle({
               :hover-preview-enabled="hoverPreviewEnabled"
               :show-detail="showDetail"
               :graph-detail-threshold="graphDetailThreshold"
-              :effective-graph-max-depth="effectiveGraphMaxDepth"
               :graph-notes-preview-length="graphNotesPreviewLength"
               :inherit-colors="inheritColors"
               :fullscreen-detail="fullscreenDetail"
@@ -903,7 +896,6 @@ useAppLifecycle({
               @go-first-child="goToFirstChild"
               @go-prev-sibling="goToPrevSibling"
               @go-next-sibling="goToNextSibling"
-              @update:root-max-depth="graphRootMaxDepth = $event"
               @navigate="navigateToNode"
               @empty-all="emptyAllTrash"
               @restore="restoreFromTrash"
