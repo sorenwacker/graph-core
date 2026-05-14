@@ -740,6 +740,8 @@
     transform 0.15s,
     box-shadow 0.15s;
   max-width: 120px;
+  /* Let drag events pass through to cytoscape */
+  pointer-events: none;
 }
 
 :global(.node-person:hover) {
@@ -787,6 +789,8 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  /* Let drag events pass through to cytoscape, interactive elements use pointer-events: auto */
+  pointer-events: none;
 }
 
 :global(.node-html:hover) {
@@ -966,6 +970,7 @@
 :global(.node-html-notes a) {
   color: var(--accent-color);
   text-decoration: underline;
+  pointer-events: auto;
 }
 
 :global(.node-html-notes blockquote) {
