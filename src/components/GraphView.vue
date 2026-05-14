@@ -264,14 +264,34 @@ const getLayoutOptions = () => layout.getLayoutOptions(layoutMode.value)
 
 // Toggle collapsed state for a node
 function toggleNodeCollapse(nodeId) {
-  console.log('toggleNodeCollapse called with nodeId:', nodeId)
   const cyNode = cy?.$(`#${nodeId}`)
-  console.log('cyNode found:', cyNode?.length)
   if (!cyNode || cyNode.length === 0) return
   const nodeData = cyNode.data('nodeData')
-  console.log('nodeData:', nodeData?.id, 'collapsed:', nodeData?.collapsed)
   if (!nodeData) return
   emit('update', { ...nodeData, collapsed: !nodeData.collapsed })
+}
+
+// Attach click handlers directly to collapse buttons
+function attachCollapseHandlers() {
+  const btns = document.querySelectorAll('.collapse-btn')
+  btns.forEach(btn => {
+    if (btn.dataset.handlerAttached) return
+    btn.dataset.handlerAttached = 'true'
+    // Use mousedown with capture to intercept before cytoscape
+    btn.addEventListener(
+      'mousedown',
+      e => {
+        e.preventDefault()
+        e.stopPropagation()
+        e.stopImmediatePropagation()
+        const nodeId = parseInt(btn.dataset.collapseNode)
+        if (nodeId) {
+          toggleNodeCollapse(nodeId)
+        }
+      },
+      true
+    )
+  })
 }
 
 // Events composable
@@ -577,39 +597,42 @@ function createCytoscapeInstance(elements, hasPos) {
  * Configure the node HTML label plugin for rendering custom node templates.
  */
 function setupHtmlLabels() {
-  cy.nodeHtmlLabel([
-    {
-      query: 'node',
-      halign: 'center',
-      valign: 'center',
-      halignBox: 'center',
-      valignBox: 'center',
-      tpl: d => {
-        const n = d.nodeData
-        if (!n) return ''
-        if (n.type === 'person') {
-          const c = n.color && n.color !== '#0f4c75' ? n.color : d.customBgTint || '#6b7280'
-          return `<div class="node-person" data-node-id="${n.id}" data-selected="${d.isSelected}" style="background-color:${c};color:${getContrastColor(c)}"><span class="person-name">${n.title || 'Untitled'}</span></div>`
-        }
-        const bc = d.borderColor || typeConfig.task.text,
-          bg = d.customBgTint
-            ? `background:linear-gradient(135deg,${d.customBgTint}99 0%,${d.customBgTint}44 50%,var(--bg-secondary) 100%),var(--bg-secondary);`
+  cy.nodeHtmlLabel(
+    [
+      {
+        query: 'node',
+        halign: 'center',
+        valign: 'center',
+        halignBox: 'center',
+        valignBox: 'center',
+        tpl: d => {
+          const n = d.nodeData
+          if (!n) return ''
+          if (n.type === 'person') {
+            const c = n.color && n.color !== '#0f4c75' ? n.color : d.customBgTint || '#6b7280'
+            return `<div class="node-person" data-node-id="${n.id}" data-selected="${d.isSelected}" style="background-color:${c};color:${getContrastColor(c)}"><span class="person-name">${n.title || 'Untitled'}</span></div>`
+          }
+          const bc = d.borderColor || typeConfig.task.text,
+            bg = d.customBgTint
+              ? `background:linear-gradient(135deg,${d.customBgTint}99 0%,${d.customBgTint}44 50%,var(--bg-secondary) 100%),var(--bg-secondary);`
+              : ''
+          let notes = ''
+          if (d.showDetails && n.notes) {
+            notes =
+              n.notes_sensitive || props.hideSensitive
+                ? '<span style="opacity:0.5"></span>'
+                : renderMarkdownHtml(n.notes, props.notesPreviewLength)
+          }
+          const childBadge = d.childCount > 0 ? `<span class="child-count-badge">${d.childCount}</span>` : ''
+          const collapseBtn = d.hasChildren
+            ? `<button class="collapse-btn" data-collapse-node="${n.id}" title="${d.isCollapsed ? 'Expand children' : 'Collapse children'}">${d.isCollapsed ? '+' : '-'}</button>`
             : ''
-        let notes = ''
-        if (d.showDetails && n.notes) {
-          notes =
-            n.notes_sensitive || props.hideSensitive
-              ? '<span style="opacity:0.5"></span>'
-              : renderMarkdownHtml(n.notes, props.notesPreviewLength)
-        }
-        const childBadge = d.childCount > 0 ? `<span class="child-count-badge">${d.childCount}</span>` : ''
-        const collapseBtn = d.hasChildren
-          ? `<button class="collapse-btn" data-collapse-node="${n.id}" title="${d.isCollapsed ? 'Expand children' : 'Collapse children'}">${d.isCollapsed ? '+' : '-'}</button>`
-          : ''
-        return `<div class="node-html ${n.completed ? 'completed' : ''} ${d.shouldGlow ? 'current-container' : ''} ${n.favorite ? 'favorite' : ''} ${d.isCollapsed ? 'collapsed-node' : ''}" data-node-id="${n.id}" data-selected="${d.isSelected}" style="border-color:${bc};--glow-color:${bc};${bg}">${collapseBtn}${childBadge}<div class="node-html-title">${n.title || 'Untitled'}${n.notes && !d.showDetails ? '<span class="notes-indicator"></span>' : ''}</div>${notes ? `<div class="node-html-notes">${notes}</div>` : ''}</div>`
+          return `<div class="node-html ${n.completed ? 'completed' : ''} ${d.shouldGlow ? 'current-container' : ''} ${n.favorite ? 'favorite' : ''} ${d.isCollapsed ? 'collapsed-node' : ''}" data-node-id="${n.id}" data-selected="${d.isSelected}" style="border-color:${bc};--glow-color:${bc};${bg}">${collapseBtn}${childBadge}<div class="node-html-title">${n.title || 'Untitled'}${n.notes && !d.showDetails ? '<span class="notes-indicator"></span>' : ''}</div>${notes ? `<div class="node-html-notes">${notes}</div>` : ''}</div>`
+        },
       },
-    },
-  ])
+    ],
+    { enablePointerEvents: true }
+  )
 }
 
 /**
@@ -763,6 +786,7 @@ async function initGraph() {
   setupWheelHandler()
   events.setupEvents()
   applyInitialLayout(hasPos)
+  setTimeout(attachCollapseHandlers, 300)
 }
 
 /**
@@ -902,6 +926,7 @@ async function updateGraph() {
   cy.viewport({ zoom: savedZoom, pan: savedPan })
 
   handleNewNodes(diffResult, savedZoom, savedPan)
+  setTimeout(attachCollapseHandlers, 100)
 }
 
 const setLayout = m => {
