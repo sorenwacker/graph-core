@@ -215,6 +215,7 @@ class Database {
       favorite: Boolean(row.favorite),
       has_table: Boolean(row.has_table),
       notes_sensitive: Boolean(row.notes_sensitive),
+      collapsed: Boolean(row.collapsed),
       tags,
       graph_type_filter,
       graph_physics,

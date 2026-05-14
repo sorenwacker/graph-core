@@ -42,6 +42,13 @@ export interface UseGraphSettingsOptions {
 /**
  * Return type for useGraphSettings composable.
  */
+/**
+ * Trackpad zoom mode - how two-finger gestures are interpreted
+ * - 'scroll': Two-finger vertical scroll zooms (like Google Maps)
+ * - 'pinch': Only pinch gesture zooms, scroll pans (scroll-friendly)
+ */
+export type TrackpadZoomMode = 'scroll' | 'pinch'
+
 export interface UseGraphSettingsReturn {
   /** Layout mode (tree, radial, etc.) */
   layoutMode: Ref<string>
@@ -57,6 +64,8 @@ export interface UseGraphSettingsReturn {
   visibleTypes: Ref<NodeType[]>
   /** Radial layout settings */
   radialSettings: UnwrapRef<RadialLayoutSettings>
+  /** Trackpad zoom mode */
+  trackpadZoomMode: Ref<TrackpadZoomMode>
   /** Toggle visibility of a node type */
   toggleTypeVisibility: (type: NodeType) => void
   /** Reset radial settings to defaults */
@@ -124,6 +133,11 @@ export function useGraphSettings(options: UseGraphSettingsOptions = {}): UseGrap
   // Node type filter
   const visibleTypes = ref<NodeType[]>(getArray(STORAGE_KEYS.GRAPH_TYPE_FILTER, [...ALL_NODE_TYPES]))
 
+  // Trackpad zoom mode
+  const trackpadZoomMode = ref<TrackpadZoomMode>(
+    getString(STORAGE_KEYS.GRAPH_TRACKPAD_ZOOM_MODE, 'scroll') as TrackpadZoomMode
+  )
+
   // Radial layout settings
   const radialSettings = reactive<RadialLayoutSettings>({
     nodeRepulsion: getNumber(STORAGE_KEYS.GRAPH_RADIAL_REPULSION, RADIAL_DEFAULTS.repulsion),
@@ -152,6 +166,7 @@ export function useGraphSettings(options: UseGraphSettingsOptions = {}): UseGrap
     radialSettings.gravityRange = getNumber(STORAGE_KEYS.GRAPH_RADIAL_GRAVITY_RANGE, RADIAL_DEFAULTS.gravityRange)
     radialSettings.nestingFactor = getNumber(STORAGE_KEYS.GRAPH_RADIAL_NESTING, RADIAL_DEFAULTS.nestingFactor)
     radialSettings.iterations = getNumber(STORAGE_KEYS.GRAPH_RADIAL_ITERATIONS, RADIAL_DEFAULTS.iterations)
+    trackpadZoomMode.value = getString(STORAGE_KEYS.GRAPH_TRACKPAD_ZOOM_MODE, 'scroll') as TrackpadZoomMode
   }
 
   // Watch workspace changes and reload settings
@@ -199,6 +214,12 @@ export function useGraphSettings(options: UseGraphSettingsOptions = {}): UseGrap
     },
     { deep: true }
   )
+
+  watch(trackpadZoomMode, val => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(wsKey(STORAGE_KEYS.GRAPH_TRACKPAD_ZOOM_MODE), val)
+    }
+  })
 
   // Watch radial settings
   watch(
@@ -305,6 +326,9 @@ export function useGraphSettings(options: UseGraphSettingsOptions = {}): UseGrap
 
     // Radial settings
     radialSettings,
+
+    // Trackpad zoom
+    trackpadZoomMode,
 
     // Methods
     toggleTypeVisibility,

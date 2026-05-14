@@ -112,6 +112,8 @@ export interface Node {
   graph_fit_locked: boolean
   /** Whether physics simulation is enabled */
   graph_physics: boolean
+  /** Whether the node's children are collapsed/hidden in graph view */
+  collapsed: boolean
 }
 
 /**
@@ -162,6 +164,7 @@ export interface UpdateNodeData {
   graph_relax_locked?: boolean
   graph_fit_locked?: boolean
   graph_physics?: boolean
+  collapsed?: boolean
 }
 
 /**

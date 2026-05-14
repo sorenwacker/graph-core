@@ -889,6 +889,37 @@
   color: #333;
 }
 
+/* Collapse/expand button for folding nodes */
+:global(.collapse-btn) {
+  position: absolute;
+  bottom: 0px;
+  left: 3px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+:global(.collapse-btn:hover) {
+  opacity: 1;
+  color: var(--text-primary);
+}
+
+:global([data-theme='light'] .collapse-btn) {
+  color: #333;
+}
+
+/* Collapsed node styling - dashed border to indicate hidden children */
+:global(.node-html.collapsed-node) {
+  border-style: dashed;
+  opacity: 0.85;
+}
+
 :global(.node-html-notes) {
   font-size: 12px;
   line-height: 1.4;

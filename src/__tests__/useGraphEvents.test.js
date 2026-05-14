@@ -603,7 +603,11 @@ describe('useGraphEvents', () => {
 
       const mockEvent = {
         target: {
-          closest: vi.fn().mockReturnValue({ dataset: { nodeId: '1' } }),
+          closest: vi.fn().mockImplementation(selector => {
+            // Return null for collapse button, return node-html for other selectors
+            if (selector === '.collapse-btn') return null
+            return { dataset: { nodeId: '1' } }
+          }),
         },
         metaKey: false,
         ctrlKey: false,

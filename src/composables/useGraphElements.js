@@ -8,6 +8,7 @@ import {
   filterCompletedNodes,
   sortNodesRecursively,
   filterByType,
+  filterCollapsedNodes,
   buildInheritedColorMap,
 } from './useNodeFiltering.js'
 
@@ -94,12 +95,22 @@ export function buildElements(options) {
   const cleanNodeList = (nodeList || []).filter(n => n && n.id)
   // Build descendant count map from original tree BEFORE filtering
   const descendantCountMap = buildDescendantCountMap(cleanNodeList)
+  // Add parent's descendant count if parent exists
+  if (parentNode && parentNode.id) {
+    let parentDescendantCount = cleanNodeList.length
+    for (const child of cleanNodeList) {
+      parentDescendantCount += countAllDescendants(child)
+    }
+    descendantCountMap[parentNode.id] = parentDescendantCount
+  }
   // Apply depth filter first
   const depthFiltered = filterByDepth(cleanNodeList, maxDepth)
   // Filter completed nodes and their children if hideCompleted is enabled
   const completedFiltered = hideCompleted ? filterCompletedNodes(depthFiltered) : depthFiltered
+  // Filter out children of collapsed nodes
+  const collapsedFiltered = filterCollapsedNodes(completedFiltered)
   // Filter by visible node types
-  const typeFiltered = filterByType(completedFiltered, visibleTypes)
+  const typeFiltered = filterByType(collapsedFiltered, visibleTypes)
   // Sort alphabetically if enabled
   const filteredList = sortAlphabetically ? sortNodesRecursively(typeFiltered) : typeFiltered
   const flat = flattenNodes(filteredList, [], false, maxDepth)
@@ -181,6 +192,7 @@ export function buildElements(options) {
         customBgTint,
         hasChildren,
         childCount,
+        isCollapsed: node.collapsed || false,
         isCurrentContainer,
         shouldGlow,
         isCompleted,
