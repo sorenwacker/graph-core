@@ -10,6 +10,7 @@ export function useRefresh({
   loadChildren,
   loadSidebarTree,
   loadRecentItems,
+  loadTags,
   currentContainerId,
   selectedNode,
   graphViewRef,
@@ -35,6 +36,7 @@ export function useRefresh({
     await loadChildren(currentContainerId.value, { silent: true })
     await loadSidebarTree()
     loadRecentItems()
+    if (loadTags) loadTags()
   }
 
   /**

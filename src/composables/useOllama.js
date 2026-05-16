@@ -55,6 +55,12 @@ const defaultPrompts = [
     label: 'Continue',
     prompt: `Continue writing in the same style and topic. Add 1-2 relevant paragraphs. Output the original text followed by your continuation, nothing else.`,
   },
+  {
+    id: 'research',
+    label: 'Research',
+    prompt: `Research and write about this topic using Wikipedia`,
+    isAgent: true,
+  },
 ]
 
 /**
@@ -244,6 +250,37 @@ export function useOllama() {
   }
 
   /**
+   * Research a topic using AI agent with Wikipedia tool calling
+   * @param {string} query - The research question or topic
+   * @returns {Promise<string|null>} Research result or null on error
+   */
+  async function research(query) {
+    isGenerating.value = true
+    error.value = null
+    generatedContent.value = ''
+
+    try {
+      const result = await api.agentResearch({
+        prompt: query,
+        provider: provider.value,
+        model: provider.value === AI_PROVIDERS.OPENAI ? openaiModel.value : ollamaModel.value,
+        endpoint: provider.value === AI_PROVIDERS.OPENAI ? openaiEndpoint.value : ollamaEndpoint.value,
+        apiKey: provider.value === AI_PROVIDERS.OPENAI ? openaiApiKey.value : undefined,
+        contextSize: provider.value === AI_PROVIDERS.OLLAMA ? ollamaContextSize.value : undefined,
+      })
+
+      generatedContent.value = result
+      return result
+    } catch (e) {
+      handleError(e, { context: 'AI research', silent: true })
+      error.value = e.message
+      return null
+    } finally {
+      isGenerating.value = false
+    }
+  }
+
+  /**
    * Test connection to AI provider
    * @returns {Promise<{success: boolean, error?: string}>}
    */
@@ -283,6 +320,7 @@ export function useOllama() {
 
     // Methods
     improveNotes,
+    research,
     testConnection,
     listModels,
     savePrompt,

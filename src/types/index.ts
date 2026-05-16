@@ -24,6 +24,7 @@ export type {
   ConnectionTestResult,
   OllamaGenerateOptions,
   OpenAIGenerateOptions,
+  AgentResearchOptions,
   NodeTable,
   TableCell,
   ExportJSONOptions,

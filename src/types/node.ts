@@ -18,6 +18,7 @@ export type NodeType =
   | 'group'
   | 'event'
   | 'organization'
+  | 'tag'
 
 /**
  * Graph layout options for container nodes.

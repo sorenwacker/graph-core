@@ -314,6 +314,13 @@ async function removeLink(targetNode) {
   }
 }
 
+function onUnlinkTag(tagNode) {
+  // Optimistically remove tag from linkedNodes immediately
+  if (tagNode?.id) {
+    linkedNodes.value = linkedNodes.value.filter(n => n.id !== tagNode.id)
+  }
+}
+
 const isPerson = computed(() => editedNode.value.type === 'person')
 const isOrganization = computed(() => editedNode.value.type === 'organization')
 
@@ -791,6 +798,8 @@ defineExpose({
               @add-link="emit('open-link-search')"
               @toggle-links-visibility="onLinksVisibilityToggle"
               @save="saveChanges"
+              @reload-links="loadLinkedNodes"
+              @unlink-tag="onUnlinkTag"
             />
           </div>
         </div>

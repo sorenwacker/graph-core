@@ -224,7 +224,12 @@ defineExpose({ loadLinkedMembers, getNotesSelection })
         </div>
 
         <!-- Tags -->
-        <TagsSection :tags="editedNode.tags || []" @update:tags="onTagsUpdate" />
+        <TagsSection
+          :node-id="editedNode.id"
+          :workspace-id="editedNode.workspace_id"
+          :linked-nodes="linkedNodes"
+          @refresh="saveChanges"
+        />
 
         <!-- System info -->
         <MetaInfoSection :id="editedNode.id" :created-at="editedNode.created_at" :updated-at="editedNode.updated_at" />

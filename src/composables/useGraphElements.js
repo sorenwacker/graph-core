@@ -186,6 +186,7 @@ export function buildElements(options) {
         tooltip,
         type: node.type,
         isPerson: node.type === 'person',
+        isTag: node.type === 'tag',
         bgColor,
         borderColor: colors.border,
         textColor,
@@ -290,10 +291,13 @@ export function buildElements(options) {
 
 /**
  * Add link edges (many-to-many relationships) to elements.
+ * Only adds edges where at least one endpoint is in the original hierarchy,
+ * preventing cascading links between external nodes.
  * @param {Array} elements - Elements array to modify
  * @param {Array} links - Links from API
+ * @param {Set|null} hierarchyNodeIds - Set of node IDs from original hierarchy (not external)
  */
-export function addLinkEdges(elements, links) {
+export function addLinkEdges(elements, links, hierarchyNodeIds = null) {
   const nodeIds = new Set(elements.filter(el => !el.data.source).map(el => el.data.id))
 
   links.forEach(link => {
@@ -301,6 +305,15 @@ export function addLinkEdges(elements, links) {
     const targetId = String(link.target_id)
     // Only add if both nodes are in the graph
     if (nodeIds.has(sourceId) && nodeIds.has(targetId)) {
+      // If hierarchyNodeIds provided, only add link if at least one end is in hierarchy
+      if (hierarchyNodeIds) {
+        const sourceInHierarchy = hierarchyNodeIds.has(sourceId)
+        const targetInHierarchy = hierarchyNodeIds.has(targetId)
+        if (!sourceInHierarchy && !targetInHierarchy) {
+          return // Skip: both ends are external nodes
+        }
+      }
+
       elements.push({
         data: {
           id: `link-${sourceId}-${targetId}`,
@@ -401,6 +414,7 @@ export async function fetchLinkedNodes(options) {
             nodeData: node,
             type: node.type,
             isPerson: node.type === 'person',
+            isTag: node.type === 'tag',
             isLinkedExternal: true,
             bgColor,
             borderColor: colors.border,

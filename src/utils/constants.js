@@ -10,6 +10,7 @@ export const nodeTypes = [
   'event',
   'person',
   'organization',
+  'tag',
 ]
 
 // Type display config - icons, colors, CSS classes
@@ -85,6 +86,13 @@ export const typeConfig = {
     text: '#22d3d3',
     icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M13 13v8h8v-8h-8zM3 21h8v-8H3v8zM3 3v8h8V3H3zm13.66-1.31L11 7.34 16.66 13l5.66-5.66-5.66-5.65z"/></svg>`,
   },
+  tag: {
+    label: 'Tag',
+    cssClass: 'tag',
+    bg: '#1a3a4a', // Blue-teal - categorization, labeling
+    text: '#5dade2',
+    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>`,
+  },
 }
 
 // Legacy export for backward compatibility
@@ -154,6 +162,12 @@ export function getGraphColors(type, nodeId = null) {
   if (type === 'person' && nodeId !== null) {
     const hue = (nodeId * 137.508) % 360
     return { bg: '#0d0d0d', border: `hsl(${hue}, 65%, 55%)`, text: '#ffffff' }
+  }
+
+  // Tags get unique border color based on their ID (different offset than persons)
+  if (type === 'tag' && nodeId !== null) {
+    const hue = (nodeId * 137.508 + 60) % 360
+    return { bg: '#0d0d0d', border: `hsl(${hue}, 70%, 50%)`, text: '#ffffff' }
   }
 
   return { bg: '#0d0d0d', border: config.text, text: '#ffffff' }

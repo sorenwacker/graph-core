@@ -78,6 +78,52 @@ export const openaiService = {
   },
 
   /**
+   * Generate with tool/function calling support
+   * @param {Object} options
+   * @param {Array} options.messages - Chat messages array
+   * @param {Array} options.tools - Tool definitions in OpenAI format
+   * @param {string} options.apiKey - API key for authentication
+   * @param {string} [options.model] - Model name (default: gpt-4o-mini)
+   * @param {string} [options.endpoint] - API endpoint URL
+   * @returns {Promise<{content: string|null, tool_calls: Array|null}>}
+   */
+  async generateWithTools({ messages, tools, apiKey, model = DEFAULT_MODEL, endpoint = DEFAULT_ENDPOINT }) {
+    if (!apiKey) {
+      throw new Error('API key is required for OpenAI-compatible endpoints')
+    }
+
+    try {
+      const response = await fetch(`${endpoint}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          tools,
+          stream: false,
+        }),
+      })
+
+      if (!response.ok) {
+        await handleResponseError(response)
+      }
+
+      const data = await response.json()
+      const message = data.choices?.[0]?.message || {}
+
+      return {
+        content: message.content || null,
+        tool_calls: message.tool_calls || null,
+      }
+    } catch (error) {
+      handleConnectionError(error)
+    }
+  },
+
+  /**
    * Test connection to OpenAI-compatible API
    * @param {string} endpoint - API endpoint URL
    * @param {string} apiKey - API key for authentication

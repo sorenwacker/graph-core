@@ -89,6 +89,7 @@ function runDataMigrations(ctx) {
   migratePersonsOrgsToWorkWorkspace(ctx)
   migrateTasksProjectsStartDate(ctx)
   migrateShowLinksDefault(ctx)
+  migrateStringTagsToTagNodes(ctx)
 }
 
 /**
@@ -261,6 +262,114 @@ function migratePersonsOrgsToWorkWorkspace(ctx) {
   ctx._save()
 }
 
+/**
+ * Convert string tags to tag nodes with node_links.
+ * Creates tag nodes for each unique tag string and links them to the original nodes.
+ * @param {Object} ctx - Database context
+ */
+function migrateStringTagsToTagNodes(ctx) {
+  // Check if migration already done by looking for existing tag nodes
+  const existingTagNodes = ctx._query("SELECT COUNT(*) as cnt FROM nodes WHERE type = 'tag' AND deleted_at IS NULL")
+  if (existingTagNodes[0]?.cnt > 0) {
+    return // Migration already completed
+  }
+
+  // Find all nodes with non-empty tags arrays
+  const nodesWithTags = ctx._query(
+    "SELECT id, tags, workspace_id FROM nodes WHERE deleted_at IS NULL AND tags IS NOT NULL AND tags != '[]'"
+  )
+
+  if (nodesWithTags.length === 0) return
+
+  console.log(`Migrating string tags to tag nodes for ${nodesWithTags.length} nodes`)
+  // Note: backup() not available during migrations - user should backup manually before upgrading
+
+  // Track created tag nodes per workspace: Map<workspaceId, Map<tagName, tagNodeId>>
+  const tagNodeCache = new Map()
+  let tagsCreated = 0
+  let linksMade = 0
+
+  for (const node of nodesWithTags) {
+    let tags = []
+    try {
+      tags = JSON.parse(node.tags || '[]')
+    } catch {
+      continue
+    }
+
+    if (!tags.length) continue
+
+    const workspaceId = node.workspace_id
+
+    // Get or create workspace cache
+    if (!tagNodeCache.has(workspaceId)) {
+      tagNodeCache.set(workspaceId, new Map())
+    }
+    const workspaceTagCache = tagNodeCache.get(workspaceId)
+
+    for (const tagName of tags) {
+      const normalizedTag = tagName.trim().toLowerCase()
+      if (!normalizedTag) continue
+
+      let tagNodeId = workspaceTagCache.get(normalizedTag)
+
+      if (!tagNodeId) {
+        // Check if tag node already exists in this workspace
+        const existing = ctx._query(
+          "SELECT id FROM nodes WHERE type = 'tag' AND LOWER(title) = LOWER(?) AND workspace_id = ? AND deleted_at IS NULL",
+          [tagName.trim(), workspaceId]
+        )[0]
+
+        if (existing) {
+          tagNodeId = existing.id
+        } else {
+          // Also check workspace_id IS NULL case
+          const existingNull =
+            workspaceId === null
+              ? null
+              : ctx._query(
+                  "SELECT id FROM nodes WHERE type = 'tag' AND LOWER(title) = LOWER(?) AND workspace_id IS NULL AND deleted_at IS NULL",
+                  [tagName.trim()]
+                )[0]
+
+          if (existingNull) {
+            tagNodeId = existingNull.id
+          } else {
+            // Create new tag node at root level
+            ctx.db.run(
+              "INSERT INTO nodes (type, title, workspace_id, parent_id, path, depth, created_at, updated_at) VALUES (?, ?, ?, NULL, '', 0, datetime('now'), datetime('now'))",
+              ['tag', tagName.trim(), workspaceId]
+            )
+            const result = ctx._query('SELECT last_insert_rowid() as id')
+            tagNodeId = result[0]?.id
+            tagsCreated++
+          }
+        }
+
+        workspaceTagCache.set(normalizedTag, tagNodeId)
+      }
+
+      // Create link from original node to tag node
+      if (tagNodeId) {
+        try {
+          ctx.db.run('INSERT OR IGNORE INTO node_links (source_id, target_id) VALUES (?, ?)', [node.id, tagNodeId])
+          linksMade++
+        } catch {
+          // Link might already exist
+        }
+      }
+    }
+
+    // Clear the tags array on the original node
+    ctx.db.run('UPDATE nodes SET tags = ? WHERE id = ?', ['[]', node.id])
+  }
+
+  if (tagsCreated > 0 || linksMade > 0) {
+    console.log(`Created ${tagsCreated} tag nodes and ${linksMade} links`)
+    ctx._save()
+  }
+}
+
 module.exports = {
   runMigrations,
   runColumnMigrations,
@@ -272,4 +381,5 @@ module.exports = {
   fixRootNodePaths,
   migrateOrganizationTextToLinks,
   migratePersonsOrgsToWorkWorkspace,
+  migrateStringTagsToTagNodes,
 }

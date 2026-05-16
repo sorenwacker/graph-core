@@ -173,9 +173,18 @@ const {
 } = useDataLoading(currentWorkspace)
 
 const selectTag = tag => {
-  searchQuery.value = `#${tag}`
+  // For legacy string tags, search by hashtag
+  const tagName = tag.title || tag
+  searchQuery.value = `#${tagName}`
   showSearch.value = true
   onSearchInput()
+}
+
+const navigateToTag = async tagNode => {
+  // Navigate into the tag node to show all linked items
+  if (tagNode && tagNode.id) {
+    await enterContainer(tagNode)
+  }
 }
 watch(viewMode, mode => {
   if (mode === 'trash') loadTrashedItems()
@@ -463,6 +472,7 @@ const {
   loadChildren,
   loadSidebarTree,
   loadRecentItems,
+  loadTags,
   currentContainerId,
   selectedNode,
   graphViewRef: viewRendererRef,
@@ -743,6 +753,7 @@ useAppLifecycle({
       @context-menu="(e, node) => showContextMenu(e, node)"
       @toggle-expand="toggleSidebarExpand"
       @select-tag="selectTag"
+      @navigate-tag="navigateToTag"
       @navigate-root="navigateToBreadcrumb(-1)"
       @mouseenter="onSidebarEnter"
       @mouseleave="onSidebarLeave"

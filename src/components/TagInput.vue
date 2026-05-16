@@ -1,62 +1,146 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { api } from '../services/api.js'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
+import { getGraphColors } from '../utils/constants.js'
 
 const { handleError } = useErrorHandler()
 
 const props = defineProps({
-  tags: { type: Array, default: () => [] },
+  nodeId: { type: Number, required: true },
+  workspaceId: { type: [String, Number], default: null },
+  linkedTags: { type: Array, default: () => [] },
 })
 
-const emit = defineEmits(['update'])
+const emit = defineEmits(['link', 'unlink', 'refresh'])
 
 const inputValue = ref('')
 const showSuggestions = ref(false)
-const allTags = ref([])
+const allTagNodes = ref([])
 const inputRef = ref(null)
+const isLoading = ref(false)
 
-// Load all existing tags for autocomplete
-async function loadAllTags() {
+async function loadTagNodes() {
   try {
-    allTags.value = await api.getAllTags()
+    const tags = await api.getTagNodes(props.workspaceId)
+    allTagNodes.value = tags || []
   } catch (err) {
-    handleError(err, { context: 'Loading tags', silent: true })
-    allTags.value = []
+    handleError(err, { context: 'Loading tag nodes', silent: true })
+    allTagNodes.value = []
   }
 }
 
-loadAllTags()
+loadTagNodes()
+
+watch(() => props.workspaceId, loadTagNodes)
 
 const filteredSuggestions = computed(() => {
-  if (!inputValue.value) return allTags.value.slice(0, 10)
-  const query = inputValue.value.toLowerCase().replace(/^#/, '')
-  return allTags.value.filter(tag => tag.toLowerCase().includes(query) && !props.tags.includes(tag)).slice(0, 10)
+  const linkedIds = new Set((props.linkedTags || []).map(t => t?.id).filter(Boolean))
+  const query = inputValue.value.toLowerCase().replace(/^#/, '').trim()
+
+  let filtered = allTagNodes.value.filter(tag => tag && !linkedIds.has(tag.id))
+
+  if (query) {
+    filtered = filtered.filter(tag => tag.title && tag.title.toLowerCase().includes(query))
+  }
+
+  return filtered.slice(0, 10)
 })
 
-function addTag(tagName) {
-  const tag = tagName.replace(/^#/, '').trim()
-  if (tag && !props.tags.includes(tag)) {
-    emit('update', [...props.tags, tag])
+const showCreateOption = computed(() => {
+  if (!inputValue.value.trim()) return false
+  const query = inputValue.value.toLowerCase().replace(/^#/, '').trim()
+  return !allTagNodes.value.some(tag => tag.title && tag.title.toLowerCase() === query)
+})
+
+async function addTag(tagNode) {
+  if (isLoading.value || !props.nodeId || !tagNode?.id) return
+  isLoading.value = true
+
+  try {
+    await api.linkNodes(props.nodeId, tagNode.id)
+    emit('link', tagNode)
+    emit('refresh')
+  } catch (err) {
+    handleError(err, { context: 'Linking tag' })
+  } finally {
+    isLoading.value = false
+    inputValue.value = ''
+    showSuggestions.value = false
   }
-  inputValue.value = ''
-  showSuggestions.value = false
 }
 
-function removeTag(tag) {
-  emit(
-    'update',
-    props.tags.filter(t => t !== tag)
-  )
+async function createAndAddTag() {
+  if (isLoading.value || !props.nodeId) return
+  const tagName = inputValue.value.replace(/^#/, '').trim()
+  if (!tagName) return
+
+  isLoading.value = true
+
+  try {
+    const tagNode = await api.getOrCreateTagNode(tagName, props.workspaceId)
+    if (tagNode?.id) {
+      await api.linkNodes(props.nodeId, tagNode.id)
+      await loadTagNodes()
+      emit('link', tagNode)
+      emit('refresh')
+    }
+  } catch (err) {
+    handleError(err, { context: 'Creating tag' })
+  } finally {
+    isLoading.value = false
+    inputValue.value = ''
+    showSuggestions.value = false
+  }
+}
+
+async function removeTag(tagNode) {
+  if (isLoading.value || !props.nodeId || !tagNode?.id) return
+  isLoading.value = true
+
+  const tagId = tagNode.id
+
+  try {
+    // Unlink the tag from this node
+    await api.unlinkNodes(props.nodeId, tagId)
+
+    // Emit unlink first so parent can update its local state
+    emit('unlink', tagNode)
+
+    // Check if tag has any remaining links - if not, delete it
+    // Do this after emitting unlink so the UI has already updated
+    const remainingLinks = await api.getLinkedNodes(tagId)
+    if (!remainingLinks || remainingLinks.length === 0) {
+      try {
+        await api.deleteNode(tagId, true) // hard delete orphan tag
+      } catch (deleteErr) {
+        // Ignore deletion errors - tag may already be gone
+        console.warn('Could not delete orphan tag:', deleteErr)
+      }
+    }
+
+    // Refresh the tag list after all operations
+    await loadTagNodes()
+
+    // Emit refresh last
+    emit('refresh')
+  } catch (err) {
+    handleError(err, { context: 'Unlinking tag' })
+  } finally {
+    isLoading.value = false
+  }
 }
 
 function handleKeydown(e) {
   if (e.key === 'Enter' && inputValue.value.trim()) {
     e.preventDefault()
-    addTag(inputValue.value)
-  } else if (e.key === 'Backspace' && !inputValue.value && props.tags.length > 0) {
-    // Remove last tag when backspace on empty input
-    removeTag(props.tags[props.tags.length - 1])
+    if (filteredSuggestions.value.length > 0) {
+      addTag(filteredSuggestions.value[0])
+    } else if (showCreateOption.value) {
+      createAndAddTag()
+    }
+  } else if (e.key === 'Backspace' && !inputValue.value && props.linkedTags?.length > 0) {
+    removeTag(props.linkedTags[props.linkedTags.length - 1])
   } else if (e.key === 'Escape') {
     showSuggestions.value = false
     inputRef.value?.blur()
@@ -68,18 +152,30 @@ function handleInput(e) {
   showSuggestions.value = true
 }
 
-function selectSuggestion(tag) {
-  addTag(tag)
+function selectSuggestion(tagNode) {
+  addTag(tagNode)
   inputRef.value?.focus()
+}
+
+function getTagColor(tagId) {
+  const colors = getGraphColors('tag', tagId)
+  return colors.border
+}
+
+function handleBlur() {
+  setTimeout(() => {
+    showSuggestions.value = false
+  }, 150)
 }
 </script>
 
 <template>
   <div class="tag-input-container">
     <div class="tags-row">
-      <span v-for="tag in tags" :key="tag" class="tag-chip">
-        #{{ tag }}
-        <button class="remove-tag" @click="removeTag(tag)">x</button>
+      <span v-for="tag in linkedTags" :key="tag.id" class="tag-chip" :style="{ borderColor: getTagColor(tag.id) }">
+        <span class="tag-dot" :style="{ backgroundColor: getTagColor(tag.id) }"></span>
+        {{ tag.title }}
+        <button class="remove-tag" @click="removeTag(tag)" :disabled="isLoading">x</button>
       </span>
       <input
         ref="inputRef"
@@ -87,20 +183,26 @@ function selectSuggestion(tag) {
         type="text"
         placeholder="Add tag..."
         class="tag-input"
+        :disabled="isLoading"
         @input="handleInput"
         @keydown="handleKeydown"
         @focus="showSuggestions = true"
-        @blur="setTimeout(() => (showSuggestions = false), 150)"
+        @blur="handleBlur"
       />
     </div>
-    <div v-if="showSuggestions && filteredSuggestions.length > 0" class="tag-suggestions">
+    <div v-if="showSuggestions && (filteredSuggestions.length > 0 || showCreateOption)" class="tag-suggestions">
       <div
         v-for="tag in filteredSuggestions"
-        :key="tag"
+        :key="tag.id"
         class="tag-suggestion"
         @mousedown.prevent="selectSuggestion(tag)"
       >
-        #{{ tag }}
+        <span class="tag-dot" :style="{ backgroundColor: getTagColor(tag.id) }"></span>
+        {{ tag.title }}
+      </div>
+      <div v-if="showCreateOption" class="tag-suggestion create-new" @mousedown.prevent="createAndAddTag">
+        <span class="create-icon">+</span>
+        Create "{{ inputValue.replace(/^#/, '').trim() }}"
       </div>
     </div>
   </div>
@@ -114,21 +216,28 @@ function selectSuggestion(tag) {
 .tags-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 3px;
   align-items: center;
-  min-height: 28px;
+  min-height: 22px;
 }
 
 .tag-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  background: rgba(74, 144, 226, 0.2);
-  color: #5dade2;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 12px;
+  gap: 3px;
+  background: rgba(93, 173, 226, 0.1);
+  border: 1px solid;
+  padding: 1px 5px;
+  border-radius: 10px;
+  font-size: 11px;
   font-weight: 500;
+}
+
+.tag-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .tag-chip .remove-tag {
@@ -136,8 +245,8 @@ function selectSuggestion(tag) {
   border: none;
   color: inherit;
   cursor: pointer;
-  padding: 0 2px;
-  font-size: 11px;
+  padding: 0 1px;
+  font-size: 10px;
   opacity: 0.7;
   line-height: 1;
 }
@@ -146,15 +255,20 @@ function selectSuggestion(tag) {
   opacity: 1;
 }
 
+.tag-chip .remove-tag:disabled {
+  cursor: not-allowed;
+  opacity: 0.3;
+}
+
 .tag-input {
   flex: 0 0 auto;
-  width: 60px;
+  width: 50px;
   background: transparent;
   border: 1px dashed var(--border-color);
-  border-radius: 12px;
+  border-radius: 10px;
   color: var(--text-primary);
   font-size: 11px;
-  padding: 2px 8px;
+  padding: 1px 5px;
   outline: none;
   transition: all 0.15s;
 }
@@ -162,7 +276,12 @@ function selectSuggestion(tag) {
 .tag-input:focus {
   border-style: solid;
   border-color: var(--accent-color);
-  width: 100px;
+  width: 80px;
+}
+
+.tag-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .tag-input::placeholder {
@@ -186,14 +305,26 @@ function selectSuggestion(tag) {
 }
 
 .tag-suggestion {
-  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-secondary);
 }
 
 .tag-suggestion:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+}
+
+.tag-suggestion.create-new {
+  border-top: 1px solid var(--border-color);
+  color: var(--accent-color);
+}
+
+.create-icon {
+  font-weight: bold;
 }
 </style>

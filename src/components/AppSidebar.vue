@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue'
-import { getTypeIcon, typeConfig, nodeTypes } from '../utils/constants.js'
+import { getTypeIcon, typeConfig, nodeTypes, getGraphColors } from '../utils/constants.js'
 import SidebarTreeItem from './SidebarTreeItem.vue'
 
 const appVersion = ref(__APP_VERSION__)
@@ -23,10 +23,16 @@ const emit = defineEmits([
   'context-menu',
   'toggle-expand',
   'select-tag',
+  'navigate-tag',
   'navigate-root',
   'mouseenter',
   'mouseleave',
 ])
+
+function getTagColor(tagId) {
+  const colors = getGraphColors('tag', tagId)
+  return colors.border
+}
 
 // Local collapse state - persisted to localStorage
 const treeCollapsed = ref(localStorage.getItem('sidebar-tree-collapsed') === 'true')
@@ -127,12 +133,14 @@ watch(tagsCollapsed, val => localStorage.setItem('sidebar-tags-collapsed', Strin
         <div v-show="!tagsCollapsed" class="sidebar-tags">
           <div
             v-for="tag in allTags"
-            :key="'tag-' + tag"
+            :key="'tag-' + (tag.id || tag)"
             class="sidebar-item tag-item"
-            @click="emit('select-tag', tag)"
+            :class="{ active: tag.id && currentContainerId === tag.id }"
+            @click="tag.id ? emit('navigate-tag', tag) : emit('select-tag', tag)"
           >
-            <span class="tag-hash">#</span>
-            <span class="label">{{ tag }}</span>
+            <span v-if="tag.id" class="tag-dot" :style="{ backgroundColor: getTagColor(tag.id) }"></span>
+            <span v-else class="tag-hash">#</span>
+            <span class="label">{{ tag.title || tag }}</span>
           </div>
         </div>
       </div>
@@ -202,5 +210,23 @@ watch(tagsCollapsed, val => localStorage.setItem('sidebar-tags-collapsed', Strin
   font-size: 10px;
   color: var(--text-tertiary, #888);
   text-align: center;
+}
+
+.tag-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tag-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tag-item.active {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 </style>

@@ -685,6 +685,10 @@ async function buildElementsWithLinks(savedPos) {
 
   if (showExternalLinks.value) {
     try {
+      // Capture hierarchy node IDs before fetching external nodes
+      const hierarchyNodeIds = new Set(
+        elements.filter(e => !e.data.source && !e.data.isLinkedExternal).map(e => e.data.id)
+      )
       const ids = elements.filter(e => !e.data.source).map(e => parseInt(e.data.id))
       if (ids.length > 0) {
         const links = await api.getAllLinks(ids)
@@ -697,7 +701,8 @@ async function buildElementsWithLinks(savedPos) {
           selectedId: props.selectedId,
           handleError,
         })
-        addLinkEdges(elements, links)
+        // Pass hierarchyNodeIds to filter out links between external nodes
+        addLinkEdges(elements, links, hierarchyNodeIds)
       }
     } catch (e) {
       handleError(e, { context: 'Loading links', silent: true })

@@ -16,6 +16,7 @@ export const ALL_NODE_TYPES: NodeType[] = [
   'event',
   'person',
   'organization',
+  'tag',
 ]
 
 /**

@@ -69,6 +69,44 @@ export const ollamaService = {
   },
 
   /**
+   * Generate with tool/function calling support (requires llama3.1+)
+   * @param {Object} options
+   * @param {Array} options.messages - Chat messages array
+   * @param {Array} options.tools - Tool definitions
+   * @param {string} [options.model] - Model name (default: llama3.2)
+   * @param {string} [options.endpoint] - Ollama endpoint URL
+   * @returns {Promise<{content: string|null, tool_calls: Array|null}>}
+   */
+  async generateWithTools({ messages, tools, model = DEFAULT_MODEL, endpoint = DEFAULT_ENDPOINT }) {
+    try {
+      const response = await fetch(`${endpoint}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          messages,
+          tools,
+          stream: false,
+        }),
+      })
+
+      if (!response.ok) {
+        await handleResponseError(response, model)
+      }
+
+      const data = await response.json()
+      const message = data.message || {}
+
+      return {
+        content: message.content || null,
+        tool_calls: message.tool_calls || null,
+      }
+    } catch (error) {
+      handleConnectionError(error, model)
+    }
+  },
+
+  /**
    * Test connection to Ollama server
    * @param {string} [endpoint] - Ollama endpoint URL
    * @returns {Promise<{success: boolean, error?: string}>}
