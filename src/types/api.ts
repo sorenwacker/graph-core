@@ -73,6 +73,18 @@ export interface OpenAIGenerateOptions {
 }
 
 /**
+ * Agent research options.
+ */
+export interface AgentResearchOptions {
+  prompt: string
+  provider: 'ollama' | 'openai'
+  model: string
+  endpoint: string
+  apiKey?: string
+  contextSize?: number
+}
+
+/**
  * Node table (spreadsheet) data.
  */
 export interface NodeTable {
@@ -177,9 +189,15 @@ export interface Api {
   getOrphanedNodes(): Promise<Node[]>
   reparentToRoot(id: number): Promise<void>
 
-  // Tags
+  // Tags (string-based, legacy)
   getAllTags(workspaceId?: number | null): Promise<string[]>
   getNodesByTag(tag: string, workspaceId?: number | null, options?: GetNodesByTagOptions): Promise<Node[]>
+
+  // Tags (first-class nodes)
+  getTagNodes?(workspaceId?: number | null): Promise<Node[]>
+  getOrCreateTagNode?(name: string, workspaceId?: number | null): Promise<Node>
+  getNodesLinkedToTag?(tagNodeId: number, options?: GetNodesByTagOptions): Promise<Node[]>
+  searchTagNodes?(query: string, workspaceId?: number | null, limit?: number): Promise<Node[]>
 
   // Workspaces
   getWorkspaces(): Promise<Workspace[]>
@@ -213,4 +231,7 @@ export interface Api {
   openaiGenerate(options: OpenAIGenerateOptions): Promise<string>
   openaiTestConnection(endpoint: string, apiKey: string, skipSslVerification?: boolean): Promise<ConnectionTestResult>
   openaiListModels(endpoint: string, apiKey: string, skipSslVerification?: boolean): Promise<string[]>
+
+  // Agent (research with tools)
+  agentResearch?(options: AgentResearchOptions): Promise<string>
 }

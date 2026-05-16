@@ -35,8 +35,8 @@ export interface UseDataLoadingReturn {
   recentItems: Ref<Node[]>
   /** Favorite items list */
   favoriteItems: Ref<Node[]>
-  /** All tags in workspace */
-  allTags: Ref<string[]>
+  /** All tag nodes in workspace */
+  allTags: Ref<Node[]>
   /** Trashed items list */
   trashedItems: Ref<Node[]>
   /** Orphaned nodes (lost & found) */
@@ -89,7 +89,7 @@ export function useDataLoading(currentWorkspace: Ref<number | null>): UseDataLoa
   const sidebarTree = ref<SidebarTreeNode[]>([])
   const recentItems = ref<Node[]>([])
   const favoriteItems = ref<Node[]>([])
-  const allTags = ref<string[]>([])
+  const allTags = ref<Node[]>([])
   const trashedItems = ref<Node[]>([])
   const orphanedNodes = ref<Node[]>([])
   const showLostFound = ref(false)
@@ -231,12 +231,23 @@ export function useDataLoading(currentWorkspace: Ref<number | null>): UseDataLoa
     }
   }
 
-  // Tags
+  // Tags (first-class tag nodes)
   async function loadTags(): Promise<void> {
     try {
       const wsId = currentWorkspace.value
-      const tags = await api.getAllTags(wsId as number)
-      allTags.value = tags || []
+      // Use getTagNodes if available, fall back to getAllTags for backwards compatibility
+      if (api.getTagNodes) {
+        const tagNodes = await api.getTagNodes(wsId as number)
+        allTags.value = (tagNodes || []).filter((t: Node | null): t is Node => t != null)
+      } else {
+        // Legacy fallback: convert string tags to pseudo-nodes for display
+        const tags = await api.getAllTags(wsId as number)
+        allTags.value = (tags || []).map((tag: string, index: number) => ({
+          id: null,
+          title: tag,
+          type: 'tag',
+        })) as unknown as Node[]
+      }
     } catch {
       allTags.value = []
     }

@@ -11,6 +11,10 @@ const props = defineProps({
   collapsed: { type: Boolean, default: false },
 })
 
+// Filter linked nodes into tags and non-tags
+const linkedTags = computed(() => (props.linkedNodes || []).filter(n => n && n.type === 'tag'))
+const linkedNonTags = computed(() => (props.linkedNodes || []).filter(n => n && n.type !== 'tag'))
+
 const emit = defineEmits([
   'update:collapsed',
   'update:field',
@@ -22,6 +26,8 @@ const emit = defineEmits([
   'add-link',
   'toggle-links-visibility',
   'save',
+  'reload-links',
+  'unlink-tag',
 ])
 
 const formattedCreatedDate = computed(() => formatDate(props.editedNode?.created_at))
@@ -199,11 +205,17 @@ function clearLocation() {
 
           <div class="compact-field tags-field">
             <label>Tags</label>
-            <TagInput :tags="editedNode.tags || []" @update="emit('update:tags', $event)" />
+            <TagInput
+              :node-id="editedNode.id"
+              :workspace-id="editedNode.workspace_id"
+              :linked-tags="linkedTags"
+              @unlink="emit('unlink-tag', $event)"
+              @refresh="emit('reload-links')"
+            />
           </div>
 
           <template v-if="editedNode.show_links !== 0">
-            <div v-if="linkedNodes.length" class="compact-field links-field">
+            <div v-if="linkedNonTags.length" class="compact-field links-field">
               <label>
                 Links
                 <button class="toggle-links-btn" @click.stop="emit('toggle-links-visibility', 0)" title="Hide">
@@ -212,7 +224,7 @@ function clearLocation() {
               </label>
               <div class="links-inline">
                 <span
-                  v-for="linked in linkedNodes"
+                  v-for="linked in linkedNonTags"
                   :key="linked.id"
                   class="link-chip"
                   @click="emit('select-link', linked.id)"

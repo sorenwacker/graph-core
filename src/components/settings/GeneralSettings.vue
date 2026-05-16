@@ -64,8 +64,8 @@ const emit = defineEmits([
         type="range"
         :value="graphNotesPreviewLength"
         min="50"
-        max="500"
-        step="10"
+        max="5000"
+        step="100"
         class="settings-slider"
         @input="emit('update:graphNotesPreviewLength', Number($event.target.value))"
       />

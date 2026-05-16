@@ -48,9 +48,14 @@ const {
   // Database - Lost & Found
   DB_GET_ORPHANED_NODES,
   DB_REPARENT_TO_ROOT,
-  // Database - Tags
+  // Database - Tags (string-based, legacy)
   DB_GET_ALL_TAGS,
   DB_GET_NODES_BY_TAG,
+  // Database - Tags (first-class nodes)
+  DB_GET_TAG_NODES,
+  DB_GET_OR_CREATE_TAG_NODE,
+  DB_GET_NODES_LINKED_TO_TAG,
+  DB_SEARCH_TAG_NODES,
   // Database - Workspaces
   DB_GET_WORKSPACES,
   DB_GET_WORKSPACE,
@@ -91,6 +96,8 @@ const {
   OPENAI_GENERATE,
   OPENAI_TEST_CONNECTION,
   OPENAI_LIST_MODELS,
+  // Agent
+  AGENT_RESEARCH,
   // App
   APP_GET_VERSION,
   // Menu Events
@@ -472,9 +479,15 @@ ipcMain.handle(DB_EMPTY_TRASH, () => db.emptyTrash())
 ipcMain.handle(DB_GET_ORPHANED_NODES, () => db.getOrphanedNodes())
 ipcMain.handle(DB_REPARENT_TO_ROOT, (event, id) => db.reparentToRoot(id))
 
-// Tags
+// Tags (string-based, legacy)
 ipcMain.handle(DB_GET_ALL_TAGS, (event, workspaceId) => db.getAllTags(workspaceId))
 ipcMain.handle(DB_GET_NODES_BY_TAG, (event, tag, workspaceId, options) => db.getNodesByTag(tag, workspaceId, options))
+
+// Tags (first-class nodes)
+ipcMain.handle(DB_GET_TAG_NODES, (event, workspaceId) => db.getTagNodes(workspaceId))
+ipcMain.handle(DB_GET_OR_CREATE_TAG_NODE, (event, name, workspaceId) => db.getOrCreateTagNode(name, workspaceId))
+ipcMain.handle(DB_GET_NODES_LINKED_TO_TAG, (event, tagNodeId, options) => db.getNodesLinkedToTag(tagNodeId, options))
+ipcMain.handle(DB_SEARCH_TAG_NODES, (event, query, workspaceId, limit) => db.searchTagNodes(query, workspaceId, limit))
 
 // =========================================
 // WORKSPACES
@@ -888,6 +901,306 @@ ipcMain.handle(OPENAI_LIST_MODELS, async (event, endpoint, apiKey, skipSslVerifi
   }
   const response = await openaiRequest(endpoint, '/models', apiKey, { skipSslVerification })
   return (response.data || []).map(m => m.id).sort()
+})
+
+// =========================================
+// AGENT RESEARCH (Tool Calling)
+// =========================================
+
+const WIKIPEDIA_ACTION_API = 'https://en.wikipedia.org/w/api.php'
+const WIKIPEDIA_REST_API = 'https://en.wikipedia.org/api/rest_v1'
+
+async function wikipediaSearch(query, limit = 3) {
+  const params = new URLSearchParams({
+    action: 'query',
+    list: 'search',
+    srsearch: query,
+    format: 'json',
+    srlimit: String(limit),
+  })
+  const url = `${WIKIPEDIA_ACTION_API}?${params}`
+  const response = await httpRequest(url, {
+    headers: { 'User-Agent': 'graph-core/1.0' },
+  })
+  const results = response.query?.search || []
+  return results.map(item => ({
+    title: item.title,
+    description: item.snippet?.replace(/<[^>]+>/g, '') || '',
+    pageid: item.pageid,
+  }))
+}
+
+async function wikipediaGetContent(title) {
+  const url = `${WIKIPEDIA_REST_API}/page/summary/${encodeURIComponent(title)}`
+  const response = await httpRequest(url, {
+    headers: { 'User-Agent': 'graph-core/1.0' },
+  })
+  let content = response.extract || ''
+  if (response.description && !content.toLowerCase().includes(response.description.toLowerCase())) {
+    content = `${response.description}\n\n${content}`
+  }
+  return { title: response.title, content }
+}
+
+async function executeAgentTool(name, args) {
+  try {
+    switch (name) {
+      case 'wikipedia_search': {
+        const results = await wikipediaSearch(args.query, 3)
+        if (results.length === 0) {
+          return 'No Wikipedia articles found for this query.'
+        }
+        return JSON.stringify(results, null, 2)
+      }
+      case 'wikipedia_get_content': {
+        const content = await wikipediaGetContent(args.title)
+        return `Title: ${content.title}\n\n${content.content}`
+      }
+      default:
+        return `Unknown tool: ${name}`
+    }
+  } catch (error) {
+    return `Tool error: ${error.message}`
+  }
+}
+
+const AGENT_TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: 'wikipedia_search',
+      description:
+        'Search Wikipedia for articles matching a query. Returns titles and descriptions of matching articles.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'The search query to find Wikipedia articles' },
+        },
+        required: ['query'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'wikipedia_get_content',
+      description:
+        'Get the content of a Wikipedia article by its exact title. Use this after searching to read article details.',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'The exact title of the Wikipedia article to retrieve' },
+        },
+        required: ['title'],
+      },
+    },
+  },
+]
+
+const RESEARCH_SYSTEM_PROMPT = `You are a research assistant with access to Wikipedia.
+
+When asked about a topic:
+1. Use wikipedia_search to find relevant articles
+2. Use wikipedia_get_content to read the most relevant article
+3. Write a clear, informative summary based on the information
+
+Always cite Wikipedia as your source. Be concise but thorough.
+If you cannot find information, say so clearly.
+
+Important: After gathering information, provide a final written response without calling any more tools.`
+
+/**
+ * Check if response looks like malformed tool output (model doesn't support tools)
+ */
+function isGarbageResponse(content) {
+  if (!content) return false
+  // Detect common patterns from models that don't support tool calling
+  return (
+    content.includes('<|') ||
+    content.includes('|>') ||
+    content.includes('<|channel|>') ||
+    content.includes('<|constrain|>') ||
+    content.includes('```json\n{"') ||
+    (content.startsWith('{') && content.includes('"query"'))
+  )
+}
+
+/**
+ * Fallback research using direct Wikipedia fetch + summarization
+ */
+async function fallbackResearch(query, provider, model, endpoint, apiKey, contextSize) {
+  // Search Wikipedia directly
+  const searchResults = await wikipediaSearch(query, 3)
+
+  if (searchResults.length === 0) {
+    return `No Wikipedia articles found for "${query}".`
+  }
+
+  // Get content from the top result
+  const topResult = searchResults[0]
+  let content
+  try {
+    content = await wikipediaGetContent(topResult.title)
+  } catch (err) {
+    return `Found article "${topResult.title}" but could not retrieve content: ${err.message}`
+  }
+
+  // Ask model to summarize the content
+  const summaryPrompt = `Based on the following Wikipedia article, write a clear and informative summary about "${query}".
+
+Article: ${topResult.title}
+
+${content.content}
+
+Write a concise summary (2-4 paragraphs) that answers the user's question. Cite Wikipedia as your source.`
+
+  if (provider === 'openai') {
+    const result = await openaiRequest(endpoint, '/chat/completions', apiKey, {
+      method: 'POST',
+      body: {
+        model,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful research assistant. Summarize information clearly and accurately.',
+          },
+          { role: 'user', content: summaryPrompt },
+        ],
+        stream: false,
+      },
+    })
+    return result.choices?.[0]?.message?.content || 'Could not generate summary.'
+  } else {
+    const result = await ollamaRequest(endpoint, '/api/chat', {
+      method: 'POST',
+      body: {
+        model,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful research assistant. Summarize information clearly and accurately.',
+          },
+          { role: 'user', content: summaryPrompt },
+        ],
+        stream: false,
+        options: { num_ctx: contextSize || 32768 },
+      },
+    })
+    return result.message?.content || 'Could not generate summary.'
+  }
+}
+
+ipcMain.handle(AGENT_RESEARCH, async (event, options) => {
+  const { prompt, provider, model, endpoint, apiKey, contextSize } = options
+  const MAX_ITERATIONS = 5
+
+  const messages = [
+    { role: 'system', content: RESEARCH_SYSTEM_PROMPT },
+    { role: 'user', content: prompt },
+  ]
+
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    let response
+
+    try {
+      if (provider === 'openai') {
+        const result = await openaiRequest(endpoint, '/chat/completions', apiKey, {
+          method: 'POST',
+          body: {
+            model,
+            messages,
+            tools: AGENT_TOOLS,
+            stream: false,
+          },
+        })
+        const message = result.choices?.[0]?.message || {}
+        response = { content: message.content || null, tool_calls: message.tool_calls || null }
+      } else {
+        const result = await ollamaRequest(endpoint, '/api/chat', {
+          method: 'POST',
+          body: {
+            model,
+            messages,
+            tools: AGENT_TOOLS,
+            stream: false,
+            options: { num_ctx: contextSize || 32768 },
+          },
+        })
+        const message = result.message || {}
+        response = { content: message.content || null, tool_calls: message.tool_calls || null }
+      }
+
+      // Check if model returned garbage (doesn't support tools)
+      if (isGarbageResponse(response.content) && !response.tool_calls) {
+        console.log('Model does not support tool calling, using fallback...')
+        return await fallbackResearch(prompt, provider, model, endpoint, apiKey, contextSize)
+      }
+
+      if (response.tool_calls && response.tool_calls.length > 0) {
+        messages.push({
+          role: 'assistant',
+          content: response.content || '',
+          tool_calls: response.tool_calls,
+        })
+
+        for (const toolCall of response.tool_calls) {
+          const toolName = toolCall.function?.name || toolCall.name
+          let toolArgs = toolCall.function?.arguments || toolCall.arguments
+          if (typeof toolArgs === 'string') {
+            try {
+              toolArgs = JSON.parse(toolArgs)
+            } catch {
+              toolArgs = {}
+            }
+          }
+          const toolId = toolCall.id || `call_${i}_${toolName}`
+          const result = await executeAgentTool(toolName, toolArgs || {})
+
+          messages.push({
+            role: 'tool',
+            tool_call_id: toolId,
+            content: result,
+          })
+        }
+      } else {
+        return response.content || 'No response generated.'
+      }
+    } catch (err) {
+      // If tool calling fails, try fallback
+      console.log('Tool calling failed, using fallback:', err.message)
+      return await fallbackResearch(prompt, provider, model, endpoint, apiKey, contextSize)
+    }
+  }
+
+  // Max iterations - generate final response
+  if (provider === 'openai') {
+    const finalResult = await openaiRequest(endpoint, '/chat/completions', apiKey, {
+      method: 'POST',
+      body: {
+        model,
+        messages: [
+          ...messages,
+          { role: 'user', content: 'Based on the information gathered, provide a final summary.' },
+        ],
+        stream: false,
+      },
+    })
+    return finalResult.choices?.[0]?.message?.content || 'No response generated.'
+  } else {
+    const finalResult = await ollamaRequest(endpoint, '/api/chat', {
+      method: 'POST',
+      body: {
+        model,
+        messages: [
+          ...messages,
+          { role: 'user', content: 'Based on the information gathered, provide a final summary.' },
+        ],
+        stream: false,
+        options: { num_ctx: contextSize || 32768 },
+      },
+    })
+    return finalResult.message?.content || 'No response generated.'
+  }
 })
 
 // App info

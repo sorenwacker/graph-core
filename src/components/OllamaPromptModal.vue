@@ -4,6 +4,9 @@ import '../assets/modal-base.css'
 
 const props = defineProps({
   isLoading: { type: Boolean, default: false },
+  title: { type: String, default: 'Custom AI Prompt' },
+  placeholder: { type: String, default: "Enter your prompt, e.g., 'Make this more formal' or 'Add bullet points'" },
+  submitLabel: { type: String, default: 'Generate' },
 })
 
 const emit = defineEmits(['submit', 'close'])
@@ -38,7 +41,7 @@ onUnmounted(() => {
     <div class="modal prompt-modal">
       <div class="modal-header">
         <div class="modal-title-row">
-          <h3>Custom AI Prompt</h3>
+          <h3>{{ title }}</h3>
         </div>
         <button class="close-btn" @click="emit('close')" aria-label="Close" title="Close dialog">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -50,7 +53,7 @@ onUnmounted(() => {
         <textarea
           ref="inputRef"
           v-model="customPrompt"
-          placeholder="Enter your prompt, e.g., 'Make this more formal' or 'Add bullet points'"
+          :placeholder="placeholder"
           :disabled="isLoading"
           @keydown.ctrl.enter="handleSubmit"
           @keydown.meta.enter="handleSubmit"
@@ -61,7 +64,7 @@ onUnmounted(() => {
         <button class="cancel-btn" @click="emit('close')" :disabled="isLoading">Cancel</button>
         <button class="submit-btn" @click="handleSubmit" :disabled="!customPrompt.trim() || isLoading">
           <span v-if="isLoading" class="spinner"></span>
-          <span v-else>Generate</span>
+          <span v-else>{{ submitLabel }}</span>
         </button>
       </div>
     </div>

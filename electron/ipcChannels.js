@@ -80,10 +80,18 @@ const DB_GET_ORPHANED_NODES = 'db:getOrphanedNodes'
 const DB_REPARENT_TO_ROOT = 'db:reparentToRoot'
 
 // ===========================================
-// DATABASE - Tags
+// DATABASE - Tags (string-based, legacy)
 // ===========================================
 const DB_GET_ALL_TAGS = 'db:getAllTags'
 const DB_GET_NODES_BY_TAG = 'db:getNodesByTag'
+
+// ===========================================
+// DATABASE - Tags (first-class nodes)
+// ===========================================
+const DB_GET_TAG_NODES = 'db:getTagNodes'
+const DB_GET_OR_CREATE_TAG_NODE = 'db:getOrCreateTagNode'
+const DB_GET_NODES_LINKED_TO_TAG = 'db:getNodesLinkedToTag'
+const DB_SEARCH_TAG_NODES = 'db:searchTagNodes'
 
 // ===========================================
 // DATABASE - Workspaces
@@ -148,6 +156,11 @@ const OLLAMA_LIST_MODELS = 'ollama:listModels'
 const OPENAI_GENERATE = 'openai:generate'
 const OPENAI_TEST_CONNECTION = 'openai:testConnection'
 const OPENAI_LIST_MODELS = 'openai:listModels'
+
+// ===========================================
+// AGENT
+// ===========================================
+const AGENT_RESEARCH = 'agent:research'
 
 // ===========================================
 // APP
@@ -222,9 +235,15 @@ module.exports = {
   DB_GET_ORPHANED_NODES,
   DB_REPARENT_TO_ROOT,
 
-  // Database - Tags
+  // Database - Tags (string-based, legacy)
   DB_GET_ALL_TAGS,
   DB_GET_NODES_BY_TAG,
+
+  // Database - Tags (first-class nodes)
+  DB_GET_TAG_NODES,
+  DB_GET_OR_CREATE_TAG_NODE,
+  DB_GET_NODES_LINKED_TO_TAG,
+  DB_SEARCH_TAG_NODES,
 
   // Database - Workspaces
   DB_GET_WORKSPACES,
@@ -273,6 +292,9 @@ module.exports = {
   OPENAI_GENERATE,
   OPENAI_TEST_CONNECTION,
   OPENAI_LIST_MODELS,
+
+  // Agent
+  AGENT_RESEARCH,
 
   // App
   APP_GET_VERSION,

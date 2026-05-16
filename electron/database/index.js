@@ -12,6 +12,7 @@ const { createWorkspaceOperations } = require('./workspaces')
 const { createNodeOperations } = require('./nodes')
 const { createLinkOperations } = require('./links')
 const { createSearchOperations } = require('./search')
+const { createTagOperations } = require('./tags')
 const { createTreeOperations } = require('./tree')
 const { createExportOperations } = require('./export')
 const { createBackupOperations } = require('./backup')
@@ -109,6 +110,13 @@ class Database {
     this.getRecent = searchOps.getRecent.bind(searchOps)
     this.getFavorites = searchOps.getFavorites.bind(searchOps)
     this.getTasks = searchOps.getTasks.bind(searchOps)
+
+    // Tags (first-class tag nodes)
+    const tagOps = createTagOperations(this)
+    this.getTagNodes = tagOps.getTagNodes
+    this.getOrCreateTagNode = tagOps.getOrCreateTagNode
+    this.getNodesLinkedToTag = tagOps.getNodesLinkedToTag
+    this.searchTagNodes = tagOps.searchTagNodes
 
     // Tree
     this.getRoots = treeOps.getRoots.bind(treeOps)

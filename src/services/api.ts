@@ -20,6 +20,7 @@ import type {
   ConnectionTestResult,
   OllamaGenerateOptions,
   OpenAIGenerateOptions,
+  AgentResearchOptions,
   NodeTable,
   TableCell,
   ExportJSONOptions,
@@ -81,6 +82,10 @@ interface ElectronAPI {
   reparentToRoot(id: number): Promise<void>
   getAllTags(workspaceId?: number | null): Promise<(string | null)[]>
   getNodesByTag(tag: string, workspaceId?: number | null, options?: GetNodesByTagOptions): Promise<(Node | null)[]>
+  getTagNodes(workspaceId?: number | null): Promise<(Node | null)[]>
+  getOrCreateTagNode(name: string, workspaceId?: number | null): Promise<Node>
+  getNodesLinkedToTag(tagNodeId: number, options?: GetNodesByTagOptions): Promise<(Node | null)[]>
+  searchTagNodes(query: string, workspaceId?: number | null, limit?: number): Promise<(Node | null)[]>
   getWorkspaces(): Promise<(Workspace | null)[]>
   getWorkspace(id: number): Promise<Workspace | null>
   createWorkspace(data: CreateWorkspaceData): Promise<Workspace>
@@ -104,6 +109,7 @@ interface ElectronAPI {
   openaiGenerate(options: OpenAIGenerateOptions): Promise<string>
   openaiTestConnection(endpoint: string, apiKey: string, skipSslVerification?: boolean): Promise<ConnectionTestResult>
   openaiListModels(endpoint: string, apiKey: string, skipSslVerification?: boolean): Promise<string[]>
+  agentResearch(options: AgentResearchOptions): Promise<string>
 }
 
 // Detect if running in Electron
@@ -371,6 +377,23 @@ const webApi: Api = {
     return request<Node[]>(url)
   },
 
+  // Tags (first-class nodes) - stubs for web mode
+  async getTagNodes(): Promise<Node[]> {
+    return []
+  },
+
+  async getOrCreateTagNode(): Promise<Node> {
+    throw new Error('Tag nodes only available in desktop app')
+  },
+
+  async getNodesLinkedToTag(): Promise<Node[]> {
+    return []
+  },
+
+  async searchTagNodes(): Promise<Node[]> {
+    return []
+  },
+
   // Workspaces
   async getWorkspaces(): Promise<Workspace[]> {
     return request<Workspace[]>('/workspaces')
@@ -583,6 +606,13 @@ const webApi: Api = {
     const data = (await response.json()) as { data?: { id: string }[] }
     return (data.data || []).map(m => m.id).sort()
   },
+
+  // Agent research - runs agent loop with tool calling
+  async agentResearch(options: AgentResearchOptions): Promise<string> {
+    // Import dynamically to avoid bundling issues
+    const { research } = await import('./agentService.js')
+    return research(options)
+  },
 }
 
 // Electron API implementation (uses IPC)
@@ -735,6 +765,22 @@ const electronApi: Api = {
     return filterNulls(await window.electronAPI!.getNodesByTag(tag, workspaceId, options))
   },
 
+  // Tags (first-class nodes)
+  async getTagNodes(workspaceId?: number | null): Promise<Node[]> {
+    return filterNulls(await window.electronAPI!.getTagNodes(workspaceId))
+  },
+
+  getOrCreateTagNode: (name: string, workspaceId?: number | null): Promise<Node> =>
+    window.electronAPI!.getOrCreateTagNode(name, workspaceId),
+
+  async getNodesLinkedToTag(tagNodeId: number, options?: GetNodesByTagOptions): Promise<Node[]> {
+    return filterNulls(await window.electronAPI!.getNodesLinkedToTag(tagNodeId, options))
+  },
+
+  async searchTagNodes(query: string, workspaceId?: number | null, limit?: number): Promise<Node[]> {
+    return filterNulls(await window.electronAPI!.searchTagNodes(query, workspaceId, limit))
+  },
+
   // Workspaces
   async getWorkspaces(): Promise<Workspace[]> {
     return filterNulls(await window.electronAPI!.getWorkspaces())
@@ -797,6 +843,9 @@ const electronApi: Api = {
 
   openaiListModels: (endpoint: string, apiKey: string, skipSslVerification?: boolean): Promise<string[]> =>
     window.electronAPI!.openaiListModels(endpoint, apiKey, skipSslVerification),
+
+  // Agent research
+  agentResearch: (options: AgentResearchOptions): Promise<string> => window.electronAPI!.agentResearch(options),
 }
 
 // Export the appropriate API based on environment

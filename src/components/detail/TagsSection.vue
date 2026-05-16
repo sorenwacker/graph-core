@@ -1,21 +1,23 @@
 <script setup>
+import { computed } from 'vue'
 import TagInput from '../TagInput.vue'
 
-defineProps({
-  tags: { type: Array, default: () => [] },
+const props = defineProps({
+  nodeId: { type: Number, required: true },
+  workspaceId: { type: [String, Number], default: null },
+  linkedNodes: { type: Array, default: () => [] },
 })
 
-const emit = defineEmits(['update:tags'])
+const emit = defineEmits(['refresh'])
 
-function onUpdate(newTags) {
-  emit('update:tags', newTags)
-}
+// Filter linked nodes to get only tag nodes
+const linkedTags = computed(() => (props.linkedNodes || []).filter(n => n && n.type === 'tag'))
 </script>
 
 <template>
-  <div v-if="tags && tags.length > 0" class="tags-section">
+  <div class="tags-section">
     <label>Tags</label>
-    <TagInput :tags="tags" @update="onUpdate" />
+    <TagInput :node-id="nodeId" :workspace-id="workspaceId" :linked-tags="linkedTags" @refresh="emit('refresh')" />
   </div>
 </template>
 

@@ -246,16 +246,24 @@ export function useNavigation({
           onSidebarSync(validRoots)
         }
       } else {
-        // Get container and its children
-        const [container, containerChildren] = await Promise.all([
-          api.getNode(containerId),
-          api.getChildren(containerId),
-        ])
+        // Get container first to check its type
+        const container = await api.getNode(containerId)
         currentContainer.value = container
 
-        // Build children with nested structure for tree view
-        const descendants = await api.getDescendants(containerId)
-        children.value = buildTree(containerChildren, descendants)
+        // Tag nodes show linked nodes instead of children
+        if (container?.type === 'tag') {
+          const linkedNodes = await api.getLinkedNodes(containerId)
+          // Convert linked nodes to tree nodes (flat, no nested children for tags)
+          children.value = (linkedNodes || [])
+            .filter(n => n && n.type !== 'tag') // Exclude other tags
+            .map(n => ({ ...n, children: [] }) as TreeNode)
+        } else {
+          // Regular container - get children
+          const containerChildren = await api.getChildren(containerId)
+          // Build children with nested structure for tree view
+          const descendants = await api.getDescendants(containerId)
+          children.value = buildTree(containerChildren, descendants)
+        }
 
         // Build breadcrumbs
         const ancestors = await api.getAncestors(containerId)

@@ -59,9 +59,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getOrphanedNodes: () => ipcRenderer.invoke('db:getOrphanedNodes'),
   reparentToRoot: id => ipcRenderer.invoke('db:reparentToRoot', id),
 
-  // Tags
+  // Tags (string-based, legacy)
   getAllTags: workspaceId => ipcRenderer.invoke('db:getAllTags', workspaceId),
   getNodesByTag: (tag, workspaceId, options) => ipcRenderer.invoke('db:getNodesByTag', tag, workspaceId, options),
+
+  // Tags (first-class nodes)
+  getTagNodes: workspaceId => ipcRenderer.invoke('db:getTagNodes', workspaceId),
+  getOrCreateTagNode: (name, workspaceId) => ipcRenderer.invoke('db:getOrCreateTagNode', name, workspaceId),
+  getNodesLinkedToTag: (tagNodeId, options) => ipcRenderer.invoke('db:getNodesLinkedToTag', tagNodeId, options),
+  searchTagNodes: (query, workspaceId, limit) => ipcRenderer.invoke('db:searchTagNodes', query, workspaceId, limit),
 
   // Workspaces
   getWorkspaces: () => ipcRenderer.invoke('db:getWorkspaces'),
@@ -112,6 +118,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('openai:testConnection', endpoint, apiKey, skipSslVerification),
   openaiListModels: (endpoint, apiKey, skipSslVerification) =>
     ipcRenderer.invoke('openai:listModels', endpoint, apiKey, skipSslVerification),
+
+  // Agent (research with tools)
+  agentResearch: options => ipcRenderer.invoke('agent:research', options),
 
   // Menu events
   onMenuUndo: callback => ipcRenderer.on('menu-undo', callback),

@@ -14,10 +14,11 @@ const props = defineProps({
 const emit = defineEmits(['apply-improvement'])
 
 const { aiEnabled } = useSettings()
-const { isGenerating, error, presetPrompts, improveNotes } = useOllama()
+const { isGenerating, error, presetPrompts, improveNotes, research } = useOllama()
 
 const showDropdown = ref(false)
 const showCustomPromptModal = ref(false)
+const showResearchModal = ref(false)
 const showDiffPreview = ref(false)
 const originalContent = ref('')
 const improvedContent = ref('')
@@ -51,7 +52,12 @@ function closeDropdown() {
 
 async function handlePresetAction(preset) {
   closeDropdown()
-  await generateImprovement(preset.prompt, preset.label)
+  if (preset.isAgent) {
+    // Agent presets open a modal for user to enter their query
+    showResearchModal.value = true
+  } else {
+    await generateImprovement(preset.prompt, preset.label)
+  }
 }
 
 function handleCustomPrompt() {
@@ -62,6 +68,20 @@ function handleCustomPrompt() {
 async function handleCustomPromptSubmit(prompt) {
   showCustomPromptModal.value = false
   await generateImprovement(prompt, 'Custom')
+}
+
+async function handleResearchSubmit(query) {
+  showResearchModal.value = false
+  usedPrompt.value = 'Research'
+  originalContent.value = props.notes || ''
+  selectionRange.value = null
+
+  const result = await research(query)
+
+  if (result) {
+    improvedContent.value = result
+    showDiffPreview.value = true
+  }
 }
 
 async function generateImprovement(prompt, label) {
@@ -175,6 +195,16 @@ function handleRejectImprovement() {
       :is-loading="isGenerating"
       @submit="handleCustomPromptSubmit"
       @close="showCustomPromptModal = false"
+    />
+
+    <OllamaPromptModal
+      v-if="showResearchModal"
+      :is-loading="isGenerating"
+      title="Research Topic"
+      placeholder="Enter a topic to research, e.g., 'What is CRISPR?' or 'Explain quantum computing'"
+      submit-label="Research"
+      @submit="handleResearchSubmit"
+      @close="showResearchModal = false"
     />
 
     <OllamaDiffPreview
