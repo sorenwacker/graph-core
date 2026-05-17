@@ -96,6 +96,27 @@ export function useOllama() {
   const generatedContent = ref('')
 
   /**
+   * Get provider-specific configuration
+   * @returns {{provider: string, model: string, endpoint: string, apiKey?: string, contextSize?: number}}
+   */
+  function getProviderConfig() {
+    if (provider.value === AI_PROVIDERS.OPENAI) {
+      return {
+        provider: provider.value,
+        model: openaiModel.value,
+        endpoint: openaiEndpoint.value,
+        apiKey: openaiApiKey.value,
+      }
+    }
+    return {
+      provider: provider.value,
+      model: ollamaModel.value,
+      endpoint: ollamaEndpoint.value,
+      contextSize: ollamaContextSize.value,
+    }
+  }
+
+  /**
    * Check if AI is properly configured
    */
   const isConfigured = computed(() => {
@@ -260,13 +281,10 @@ export function useOllama() {
     generatedContent.value = ''
 
     try {
+      const config = getProviderConfig()
       const result = await api.agentResearch({
         prompt: query,
-        provider: provider.value,
-        model: provider.value === AI_PROVIDERS.OPENAI ? openaiModel.value : ollamaModel.value,
-        endpoint: provider.value === AI_PROVIDERS.OPENAI ? openaiEndpoint.value : ollamaEndpoint.value,
-        apiKey: provider.value === AI_PROVIDERS.OPENAI ? openaiApiKey.value : undefined,
-        contextSize: provider.value === AI_PROVIDERS.OLLAMA ? ollamaContextSize.value : undefined,
+        ...config,
       })
 
       generatedContent.value = result

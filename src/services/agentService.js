@@ -64,20 +64,6 @@ const TOOLS = [
 ]
 
 /**
- * Convert tools to Ollama format (slightly different from OpenAI)
- */
-function toOllamaTools(tools) {
-  return tools.map(tool => ({
-    type: 'function',
-    function: {
-      name: tool.function.name,
-      description: tool.function.description,
-      parameters: tool.function.parameters,
-    },
-  }))
-}
-
-/**
  * Execute a tool call
  * @param {string} name - Tool name
  * @param {Object} args - Tool arguments
@@ -94,7 +80,7 @@ async function executeTool(name, args) {
         return JSON.stringify(results, null, 2)
       }
       case 'wikipedia_get_content': {
-        const content = await wikipediaService.getExtract(args.title, 10)
+        const content = await wikipediaService.getExtract(args.title)
         return `Title: ${content.title}\n\n${content.content}`
       }
       default:
@@ -138,7 +124,7 @@ export async function research(options) {
     { role: 'user', content: prompt },
   ]
 
-  const tools = provider === 'ollama' ? toOllamaTools(TOOLS) : TOOLS
+  const tools = TOOLS
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     let response

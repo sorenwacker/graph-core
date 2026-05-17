@@ -3,6 +3,8 @@ const path = require('path')
 const https = require('https')
 const http = require('http')
 const Database = require('./database')
+const wikipedia = require('./wikipedia')
+const { AGENT_TOOLS, RESEARCH_SYSTEM_PROMPT, MAX_AGENT_ITERATIONS, isGarbageResponse } = require('./agentConfig')
 const {
   // Database - Node CRUD
   DB_GET_NODES,
@@ -907,53 +909,18 @@ ipcMain.handle(OPENAI_LIST_MODELS, async (event, endpoint, apiKey, skipSslVerifi
 // AGENT RESEARCH (Tool Calling)
 // =========================================
 
-const WIKIPEDIA_ACTION_API = 'https://en.wikipedia.org/w/api.php'
-const WIKIPEDIA_REST_API = 'https://en.wikipedia.org/api/rest_v1'
-
-async function wikipediaSearch(query, limit = 3) {
-  const params = new URLSearchParams({
-    action: 'query',
-    list: 'search',
-    srsearch: query,
-    format: 'json',
-    srlimit: String(limit),
-  })
-  const url = `${WIKIPEDIA_ACTION_API}?${params}`
-  const response = await httpRequest(url, {
-    headers: { 'User-Agent': 'graph-core/1.0' },
-  })
-  const results = response.query?.search || []
-  return results.map(item => ({
-    title: item.title,
-    description: item.snippet?.replace(/<[^>]+>/g, '') || '',
-    pageid: item.pageid,
-  }))
-}
-
-async function wikipediaGetContent(title) {
-  const url = `${WIKIPEDIA_REST_API}/page/summary/${encodeURIComponent(title)}`
-  const response = await httpRequest(url, {
-    headers: { 'User-Agent': 'graph-core/1.0' },
-  })
-  let content = response.extract || ''
-  if (response.description && !content.toLowerCase().includes(response.description.toLowerCase())) {
-    content = `${response.description}\n\n${content}`
-  }
-  return { title: response.title, content }
-}
-
 async function executeAgentTool(name, args) {
   try {
     switch (name) {
       case 'wikipedia_search': {
-        const results = await wikipediaSearch(args.query, 3)
+        const results = await wikipedia.search(httpRequest, args.query, 3)
         if (results.length === 0) {
           return 'No Wikipedia articles found for this query.'
         }
         return JSON.stringify(results, null, 2)
       }
       case 'wikipedia_get_content': {
-        const content = await wikipediaGetContent(args.title)
+        const content = await wikipedia.getContent(httpRequest, args.title)
         return `Title: ${content.title}\n\n${content.content}`
       }
       default:
@@ -964,73 +931,12 @@ async function executeAgentTool(name, args) {
   }
 }
 
-const AGENT_TOOLS = [
-  {
-    type: 'function',
-    function: {
-      name: 'wikipedia_search',
-      description:
-        'Search Wikipedia for articles matching a query. Returns titles and descriptions of matching articles.',
-      parameters: {
-        type: 'object',
-        properties: {
-          query: { type: 'string', description: 'The search query to find Wikipedia articles' },
-        },
-        required: ['query'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'wikipedia_get_content',
-      description:
-        'Get the content of a Wikipedia article by its exact title. Use this after searching to read article details.',
-      parameters: {
-        type: 'object',
-        properties: {
-          title: { type: 'string', description: 'The exact title of the Wikipedia article to retrieve' },
-        },
-        required: ['title'],
-      },
-    },
-  },
-]
-
-const RESEARCH_SYSTEM_PROMPT = `You are a research assistant with access to Wikipedia.
-
-When asked about a topic:
-1. Use wikipedia_search to find relevant articles
-2. Use wikipedia_get_content to read the most relevant article
-3. Write a clear, informative summary based on the information
-
-Always cite Wikipedia as your source. Be concise but thorough.
-If you cannot find information, say so clearly.
-
-Important: After gathering information, provide a final written response without calling any more tools.`
-
-/**
- * Check if response looks like malformed tool output (model doesn't support tools)
- */
-function isGarbageResponse(content) {
-  if (!content) return false
-  // Detect common patterns from models that don't support tool calling
-  return (
-    content.includes('<|') ||
-    content.includes('|>') ||
-    content.includes('<|channel|>') ||
-    content.includes('<|constrain|>') ||
-    content.includes('```json\n{"') ||
-    (content.startsWith('{') && content.includes('"query"'))
-  )
-}
-
 /**
  * Fallback research using direct Wikipedia fetch + summarization
  */
 async function fallbackResearch(query, provider, model, endpoint, apiKey, contextSize) {
   // Search Wikipedia directly
-  const searchResults = await wikipediaSearch(query, 3)
+  const searchResults = await wikipedia.search(httpRequest, query, 3)
 
   if (searchResults.length === 0) {
     return `No Wikipedia articles found for "${query}".`
@@ -1040,7 +946,7 @@ async function fallbackResearch(query, provider, model, endpoint, apiKey, contex
   const topResult = searchResults[0]
   let content
   try {
-    content = await wikipediaGetContent(topResult.title)
+    content = await wikipedia.getContent(httpRequest, topResult.title)
   } catch (err) {
     return `Found article "${topResult.title}" but could not retrieve content: ${err.message}`
   }
@@ -1090,16 +996,15 @@ Write a concise summary (2-4 paragraphs) that answers the user's question. Cite 
   }
 }
 
-ipcMain.handle(AGENT_RESEARCH, async (event, options) => {
+ipcMain.handle(AGENT_RESEARCH, async (_event, options) => {
   const { prompt, provider, model, endpoint, apiKey, contextSize } = options
-  const MAX_ITERATIONS = 5
 
   const messages = [
     { role: 'system', content: RESEARCH_SYSTEM_PROMPT },
     { role: 'user', content: prompt },
   ]
 
-  for (let i = 0; i < MAX_ITERATIONS; i++) {
+  for (let i = 0; i < MAX_AGENT_ITERATIONS; i++) {
     let response
 
     try {
