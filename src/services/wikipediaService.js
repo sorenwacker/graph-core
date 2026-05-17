@@ -73,10 +73,9 @@ export async function getSummary(title) {
 /**
  * Get extended article content from Wikipedia.
  * @param {string} title - Article title
- * @param {number} _sentences - Number of sentences to extract (approximate, currently unused)
  * @returns {Promise<{title: string, content: string}>}
  */
-export async function getExtract(title, _sentences = 10) {
+export async function getExtract(title) {
   // Use the summary endpoint with extract_chars for longer content
   const url = `${WIKIPEDIA_REST_API}/page/summary/${encodeURIComponent(title)}`
 
