@@ -1,0 +1,41 @@
+{
+  "maxIterations": 5,
+  "systemPrompt": "You are a research assistant with access to Wikipedia.\n\nWhen asked about a topic:\n1. Use wikipedia_search to find relevant articles\n2. Use wikipedia_get_content to read the most relevant article\n3. Write a clear, informative summary based on the information\n\nAlways cite Wikipedia as your source. Be concise but thorough.\nIf you cannot find information, say so clearly.\n\nImportant: After gathering information, provide a final written response without calling any more tools.",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "wikipedia_search",
+        "description": "Search Wikipedia for articles matching a query. Returns titles and descriptions of matching articles.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query to find Wikipedia articles"
+            }
+          },
+          "required": ["query"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "wikipedia_get_content",
+        "description": "Get the content of a Wikipedia article by its exact title. Use this after searching to read article details.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "description": "The exact title of the Wikipedia article to retrieve"
+            }
+          },
+          "required": ["title"]
+        }
+      }
+    }
+  ],
+  "garbagePatterns": ["<|", "|>", "<|channel|>", "<|constrain|>"]
+}
