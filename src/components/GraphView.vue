@@ -8,76 +8,17 @@ import { useErrorHandler } from '../composables/useErrorHandler.js'
 import { useGraphModals } from '../composables/useGraphModals.js'
 import { useGraphLayout } from '../composables/useGraphLayout.js'
 import { useGraphEvents } from '../composables/useGraphEvents.js'
+import { useGraphInit } from '../composables/useGraphInit.js'
+import { useGraphUpdate } from '../composables/useGraphUpdate.js'
+import { useGraphWheel } from '../composables/useGraphWheel.js'
 import { updateHtmlLabelSelectionFromIds, centerOnNode, isNodeVisible } from '../composables/useGraphSelection.js'
-import { buildElements, addLinkEdges, fetchLinkedNodes } from '../composables/useGraphElements.js'
-import {
-  getPositionsKey,
-  loadNodePositions,
-  saveNodePositions,
-  findSmartPosition,
-} from '../composables/useNodePositions.js'
-import { typeConfig } from '../utils/constants.js'
-import { getContrastColor } from '../utils/formatting.js'
-import {
-  DEBOUNCE_DELAY_MS,
-  LAYOUT_SETTLE_DELAY_MS,
-  LAYOUT_SAVE_DELAY_MS,
-  LAYOUT_RELAYOUT_DELAY_MS,
-  NODE_POSITION_SETTLE_DELAY_MS,
-} from '../utils/settingsConstants'
-import cytoscape from 'cytoscape'
-import coseBilkent from 'cytoscape-cose-bilkent'
-import cola from 'cytoscape-cola'
-import dagre from 'cytoscape-dagre'
-import d3Force from 'cytoscape-d3-force'
-import nodeHtmlLabel from 'cytoscape-node-html-label'
-import { marked } from 'marked'
+import { getPositionsKey, loadNodePositions, saveNodePositions } from '../composables/useNodePositions.js'
+import { DEBOUNCE_DELAY_MS, LAYOUT_RELAYOUT_DELAY_MS } from '../utils/settingsConstants'
 import AddNodeModal from './AddNodeModal.vue'
 import GraphControls from './GraphControls.vue'
 import GraphEditModal from './GraphEditModal.vue'
 import GraphPromptModal from './GraphPromptModal.vue'
 import HotkeyHelpModal from './HotkeyHelpModal.vue'
-
-// Register cytoscape extensions once
-if (!window.__cytoscapeExtensionsRegistered) {
-  cytoscape.use(coseBilkent)
-  cytoscape.use(cola)
-  cytoscape.use(dagre)
-  cytoscape.use(d3Force)
-  nodeHtmlLabel(cytoscape)
-  window.__cytoscapeExtensionsRegistered = true
-}
-
-// Configure marked for notes
-marked.use({
-  breaks: true,
-  gfm: true,
-  renderer: {
-    link({ href, title, text }) {
-      return `<a href="${href}"${title ? ` title="${title}"` : ''} target="_blank" rel="noopener">${text}</a>`
-    },
-  },
-})
-
-function renderMarkdownHtml(text, maxLen = 500) {
-  if (!text) return ''
-  // Get first paragraph (split by double newline or single newline)
-  const paragraphs = text.split(/\n\n|\n/)
-  let firstPara = paragraphs[0].trim()
-
-  // Also apply character limit
-  if (firstPara.length > maxLen) {
-    firstPara = firstPara.substring(0, maxLen)
-    // Don't cut in middle of a markdown link
-    const lastOpen = firstPara.lastIndexOf('['),
-      lastClose = firstPara.lastIndexOf(')')
-    if (lastOpen > lastClose) {
-      firstPara = firstPara.substring(0, lastOpen).trimEnd()
-    }
-  }
-
-  return marked.parse(firstPara)
-}
 
 const props = defineProps({
   nodes: { type: Array, default: () => [] },
@@ -314,6 +255,41 @@ const events = useGraphEvents({
   onToggleCollapse: toggleNodeCollapse,
 })
 
+// Graph init composable
+const graphInit = useGraphInit({
+  getContainer: () => container.value,
+  getLayoutOptions,
+  getProps: () => props,
+  savePositions: _savePos,
+  relaxLocked,
+  fitLocked,
+  layout,
+})
+
+// Graph update composable
+const graphUpdate = useGraphUpdate({
+  getCy: () => cy,
+  getProps: () => props,
+  getSettings: () => ({
+    maxDepth: maxDepth.value,
+    visibleTypes: visibleTypes.value,
+    showRootNode: showRootNode.value,
+    showExternalLinks: showExternalLinks.value,
+  }),
+  loadPositions: _loadPos,
+  savePositions: _savePos,
+  getLayoutOptions,
+  handleError,
+  layout,
+})
+
+// Wheel handler composable
+const wheel = useGraphWheel({
+  getContainer: () => container.value,
+  getCy: () => cy,
+  trackpadZoomMode,
+})
+
 const debounce =
   (fn, d) =>
   (...a) => {
@@ -542,241 +518,6 @@ function handleGlobalKeydown(e) {
 }
 
 /**
- * Create the cytoscape instance with configuration.
- */
-function createCytoscapeInstance(elements, hasPos) {
-  return cytoscape({
-    container: container.value,
-    elements,
-    boxSelectionEnabled: true,
-    selectionType: 'additive',
-    userZoomingEnabled: false, // Disable default wheel zoom - we handle it custom
-    style: [
-      {
-        selector: 'node',
-        style: {
-          'background-color': 'transparent',
-          'background-opacity': 0,
-          'border-width': 0,
-          label: '',
-          width: 180,
-          height: 80,
-          shape: 'rectangle',
-          'overlay-opacity': 0,
-        },
-      },
-      { selector: 'node[?isParent]', style: { width: 200, height: 100 } },
-      { selector: 'node[?isPerson]', style: { width: 120, height: 40, shape: 'round-rectangle' } },
-      { selector: 'node:selected', style: { 'border-width': 0 } },
-      {
-        selector: 'edge',
-        style: {
-          width: 2,
-          'line-color': '#999',
-          'target-arrow-color': '#999',
-          'target-arrow-shape': 'triangle',
-          'curve-style': 'bezier',
-          'arrow-scale': 1.2,
-        },
-      },
-      { selector: 'edge:selected', style: { width: 3, 'line-color': '#f39c12', 'target-arrow-color': '#f39c12' } },
-      {
-        selector: 'edge[isLink]',
-        style: {
-          'line-style': 'dashed',
-          'line-color': '#9b59b6',
-          'target-arrow-color': '#9b59b6',
-          'target-arrow-shape': 'none',
-          opacity: 0.7,
-        },
-      },
-    ],
-    layout: hasPos ? { name: 'preset' } : getLayoutOptions(),
-  })
-}
-
-/**
- * Configure the node HTML label plugin for rendering custom node templates.
- */
-function setupHtmlLabels() {
-  cy.nodeHtmlLabel(
-    [
-      {
-        query: 'node',
-        halign: 'center',
-        valign: 'center',
-        halignBox: 'center',
-        valignBox: 'center',
-        tpl: d => {
-          const n = d.nodeData
-          if (!n) return ''
-          if (n.type === 'person') {
-            const c = n.color && n.color !== '#0f4c75' ? n.color : d.customBgTint || '#6b7280'
-            return `<div class="node-person" data-node-id="${n.id}" data-selected="${d.isSelected}" style="background-color:${c};color:${getContrastColor(c)}"><span class="person-name">${n.title || 'Untitled'}</span></div>`
-          }
-          const bc = d.borderColor || typeConfig.task.text,
-            bg = d.customBgTint
-              ? `background:linear-gradient(135deg,${d.customBgTint}99 0%,${d.customBgTint}44 50%,var(--bg-secondary) 100%),var(--bg-secondary);`
-              : ''
-          let notes = ''
-          if (d.showDetails && n.notes) {
-            notes =
-              n.notes_sensitive || props.hideSensitive
-                ? '<span style="opacity:0.5"></span>'
-                : renderMarkdownHtml(n.notes, props.notesPreviewLength)
-          }
-          const childBadge = d.childCount > 0 ? `<span class="child-count-badge">${d.childCount}</span>` : ''
-          const collapseBtn = d.hasChildren
-            ? `<button class="collapse-btn" data-collapse-node="${n.id}" title="${d.isCollapsed ? 'Expand children' : 'Collapse children'}">${d.isCollapsed ? '+' : '-'}</button>`
-            : ''
-          return `<div class="node-html ${n.completed ? 'completed' : ''} ${d.shouldGlow ? 'current-container' : ''} ${n.favorite ? 'favorite' : ''} ${d.isCollapsed ? 'collapsed-node' : ''}" data-node-id="${n.id}" data-selected="${d.isSelected}" style="border-color:${bc};--glow-color:${bc};${bg}">${collapseBtn}${childBadge}<div class="node-html-title">${n.title || 'Untitled'}${n.notes && !d.showDetails ? '<span class="notes-indicator"></span>' : ''}</div>${notes ? `<div class="node-html-notes">${notes}</div>` : ''}</div>`
-        },
-      },
-    ],
-    { enablePointerEvents: true }
-  )
-}
-
-/**
- * Run layout and save positions for initial graph setup.
- */
-function applyInitialLayout(hasPos) {
-  if (props.selectedIds?.size > 0) props.selectedIds.forEach(id => cy.$(`#${id}`).select())
-  else if (props.selectedId) cy.$(`#${props.selectedId}`).select()
-
-  if (!hasPos && cy.nodes().length > 0) {
-    setTimeout(() => {
-      cy.layout(getLayoutOptions()).run()
-      setTimeout(() => {
-        cy.fit(50)
-        _savePos()
-        isInitializing = false
-        if (relaxLocked.value) layout.startContinuousRelax()
-        if (fitLocked.value) layout.startContinuousFit()
-      }, LAYOUT_SETTLE_DELAY_MS)
-    }, NODE_POSITION_SETTLE_DELAY_MS)
-  } else {
-    isInitializing = false
-    if (relaxLocked.value) layout.startContinuousRelax()
-    if (fitLocked.value) layout.startContinuousFit()
-  }
-}
-
-/**
- * Build graph elements and optionally fetch external links.
- */
-async function buildElementsWithLinks(savedPos) {
-  const elements = buildElements({
-    nodeList: props.nodes,
-    parentNode: props.parent,
-    savedPositions: savedPos,
-    detailThreshold: props.detailThreshold,
-    maxDepth: maxDepth.value,
-    hideCompleted: props.hideCompleted,
-    hideSensitive: props.hideSensitive,
-    sortAlphabetically: props.sortAlphabetically,
-    visibleTypes: visibleTypes.value,
-    showRootNode: showRootNode.value,
-    selectedIds: props.selectedIds,
-    selectedId: props.selectedId,
-    ancestorColor: props.ancestorColor,
-    inheritColors: props.inheritColors,
-  })
-
-  if (showExternalLinks.value) {
-    try {
-      // Capture hierarchy node IDs before fetching external nodes
-      const hierarchyNodeIds = new Set(
-        elements.filter(e => !e.data.source && !e.data.isLinkedExternal).map(e => e.data.id)
-      )
-      const ids = elements.filter(e => !e.data.source).map(e => parseInt(e.data.id))
-      if (ids.length > 0) {
-        const links = await api.getAllLinks(ids)
-        await fetchLinkedNodes({
-          elements,
-          links,
-          savedPositions: savedPos,
-          hideCompleted: props.hideCompleted,
-          selectedIds: props.selectedIds,
-          selectedId: props.selectedId,
-          handleError,
-        })
-        // Pass hierarchyNodeIds to filter out links between external nodes
-        addLinkEdges(elements, links, hierarchyNodeIds)
-      }
-    } catch (e) {
-      handleError(e, { context: 'Loading links', silent: true })
-    }
-  }
-
-  return elements
-}
-
-// Trackpad zoom/pan state
-let wheelCleanup = null
-
-/**
- * Set up custom wheel handling for trackpad zoom modes.
- * Mode 'scroll': Two-finger vertical scroll zooms (like Google Maps)
- * Mode 'pinch': Only pinch zooms, scroll pans (scroll-friendly)
- */
-function setupWheelHandler() {
-  if (!container.value || !cy) return
-
-  // Clean up previous handler
-  if (wheelCleanup) {
-    wheelCleanup()
-    wheelCleanup = null
-  }
-
-  const el = container.value
-
-  function handleWheel(e) {
-    e.preventDefault()
-
-    const rect = el.getBoundingClientRect()
-    const mouseX = e.clientX - rect.left
-    const mouseY = e.clientY - rect.top
-
-    // Determine if this should zoom or pan based on mode
-    const isHorizontalPan = Math.abs(e.deltaX) > Math.abs(e.deltaY) * 0.3
-    const isPinch = e.ctrlKey // Browser synthesizes ctrlKey for pinch gestures
-
-    let shouldZoom
-    if (trackpadZoomMode.value === 'pinch') {
-      // Pinch mode: only pinch gesture zooms
-      shouldZoom = isPinch
-    } else {
-      // Scroll mode (default): vertical scroll zooms, horizontal pans
-      shouldZoom = !isHorizontalPan || isPinch
-    }
-
-    if (shouldZoom) {
-      // Zoom centered on mouse position
-      const intensity = isPinch ? 0.008 : 0.003
-      const multiplier = Math.exp(-e.deltaY * intensity)
-      const currentZoom = cy.zoom()
-      const newZoom = Math.min(Math.max(currentZoom * multiplier, 0.1), 3)
-
-      // Convert mouse position to model coordinates
-      const pan = cy.pan()
-      const modelX = (mouseX - pan.x) / currentZoom
-      const modelY = (mouseY - pan.y) / currentZoom
-
-      // Apply zoom centered on mouse
-      cy.zoom({ level: newZoom, renderedPosition: { x: mouseX, y: mouseY } })
-    } else {
-      // Pan
-      const pan = cy.pan()
-      cy.pan({ x: pan.x - e.deltaX, y: pan.y - e.deltaY })
-    }
-  }
-
-  el.addEventListener('wheel', handleWheel, { passive: false })
-  wheelCleanup = () => el.removeEventListener('wheel', handleWheel)
-}
-
-/**
  * Initialize the graph with nodes and edges.
  */
 async function initGraph() {
@@ -784,156 +525,25 @@ async function initGraph() {
   isInitializing = true
 
   const savedPos = _loadPos()
-  const elements = await buildElementsWithLinks(savedPos)
+  const elements = await graphUpdate.buildElementsWithLinks(savedPos)
   const hasPos = Object.keys(savedPos).length > 0
 
-  cy = createCytoscapeInstance(elements, hasPos)
+  cy = graphInit.createCytoscapeInstance(elements, hasPos)
   cy.nodes().grabify()
-  setupHtmlLabels()
-  setupWheelHandler()
+  graphInit.setupHtmlLabels(cy)
+  wheel.setupWheelHandler()
   events.setupEvents()
-  applyInitialLayout(hasPos)
+  graphInit.applyInitialLayout(cy, hasPos, () => {
+    isInitializing = false
+  })
   setTimeout(() => attachCollapseHandlers(), 300)
 }
 
 /**
- * Save current zoom, pan, and node positions from the graph.
+ * Update the graph with current data.
  */
-function collectCurrentState() {
-  const savedZoom = cy.zoom()
-  const savedPan = { ...cy.pan() }
-  const savedPos = _loadPos()
-  const existingIds = new Set()
-  cy.nodes().forEach(n => {
-    existingIds.add(n.id())
-    const p = n.position()
-    if (p.x !== 0 || p.y !== 0) savedPos[n.id()] = { x: p.x, y: p.y }
-  })
-  return { savedZoom, savedPan, savedPos, existingIds }
-}
-
-/**
- * Determine what changed and apply updates. Returns diff info or null if only data updates needed.
- */
-function diffAndApply(elements, existingIds, savedPos) {
-  const hasPos = Object.keys(savedPos).length > 0
-  const elemPos = {}
-  elements.forEach(e => {
-    if (!e.data.source && e.position) elemPos[e.data.id] = e.position
-  })
-
-  let hasNew = false
-  let hasEdge = false
-  const newIds = new Set()
-  const newEdges = new Set()
-  const newNodeIds = []
-  const extNeedRelax = []
-  const existEdges = new Set()
-  cy.edges().forEach(e => existEdges.add(`${e.source().id()}-${e.target().id()}`))
-
-  elements.forEach(e => {
-    if (e.data.source) {
-      const k = `${e.data.source}-${e.data.target}`
-      newEdges.add(k)
-      if (!existEdges.has(k)) hasEdge = true
-    } else {
-      newIds.add(e.data.id)
-      const isNew = !existingIds.has(e.data.id)
-      const isExt = e.data.isLinkedExternal
-      if (isNew && !isExt) {
-        hasNew = true
-        if (!e.position) newNodeIds.push(e.data.id)
-      }
-      if (isExt && !e.position) extNeedRelax.push(e.data.id)
-      if (!e.position) {
-        const nd = e.data.nodeData
-        e.position = findSmartPosition(
-          e.data.id,
-          nd?.parent_id,
-          { ...savedPos, ...elemPos },
-          nd?.children?.map(c => c.id) || [],
-          cy
-        )
-      }
-    }
-  })
-
-  if (!hasEdge)
-    for (const x of existEdges)
-      if (!newEdges.has(x)) {
-        hasEdge = true
-        break
-      }
-  let hasRemoved = false
-  for (const x of existingIds)
-    if (!newIds.has(x)) {
-      hasRemoved = true
-      break
-    }
-
-  // If only data changed (no structural changes), update in place
-  if (!hasNew && !hasRemoved && !hasEdge && hasPos) {
-    const map = new Map()
-    elements.forEach(e => {
-      if (!e.data.source) map.set(e.data.id, e)
-    })
-    cy.batch(() => {
-      cy.nodes().forEach(n => {
-        const el = map.get(n.id())
-        if (el) n.data(el.data)
-      })
-    })
-    _savePos()
-    return null // Signal that we're done
-  }
-
-  return { hasPos, newNodeIds, extNeedRelax }
-}
-
-/**
- * Position and relax new nodes after graph update.
- */
-function handleNewNodes(diffResult, savedZoom, savedPan) {
-  const { hasPos, newNodeIds, extNeedRelax } = diffResult
-  const allNeed = [...newNodeIds, ...extNeedRelax]
-
-  if (!hasPos) {
-    cy.layout(getLayoutOptions()).run()
-    setTimeout(_savePos, LAYOUT_SAVE_DELAY_MS)
-  } else if (allNeed.length > 0) {
-    setTimeout(() => layout.autoRelaxNewNodes(allNeed), NODE_POSITION_SETTLE_DELAY_MS)
-  } else {
-    requestAnimationFrame(() => {
-      cy.viewport({ zoom: savedZoom, pan: savedPan })
-      _savePos()
-    })
-  }
-}
-
 async function updateGraph() {
-  if (isInitializing) return
-  if (!cy) {
-    await initGraph()
-    return
-  }
-
-  const { savedZoom, savedPan, savedPos, existingIds } = collectCurrentState()
-  const elements = await buildElementsWithLinks(savedPos)
-  const diffResult = diffAndApply(elements, existingIds, savedPos)
-
-  // If diffAndApply returned null, only data updates were needed
-  if (diffResult === null) return
-
-  // Apply structural changes
-  cy.batch(() => {
-    cy.elements().remove()
-    cy.add(elements)
-    cy.nodes().grabify()
-  })
-  cy.viewport({ zoom: savedZoom, pan: savedPan })
-
-  handleNewNodes(diffResult, savedZoom, savedPan)
-  setTimeout(attachCollapseHandlers, 100)
+  await graphUpdate.updateGraph(cy, isInitializing, initGraph, attachCollapseHandlers)
 }
 
 const setLayout = m => {
@@ -1053,10 +663,7 @@ onUnmounted(() => {
   window.removeEventListener('graph-center-node', handleCenterEvent)
   window.removeEventListener('keydown', handleGlobalKeydown)
   if (updateDebounceTimer) clearTimeout(updateDebounceTimer)
-  if (wheelCleanup) {
-    wheelCleanup()
-    wheelCleanup = null
-  }
+  wheel.cleanup()
   layout.cleanup()
   if (cy) {
     cy.destroy()

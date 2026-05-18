@@ -76,7 +76,7 @@ export async function getSummary(title) {
  * @returns {Promise<{title: string, content: string}>}
  */
 export async function getExtract(title) {
-  // Use the summary endpoint with extract_chars for longer content
+  // Use the summary endpoint which provides a good amount of intro text
   const url = `${WIKIPEDIA_REST_API}/page/summary/${encodeURIComponent(title)}`
 
   const response = await fetch(url, {
