@@ -27,30 +27,28 @@
   box-sizing: border-box;
 }
 
-/* Fullscreen / wide mode: Tasks and Metadata side by side */
+/* Fullscreen / wide mode: All sections side by side */
 .detail-panel.fullscreen .bottom-sections {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 8px;
+  gap: 8px 12px;
+  align-items: flex-start;
 }
 
-/* Table always full width */
-.detail-panel.fullscreen .table-section {
-  flex: 1 1 100%;
+/* All sections flex equally when expanded */
+.detail-panel.fullscreen .table-section:not(.collapsed),
+.detail-panel.fullscreen .children-section:not(.collapsed),
+.detail-panel.fullscreen .meta-section:not(.collapsed) {
+  flex: 1 1 30%;
+  min-width: 280px;
 }
 
 .detail-panel.fullscreen .table-section:not(.collapsed) {
   min-height: 300px;
 }
 
-/* Tasks and Metadata side by side when expanded */
-.detail-panel.fullscreen .children-section:not(.collapsed),
-.detail-panel.fullscreen .meta-section:not(.collapsed) {
-  flex: 1 1 45%;
-  min-width: 300px;
-}
-
-/* Collapsed sections stay compact */
+/* Collapsed sections stay compact and inline */
+.detail-panel.fullscreen .table-section.collapsed,
 .detail-panel.fullscreen .children-section.collapsed,
 .detail-panel.fullscreen .meta-section.collapsed {
   flex: 0 0 auto;

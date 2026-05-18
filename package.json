@@ -1,7 +1,7 @@
 {
   "name": "graph-core",
   "private": true,
-  "version": "1.9.0",
+  "version": "1.10.0-rc.1",
   "description": "Graph-based task and note management",
   "author": {
     "name": "Your Name",

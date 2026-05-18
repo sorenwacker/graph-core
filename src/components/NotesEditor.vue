@@ -1,9 +1,9 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { EditorState, EditorSelection } from '@codemirror/state'
-import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from '@codemirror/view'
+import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection, Prec } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
-import { markdown } from '@codemirror/lang-markdown'
+import { markdown, markdownKeymap } from '@codemirror/lang-markdown'
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
 
 // Custom keymap for multi-cursor (Cmd+Alt+Up/Down)
@@ -126,6 +126,7 @@ function setupEditor() {
         highlightSelectionMatches(),
         history(),
         markdown(),
+        Prec.highest(keymap.of(markdownKeymap)),
         keymap.of([...multiCursorKeymap, indentWithTab, ...defaultKeymap, ...historyKeymap, ...searchKeymap]),
         theme,
         EditorView.lineWrapping,

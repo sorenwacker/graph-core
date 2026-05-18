@@ -4,7 +4,6 @@
   padding: 12px;
   height: 100%;
   overflow-y: auto;
-  align-content: start;
 }
 
 /* Base card layout - flex column to allow children grid to expand */

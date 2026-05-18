@@ -176,7 +176,7 @@ defineExpose({
     :inline-notes-text="inlineNotesText"
     :drag-over-node-id="dropTarget?.id"
     :drag-position="dropPosition"
-    @select="emit('select', $event)"
+    @select="(node, e) => emit('select', node, e)"
     @select-multiple="emit('select-multiple', $event)"
     @enter="emit('enter', $event)"
     @toggle-complete="emit('toggle-complete', $event)"

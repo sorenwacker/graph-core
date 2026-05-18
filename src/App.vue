@@ -226,6 +226,7 @@ const {
   showTooltip,
   hideTooltip,
   forceHide: forceHideTooltip,
+  toggleLock: toggleTooltipLock,
 } = useNodeTooltip({
   onToggleComplete: async nodeId => {
     const node = flatChildren.value.find(n => n.id === nodeId)
@@ -292,9 +293,18 @@ const nodeOps = useNodeOperations({
 })
 
 // Tree expand
-const { expandedIds, toggleExpand, expandAll, collapseAll, loadExpandedState } = useTreeExpand({
+const { expandedIds, toggleExpand, expandAll, collapseAll, expandAncestors, loadExpandedState } = useTreeExpand({
   workspace: currentWorkspace,
   flatChildren,
+})
+
+// Auto-expand tree to show current container
+watch(currentContainerId, newId => {
+  if (newId) {
+    expandAncestors(newId)
+    expandedIds.value.add(newId) // Also expand the current node to show its children
+    expandedIds.value = new Set(expandedIds.value) // Trigger reactivity
+  }
 })
 
 // Selection
@@ -624,6 +634,15 @@ const showCardTooltip = (e, node) => {
   if (!editingCardId.value && !inlineNotesId.value) showTooltip(e, node)
 }
 
+// Handle select with optional tooltip lock (for cards view)
+const handleSelectWithTooltip = (node, event) => {
+  // If event is passed (from cards view), toggle tooltip lock
+  if (node && event && typeof event.preventDefault === 'function') {
+    toggleTooltipLock(node, event)
+  }
+  selectNode(node)
+}
+
 // Add node modal
 const showAddNodeModal = (parentId = null) => {
   showDetail.value = false
@@ -867,7 +886,7 @@ useAppLifecycle({
               :container-title="currentContainer?.title"
               :trashed-items="trashedItems"
               @hover="hoverSelectNode"
-              @select="selectNode"
+              @select="handleSelectWithTooltip"
               @select-multiple="handleMultiSelect"
               @enter="enterContainer"
               @toggle-complete="toggleComplete"
