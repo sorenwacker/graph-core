@@ -15,8 +15,10 @@ export function useNodeTooltip(options = {}) {
   const { onOpenDetail, onToggleComplete, getHideSensitive = () => false, shouldShowTooltip = () => true } = options
 
   let activeTooltip = null
+  let activeNodeId = null
   let tooltipShowTimeout = null
   let tooltipHideTimeout = null
+  let locked = false
   const TOOLTIP_DELAY = 500
   const HIDE_DELAY = 200 // Allow time to move mouse to tooltip
 
@@ -52,6 +54,8 @@ export function useNodeTooltip(options = {}) {
       if (!shouldShowTooltip(node)) {
         return
       }
+
+      activeNodeId = node.id
 
       const content = buildTooltipHTML(node, {
         showCheckbox: node.type === 'task',
@@ -110,6 +114,11 @@ export function useNodeTooltip(options = {}) {
   }
 
   function hideTooltip() {
+    // Don't hide if locked
+    if (locked) {
+      return
+    }
+
     // Clear any pending show
     if (tooltipShowTimeout) {
       clearTimeout(tooltipShowTimeout)
@@ -118,7 +127,7 @@ export function useNodeTooltip(options = {}) {
     // Delayed hide to allow mouse to enter tooltip
     if (activeTooltip && !activeTooltip.state.isDestroyed) {
       tooltipHideTimeout = setTimeout(() => {
-        if (activeTooltip && !activeTooltip.state.isDestroyed) {
+        if (activeTooltip && !activeTooltip.state.isDestroyed && !locked) {
           activeTooltip.hide()
         }
       }, HIDE_DELAY)
@@ -126,7 +135,9 @@ export function useNodeTooltip(options = {}) {
   }
 
   function forceHide() {
-    // Immediate hide without delay
+    // Immediate hide without delay, even if locked
+    locked = false
+    activeNodeId = null
     if (tooltipShowTimeout) {
       clearTimeout(tooltipShowTimeout)
       tooltipShowTimeout = null
@@ -136,12 +147,45 @@ export function useNodeTooltip(options = {}) {
       tooltipHideTimeout = null
     }
     if (activeTooltip && !activeTooltip.state.isDestroyed) {
+      activeTooltip.popper?.classList?.remove('tooltip-locked')
       activeTooltip.destroy()
       activeTooltip = null
     }
   }
 
+  function lockTooltip() {
+    if (activeTooltip && !activeTooltip.state.isDestroyed) {
+      locked = true
+      activeTooltip.popper?.classList?.add('tooltip-locked')
+    }
+  }
+
+  function unlockTooltip() {
+    locked = false
+    if (activeTooltip && !activeTooltip.state.isDestroyed) {
+      activeTooltip.popper?.classList?.remove('tooltip-locked')
+      activeTooltip.hide()
+    }
+    activeNodeId = null
+  }
+
+  function toggleLock(node) {
+    if (locked && activeNodeId === node?.id) {
+      // Clicking same node again - unlock
+      unlockTooltip()
+    } else if (activeTooltip && !activeTooltip.state.isDestroyed && activeNodeId === node?.id) {
+      // Tooltip visible for this node - lock it
+      lockTooltip()
+    }
+  }
+
+  function isLocked() {
+    return locked
+  }
+
   function cleanup() {
+    locked = false
+    activeNodeId = null
     if (tooltipShowTimeout) {
       clearTimeout(tooltipShowTimeout)
       tooltipShowTimeout = null
@@ -163,6 +207,10 @@ export function useNodeTooltip(options = {}) {
     showTooltip,
     hideTooltip,
     forceHide,
+    lockTooltip,
+    unlockTooltip,
+    toggleLock,
+    isLocked,
     cleanup,
   }
 }
