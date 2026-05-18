@@ -29,7 +29,7 @@ const NODE_DIMENSIONS = {
   parent: { width: 200, height: 100 },
 }
 
-const GRID_GAP = 20 // Gap between nodes in grid
+const GRID_GAP = 8 // Gap between nodes in grid
 
 /**
  * Get node dimensions based on node data.
@@ -77,8 +77,10 @@ function runTetrisGridLayout(cy, options = {}) {
   })
 
   // Get container dimensions for calculating grid width
+  // Limit max width to prevent overly spread out layouts
   const container = cy.container()
-  const containerWidth = container ? container.clientWidth - padding * 2 : 1200
+  const rawWidth = container ? container.clientWidth - padding * 2 : 1200
+  const containerWidth = Math.min(rawWidth, 1400) // Cap at reasonable width
 
   // Shelf-based bin packing algorithm
   const shelves = [] // Each shelf: { y, height, items: [{ x, width, node }] }
@@ -220,7 +222,7 @@ export const LAYOUTS = {
     animate: true,
     animationDuration: 250,
     fit: true,
-    padding: 50,
+    padding: 20,
   },
 
   // Circle: simple circle layout
@@ -393,7 +395,7 @@ export function useGraphLayout(options = {}) {
 
     // Use custom Tetris grid layout for grid mode
     if (mode === 'grid') {
-      runTetrisGridLayout(cy, { padding: 50, animate: true, animationDuration: 250 })
+      runTetrisGridLayout(cy, { padding: 20, animate: true, animationDuration: 250 })
       setTimeout(() => {
         if (savePositions) savePositions()
       }, 300)
@@ -753,7 +755,7 @@ export function useGraphLayout(options = {}) {
   function runGridLayout() {
     const cy = getCy ? getCy() : null
     if (!cy) return
-    runTetrisGridLayout(cy, { padding: 50, animate: true, animationDuration: 250 })
+    runTetrisGridLayout(cy, { padding: 20, animate: true, animationDuration: 250 })
     setTimeout(() => {
       if (savePositions) savePositions()
     }, 300)

@@ -547,23 +547,10 @@ async function updateGraph() {
 }
 
 const setLayout = m => {
-  if (relaxLocked.value) {
-    relaxLocked.value = false
-    layout.stopContinuousRelax()
-  }
-  if (fitLocked.value) {
-    fitLocked.value = false
-    layout.stopContinuousFit()
-  }
-  layoutMode.value = m
-  reLayout()
+  layout.setLayout(m)
 }
 const reLayout = () => {
-  if (cy) {
-    _clearPos()
-    cy.layout(getLayoutOptions()).run()
-    setTimeout(_savePos, LAYOUT_RELAYOUT_DELAY_MS)
-  }
+  layout.reLayout()
 }
 
 watch(() => props.nodes, debouncedUpdateGraph, { deep: true })

@@ -269,6 +269,7 @@ a:hover {
 
 .sidebar-content {
   flex: 1;
+  min-height: 0; /* Required for flex children to scroll properly */
   overflow-y: auto;
   padding: var(--spacing-sm) 0;
   display: flex;
@@ -451,6 +452,11 @@ a:hover {
 
 /* Sidebar Tree */
 .sidebar-tree {
+  padding: var(--spacing-sm) 0;
+}
+
+/* Sidebar Tags */
+.sidebar-tags {
   padding: var(--spacing-sm) 0;
 }
 
