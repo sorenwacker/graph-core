@@ -401,14 +401,19 @@ export function useNodeActionsUI({
    * Update a node with full UI refresh.
    */
   async function updateNode(updatedNode: Partial<Node> & { id: number }, trackUndo: boolean = true): Promise<boolean> {
-    const success = await nodeOps.updateNode(updatedNode, { trackUndo })
-    if (success) {
-      await loadChildren(currentContainerId.value, { silent: true })
-      invalidateSidebarCache()
-      await loadSidebarTree()
-      await Promise.all([loadRecentItems(), loadFavorites(), loadTags()])
+    try {
+      const success = await nodeOps.updateNode(updatedNode, { trackUndo })
+      if (success) {
+        await loadChildren(currentContainerId.value, { silent: true })
+        invalidateSidebarCache()
+        await loadSidebarTree()
+        await Promise.all([loadRecentItems(), loadFavorites(), loadTags()])
+      }
+      return success
+    } catch (e) {
+      console.error('updateNode failed:', e)
+      throw e
     }
-    return success
   }
 
   /**

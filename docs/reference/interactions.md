@@ -22,7 +22,7 @@ Hovering over a node displays a preview tooltip with the node's title, metadata,
 | Hover | Show tooltip after 500ms delay |
 | Move away | Hide tooltip after 200ms delay |
 | Click node | Lock tooltip in place, enable scrolling |
-| Space | Open detail panel, dismiss tooltip |
+| Space | Dismiss locked tooltip |
 | Escape | Dismiss locked tooltip |
 | Click elsewhere | Dismiss locked tooltip |
 

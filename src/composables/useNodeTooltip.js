@@ -22,6 +22,75 @@ export function useNodeTooltip(options = {}) {
   const TOOLTIP_DELAY = 500
   const HIDE_DELAY = 200 // Allow time to move mouse to tooltip
 
+  /**
+   * Create and show tooltip immediately for a node.
+   * @param {Object} node - Node data
+   * @param {Event|null} event - Mouse event for positioning (optional)
+   */
+  function createTooltip(node, event = null) {
+    // Destroy existing tooltip
+    if (activeTooltip) {
+      activeTooltip.destroy()
+      activeTooltip = null
+    }
+
+    activeNodeId = node.id
+
+    const content = buildTooltipHTML(node, {
+      showCheckbox: node.type === 'task',
+      hideSensitive: getHideSensitive(),
+    })
+
+    // Use dynamic position reference based on cursor location
+    const fixedRef = getFixedTooltipReference(event)
+    const placement = getTooltipPlacement(event)
+
+    activeTooltip = tippy(fixedRef, {
+      ...tooltipOptions,
+      placement,
+      content,
+      showOnCreate: true,
+      hideOnClick: false,
+      onHidden: instance => {
+        instance.destroy()
+        if (activeTooltip === instance) {
+          activeTooltip = null
+        }
+      },
+      onShown: instance => {
+        // Hide tooltip when mouse enters it (unless locked)
+        instance.popper.addEventListener('mouseenter', () => {
+          if (!instance.state.isDestroyed && !locked) {
+            instance.hide()
+          }
+        })
+
+        // Attach checkbox listener
+        const checkbox = instance.popper.querySelector('input[type="checkbox"][data-node-id]')
+        if (checkbox && onToggleComplete) {
+          checkbox.addEventListener('change', evt => {
+            const nodeId = parseInt(evt.target.dataset.nodeId)
+            onToggleComplete(nodeId)
+            if (!instance.state.isDestroyed) {
+              instance.hide()
+            }
+          })
+        }
+        // Attach open detail button listener
+        const openBtn = instance.popper.querySelector('.tt-open-detail[data-node-id]')
+        if (openBtn && onOpenDetail) {
+          openBtn.addEventListener('click', evt => {
+            const nodeId = parseInt(evt.target.dataset.nodeId)
+            onOpenDetail(nodeId)
+            if (!instance.state.isDestroyed) {
+              instance.hide()
+            }
+          })
+        }
+      },
+    })
+  }
+
   function showTooltip(event, node) {
     // Check if tooltip should be shown for this node
     if (!shouldShowTooltip(node)) {
@@ -55,61 +124,7 @@ export function useNodeTooltip(options = {}) {
         return
       }
 
-      activeNodeId = node.id
-
-      const content = buildTooltipHTML(node, {
-        showCheckbox: node.type === 'task',
-        hideSensitive: getHideSensitive(),
-      })
-
-      // Use dynamic position reference based on cursor location
-      const fixedRef = getFixedTooltipReference(storedEvent)
-      const placement = getTooltipPlacement(storedEvent)
-
-      activeTooltip = tippy(fixedRef, {
-        ...tooltipOptions,
-        placement,
-        content,
-        showOnCreate: true,
-        hideOnClick: false,
-        onHidden: instance => {
-          instance.destroy()
-          if (activeTooltip === instance) {
-            activeTooltip = null
-          }
-        },
-        onShown: instance => {
-          // Hide tooltip when mouse enters it
-          instance.popper.addEventListener('mouseenter', () => {
-            if (!instance.state.isDestroyed) {
-              instance.hide()
-            }
-          })
-
-          // Attach checkbox listener
-          const checkbox = instance.popper.querySelector('input[type="checkbox"][data-node-id]')
-          if (checkbox && onToggleComplete) {
-            checkbox.addEventListener('change', evt => {
-              const nodeId = parseInt(evt.target.dataset.nodeId)
-              onToggleComplete(nodeId)
-              if (!instance.state.isDestroyed) {
-                instance.hide()
-              }
-            })
-          }
-          // Attach open detail button listener
-          const openBtn = instance.popper.querySelector('.tt-open-detail[data-node-id]')
-          if (openBtn && onOpenDetail) {
-            openBtn.addEventListener('click', evt => {
-              const nodeId = parseInt(evt.target.dataset.nodeId)
-              onOpenDetail(nodeId)
-              if (!instance.state.isDestroyed) {
-                instance.hide()
-              }
-            })
-          }
-        },
-      })
+      createTooltip(node, storedEvent)
     }, TOOLTIP_DELAY)
   }
 
@@ -169,13 +184,30 @@ export function useNodeTooltip(options = {}) {
     activeNodeId = null
   }
 
-  function toggleLock(node) {
-    if (locked && activeNodeId === node?.id) {
+  function toggleLock(node, event = null) {
+    if (!node) return
+
+    // Clear any pending show/hide
+    if (tooltipShowTimeout) {
+      clearTimeout(tooltipShowTimeout)
+      tooltipShowTimeout = null
+    }
+    if (tooltipHideTimeout) {
+      clearTimeout(tooltipHideTimeout)
+      tooltipHideTimeout = null
+    }
+
+    if (locked && activeNodeId === node.id) {
       // Clicking same node again - unlock
       unlockTooltip()
-    } else if (activeTooltip && !activeTooltip.state.isDestroyed && activeNodeId === node?.id) {
+    } else if (activeTooltip && !activeTooltip.state.isDestroyed && activeNodeId === node.id) {
       // Tooltip visible for this node - lock it
       lockTooltip()
+    } else if (shouldShowTooltip(node)) {
+      // No tooltip visible - create one immediately and lock it
+      createTooltip(node, event)
+      // Lock after a brief delay to ensure tooltip is shown
+      setTimeout(() => lockTooltip(), 10)
     }
   }
 

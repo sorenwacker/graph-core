@@ -135,10 +135,14 @@ function createNodeOperations(ctx) {
     createNode(data) {
       const presentFields = NODE_FIELDS.filter(f => data[f] !== undefined)
       const values = presentFields.map(f => {
-        if (f === 'tags' && Array.isArray(data[f])) {
-          return JSON.stringify(data[f])
+        const val = data[f]
+        // Arrays and objects need to be JSON stringified for SQLite
+        if (Array.isArray(val)) {
+          return JSON.stringify(val)
+        } else if (typeof val === 'object' && val !== null) {
+          return JSON.stringify(val)
         }
-        return data[f]
+        return val
       })
 
       let depth = 0
@@ -176,7 +180,11 @@ function createNodeOperations(ctx) {
       for (const field of NODE_FIELDS) {
         if (data[field] !== undefined) {
           updates.push(`${field} = ?`)
-          if (field === 'tags' && Array.isArray(data[field])) {
+          // Arrays need to be JSON stringified for SQLite
+          if (Array.isArray(data[field])) {
+            values.push(JSON.stringify(data[field]))
+          } else if (typeof data[field] === 'object' && data[field] !== null) {
+            // Objects also need to be stringified
             values.push(JSON.stringify(data[field]))
           } else {
             values.push(data[field])

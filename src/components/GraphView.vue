@@ -119,7 +119,8 @@ const showRootNode = ref(
   props.parent?.show_root_node != null ? Boolean(props.parent.show_root_node) : _showRootNode.value
 )
 const getWorkspaceShowExternalLinks = () => {
-  const ws = props.workspaces.find(w => w.id === props.workspace)
+  // Compare with == to handle string/number mismatch (props.workspace is a string, w.id is a number)
+  const ws = props.workspaces.find(w => w.id == props.workspace)
   return ws?.show_external_links != null ? Boolean(ws.show_external_links) : _showExternalLinks.value
 }
 const showExternalLinks = ref(
@@ -150,6 +151,7 @@ const {
   hideTooltip,
   forceHide: forceHideTooltip,
   toggleLock: toggleTooltipLock,
+  isLocked: isTooltipLocked,
 } = useNodeTooltip({
   onToggleComplete: id => {
     const node =
@@ -422,6 +424,19 @@ watch(
   }
 )
 
+// Update settings when workspaces load (workspace data may have settings overrides)
+watch(
+  () => props.workspaces,
+  () => {
+    if (!props.parent && props.workspaces.length > 0) {
+      const wsShowExtLinks = getWorkspaceShowExternalLinks()
+      if (showExternalLinks.value !== wsShowExtLinks) {
+        showExternalLinks.value = wsShowExtLinks
+      }
+    }
+  }
+)
+
 watch(showExternalLinks, () => {
   if (cy) {
     _savePos()
@@ -499,6 +514,16 @@ function handleGlobalKeydown(e) {
       ids.length === 1 ? emit('delete', ids[0]) : ids.length > 1 && emit('delete-multiple', ids)
     }
   }
+  // Space or Escape key dismisses locked tooltip
+  if (
+    (e.key === ' ' || e.key === 'Escape') &&
+    !inModal &&
+    !['INPUT', 'TEXTAREA'].includes(e.target.tagName) &&
+    isTooltipLocked()
+  ) {
+    e.preventDefault()
+    forceHideTooltip()
+  }
   if ((e.metaKey || e.ctrlKey) && !inModal && !['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
     if (e.key === 'ArrowUp') {
       e.preventDefault()
@@ -531,6 +556,10 @@ async function initGraph() {
   const hasPos = Object.keys(savedPos).length > 0
 
   cy = graphInit.createCytoscapeInstance(elements, hasPos)
+  if (!cy) {
+    isInitializing = false
+    return
+  }
   cy.nodes().grabify()
   graphInit.setupHtmlLabels(cy)
   wheel.setupWheelHandler()
