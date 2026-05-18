@@ -13,6 +13,26 @@ These interactions work across all views:
 | Right click | Open context menu |
 | Drag | Reorder nodes |
 
+## Node Tooltip
+
+Hovering over a node displays a preview tooltip with the node's title, metadata, and notes excerpt.
+
+| Action | Result |
+|--------|--------|
+| Hover | Show tooltip after 500ms delay |
+| Move away | Hide tooltip after 200ms delay |
+| Click node | Lock tooltip in place, enable scrolling |
+| Space | Open detail panel, dismiss tooltip |
+| Escape | Dismiss locked tooltip |
+| Click elsewhere | Dismiss locked tooltip |
+
+When a tooltip is locked:
+
+- The tooltip stays visible even when moving the mouse away
+- Notes content becomes scrollable for longer content
+- The tooltip has a subtle visual indicator (pin icon or border)
+- Clicking the same node again unlocks the tooltip
+
 ## View-Specific Interactions
 
 ### Tree View

@@ -2367,6 +2367,41 @@ tr.search-highlight td {
   border-color: rgba(148, 163, 184, 0.5);
 }
 
+/* Locked tooltip - stays visible on click, scrollable content */
+.tippy-box.tooltip-locked {
+  border: 2px solid rgba(0, 220, 255, 0.8);
+  box-shadow:
+    0 0 20px rgba(0, 200, 255, 0.4),
+    0 0 40px rgba(0, 150, 255, 0.2);
+}
+
+.tippy-box.tooltip-locked::before {
+  content: '\1F4CC';
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  font-size: 14px;
+  z-index: 10;
+}
+
+.tippy-box.tooltip-locked .tt-notes {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.tippy-box.tooltip-locked .tt-notes::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tippy-box.tooltip-locked .tt-notes::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.tippy-box.tooltip-locked .tt-notes::-webkit-scrollbar-thumb {
+  background: rgba(0, 200, 255, 0.4);
+  border-radius: 3px;
+}
+
 /* Shared Add Node Modal Styles */
 .add-node-modal-overlay {
   position: fixed;

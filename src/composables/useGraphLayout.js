@@ -22,31 +22,37 @@ const NODE_SPACING = {
 
 const GRAVITY_SCALE_DIVISOR = 10000
 
-// Node dimensions by type
-const NODE_DIMENSIONS = {
-  person: { width: 120, height: 40 },
-  default: { width: 180, height: 80 },
-  parent: { width: 200, height: 100 },
-}
-
-const GRID_GAP = 8 // Gap between nodes in grid
+const GRID_GAP = 15 // Gap between nodes in grid
 
 /**
- * Get node dimensions based on node data.
+ * Get actual node dimensions from cytoscape or DOM.
  * @param {Object} node - Cytoscape node
  * @returns {Object} { width, height }
  */
 function getNodeDimensions(node) {
-  const data = node.data()
-  const nodeData = data.nodeData || {}
+  // Try to get dimensions from the rendered HTML label
+  const nodeId = node.id()
+  const htmlLabel = document.querySelector(`[data-node-id="${nodeId}"]`)
 
-  if (nodeData.type === 'person') {
-    return NODE_DIMENSIONS.person
+  if (htmlLabel) {
+    const rect = htmlLabel.getBoundingClientRect()
+    if (rect.width > 0 && rect.height > 0) {
+      return { width: rect.width, height: rect.height }
+    }
   }
-  if (data.isParent || nodeData.children?.length > 0) {
-    return NODE_DIMENSIONS.parent
+
+  // Fall back to cytoscape node dimensions
+  const bb = node.boundingBox()
+  if (bb.w > 0 && bb.h > 0) {
+    return { width: bb.w, height: bb.h }
   }
-  return NODE_DIMENSIONS.default
+
+  // Final fallback to style-defined dimensions
+  const style = node.style()
+  return {
+    width: parseFloat(style.width) || 180,
+    height: parseFloat(style.height) || 80,
+  }
 }
 
 /**

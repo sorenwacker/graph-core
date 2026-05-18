@@ -86,6 +86,7 @@ export function useGraphEvents(options = {}) {
     showTooltip,
     hideTooltip,
     forceHideTooltip,
+    toggleTooltipLock,
     savePositions,
     onToggleCollapse,
   } = options
@@ -116,6 +117,8 @@ export function useGraphEvents(options = {}) {
       } else if (e.originalEvent.shiftKey) {
         emit('select-multiple', { node, add: true })
       } else {
+        // Toggle tooltip lock when clicking without modifiers
+        if (toggleTooltipLock) toggleTooltipLock(node)
         emit('select', node)
       }
     })
@@ -150,6 +153,7 @@ export function useGraphEvents(options = {}) {
         if (backgroundClickPending) {
           backgroundClickPending = false
           hideEditModal()
+          if (forceHideTooltip) forceHideTooltip() // Dismiss locked tooltip on background click
           emit('select', null)
         }
       }, 200)

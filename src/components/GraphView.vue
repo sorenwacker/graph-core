@@ -149,6 +149,7 @@ const {
   showTooltip,
   hideTooltip,
   forceHide: forceHideTooltip,
+  toggleLock: toggleTooltipLock,
 } = useNodeTooltip({
   onToggleComplete: id => {
     const node =
@@ -251,6 +252,7 @@ const events = useGraphEvents({
   showTooltip,
   hideTooltip,
   forceHideTooltip,
+  toggleTooltipLock,
   savePositions: _savePos,
   onToggleCollapse: toggleNodeCollapse,
 })
