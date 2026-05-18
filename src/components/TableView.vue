@@ -74,15 +74,21 @@ const { handleHover, handleLeave, handleClick, handleDoubleClick } = useNodeInte
   hideTooltip,
 })
 
-// Filter nodes recursively to hide completed items
+// Filter nodes recursively to hide completed items and tag nodes
 function filterNodes(nodeList) {
-  if (!props.hideCompleted) return nodeList
-  return nodeList
-    .filter(node => !node.completed && !node.inheritedCompleted)
-    .map(node => ({
-      ...node,
-      children: node.children ? filterNodes(node.children) : [],
-    }))
+  // Always filter out tag nodes
+  let filtered = nodeList.filter(node => node.type !== 'tag')
+
+  // Apply hideCompleted filter if enabled
+  if (props.hideCompleted) {
+    filtered = filtered.filter(node => !node.completed && !node.inheritedCompleted)
+  }
+
+  // Recursively filter children
+  return filtered.map(node => ({
+    ...node,
+    children: node.children ? filterNodes(node.children) : [],
+  }))
 }
 
 const filteredNodes = computed(() => filterNodes(props.nodes))

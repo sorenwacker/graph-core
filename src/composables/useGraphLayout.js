@@ -34,6 +34,9 @@ const MIN_NODE_HEIGHT = 40
 function syncNodeDimensions(cy) {
   if (!cy) return
 
+  // Get current zoom level to adjust for scaled dimensions
+  const zoom = cy.zoom()
+
   cy.batch(() => {
     cy.nodes().forEach(node => {
       const nodeId = node.id()
@@ -42,9 +45,9 @@ function syncNodeDimensions(cy) {
       if (htmlLabel) {
         const rect = htmlLabel.getBoundingClientRect()
         if (rect.width > 0 && rect.height > 0) {
-          // Add small padding to prevent tight fits
-          const width = Math.max(rect.width + 10, MIN_NODE_WIDTH)
-          const height = Math.max(rect.height + 10, MIN_NODE_HEIGHT)
+          // Divide by zoom to get unscaled dimensions, add padding
+          const width = Math.max(rect.width / zoom + 20, MIN_NODE_WIDTH)
+          const height = Math.max(rect.height / zoom + 20, MIN_NODE_HEIGHT)
           node.style({ width, height })
         }
       }
@@ -211,12 +214,14 @@ export const LAYOUTS = {
     animate: true,
     animationDuration: 300,
     rankDir: 'TB',
-    nodeSep: 80,
-    rankSep: 120,
-    edgeSep: 30,
+    nodeSep: 30, // Spacing between nodes (added to actual node size)
+    rankSep: 60, // Spacing between ranks
+    edgeSep: 20,
     ranker: 'network-simplex',
     fit: true,
     padding: 50,
+    // Use actual node dimensions from cytoscape
+    nodeDimensionsIncludeLabels: true,
   },
 
   // Horizontal: dagre left-to-right
@@ -227,10 +232,11 @@ export const LAYOUTS = {
     fit: true,
     padding: 50,
     rankDir: 'LR',
-    nodeSep: 60,
-    rankSep: 100,
+    nodeSep: 30,
+    rankSep: 60,
     edgeSep: 20,
     ranker: 'network-simplex',
+    nodeDimensionsIncludeLabels: true,
   },
 
   // Radial: cose-bilkent force-directed
@@ -241,13 +247,14 @@ export const LAYOUTS = {
     fit: true,
     padding: 50,
     randomize: true,
-    nodeRepulsion: 4500,
-    idealEdgeLength: 100,
+    nodeRepulsion: 8000, // Increased to prevent overlap
+    idealEdgeLength: 150, // Increased for better spacing
     edgeElasticity: 0.45,
-    gravity: 1.0,
+    gravity: 0.8,
     gravityRange: 10,
     numIter: 2500,
     tile: false,
+    nodeDimensionsIncludeLabels: true,
   },
 
   // Grid: Tetris-style bin-packing layout (handled via custom function)
@@ -277,12 +284,13 @@ export const LAYOUTS = {
     animate: true,
     animationDuration: 300,
     rankDir: 'TB',
-    nodeSep: 80,
-    rankSep: 120,
-    edgeSep: 30,
+    nodeSep: 30,
+    rankSep: 60,
+    edgeSep: 20,
     ranker: 'network-simplex',
     fit: true,
     padding: 50,
+    nodeDimensionsIncludeLabels: true,
   },
 
   // Continuous relax (double click): cola infinite
@@ -292,29 +300,26 @@ export const LAYOUTS = {
     infinite: true,
     fit: false,
     nodeSpacing: node => {
-      const nodeCount = node.cy().nodes().length
-      if (nodeCount > NODE_COUNT_THRESHOLDS.LARGE) return NODE_SPACING.LARGE
-      if (nodeCount > NODE_COUNT_THRESHOLDS.MEDIUM) return NODE_SPACING.MEDIUM
-      return NODE_SPACING.DEFAULT
+      // Use actual node dimensions - cola will use these for overlap avoidance
+      const width = node.width() || MIN_NODE_WIDTH
+      const height = node.height() || MIN_NODE_HEIGHT
+      // Return spacing that accounts for node size
+      return Math.max(width, height) / 2 + 15
     },
     edgeLength: edge => {
-      const nodeCount = edge.cy().nodes().length
       const source = edge.source()
       const target = edge.target()
-      const sourceDegree = source.degree()
-      const targetDegree = target.degree()
-      const avgDegree = (sourceDegree + targetDegree) / 2
-
-      let baseLength = EDGE_LENGTH.BASE_DEFAULT
-      if (nodeCount > NODE_COUNT_THRESHOLDS.LARGE) baseLength = EDGE_LENGTH.BASE_LARGE
-      else if (nodeCount > NODE_COUNT_THRESHOLDS.MEDIUM) baseLength = EDGE_LENGTH.BASE_MEDIUM
-      else if (nodeCount > NODE_COUNT_THRESHOLDS.SMALL) baseLength = EDGE_LENGTH.BASE_SMALL
-
-      const perDegree =
-        nodeCount > NODE_COUNT_THRESHOLDS.MEDIUM ? EDGE_LENGTH.PER_DEGREE_DENSE : EDGE_LENGTH.PER_DEGREE_SPARSE
-      return baseLength + Math.min(avgDegree * perDegree, baseLength)
+      // Base edge length on actual node dimensions
+      const sourceWidth = source.width() || MIN_NODE_WIDTH
+      const targetWidth = target.width() || MIN_NODE_WIDTH
+      const sourceHeight = source.height() || MIN_NODE_HEIGHT
+      const targetHeight = target.height() || MIN_NODE_HEIGHT
+      // Edge length should be at least half the sum of node sizes plus some spacing
+      const minLength = (Math.max(sourceWidth, sourceHeight) + Math.max(targetWidth, targetHeight)) / 2 + 50
+      return Math.max(minLength, 100)
     },
     avoidOverlap: true,
+    nodeDimensionsIncludeLabels: true,
     handleDisconnected: true,
     convergenceThreshold: 0.001,
     maxSimulationTime: 0,

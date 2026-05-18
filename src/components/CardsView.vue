@@ -82,7 +82,8 @@ function handleCardClick(e, node) {
     // Shift+click: multi-select
     emit('select-multiple', node)
   } else {
-    emit('select', node)
+    // Pass event for tooltip lock positioning
+    emit('select', node, e)
   }
 }
 
@@ -212,8 +213,12 @@ function getNestedCardSize(count, parentSize) {
 }
 
 const filteredNodes = computed(() => {
-  if (!props.hideCompleted) return props.nodes
-  return props.nodes.filter(n => !n.completed && !n.inheritedCompleted)
+  // Filter out tag nodes - they shouldn't appear as cards
+  let nodes = props.nodes.filter(n => n.type !== 'tag')
+  if (props.hideCompleted) {
+    nodes = nodes.filter(n => !n.completed && !n.inheritedCompleted)
+  }
+  return nodes
 })
 
 function handleCanvasClick(e) {
