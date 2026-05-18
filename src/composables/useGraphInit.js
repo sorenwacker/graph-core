@@ -192,6 +192,9 @@ export function useGraphInit(options = {}) {
 
     if (!hasPos && cy.nodes().length > 0) {
       setTimeout(() => {
+        // Sync node dimensions with HTML labels before running layout
+        if (layout?.syncNodeDimensions) layout.syncNodeDimensions()
+
         // Use custom grid layout if in grid mode
         if (layout?.isGridMode?.()) {
           layout.runGridLayout()

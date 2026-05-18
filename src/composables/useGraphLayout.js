@@ -23,6 +23,34 @@ const NODE_SPACING = {
 const GRAVITY_SCALE_DIVISOR = 10000
 
 const GRID_GAP = 15 // Gap between nodes in grid
+const MIN_NODE_WIDTH = 100
+const MIN_NODE_HEIGHT = 40
+
+/**
+ * Sync cytoscape node dimensions with actual HTML label sizes.
+ * This ensures layouts respect the real visual size of nodes.
+ * @param {Object} cy - Cytoscape instance
+ */
+function syncNodeDimensions(cy) {
+  if (!cy) return
+
+  cy.batch(() => {
+    cy.nodes().forEach(node => {
+      const nodeId = node.id()
+      const htmlLabel = document.querySelector(`[data-node-id="${nodeId}"]`)
+
+      if (htmlLabel) {
+        const rect = htmlLabel.getBoundingClientRect()
+        if (rect.width > 0 && rect.height > 0) {
+          // Add small padding to prevent tight fits
+          const width = Math.max(rect.width + 10, MIN_NODE_WIDTH)
+          const height = Math.max(rect.height + 10, MIN_NODE_HEIGHT)
+          node.style({ width, height })
+        }
+      }
+    })
+  })
+}
 
 /**
  * Get actual node dimensions from cytoscape or DOM.
@@ -397,6 +425,9 @@ export function useGraphLayout(options = {}) {
     // Clear saved positions
     if (clearPositions) clearPositions()
 
+    // Sync node dimensions with actual HTML label sizes before layout
+    syncNodeDimensions(cy)
+
     const mode = getLayoutMode ? getLayoutMode() : 'tree'
 
     // Use custom Tetris grid layout for grid mode
@@ -483,6 +514,9 @@ export function useGraphLayout(options = {}) {
   function relaxLayout() {
     const cy = getCy ? getCy() : null
     if (!cy) return
+
+    // Sync node dimensions before relaxing
+    syncNodeDimensions(cy)
 
     const radialSettings = getRadialSettings ? getRadialSettings() : {}
     const spacing = Math.max(5, Math.round((radialSettings.nodeRepulsion || 4500) / 50))
@@ -792,6 +826,9 @@ export function useGraphLayout(options = {}) {
     // Grid layout
     runGridLayout,
     isGridMode,
+
+    // Node dimension sync
+    syncNodeDimensions: () => syncNodeDimensions(getCy ? getCy() : null),
 
     // Continuous relax
     startContinuousRelax,
