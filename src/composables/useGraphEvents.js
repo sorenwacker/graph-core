@@ -118,7 +118,7 @@ export function useGraphEvents(options = {}) {
         emit('select-multiple', { node, add: true })
       } else {
         // Toggle tooltip lock when clicking without modifiers
-        if (toggleTooltipLock) toggleTooltipLock(node)
+        if (toggleTooltipLock) toggleTooltipLock(node, e.originalEvent)
         emit('select', node)
       }
     })

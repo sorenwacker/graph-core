@@ -625,9 +625,16 @@ const electronApi: Api = {
 
   getNode: (id: number): Promise<Node | null> => window.electronAPI!.getNode(id),
 
-  createNode: (data: CreateNodeData): Promise<Node> => window.electronAPI!.createNode(data),
+  createNode: async (data: CreateNodeData): Promise<Node> => {
+    const plainData = JSON.parse(JSON.stringify(data))
+    return window.electronAPI!.createNode(plainData)
+  },
 
-  updateNode: (id: number, data: UpdateNodeData): Promise<Node> => window.electronAPI!.updateNode(id, data),
+  updateNode: async (id: number, data: UpdateNodeData): Promise<Node> => {
+    // Ensure data is serializable for IPC (no Vue proxies, functions, etc.)
+    const plainData = JSON.parse(JSON.stringify(data))
+    return window.electronAPI!.updateNode(id, plainData)
+  },
 
   deleteNode: (id: number, hard?: boolean): Promise<void> => window.electronAPI!.deleteNode(id, hard),
 

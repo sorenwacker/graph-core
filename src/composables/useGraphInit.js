@@ -76,10 +76,14 @@ export function useGraphInit(options = {}) {
    * Create the cytoscape instance with configuration.
    * @param {Array} elements - Graph elements (nodes and edges)
    * @param {boolean} hasPos - Whether saved positions exist
-   * @returns {Object} Cytoscape instance
+   * @returns {Object|null} Cytoscape instance or null if container not available
    */
   function createCytoscapeInstance(elements, hasPos) {
     const container = getContainer()
+    if (!container) {
+      console.warn('Cytoscape container not available')
+      return null
+    }
     const layoutOptions = getLayoutOptions()
 
     return cytoscape({

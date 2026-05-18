@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, watch, computed, nextTick, onMounted, onUnmounted, toRaw } from 'vue'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 import MentionDropdown from './MentionDropdown.vue'
 import NotesEditor from './NotesEditor.vue'
@@ -330,13 +330,18 @@ function saveChanges() {
     clearTimeout(notesAutosaveTimeout)
     notesAutosaveTimeout = null
   }
-  emit('update', editedNode.value)
+  // Use toRaw to unwrap Vue proxy before emitting (prevents IPC cloning errors)
+  emit('update', { ...toRaw(editedNode.value) })
 }
 
 // Toggle handlers for template
 function toggleFavorite() {
-  editedNode.value.favorite = !editedNode.value.favorite
-  saveChanges()
+  try {
+    editedNode.value.favorite = !editedNode.value.favorite
+    saveChanges()
+  } catch (e) {
+    console.error('toggleFavorite failed:', e)
+  }
 }
 
 function onCompletedChange(event) {

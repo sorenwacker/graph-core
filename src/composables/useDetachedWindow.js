@@ -66,20 +66,31 @@ export function useDetachedWindow() {
   // Broadcast node deletion to other windows
   function broadcastNodeDelete(nodeId) {
     if (channel.value) {
-      channel.value.postMessage({
-        type: 'node-deleted',
-        nodeId: nodeId,
-      })
+      try {
+        // Ensure nodeId is a primitive (not a Vue ref)
+        const id = typeof nodeId === 'object' && nodeId !== null ? (nodeId.value ?? nodeId) : nodeId
+        channel.value.postMessage({
+          type: 'node-deleted',
+          nodeId: id,
+        })
+      } catch (e) {
+        console.warn('Failed to broadcast node delete:', e)
+      }
     }
   }
 
   // Broadcast navigation change (for detached windows)
   function broadcastNavigation(nodeId) {
     if (channel.value) {
-      channel.value.postMessage({
-        type: 'navigate',
-        nodeId: nodeId,
-      })
+      try {
+        const id = typeof nodeId === 'object' && nodeId !== null ? (nodeId.value ?? nodeId) : nodeId
+        channel.value.postMessage({
+          type: 'navigate',
+          nodeId: id,
+        })
+      } catch (e) {
+        console.warn('Failed to broadcast navigation:', e)
+      }
     }
   }
 
