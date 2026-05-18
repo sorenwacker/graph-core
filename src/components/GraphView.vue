@@ -475,7 +475,8 @@ watch(
 watch(
   () => props.showDetail,
   o => {
-    if (o) forceHideTooltip()
+    // Only force hide tooltip if it's not locked (locked tooltip should stay visible)
+    if (o && !isTooltipLocked()) forceHideTooltip()
   }
 )
 

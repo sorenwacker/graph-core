@@ -92,6 +92,11 @@ export function useNodeTooltip(options = {}) {
   }
 
   function showTooltip(event, node) {
+    // Don't show hover tooltip if there's a locked tooltip
+    if (locked) {
+      return
+    }
+
     // Check if tooltip should be shown for this node
     if (!shouldShowTooltip(node)) {
       return
@@ -203,10 +208,9 @@ export function useNodeTooltip(options = {}) {
     } else if (activeTooltip && !activeTooltip.state.isDestroyed && activeNodeId === node.id) {
       // Tooltip visible for this node - lock it
       lockTooltip()
-    } else if (shouldShowTooltip(node)) {
-      // No tooltip visible - create one immediately and lock it
+    } else {
+      // Create tooltip immediately and lock it
       createTooltip(node, event)
-      // Lock after a brief delay to ensure tooltip is shown
       setTimeout(() => lockTooltip(), 10)
     }
   }
