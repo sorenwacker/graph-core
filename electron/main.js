@@ -3,560 +3,24 @@ const path = require('path')
 const https = require('https')
 const http = require('http')
 const Database = require('./database')
-const wikipedia = require('./wikipedia')
-const { AGENT_TOOLS, RESEARCH_SYSTEM_PROMPT, MAX_AGENT_ITERATIONS, isGarbageResponse } = require('./agentConfig')
 const {
-  // Database - Node CRUD
-  DB_GET_NODES,
-  DB_GET_NODE,
-  DB_CREATE_NODE,
-  DB_UPDATE_NODE,
-  DB_DELETE_NODE,
-  // Database - Tree Operations
-  DB_GET_ROOTS,
-  DB_GET_PROJECTS,
-  DB_GET_INBOX,
-  DB_GET_RECENT,
-  DB_GET_FAVORITES,
-  DB_GET_TASKS,
-  DB_GET_CHILDREN,
-  DB_GET_DESCENDANTS,
-  DB_GET_DESCENDANTS_BATCH,
-  DB_GET_ANCESTORS,
-  DB_MOVE_NODE,
-  // Database - Links
-  DB_LINK_NODES,
-  DB_UNLINK_NODES,
-  DB_GET_ALL_LINKS,
-  DB_GET_LINKED_NODES,
-  // Database - Tree View
-  DB_GET_TREE,
-  // Database - Search
-  DB_SEARCH,
-  DB_SEARCH_COUNT,
-  // Database - Reorder
-  DB_REORDER_NODE,
-  // Database - Export
-  DB_EXPORT_MARKDOWN,
-  DB_EXPORT_JSON,
-  DB_EXPORT_CSV,
-  // Database - Import
-  DB_IMPORT_JSON,
-  DB_IMPORT_CSV,
-  // Database - Trash
-  DB_GET_TRASH,
-  DB_RESTORE_NODE,
-  DB_EMPTY_TRASH,
-  // Database - Lost & Found
-  DB_GET_ORPHANED_NODES,
-  DB_REPARENT_TO_ROOT,
-  // Database - Tags (string-based, legacy)
-  DB_GET_ALL_TAGS,
-  DB_GET_NODES_BY_TAG,
-  // Database - Tags (first-class nodes)
-  DB_GET_TAG_NODES,
-  DB_GET_OR_CREATE_TAG_NODE,
-  DB_GET_NODES_LINKED_TO_TAG,
-  DB_SEARCH_TAG_NODES,
-  // Database - Workspaces
-  DB_GET_WORKSPACES,
-  DB_GET_WORKSPACE,
-  DB_CREATE_WORKSPACE,
-  DB_UPDATE_WORKSPACE,
-  DB_DELETE_WORKSPACE,
-  // Database - Backups & Reload
-  DB_BACKUP,
-  DB_LIST_BACKUPS,
-  DB_RESTORE_BACKUP,
-  DB_RELOAD,
-  DB_REPAIR_WORKSPACES,
-  DB_GET_DATA_PATH,
-  // Database - Node Tables
-  DB_GET_NODE_TABLE,
-  DB_CREATE_NODE_TABLE,
-  DB_UPDATE_NODE_TABLE,
-  DB_DELETE_NODE_TABLE,
-  DB_GET_TABLE_CELLS,
-  DB_SET_CELLS,
-  DB_CLEAR_CELLS,
-  // Database - Settings
-  DB_GET_SETTING,
-  DB_GET_ALL_SETTINGS,
-  DB_SET_SETTING,
-  DB_SET_SETTINGS,
-  DB_DELETE_SETTING,
-  // Shell
-  SHELL_OPEN_EXTERNAL,
-  // Window
-  WINDOW_OPEN_DETACHED,
-  WINDOW_CLOSE_DETACHED,
-  // Ollama
-  OLLAMA_GENERATE,
-  OLLAMA_TEST_CONNECTION,
-  OLLAMA_LIST_MODELS,
-  // OpenAI
-  OPENAI_GENERATE,
-  OPENAI_TEST_CONNECTION,
-  OPENAI_LIST_MODELS,
-  // Agent
-  AGENT_RESEARCH,
-  // App
-  APP_GET_VERSION,
-  // Menu Events
-  MENU_UNDO,
-  MENU_REDO,
   OPEN_SETTINGS,
   SHOW_SHORTCUTS,
-  // App Lifecycle
   APP_BEFORE_QUIT,
+  APP_GET_VERSION,
+  MENU_UNDO,
+  MENU_REDO,
 } = require('./ipcChannels')
+
+// IPC Handler Modules
+const { registerDatabaseHandlers } = require('./ipc/database')
+const { registerOllamaHandlers } = require('./ipc/ollama')
+const { registerOpenaiHandlers } = require('./ipc/openai')
+const { registerAgentHandlers } = require('./ipc/agent')
+const { registerWindowHandlers, createWindowConfig, setupExternalLinkHandling } = require('./ipc/window')
 
 let mainWindow
 let db
-const detachedWindows = new Map() // Track open detached windows by nodeId
-
-/**
- * Create common BrowserWindow configuration with optional overrides.
- * @param {Object} options - Window-specific options to merge
- * @returns {Object} Complete BrowserWindow configuration
- */
-function createWindowConfig(options = {}) {
-  const baseConfig = {
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
-    titleBarStyle: 'hiddenInset',
-    backgroundColor: '#0a0a0f',
-    icon: path.join(__dirname, '../assets/icon.png'),
-  }
-
-  return { ...baseConfig, ...options }
-}
-
-/**
- * Set up external link handling for a BrowserWindow.
- * Opens http/https links in the default browser instead of the app.
- * @param {BrowserWindow} window - The window to configure
- */
-function setupExternalLinkHandling(window) {
-  // Open external links in default browser
-  window.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      shell.openExternal(url)
-      return { action: 'deny' }
-    }
-    return { action: 'allow' }
-  })
-
-  // Also handle clicks on links within the page
-  window.webContents.on('will-navigate', (event, url) => {
-    const appUrl =
-      process.env.NODE_ENV === 'development'
-        ? 'http://localhost:9743'
-        : `file://${path.join(__dirname, '../dist/index.html')}`
-
-    if (!url.startsWith(appUrl) && (url.startsWith('http://') || url.startsWith('https://'))) {
-      event.preventDefault()
-      shell.openExternal(url)
-    }
-  })
-}
-
-function createWindow() {
-  mainWindow = new BrowserWindow(
-    createWindowConfig({
-      width: 1400,
-      height: 900,
-    })
-  )
-
-  // Set Content Security Policy (stricter in production)
-  const isDev = process.env.NODE_ENV === 'development'
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': [
-          isDev
-            ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws://localhost:*"
-            : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'",
-        ],
-      },
-    })
-  })
-
-  setupExternalLinkHandling(mainWindow)
-
-  // In development, load from Vite dev server
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.loadURL('http://localhost:9743')
-    // mainWindow.webContents.openDevTools()  // Uncomment to debug
-  } else {
-    // In production, load the built files
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
-    // Enable devtools via keyboard shortcut in production
-    mainWindow.webContents.on('before-input-event', (event, input) => {
-      if (input.control && input.shift && input.key === 'I') {
-        mainWindow.webContents.toggleDevTools()
-      }
-    })
-  }
-}
-
-function createDetachedWindow(nodeId, nodeTitle) {
-  // Check if window already exists for this node
-  if (detachedWindows.has(nodeId)) {
-    const existingWindow = detachedWindows.get(nodeId)
-    if (!existingWindow.isDestroyed()) {
-      existingWindow.focus()
-      return { success: true, focused: true }
-    }
-    // Window was destroyed, remove from map
-    detachedWindows.delete(nodeId)
-  }
-
-  const detachedWindow = new BrowserWindow(
-    createWindowConfig({
-      width: 700,
-      height: 800,
-      minWidth: 400,
-      minHeight: 300,
-      title: nodeTitle || 'Detached Node',
-    })
-  )
-
-  // Track the window
-  detachedWindows.set(nodeId, detachedWindow)
-
-  // Clean up when window is closed
-  detachedWindow.on('closed', () => {
-    detachedWindows.delete(nodeId)
-  })
-
-  setupExternalLinkHandling(detachedWindow)
-
-  // Load the app with detached query param
-  if (process.env.NODE_ENV === 'development') {
-    detachedWindow.loadURL(`http://localhost:9743?detached=${nodeId}`)
-  } else {
-    detachedWindow.loadFile(path.join(__dirname, '../dist/index.html'), {
-      query: { detached: String(nodeId) },
-    })
-  }
-
-  return { success: true, focused: false }
-}
-
-function createMenu() {
-  const isMac = process.platform === 'darwin'
-  const template = [
-    // App menu (macOS only)
-    ...(isMac
-      ? [
-          {
-            label: app.name,
-            submenu: [
-              { role: 'about' },
-              { type: 'separator' },
-              {
-                label: 'Settings...',
-                accelerator: 'CmdOrCtrl+,',
-                click: () => {
-                  mainWindow?.webContents.send(OPEN_SETTINGS)
-                },
-              },
-              { type: 'separator' },
-              { role: 'services' },
-              { type: 'separator' },
-              { role: 'hide' },
-              { role: 'hideOthers' },
-              { role: 'unhide' },
-              { type: 'separator' },
-              { role: 'quit' },
-            ],
-          },
-        ]
-      : []),
-    // Edit menu
-    {
-      label: 'Edit',
-      submenu: [
-        {
-          label: 'Undo',
-          accelerator: 'CmdOrCtrl+Z',
-          click: () => {
-            mainWindow?.webContents.send(MENU_UNDO)
-          },
-        },
-        {
-          label: 'Redo',
-          accelerator: 'CmdOrCtrl+Shift+Z',
-          click: () => {
-            mainWindow?.webContents.send(MENU_REDO)
-          },
-        },
-        { type: 'separator' },
-        { role: 'cut' },
-        { role: 'copy' },
-        { role: 'paste' },
-        { role: 'selectAll' },
-      ],
-    },
-    // View menu
-    {
-      label: 'View',
-      submenu: [
-        { role: 'reload' },
-        { role: 'forceReload' },
-        { role: 'toggleDevTools' },
-        { type: 'separator' },
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
-        { type: 'separator' },
-        { role: 'togglefullscreen' },
-      ],
-    },
-    // Window menu
-    {
-      label: 'Window',
-      submenu: [
-        { role: 'minimize' },
-        { role: 'zoom' },
-        ...(isMac
-          ? [{ type: 'separator' }, { role: 'front' }, { type: 'separator' }, { role: 'window' }]
-          : [{ role: 'close' }]),
-      ],
-    },
-    // Help menu
-    {
-      role: 'help',
-      submenu: [
-        {
-          label: 'GitHub Repository',
-          click: async () => {
-            await shell.openExternal('https://github.com/sorenwacker/graph-core')
-          },
-        },
-        {
-          label: 'Documentation',
-          click: async () => {
-            await shell.openExternal('https://github.com/sorenwacker/graph-core#readme')
-          },
-        },
-        {
-          label: 'Keyboard Shortcuts',
-          accelerator: 'CmdOrCtrl+/',
-          click: () => {
-            mainWindow?.webContents.send(SHOW_SHORTCUTS)
-          },
-        },
-        { type: 'separator' },
-        {
-          label: 'Release Notes',
-          click: async () => {
-            await shell.openExternal('https://github.com/sorenwacker/graph-core/releases')
-          },
-        },
-        {
-          label: 'Report Issue',
-          click: async () => {
-            await shell.openExternal('https://github.com/sorenwacker/graph-core/issues')
-          },
-        },
-        { type: 'separator' },
-        {
-          label: 'Ollama Setup',
-          click: async () => {
-            await shell.openExternal('https://ollama.ai/download')
-          },
-        },
-        {
-          label: 'Ollama Models',
-          click: async () => {
-            await shell.openExternal('https://ollama.ai/library')
-          },
-        },
-      ],
-    },
-  ]
-
-  const menu = Menu.buildFromTemplate(template)
-  Menu.setApplicationMenu(menu)
-}
-
-app.whenReady().then(async () => {
-  // Initialize database
-  const dbPath = path.join(app.getPath('userData'), 'graph.db')
-  db = new Database(dbPath)
-  await db.ready // Wait for async initialization
-
-  createMenu()
-  createWindow()
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
-    }
-  })
-})
-
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
-})
-
-// Notify renderer to save before quitting
-app.on('before-quit', event => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send(APP_BEFORE_QUIT)
-  }
-})
-
-// IPC Handlers - Node CRUD
-ipcMain.handle(DB_GET_NODES, (event, params) => db.getNodes(params))
-ipcMain.handle(DB_GET_NODE, (event, id) => db.getNode(id))
-ipcMain.handle(DB_CREATE_NODE, (event, data) => db.createNode(data))
-ipcMain.handle(DB_UPDATE_NODE, (event, id, data) => db.updateNode(id, data))
-ipcMain.handle(DB_DELETE_NODE, (event, id, hard) => db.deleteNode(id, hard))
-
-// Tree operations
-ipcMain.handle(DB_GET_ROOTS, (event, workspaceId) => db.getRoots(workspaceId))
-ipcMain.handle(DB_GET_PROJECTS, () => db.getProjects())
-ipcMain.handle(DB_GET_INBOX, () => db.getInbox())
-ipcMain.handle(DB_GET_RECENT, (event, limit, workspaceId) => db.getRecent(limit, workspaceId))
-ipcMain.handle(DB_GET_FAVORITES, (event, workspaceId) => db.getFavorites(workspaceId))
-ipcMain.handle(DB_GET_TASKS, (event, params) => db.getTasks(params))
-ipcMain.handle(DB_GET_CHILDREN, (event, id, type) => db.getChildren(id, type))
-ipcMain.handle(DB_GET_DESCENDANTS, (event, id, maxDepth) => db.getDescendants(id, maxDepth))
-ipcMain.handle(DB_GET_DESCENDANTS_BATCH, (event, rootIds) => {
-  const result = db.getDescendantsBatch(rootIds)
-  // Convert Map to plain object for IPC serialization
-  return Object.fromEntries(result)
-})
-ipcMain.handle(DB_GET_ANCESTORS, (event, id) => db.getAncestors(id))
-ipcMain.handle(DB_MOVE_NODE, (event, id, newParentId) => db.moveNode(id, newParentId))
-
-// Links
-ipcMain.handle(DB_LINK_NODES, (event, sourceId, targetId) => db.linkNodes(sourceId, targetId))
-ipcMain.handle(DB_UNLINK_NODES, (event, sourceId, targetId) => db.unlinkNodes(sourceId, targetId))
-ipcMain.handle(DB_GET_ALL_LINKS, (event, nodeIds) => db.getAllLinks(nodeIds))
-ipcMain.handle(DB_GET_LINKED_NODES, (event, id) => db.getLinkedNodes(id))
-
-// Tree view
-ipcMain.handle(DB_GET_TREE, (event, rootId) => db.getTree(rootId))
-
-// Search
-ipcMain.handle(DB_SEARCH, (event, query, type, workspaceId, options) => db.search(query, type, workspaceId, options))
-ipcMain.handle(DB_SEARCH_COUNT, (event, query, type, workspaceId, options) =>
-  db.searchCount(query, type, workspaceId, options)
-)
-
-// Reorder
-ipcMain.handle(DB_REORDER_NODE, (event, nodeId, targetId, position) => db.reorderNode(nodeId, targetId, position))
-
-// Export
-ipcMain.handle(DB_EXPORT_MARKDOWN, (event, nodeId) => db.exportMarkdown(nodeId))
-ipcMain.handle(DB_EXPORT_JSON, (event, nodeId, options) => db.exportJSON(nodeId, options))
-ipcMain.handle(DB_EXPORT_CSV, (event, nodeId, workspaceId) => db.exportCSV(nodeId, workspaceId))
-
-// Import
-ipcMain.handle(DB_IMPORT_JSON, (event, data, targetParentId, workspaceId) =>
-  db.importJSON(data, targetParentId, workspaceId)
-)
-ipcMain.handle(DB_IMPORT_CSV, (event, csvData, targetParentId, workspaceId) =>
-  db.importCSV(csvData, targetParentId, workspaceId)
-)
-
-// Trash
-ipcMain.handle(DB_GET_TRASH, (event, limit) => db.getTrash(limit))
-ipcMain.handle(DB_RESTORE_NODE, (event, id) => db.restoreNode(id))
-ipcMain.handle(DB_EMPTY_TRASH, () => db.emptyTrash())
-
-// Lost & Found
-ipcMain.handle(DB_GET_ORPHANED_NODES, () => db.getOrphanedNodes())
-ipcMain.handle(DB_REPARENT_TO_ROOT, (event, id) => db.reparentToRoot(id))
-
-// Tags (string-based, legacy)
-ipcMain.handle(DB_GET_ALL_TAGS, (event, workspaceId) => db.getAllTags(workspaceId))
-ipcMain.handle(DB_GET_NODES_BY_TAG, (event, tag, workspaceId, options) => db.getNodesByTag(tag, workspaceId, options))
-
-// Tags (first-class nodes)
-ipcMain.handle(DB_GET_TAG_NODES, (event, workspaceId) => db.getTagNodes(workspaceId))
-ipcMain.handle(DB_GET_OR_CREATE_TAG_NODE, (event, name, workspaceId) => db.getOrCreateTagNode(name, workspaceId))
-ipcMain.handle(DB_GET_NODES_LINKED_TO_TAG, (event, tagNodeId, options) => db.getNodesLinkedToTag(tagNodeId, options))
-ipcMain.handle(DB_SEARCH_TAG_NODES, (event, query, workspaceId, limit) => db.searchTagNodes(query, workspaceId, limit))
-
-// =========================================
-// WORKSPACES
-// =========================================
-ipcMain.handle(DB_GET_WORKSPACES, () => db.getWorkspaces())
-ipcMain.handle(DB_GET_WORKSPACE, (event, id) => db.getWorkspace(id))
-ipcMain.handle(DB_CREATE_WORKSPACE, (event, data) => db.createWorkspace(data))
-ipcMain.handle(DB_UPDATE_WORKSPACE, (event, id, data) => db.updateWorkspace(id, data))
-ipcMain.handle(DB_DELETE_WORKSPACE, (event, id) => db.deleteWorkspace(id))
-
-// =========================================
-// DATABASE BACKUPS & RELOAD
-// =========================================
-ipcMain.handle(DB_BACKUP, (event, suffix) => db.backup(suffix))
-ipcMain.handle(DB_LIST_BACKUPS, () => db.listBackups())
-ipcMain.handle(DB_RESTORE_BACKUP, (event, backupPath) => db.restoreBackup(backupPath))
-ipcMain.handle(DB_RELOAD, () => db.reload())
-ipcMain.handle(DB_REPAIR_WORKSPACES, () => db.repairWorkspaces())
-ipcMain.handle(DB_GET_DATA_PATH, () => app.getPath('userData'))
-
-// =========================================
-// NODE TABLES
-// =========================================
-ipcMain.handle(DB_GET_NODE_TABLE, (event, nodeId) => db.getNodeTable(nodeId))
-ipcMain.handle(DB_CREATE_NODE_TABLE, (event, nodeId, data) => db.createNodeTable(nodeId, data))
-ipcMain.handle(DB_UPDATE_NODE_TABLE, (event, nodeId, data) => db.updateNodeTable(nodeId, data))
-ipcMain.handle(DB_DELETE_NODE_TABLE, (event, nodeId) => db.deleteNodeTable(nodeId))
-ipcMain.handle(DB_GET_TABLE_CELLS, (event, nodeId) => db.getTableCells(nodeId))
-ipcMain.handle(DB_SET_CELLS, (event, nodeId, cells) => db.setCells(nodeId, cells))
-ipcMain.handle(DB_CLEAR_CELLS, (event, nodeId) => db.clearCells(nodeId))
-
-// =========================================
-// SETTINGS
-// =========================================
-ipcMain.handle(DB_GET_SETTING, (event, key) => db.getSetting(key))
-ipcMain.handle(DB_GET_ALL_SETTINGS, () => db.getAllSettings())
-ipcMain.handle(DB_SET_SETTING, (event, key, value) => db.setSetting(key, value))
-ipcMain.handle(DB_SET_SETTINGS, (event, settings) => db.setSettings(settings))
-ipcMain.handle(DB_DELETE_SETTING, (event, key) => db.deleteSetting(key))
-
-// =========================================
-// SHELL
-// =========================================
-ipcMain.handle(SHELL_OPEN_EXTERNAL, (event, url) => {
-  if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
-    return shell.openExternal(url)
-  }
-})
-
-// =========================================
-// DETACHED WINDOWS
-// =========================================
-ipcMain.handle(WINDOW_OPEN_DETACHED, (event, nodeId, nodeTitle) => {
-  return createDetachedWindow(nodeId, nodeTitle)
-})
-
-ipcMain.handle(WINDOW_CLOSE_DETACHED, (event, nodeId) => {
-  if (detachedWindows.has(nodeId)) {
-    const window = detachedWindows.get(nodeId)
-    if (!window.isDestroyed()) {
-      window.close()
-    }
-    detachedWindows.delete(nodeId)
-    return { success: true }
-  }
-  return { success: false }
-})
 
 // =========================================
 // HTTP CLIENT
@@ -777,336 +241,231 @@ function httpRequest(url, options = {}) {
 }
 
 // =========================================
-// OLLAMA LLM INTEGRATION
+// WINDOW CREATION
 // =========================================
 
-/**
- * Make HTTP request to Ollama API
- */
-function ollamaRequest(endpoint, path, options = {}) {
-  return httpRequest(`${endpoint}${path}`, {
-    method: options.method,
-    body: options.body,
-    errorPrefix: 'Ollama API',
-    connectionError: 'Ollama is not running. Start with: ollama serve',
-  })
-}
-
-ipcMain.handle(OLLAMA_GENERATE, async (event, { prompt, content, model, endpoint, contextSize }) => {
-  const fullPrompt = `${prompt}\n\n---\n\n${content}`
-
-  try {
-    const response = await ollamaRequest(endpoint, '/api/generate', {
-      method: 'POST',
-      body: {
-        model,
-        prompt: fullPrompt,
-        stream: false,
-        options: {
-          num_ctx: contextSize || 32768,
-        },
-      },
+function createWindow() {
+  mainWindow = new BrowserWindow(
+    createWindowConfig({
+      width: 1400,
+      height: 900,
     })
-    return response.response
-  } catch (error) {
-    if (error.statusCode === 404 && error.data?.error?.includes('not found')) {
-      throw new Error(`Model not available. Run: ollama pull ${model}`)
-    }
-    throw error
-  }
-})
+  )
 
-ipcMain.handle(OLLAMA_TEST_CONNECTION, async (event, endpoint) => {
-  try {
-    await ollamaRequest(endpoint, '/api/tags')
-    return { success: true }
-  } catch (error) {
-    return {
-      success: false,
-      error: error.message,
-    }
-  }
-})
-
-ipcMain.handle(OLLAMA_LIST_MODELS, async (event, endpoint) => {
-  const response = await ollamaRequest(endpoint, '/api/tags')
-  return (response.models || []).map(m => m.name)
-})
-
-// =========================================
-// OPENAI-COMPATIBLE API INTEGRATION
-// =========================================
-
-/**
- * Make HTTP request to OpenAI-compatible API
- */
-function openaiRequest(endpoint, path, apiKey, options = {}) {
-  return httpRequest(`${endpoint}${path}`, {
-    method: options.method,
-    body: options.body,
-    headers: { Authorization: `Bearer ${apiKey}` },
-    skipSslVerification: options.skipSslVerification,
-  })
-}
-
-ipcMain.handle(OPENAI_GENERATE, async (event, { prompt, content, model, endpoint, apiKey, skipSslVerification }) => {
-  if (!apiKey) {
-    throw new Error('API key is required')
-  }
-
-  try {
-    const response = await openaiRequest(endpoint, '/chat/completions', apiKey, {
-      method: 'POST',
-      body: {
-        model,
-        messages: [
-          { role: 'system', content: prompt },
-          { role: 'user', content: content },
+  // Set Content Security Policy (stricter in production)
+  const isDev = process.env.NODE_ENV === 'development'
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          isDev
+            ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws://localhost:*"
+            : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'",
         ],
-        stream: false,
-      },
-      skipSslVerification,
-    })
-    return response.choices?.[0]?.message?.content || ''
-  } catch (error) {
-    if (error.statusCode === 401) {
-      throw new Error('Invalid API key')
-    }
-    if (error.data?.error?.message) {
-      throw new Error(error.data.error.message)
-    }
-    throw error
-  }
-})
-
-ipcMain.handle(OPENAI_TEST_CONNECTION, async (event, endpoint, apiKey, skipSslVerification) => {
-  if (!apiKey) {
-    return { success: false, error: 'API key is required' }
-  }
-  try {
-    await openaiRequest(endpoint, '/models', apiKey, { skipSslVerification })
-    return { success: true }
-  } catch (error) {
-    if (error.statusCode === 401) {
-      return { success: false, error: 'Invalid API key' }
-    }
-    return {
-      success: false,
-      error: error.message,
-    }
-  }
-})
-
-ipcMain.handle(OPENAI_LIST_MODELS, async (event, endpoint, apiKey, skipSslVerification) => {
-  if (!apiKey) {
-    throw new Error('API key is required')
-  }
-  const response = await openaiRequest(endpoint, '/models', apiKey, { skipSslVerification })
-  return (response.data || []).map(m => m.id).sort()
-})
-
-// =========================================
-// AGENT RESEARCH (Tool Calling)
-// =========================================
-
-async function executeAgentTool(name, args) {
-  try {
-    switch (name) {
-      case 'wikipedia_search': {
-        const results = await wikipedia.search(httpRequest, args.query, 3)
-        if (results.length === 0) {
-          return 'No Wikipedia articles found for this query.'
-        }
-        return JSON.stringify(results, null, 2)
-      }
-      case 'wikipedia_get_content': {
-        const content = await wikipedia.getContent(httpRequest, args.title)
-        return `Title: ${content.title}\n\n${content.content}`
-      }
-      default:
-        return `Unknown tool: ${name}`
-    }
-  } catch (error) {
-    return `Tool error: ${error.message}`
-  }
-}
-
-/**
- * Fallback research using direct Wikipedia fetch + summarization
- */
-async function fallbackResearch(query, provider, model, endpoint, apiKey, contextSize) {
-  // Search Wikipedia directly
-  const searchResults = await wikipedia.search(httpRequest, query, 3)
-
-  if (searchResults.length === 0) {
-    return `No Wikipedia articles found for "${query}".`
-  }
-
-  // Get content from the top result
-  const topResult = searchResults[0]
-  let content
-  try {
-    content = await wikipedia.getContent(httpRequest, topResult.title)
-  } catch (err) {
-    return `Found article "${topResult.title}" but could not retrieve content: ${err.message}`
-  }
-
-  // Ask model to summarize the content
-  const summaryPrompt = `Based on the following Wikipedia article, write a clear and informative summary about "${query}".
-
-Article: ${topResult.title}
-
-${content.content}
-
-Write a concise summary (2-4 paragraphs) that answers the user's question. Cite Wikipedia as your source.`
-
-  if (provider === 'openai') {
-    const result = await openaiRequest(endpoint, '/chat/completions', apiKey, {
-      method: 'POST',
-      body: {
-        model,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a helpful research assistant. Summarize information clearly and accurately.',
-          },
-          { role: 'user', content: summaryPrompt },
-        ],
-        stream: false,
       },
     })
-    return result.choices?.[0]?.message?.content || 'Could not generate summary.'
+  })
+
+  setupExternalLinkHandling(mainWindow)
+
+  // In development, load from Vite dev server
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.loadURL('http://localhost:9743')
+    // mainWindow.webContents.openDevTools()  // Uncomment to debug
   } else {
-    const result = await ollamaRequest(endpoint, '/api/chat', {
-      method: 'POST',
-      body: {
-        model,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a helpful research assistant. Summarize information clearly and accurately.',
-          },
-          { role: 'user', content: summaryPrompt },
-        ],
-        stream: false,
-        options: { num_ctx: contextSize || 32768 },
-      },
+    // In production, load the built files
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+    // Enable devtools via keyboard shortcut in production
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      if (input.control && input.shift && input.key === 'I') {
+        mainWindow.webContents.toggleDevTools()
+      }
     })
-    return result.message?.content || 'Could not generate summary.'
   }
 }
 
-ipcMain.handle(AGENT_RESEARCH, async (_event, options) => {
-  const { prompt, provider, model, endpoint, apiKey, contextSize } = options
+// =========================================
+// MENU CREATION
+// =========================================
 
-  const messages = [
-    { role: 'system', content: RESEARCH_SYSTEM_PROMPT },
-    { role: 'user', content: prompt },
+function createMenu() {
+  const isMac = process.platform === 'darwin'
+  const template = [
+    // App menu (macOS only)
+    ...(isMac
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              { role: 'about' },
+              { type: 'separator' },
+              {
+                label: 'Settings...',
+                accelerator: 'CmdOrCtrl+,',
+                click: () => {
+                  mainWindow?.webContents.send(OPEN_SETTINGS)
+                },
+              },
+              { type: 'separator' },
+              { role: 'services' },
+              { type: 'separator' },
+              { role: 'hide' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit' },
+            ],
+          },
+        ]
+      : []),
+    // Edit menu
+    {
+      label: 'Edit',
+      submenu: [
+        {
+          label: 'Undo',
+          accelerator: 'CmdOrCtrl+Z',
+          click: () => {
+            mainWindow?.webContents.send(MENU_UNDO)
+          },
+        },
+        {
+          label: 'Redo',
+          accelerator: 'CmdOrCtrl+Shift+Z',
+          click: () => {
+            mainWindow?.webContents.send(MENU_REDO)
+          },
+        },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' },
+      ],
+    },
+    // View menu
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
+    // Window menu
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        ...(isMac
+          ? [{ type: 'separator' }, { role: 'front' }, { type: 'separator' }, { role: 'window' }]
+          : [{ role: 'close' }]),
+      ],
+    },
+    // Help menu
+    {
+      role: 'help',
+      submenu: [
+        {
+          label: 'GitHub Repository',
+          click: async () => {
+            await shell.openExternal('https://github.com/sorenwacker/graph-core')
+          },
+        },
+        {
+          label: 'Documentation',
+          click: async () => {
+            await shell.openExternal('https://github.com/sorenwacker/graph-core#readme')
+          },
+        },
+        {
+          label: 'Keyboard Shortcuts',
+          accelerator: 'CmdOrCtrl+/',
+          click: () => {
+            mainWindow?.webContents.send(SHOW_SHORTCUTS)
+          },
+        },
+        { type: 'separator' },
+        {
+          label: 'Release Notes',
+          click: async () => {
+            await shell.openExternal('https://github.com/sorenwacker/graph-core/releases')
+          },
+        },
+        {
+          label: 'Report Issue',
+          click: async () => {
+            await shell.openExternal('https://github.com/sorenwacker/graph-core/issues')
+          },
+        },
+        { type: 'separator' },
+        {
+          label: 'Ollama Setup',
+          click: async () => {
+            await shell.openExternal('https://ollama.ai/download')
+          },
+        },
+        {
+          label: 'Ollama Models',
+          click: async () => {
+            await shell.openExternal('https://ollama.ai/library')
+          },
+        },
+      ],
+    },
   ]
 
-  for (let i = 0; i < MAX_AGENT_ITERATIONS; i++) {
-    let response
+  const menu = Menu.buildFromTemplate(template)
+  Menu.setApplicationMenu(menu)
+}
 
-    try {
-      if (provider === 'openai') {
-        const result = await openaiRequest(endpoint, '/chat/completions', apiKey, {
-          method: 'POST',
-          body: {
-            model,
-            messages,
-            tools: AGENT_TOOLS,
-            stream: false,
-          },
-        })
-        const message = result.choices?.[0]?.message || {}
-        response = { content: message.content || null, tool_calls: message.tool_calls || null }
-      } else {
-        const result = await ollamaRequest(endpoint, '/api/chat', {
-          method: 'POST',
-          body: {
-            model,
-            messages,
-            tools: AGENT_TOOLS,
-            stream: false,
-            options: { num_ctx: contextSize || 32768 },
-          },
-        })
-        const message = result.message || {}
-        response = { content: message.content || null, tool_calls: message.tool_calls || null }
-      }
+// =========================================
+// APP INITIALIZATION
+// =========================================
 
-      // Check if model returned garbage (doesn't support tools)
-      if (isGarbageResponse(response.content) && !response.tool_calls) {
-        console.log('Model does not support tool calling, using fallback...')
-        return await fallbackResearch(prompt, provider, model, endpoint, apiKey, contextSize)
-      }
+app.whenReady().then(async () => {
+  // Initialize database
+  const dbPath = path.join(app.getPath('userData'), 'graph.db')
+  db = new Database(dbPath)
+  await db.ready // Wait for async initialization
 
-      if (response.tool_calls && response.tool_calls.length > 0) {
-        messages.push({
-          role: 'assistant',
-          content: response.content || '',
-          tool_calls: response.tool_calls,
-        })
+  // Register all IPC handlers
+  registerDatabaseHandlers(ipcMain, db)
+  registerOllamaHandlers(ipcMain, httpRequest)
+  registerOpenaiHandlers(ipcMain, httpRequest)
+  registerAgentHandlers(ipcMain, httpRequest)
+  registerWindowHandlers(ipcMain)
 
-        for (const toolCall of response.tool_calls) {
-          const toolName = toolCall.function?.name || toolCall.name
-          let toolArgs = toolCall.function?.arguments || toolCall.arguments
-          if (typeof toolArgs === 'string') {
-            try {
-              toolArgs = JSON.parse(toolArgs)
-            } catch {
-              toolArgs = {}
-            }
-          }
-          const toolId = toolCall.id || `call_${i}_${toolName}`
-          const result = await executeAgentTool(toolName, toolArgs || {})
+  // App info handler
+  ipcMain.handle(APP_GET_VERSION, () => app.getVersion())
 
-          messages.push({
-            role: 'tool',
-            tool_call_id: toolId,
-            content: result,
-          })
-        }
-      } else {
-        return response.content || 'No response generated.'
-      }
-    } catch (err) {
-      // If tool calling fails, try fallback
-      console.log('Tool calling failed, using fallback:', err.message)
-      return await fallbackResearch(prompt, provider, model, endpoint, apiKey, contextSize)
+  createMenu()
+  createWindow()
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow()
     }
-  }
+  })
+})
 
-  // Max iterations - generate final response
-  if (provider === 'openai') {
-    const finalResult = await openaiRequest(endpoint, '/chat/completions', apiKey, {
-      method: 'POST',
-      body: {
-        model,
-        messages: [
-          ...messages,
-          { role: 'user', content: 'Based on the information gathered, provide a final summary.' },
-        ],
-        stream: false,
-      },
-    })
-    return finalResult.choices?.[0]?.message?.content || 'No response generated.'
-  } else {
-    const finalResult = await ollamaRequest(endpoint, '/api/chat', {
-      method: 'POST',
-      body: {
-        model,
-        messages: [
-          ...messages,
-          { role: 'user', content: 'Based on the information gathered, provide a final summary.' },
-        ],
-        stream: false,
-        options: { num_ctx: contextSize || 32768 },
-      },
-    })
-    return finalResult.message?.content || 'No response generated.'
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit()
   }
 })
 
-// App info
-ipcMain.handle(APP_GET_VERSION, () => app.getVersion())
+// Notify renderer to save before quitting
+app.on('before-quit', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(APP_BEFORE_QUIT)
+  }
+})
