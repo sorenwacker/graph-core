@@ -20,6 +20,22 @@ export const ALL_NODE_TYPES: NodeType[] = [
 ]
 
 /**
+ * Default visible node types (excludes 'tag' as tags are shown via links, not as standalone nodes)
+ */
+export const DEFAULT_VISIBLE_TYPES: NodeType[] = [
+  'task',
+  'note',
+  'project',
+  'milestone',
+  'topic',
+  'component',
+  'group',
+  'event',
+  'person',
+  'organization',
+]
+
+/**
  * Radial layout settings
  */
 export interface RadialLayoutSettings {
@@ -133,8 +149,8 @@ export function useGraphSettings(options: UseGraphSettingsOptions = {}): UseGrap
   const showExternalLinks = ref(getBoolean(STORAGE_KEYS.GRAPH_SHOW_EXTERNAL_LINKS, true))
   const showRootNode = ref(getBoolean(STORAGE_KEYS.GRAPH_SHOW_ROOT_NODE, true))
 
-  // Node type filter
-  const visibleTypes = ref<NodeType[]>(getArray(STORAGE_KEYS.GRAPH_TYPE_FILTER, [...ALL_NODE_TYPES]))
+  // Node type filter (default excludes tags)
+  const visibleTypes = ref<NodeType[]>(getArray(STORAGE_KEYS.GRAPH_TYPE_FILTER, [...DEFAULT_VISIBLE_TYPES]))
 
   // Trackpad zoom mode
   const trackpadZoomMode = ref<TrackpadZoomMode>(
@@ -164,7 +180,7 @@ export function useGraphSettings(options: UseGraphSettingsOptions = {}): UseGrap
     fitLocked.value = getBoolean(STORAGE_KEYS.GRAPH_FIT_LOCKED, false)
     showExternalLinks.value = getBoolean(STORAGE_KEYS.GRAPH_SHOW_EXTERNAL_LINKS, true)
     showRootNode.value = getBoolean(STORAGE_KEYS.GRAPH_SHOW_ROOT_NODE, true)
-    visibleTypes.value = getArray(STORAGE_KEYS.GRAPH_TYPE_FILTER, [...ALL_NODE_TYPES])
+    visibleTypes.value = getArray(STORAGE_KEYS.GRAPH_TYPE_FILTER, [...DEFAULT_VISIBLE_TYPES])
     radialSettings.nodeRepulsion = getNumber(STORAGE_KEYS.GRAPH_RADIAL_REPULSION, RADIAL_DEFAULTS.repulsion)
     radialSettings.edgeLength = getNumber(STORAGE_KEYS.GRAPH_RADIAL_EDGE_LENGTH, RADIAL_DEFAULTS.edgeLength)
     radialSettings.elasticity = getNumber(STORAGE_KEYS.GRAPH_RADIAL_ELASTICITY, RADIAL_DEFAULTS.elasticity)

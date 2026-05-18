@@ -192,14 +192,24 @@ export function useGraphInit(options = {}) {
 
     if (!hasPos && cy.nodes().length > 0) {
       setTimeout(() => {
-        cy.layout(layoutOptions).run()
-        setTimeout(() => {
-          cy.fit(50)
-          if (savePositions) savePositions()
-          if (onInitComplete) onInitComplete()
-          if (relaxLocked?.value && layout) layout.startContinuousRelax()
-          if (fitLocked?.value && layout) layout.startContinuousFit()
-        }, LAYOUT_SETTLE_DELAY_MS)
+        // Use custom grid layout if in grid mode
+        if (layout?.isGridMode?.()) {
+          layout.runGridLayout()
+          setTimeout(() => {
+            if (onInitComplete) onInitComplete()
+            if (relaxLocked?.value && layout) layout.startContinuousRelax()
+            if (fitLocked?.value && layout) layout.startContinuousFit()
+          }, 300)
+        } else {
+          cy.layout(layoutOptions).run()
+          setTimeout(() => {
+            cy.fit(50)
+            if (savePositions) savePositions()
+            if (onInitComplete) onInitComplete()
+            if (relaxLocked?.value && layout) layout.startContinuousRelax()
+            if (fitLocked?.value && layout) layout.startContinuousFit()
+          }, LAYOUT_SETTLE_DELAY_MS)
+        }
       }, NODE_POSITION_SETTLE_DELAY_MS)
     } else {
       if (onInitComplete) onInitComplete()

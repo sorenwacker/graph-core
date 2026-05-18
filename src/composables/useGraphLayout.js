@@ -22,6 +22,149 @@ const NODE_SPACING = {
 
 const GRAVITY_SCALE_DIVISOR = 10000
 
+// Node dimensions by type
+const NODE_DIMENSIONS = {
+  person: { width: 120, height: 40 },
+  default: { width: 180, height: 80 },
+  parent: { width: 200, height: 100 },
+}
+
+const GRID_GAP = 20 // Gap between nodes in grid
+
+/**
+ * Get node dimensions based on node data.
+ * @param {Object} node - Cytoscape node
+ * @returns {Object} { width, height }
+ */
+function getNodeDimensions(node) {
+  const data = node.data()
+  const nodeData = data.nodeData || {}
+
+  if (nodeData.type === 'person') {
+    return NODE_DIMENSIONS.person
+  }
+  if (data.isParent || nodeData.children?.length > 0) {
+    return NODE_DIMENSIONS.parent
+  }
+  return NODE_DIMENSIONS.default
+}
+
+/**
+ * Tetris-style bin-packing layout.
+ * Places nodes in rows, filling gaps where smaller nodes fit.
+ * @param {Object} cy - Cytoscape instance
+ * @param {Object} options - Layout options
+ */
+function runTetrisGridLayout(cy, options = {}) {
+  const { padding = 50, animate = true, animationDuration = 250 } = options
+
+  const nodes = cy.nodes().toArray()
+  if (nodes.length === 0) return
+
+  // Sort nodes by height (tallest first) then by width (widest first)
+  // This helps pack efficiently
+  nodes.sort((a, b) => {
+    const dimA = getNodeDimensions(a)
+    const dimB = getNodeDimensions(b)
+    // Sort by area (largest first)
+    const areaA = dimA.width * dimA.height
+    const areaB = dimB.width * dimB.height
+    if (areaB !== areaA) return areaB - areaA
+    // Then alphabetically by title for stability
+    const titleA = a.data('nodeData')?.title || ''
+    const titleB = b.data('nodeData')?.title || ''
+    return titleA.localeCompare(titleB)
+  })
+
+  // Get container dimensions for calculating grid width
+  const container = cy.container()
+  const containerWidth = container ? container.clientWidth - padding * 2 : 1200
+
+  // Shelf-based bin packing algorithm
+  const shelves = [] // Each shelf: { y, height, items: [{ x, width, node }] }
+
+  for (const node of nodes) {
+    const dim = getNodeDimensions(node)
+    const nodeWidth = dim.width + GRID_GAP
+    const nodeHeight = dim.height + GRID_GAP
+
+    let placed = false
+
+    // Try to fit on an existing shelf
+    for (const shelf of shelves) {
+      // Check if node height fits on this shelf (allow some tolerance)
+      if (nodeHeight <= shelf.height + 20) {
+        // Find the rightmost x position on this shelf
+        let shelfEndX = 0
+        for (const item of shelf.items) {
+          const itemEnd = item.x + item.width
+          if (itemEnd > shelfEndX) shelfEndX = itemEnd
+        }
+
+        // Check if there's room on this shelf
+        if (shelfEndX + nodeWidth <= containerWidth) {
+          shelf.items.push({
+            x: shelfEndX,
+            width: nodeWidth,
+            node,
+            height: nodeHeight,
+          })
+          placed = true
+          break
+        }
+      }
+    }
+
+    // If not placed, create a new shelf
+    if (!placed) {
+      let newShelfY = 0
+      if (shelves.length > 0) {
+        const lastShelf = shelves[shelves.length - 1]
+        newShelfY = lastShelf.y + lastShelf.height
+      }
+
+      shelves.push({
+        y: newShelfY,
+        height: nodeHeight,
+        items: [{ x: 0, width: nodeWidth, node, height: nodeHeight }],
+      })
+    }
+  }
+
+  // Calculate positions and apply
+  const positions = []
+  for (const shelf of shelves) {
+    for (const item of shelf.items) {
+      const dim = getNodeDimensions(item.node)
+      positions.push({
+        node: item.node,
+        x: padding + item.x + dim.width / 2,
+        y: padding + shelf.y + dim.height / 2,
+      })
+    }
+  }
+
+  // Apply positions
+  if (animate) {
+    cy.batch(() => {
+      for (const pos of positions) {
+        pos.node.animate({ position: { x: pos.x, y: pos.y } }, { duration: animationDuration, easing: 'ease-out' })
+      }
+    })
+    // Fit after animation
+    setTimeout(() => {
+      cy.fit(padding)
+    }, animationDuration + 50)
+  } else {
+    cy.batch(() => {
+      for (const pos of positions) {
+        pos.node.position({ x: pos.x, y: pos.y })
+      }
+    })
+    cy.fit(padding)
+  }
+}
+
 /**
  * Layout configurations for different graph modes.
  */
@@ -71,20 +214,13 @@ export const LAYOUTS = {
     tile: false,
   },
 
-  // Grid: simple grid layout
+  // Grid: Tetris-style bin-packing layout (handled via custom function)
   grid: {
-    name: 'grid',
+    name: 'preset',
     animate: true,
     animationDuration: 250,
     fit: true,
     padding: 50,
-    avoidOverlap: true,
-    avoidOverlapPadding: 20,
-    nodeDimensionsIncludeLabels: true,
-    condense: false,
-    rows: undefined,
-    cols: undefined,
-    sort: (a, b) => (a.data('label') || '').localeCompare(b.data('label') || ''),
   },
 
   // Circle: simple circle layout
@@ -252,6 +388,17 @@ export function useGraphLayout(options = {}) {
 
     // Clear saved positions
     if (clearPositions) clearPositions()
+
+    const mode = getLayoutMode ? getLayoutMode() : 'tree'
+
+    // Use custom Tetris grid layout for grid mode
+    if (mode === 'grid') {
+      runTetrisGridLayout(cy, { padding: 50, animate: true, animationDuration: 250 })
+      setTimeout(() => {
+        if (savePositions) savePositions()
+      }, 300)
+      return
+    }
 
     const layoutOptions = getLayoutOptions()
     cy.layout(layoutOptions).run()
@@ -600,6 +747,26 @@ export function useGraphLayout(options = {}) {
     }
   }
 
+  /**
+   * Run Tetris grid layout (for external use).
+   */
+  function runGridLayout() {
+    const cy = getCy ? getCy() : null
+    if (!cy) return
+    runTetrisGridLayout(cy, { padding: 50, animate: true, animationDuration: 250 })
+    setTimeout(() => {
+      if (savePositions) savePositions()
+    }, 300)
+  }
+
+  /**
+   * Check if current mode is grid.
+   */
+  function isGridMode() {
+    const mode = getLayoutMode ? getLayoutMode() : 'tree'
+    return mode === 'grid'
+  }
+
   return {
     // Layout config
     LAYOUTS,
@@ -613,6 +780,10 @@ export function useGraphLayout(options = {}) {
     relaxLayout,
     localRelax,
     autoRelaxNewNodes,
+
+    // Grid layout
+    runGridLayout,
+    isGridMode,
 
     // Continuous relax
     startContinuousRelax,
