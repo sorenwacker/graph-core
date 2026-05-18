@@ -150,11 +150,15 @@ export function useDataLoading(currentWorkspace: Ref<number | null>): UseDataLoa
       const rootIds = filteredRoots.map((r: Node) => r.id).filter((id: number | null): id is number => id != null)
       const descendantsByRoot: Map<number, Node[]> = await api.getDescendantsBatch(rootIds)
 
+      // Filter out tag nodes - they have their own section in the sidebar
+      const isNotTag = (n: Node) => n.type !== 'tag'
+
       const rootsWithChildren = filteredRoots
+        .filter(isNotTag)
         .map((root: Node) => {
           if (!root || !root.id) return null
           const descendants = descendantsByRoot.get(root.id) || []
-          const filteredDescendants = descendants.filter(matchesWorkspace)
+          const filteredDescendants = descendants.filter(matchesWorkspace).filter(isNotTag)
           return {
             ...root,
             children: buildChildTree(filteredDescendants, root.id),
