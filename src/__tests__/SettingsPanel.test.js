@@ -6,7 +6,6 @@ import SettingsPanel from '../components/SettingsPanel.vue'
 // Mock the api module
 vi.mock('../services/api.js', () => ({
   api: {
-    getVersion: vi.fn().mockResolvedValue('1.0.0'),
     getDataPath: vi.fn().mockResolvedValue('/test/path'),
   },
 }))

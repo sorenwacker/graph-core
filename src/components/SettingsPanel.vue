@@ -78,8 +78,8 @@ const emit = defineEmits([
 // Tab navigation
 const activeTab = ref('general')
 
-// App version
-const appVersion = ref('--')
+// App version (injected at build time by Vite)
+const appVersion = ref(__APP_VERSION__)
 
 // Demo workspace status
 const demoExists = ref(false)
@@ -89,14 +89,6 @@ const dataPath = ref('')
 
 // Fetch app info on mount
 onMounted(async () => {
-  // Fetch app version
-  try {
-    appVersion.value = await api.getVersion()
-  } catch (e) {
-    handleError(e, { context: 'Fetching app version', silent: true })
-    appVersion.value = 'Unknown'
-  }
-
   // Check if demo workspace exists
   demoExists.value = await demoWorkspaceExists(api)
 
