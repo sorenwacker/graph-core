@@ -639,6 +639,9 @@ const handleSelectWithTooltip = (node, event) => {
   // If event is passed (from cards view), toggle tooltip lock
   if (node && event && typeof event.preventDefault === 'function') {
     toggleTooltipLock(node, event)
+  } else if (!node) {
+    // Clicking canvas (deselect) should dismiss any locked tooltip
+    forceHideTooltip()
   }
   selectNode(node)
 }
