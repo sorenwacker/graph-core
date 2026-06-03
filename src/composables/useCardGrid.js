@@ -62,22 +62,25 @@ export function useCardGrid({ items, containerWidth, containerHeight }) {
 
   /**
    * Compute optimal grid layout style for cards.
-   * Tries to make cards as square as possible.
+   * Uses minmax for rows to fill available space while allowing content to determine minimum.
    */
   const cardsGridStyle = computed(() => {
     const count = items.value.length
     if (count === 0) return {}
 
     const cols = gridColumns.value
-    const rows = Math.ceil(count / cols)
     const gap = 10
+
+    // Calculate minimum card height based on count
+    // More cards = smaller minimum height
+    const minHeight = count <= 2 ? '200px' : count <= 4 ? '150px' : count <= 9 ? '120px' : '80px'
 
     return {
       display: 'grid',
       gridTemplateColumns: `repeat(${cols}, 1fr)`,
-      gridTemplateRows: `repeat(${rows}, 1fr)`,
+      gridAutoRows: `minmax(${minHeight}, 1fr)`,
       gap: `${gap}px`,
-      height: '100%',
+      alignContent: 'stretch',
     }
   })
 

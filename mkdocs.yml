@@ -72,3 +72,4 @@ nav:
     - Caching: architecture/caching.md
   - Contributing:
     - Development: contributing/development.md
+    - Standards: contributing/standards.md

@@ -73,7 +73,15 @@ export default [
       }
     },
     rules: {
-      // Relax some rules for this project
+      // Code quality rules
+      complexity: ['warn', { max: 10 }],
+      'max-depth': ['warn', { max: 4 }],
+      'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }],
+      'max-lines-per-function': ['warn', { max: 50, skipBlankLines: true, skipComments: true }],
+      'max-params': ['warn', { max: 5 }],
+      'max-nested-callbacks': ['warn', { max: 3 }],
+
+      // Project-specific relaxations
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       'no-console': 'off',
       'vue/multi-word-component-names': 'off',

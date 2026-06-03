@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import tippy from 'tippy.js'
 import ViewSwitcher from './ViewSwitcher.vue'
 import SettingsPanel from './SettingsPanel.vue'
+import TypeFilterDropdown from './TypeFilterDropdown.vue'
 import { useTheme } from '../composables/useTheme.js'
 import { usePlatform } from '../composables/usePlatform.js'
 
@@ -186,6 +187,7 @@ const emit = defineEmits([
         <line x1="1" y1="1" x2="23" y2="23"></line>
       </svg>
     </button>
+    <TypeFilterDropdown />
     <span class="toolbar-separator"></span>
     <button ref="searchBtn" class="icon-btn" @click="emit('open-search')" aria-label="Search">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

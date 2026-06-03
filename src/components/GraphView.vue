@@ -1,9 +1,10 @@
 <script setup>
-import { ref, toRef, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, toRef, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
 import tippy from 'tippy.js'
 import { api } from '../services/api'
 import { useNodeTooltip } from '../composables/useNodeTooltip.js'
 import { useGraphSettings, ALL_NODE_TYPES } from '../composables/useGraphSettings'
+import { useFiltersStore } from '../stores/filters.js'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
 import { useGraphModals } from '../composables/useGraphModals.js'
 import { useGraphLayout } from '../composables/useGraphLayout.js'
@@ -128,10 +129,17 @@ const showExternalLinks = ref(
     ? Boolean(props.parent.show_external_links)
     : getWorkspaceShowExternalLinks()
 )
-const maxDepth = ref(props.parent?.graph_max_depth ?? _maxDepth.value)
-const visibleTypes = ref(
-  Array.isArray(props.parent?.graph_type_filter) ? [...props.parent.graph_type_filter] : [..._visibleTypes.value]
-)
+// Use filter store for shared filtering across views
+const filtersStore = useFiltersStore()
+const visibleTypes = computed({
+  get: () => filtersStore.visibleTypes,
+  set: val => filtersStore.setVisibleTypes(val),
+})
+const maxDepth = computed({
+  get: () => filtersStore.maxDepth,
+  set: val => filtersStore.setMaxDepth(val),
+})
+
 // Per-node physics settings with fallback to workspace defaults
 const relaxLocked = ref(
   props.parent?.graph_relax_locked != null ? Boolean(props.parent.graph_relax_locked) : _relaxLocked.value
@@ -392,10 +400,7 @@ watch(
         props.parent?.show_root_node != null ? Boolean(props.parent.show_root_node) : _showRootNode.value
       showExternalLinks.value =
         props.parent?.show_external_links != null ? Boolean(props.parent.show_external_links) : _showExternalLinks.value
-      maxDepth.value = props.parent?.graph_max_depth ?? _maxDepth.value
-      visibleTypes.value = Array.isArray(props.parent?.graph_type_filter)
-        ? [...props.parent.graph_type_filter]
-        : [..._visibleTypes.value]
+      // maxDepth and visibleTypes are managed by the shared filter store (synced in App.vue)
       relaxLocked.value =
         props.parent?.graph_relax_locked != null ? Boolean(props.parent.graph_relax_locked) : _relaxLocked.value
       fitLocked.value =
@@ -416,7 +421,7 @@ watch(
       layoutMode.value = _layoutMode.value
       showRootNode.value = _showRootNode.value
       showExternalLinks.value = getWorkspaceShowExternalLinks()
-      visibleTypes.value = [..._visibleTypes.value]
+      // visibleTypes is managed by the shared filter store
       relaxLocked.value = _relaxLocked.value
       fitLocked.value = _fitLocked.value
       radialSettings.value = { ..._radialSettings }
@@ -481,14 +486,13 @@ watch(
 )
 
 const toggleTypeFilter = t => {
-  const i = visibleTypes.value.indexOf(t)
-  i >= 0 ? visibleTypes.value.splice(i, 1) : visibleTypes.value.push(t)
+  filtersStore.toggleType(t)
 }
 const selectAllTypes = () => {
-  visibleTypes.value = [...ALL_NODE_TYPES]
+  filtersStore.showAllTypes()
 }
 const selectNoTypes = () => {
-  visibleTypes.value = []
+  filtersStore.setVisibleTypes([])
 }
 
 function handleGlobalKeydown(e) {
@@ -600,12 +604,8 @@ watch(
     initGraph()
   }
 )
-watch(_maxDepth, v => {
-  if (!props.parent?.id) {
-    maxDepth.value = v
-  }
-})
-watch(maxDepth, updateGraph)
+// maxDepth sync is handled by filter store in App.vue
+watch(() => filtersStore.maxDepth, updateGraph)
 watch(() => props.hideCompleted, updateGraph)
 watch(
   () => props.selectedIds,
