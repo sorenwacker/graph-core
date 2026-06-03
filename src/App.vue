@@ -46,6 +46,8 @@ import HintBar from './components/HintBar.vue'
 import { showToast } from './composables/useToast.js'
 import { handleError } from './composables/useErrorHandler.js'
 import { useDemoWorkspace } from './composables/useDemoWorkspace.js'
+import { useFiltersStore } from './stores/filters.js'
+import { useGraphSettings } from './composables/useGraphSettings'
 
 // Settings
 const {
@@ -95,6 +97,9 @@ if (!hasSeenOnboarding.value) showOnboarding.value = true
 // View state controller
 const viewStateController = useViewStateController({ viewMode })
 const { sortAlphabetically, transitioning, transitionDirection } = viewStateController
+
+// Filter store - shared filter state across all views
+const filtersStore = useFiltersStore()
 
 // Navigation state
 const { currentContainerId, currentContainer, breadcrumbs, children, syncFromNavigation, resetNavigationState } =
@@ -353,6 +358,9 @@ const {
   onReorder: (src, tgt, pos) => handleReorder({ nodeId: src.id, targetId: tgt.id, position: pos }),
 })
 
+// Workspace graph settings defaults (for filter sync)
+const workspaceGraphSettings = useGraphSettings({ workspace: currentWorkspace })
+
 // Navigation
 const navigation = useNavigation({
   api,
@@ -376,6 +384,13 @@ const navigation = useNavigation({
     currentContainerId.value = null
     localStorage.removeItem('graphcore-containerId')
     await navigation.loadChildren(null)
+  },
+  onAfterNavigate: () => {
+    // Sync filter store from current container settings
+    filtersStore.syncFromNode(currentContainer.value, {
+      visibleTypes: workspaceGraphSettings.visibleTypes.value,
+      maxDepth: workspaceGraphSettings.maxDepth.value,
+    })
   },
 })
 

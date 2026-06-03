@@ -1,4 +1,4 @@
-.PHONY: dev install clean stop build dist install-mac reset-db docs
+.PHONY: dev install clean stop build dist install-mac reset-db docs lint format check test
 
 # Start Electron app in dev mode
 dev:
@@ -47,3 +47,26 @@ reset-db:
 docs:
 	@if [ ! -d .venv ]; then python3 -m venv .venv && .venv/bin/pip install mkdocs mkdocs-material pymdown-extensions; fi
 	.venv/bin/mkdocs serve
+
+# Lint code with auto-fix
+lint:
+	npm run lint:fix
+
+# Format code
+format:
+	npm run format
+
+# Run all checks (lint, format, type-check, test)
+check:
+	npm run lint
+	npm run format:check
+	npm run type-check
+	npm run test:run
+
+# Run tests
+test:
+	npm run test:run
+
+# Run tests with coverage
+coverage:
+	npm run test:coverage

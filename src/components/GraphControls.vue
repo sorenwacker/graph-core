@@ -1,6 +1,5 @@
 <script setup>
 import { ref } from 'vue'
-import { ALL_NODE_TYPES } from '../composables/useGraphSettings'
 
 defineProps({
   layoutMode: { type: String, required: true },
@@ -9,7 +8,6 @@ defineProps({
   showExternalLinks: { type: Boolean, default: true },
   showRootNode: { type: Boolean, default: true },
   maxDepth: { type: Number, default: 0 },
-  visibleTypes: { type: Array, default: () => [...ALL_NODE_TYPES] },
   radialSettings: { type: Object, required: true },
   hasParent: { type: Boolean, default: false },
 })
@@ -22,15 +20,11 @@ const emit = defineEmits([
   'update:showExternalLinks',
   'update:showRootNode',
   'update:maxDepth',
-  'toggle-type',
-  'select-all-types',
-  'select-no-types',
   'apply-radial-settings',
   'update:radialSettings',
   'show-hotkey-help',
 ])
 
-const showTypeFilter = ref(false)
 const showLayoutSettings = ref(false)
 </script>
 
@@ -160,28 +154,6 @@ const showLayoutSettings = ref(false)
       </select>
     </div>
     <span class="controls-separator"></span>
-    <div class="type-filter-wrapper">
-      <button
-        class="icon-btn"
-        @click="showTypeFilter = !showTypeFilter"
-        :class="{ active: visibleTypes.length < ALL_NODE_TYPES.length }"
-        title="Filter node types"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-        </svg>
-      </button>
-      <div v-if="showTypeFilter" class="type-filter-dropdown">
-        <div class="type-filter-actions">
-          <button @click="emit('select-all-types')">All</button>
-          <button @click="emit('select-no-types')">None</button>
-        </div>
-        <label v-for="t in ALL_NODE_TYPES" :key="t" class="type-filter-item">
-          <input type="checkbox" :checked="visibleTypes.includes(t)" @change="emit('toggle-type', t)" />
-          <span>{{ t }}</span>
-        </label>
-      </div>
-    </div>
     <div class="layout-settings-wrapper">
       <button class="icon-btn" @click="showLayoutSettings = !showLayoutSettings" title="Layout settings">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -340,12 +312,10 @@ const showLayoutSettings = ref(false)
   font-size: 12px;
 }
 
-.type-filter-wrapper,
 .layout-settings-wrapper {
   position: relative;
 }
 
-.type-filter-dropdown,
 .layout-settings-dropdown {
   position: absolute;
   top: 100%;
@@ -357,48 +327,6 @@ const showLayoutSettings = ref(false)
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 100;
-  min-width: 150px;
-}
-
-.type-filter-actions {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 8px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border-secondary);
-}
-
-.type-filter-actions button {
-  flex: 1;
-  padding: 4px 8px;
-  border: 1px solid var(--border-secondary);
-  border-radius: 4px;
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 11px;
-}
-
-.type-filter-actions button:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.type-filter-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 0;
-  cursor: pointer;
-  font-size: 12px;
-  color: var(--text-primary);
-}
-
-.type-filter-item input {
-  margin: 0;
-}
-
-.layout-settings-dropdown {
   min-width: 200px;
 }
 

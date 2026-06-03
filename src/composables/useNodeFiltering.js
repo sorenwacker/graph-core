@@ -1,4 +1,5 @@
 import { computed } from 'vue'
+import { useFiltersStore } from '../stores/filters.js'
 
 /**
  * Composable for node filtering and transformation operations.
@@ -192,14 +193,18 @@ export function filterChildrenRecursive(nodeList, hideCompleted) {
 /**
  * Reactive composable for filtered and sorted children.
  * Provides computed refs that react to changes in source data.
+ * Uses the shared filter store for type filtering.
  *
  * @param {Object} options
  * @param {Ref<Array>} options.children - Raw children nodes
  * @param {Ref<boolean>} options.hideCompleted - Whether to hide completed items
  * @param {Ref<boolean>} options.sortAlphabetically - Whether to sort alphabetically
+ * @param {boolean} options.applyTypeFilter - Whether to apply type filter from store (default: true)
  * @returns {Object} Reactive computeds for filtered and sorted children
  */
-export function useChildrenFiltering({ children, hideCompleted, sortAlphabetically }) {
+export function useChildrenFiltering({ children, hideCompleted, sortAlphabetically, applyTypeFilter = true }) {
+  const filtersStore = useFiltersStore()
+
   /**
    * Internal filter function using current hideCompleted value.
    */
@@ -208,10 +213,33 @@ export function useChildrenFiltering({ children, hideCompleted, sortAlphabetical
   }
 
   /**
+   * Apply type filter recursively to nodes
+   */
+  function applyTypeFilterRecursive(nodeList) {
+    if (!nodeList || !applyTypeFilter || !filtersStore.hasTypeFilter) return nodeList
+    return nodeList
+      .filter(node => {
+        if (!node) return false
+        // Always hide tag type from direct display
+        if (node.type === 'tag') return false
+        return filtersStore.visibleTypes.includes(node.type)
+      })
+      .map(node => ({
+        ...node,
+        children: node.children ? applyTypeFilterRecursive(node.children) : [],
+      }))
+  }
+
+  /**
    * Filtered and optionally sorted children for cards view.
+   * Applies completion filter, type filter, and optional sorting.
    */
   const filteredChildren = computed(() => {
+    // First apply completion filter
     let result = filterRecursive(children.value)
+    // Then apply type filter from store
+    result = applyTypeFilterRecursive(result)
+    // Finally sort if needed
     if (sortAlphabetically.value) {
       result = [...result].sort((a, b) => (a.title || '').localeCompare(b.title || ''))
     }
@@ -220,6 +248,7 @@ export function useChildrenFiltering({ children, hideCompleted, sortAlphabetical
 
   /**
    * Sorted children for graph/timeline views (no completion filtering).
+   * Type filtering is applied separately in graph view.
    */
   const sortedChildren = computed(() => {
     if (!sortAlphabetically.value) return children.value
