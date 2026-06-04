@@ -36,6 +36,8 @@ export function useAppLifecycle({
   showSettings,
   // Shortcuts modal
   showShortcuts,
+  // Callback after initial load
+  onAfterInitialLoad,
 }) {
   let resizeObserver = null
 
@@ -121,6 +123,11 @@ export function useAppLifecycle({
       // If saved container no longer exists, fall back to root
       console.warn('Saved container not found, loading root')
       await loadChildren(null)
+    }
+
+    // Sync filters after initial load
+    if (onAfterInitialLoad) {
+      onAfterInitialLoad()
     }
 
     // Restore expanded state from localStorage

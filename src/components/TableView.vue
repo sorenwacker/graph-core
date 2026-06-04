@@ -28,6 +28,7 @@ const props = defineProps({
   currentContainer: { type: Object, default: null },
   colorMap: { type: Object, default: () => ({}) },
   hoverPreviewEnabled: { type: Boolean, default: true },
+  sidebarVisible: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -58,7 +59,7 @@ const { showTooltip, hideTooltip } = useNodeTooltip({
   onOpenDetail: nodeId => emit('open-fullscreen', nodeId),
   onToggleComplete: nodeId => emit('toggle-complete', nodeId),
   getHideSensitive: () => props.hideSensitive,
-  shouldShowTooltip: () => props.hoverPreviewEnabled && !props.showDetail,
+  shouldShowTooltip: () => props.hoverPreviewEnabled && !props.showDetail && !props.sidebarVisible,
 })
 
 // Setup node interactions (shared logic for hover/click/double-click)

@@ -238,9 +238,12 @@ const {
     if (node) await toggleComplete(node)
   },
   getHideSensitive: () => hideSensitive.value,
-  shouldShowTooltip: () => hoverPreviewEnabled.value && !showDetail.value,
+  shouldShowTooltip: () => hoverPreviewEnabled.value && !showDetail.value && !sidebarVisible.value,
 })
 watch(showDetail, isOpen => {
+  if (isOpen) forceHideTooltip()
+})
+watch(sidebarVisible, isOpen => {
   if (isOpen) forceHideTooltip()
 })
 
@@ -346,7 +349,7 @@ watch(selectedNode, node => {
 const {
   dropTarget,
   dropPosition,
-  onDragStart: onCardDragStart,
+  onDragStart: _onCardDragStart,
   onDragEnd: onCardDragEnd,
   onDragOver: onCardDragOver,
   onDragLeave: onCardDragLeave,
@@ -357,6 +360,12 @@ const {
   onMoveMultiple: (nodeIds, tgt) => moveMultipleNodes({ nodeIds, newParentId: tgt.id }),
   onReorder: (src, tgt, pos) => handleReorder({ nodeId: src.id, targetId: tgt.id, position: pos }),
 })
+
+// Wrap drag start to hide tooltip
+function onCardDragStart(e, node) {
+  forceHideTooltip()
+  _onCardDragStart(e, node)
+}
 
 // Workspace graph settings defaults (for filter sync)
 const workspaceGraphSettings = useGraphSettings({ workspace: currentWorkspace })
@@ -768,6 +777,13 @@ useAppLifecycle({
   redo,
   showSettings,
   showShortcuts: showShortcutsModal,
+  onAfterInitialLoad: () => {
+    // Sync filter store from current container after initial load
+    filtersStore.syncFromNode(currentContainer.value, {
+      visibleTypes: workspaceGraphSettings.visibleTypes.value,
+      maxDepth: workspaceGraphSettings.maxDepth.value,
+    })
+  },
 })
 </script>
 
@@ -885,6 +901,7 @@ useAppLifecycle({
               :current-container="currentContainer"
               :color-map="inheritedColorMap"
               :hover-preview-enabled="hoverPreviewEnabled"
+              :sidebar-visible="sidebarVisible"
               :show-detail="showDetail"
               :graph-detail-threshold="graphDetailThreshold"
               :graph-notes-preview-length="graphNotesPreviewLength"
@@ -924,7 +941,7 @@ useAppLifecycle({
               @hide-tooltip="hideTooltip"
               @drag-start="onCardDragStart"
               @drag-end="onCardDragEnd"
-              @drag-over="onCardDragOver"
+              @drag-over="(e, node, pos) => onCardDragOver(e, node, pos)"
               @drag-leave="onCardDragLeave"
               @drop="onCardDrop"
               @start-edit="startEditing"

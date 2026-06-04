@@ -34,6 +34,7 @@ const props = defineProps({
   showDetail: { type: Boolean, default: false },
   fullscreenDetailOpen: { type: Boolean, default: false },
   hoverPreviewEnabled: { type: Boolean, default: true },
+  sidebarVisible: { type: Boolean, default: false },
   sortAlphabetically: { type: Boolean, default: false },
   notesPreviewLength: { type: Number, default: 200 },
   ancestorColor: { type: String, default: null },
@@ -173,7 +174,11 @@ const {
   onOpenDetail: id => emit('open-fullscreen', id),
   getHideSensitive: () => props.hideSensitive,
   shouldShowTooltip: () =>
-    props.hoverPreviewEnabled && !props.showDetail && !props.fullscreenDetailOpen && !editModal.value.visible,
+    props.hoverPreviewEnabled &&
+    !props.showDetail &&
+    !props.fullscreenDetailOpen &&
+    !editModal.value.visible &&
+    !props.sidebarVisible,
 })
 
 const {
@@ -206,6 +211,7 @@ const layout = useGraphLayout({
     layoutMode.value = m
   },
   getRadialSettings: () => radialSettings.value,
+  getSortAlphabetically: () => props.sortAlphabetically,
   savePositions: _savePos,
   clearPositions: _clearPos,
   relaxLocked,

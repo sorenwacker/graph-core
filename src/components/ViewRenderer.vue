@@ -28,6 +28,7 @@ const props = defineProps({
   // Display options
   colorMap: { type: Object, default: () => ({}) },
   hoverPreviewEnabled: { type: Boolean, default: true },
+  sidebarVisible: { type: Boolean, default: false },
   showDetail: { type: Boolean, default: false },
   // Graph-specific
   graphDetailThreshold: { type: Number, default: 50 },
@@ -142,6 +143,7 @@ defineExpose({
     :current-container="currentContainer"
     :color-map="colorMap"
     :hover-preview-enabled="hoverPreviewEnabled"
+    :sidebar-visible="sidebarVisible"
     @hover="emit('hover', $event)"
     @select="emit('select', $event)"
     @select-multiple="emit('select-multiple', $event)"
@@ -187,9 +189,9 @@ defineExpose({
     @show-tooltip="(e, node) => emit('show-tooltip', e, node)"
     @hide-tooltip="emit('hide-tooltip')"
     @drag-start="(e, node) => emit('drag-start', e, node)"
-    @drag-end="emit('drag-end')"
-    @drag-over="(e, node) => emit('drag-over', e, node)"
-    @drag-leave="emit('drag-leave')"
+    @drag-end="e => emit('drag-end', e)"
+    @drag-over="(e, node, pos) => emit('drag-over', e, node, pos)"
+    @drag-leave="e => emit('drag-leave', e)"
     @drop="(e, node) => emit('drop', e, node)"
     @start-edit="emit('start-edit', $event)"
     @save-edit="emit('save-edit', $event)"
@@ -217,6 +219,7 @@ defineExpose({
     :show-detail="showDetail"
     :fullscreen-detail-open="fullscreenDetail"
     :hover-preview-enabled="hoverPreviewEnabled"
+    :sidebar-visible="sidebarVisible"
     :sort-alphabetically="sortAlphabetically"
     :notes-preview-length="graphNotesPreviewLength"
     :ancestor-color="colorMap[currentContainer?.id] || null"
