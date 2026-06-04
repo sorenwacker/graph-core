@@ -1294,15 +1294,17 @@ input.grandchild-check {
 }
 
 .node-card.drop-before {
+  border-left: 4px solid #4a9eff !important;
   box-shadow:
-    -4px 0 0 0 #4a9eff,
-    0 2px 4px rgba(0, 0, 0, 0.2);
+    -4px 0 12px rgba(74, 158, 255, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .node-card.drop-after {
+  border-right: 4px solid #4a9eff !important;
   box-shadow:
-    4px 0 0 0 #4a9eff,
-    0 2px 4px rgba(0, 0, 0, 0.2);
+    4px 0 12px rgba(74, 158, 255, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .card-drag {

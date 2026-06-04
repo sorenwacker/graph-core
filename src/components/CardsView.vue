@@ -59,13 +59,24 @@ function getNodeColor(node) {
 
 function getCardDropClass(node) {
   if (props.dragOverNodeId !== node.id) return ''
-  return props.dragPosition === 'before'
-    ? 'drop-before'
-    : props.dragPosition === 'after'
-      ? 'drop-after'
-      : props.dragPosition === 'inside'
-        ? 'drop-inside'
-        : ''
+  if (props.dragPosition === 'inside') return 'drop-inside'
+  if (props.dragPosition === 'before') return 'drop-before'
+  if (props.dragPosition === 'after') return 'drop-after'
+  return ''
+}
+
+// Handle drag over a card - Alt+drag for nesting, normal drag for reordering
+function handleCardDragOver(e, node) {
+  e.preventDefault()
+  if (e.altKey) {
+    emit('drag-over', e, node, 'inside')
+  } else {
+    // Determine before/after based on horizontal cursor position
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const position = x < rect.width * 0.5 ? 'before' : 'after'
+    emit('drag-over', e, node, position)
+  }
 }
 
 function handleCardClick(e, node) {
@@ -234,304 +245,313 @@ function handleCanvasClick(e) {
 
 <template>
   <div class="cards-view" :style="gridStyle" @click.self="handleCanvasClick">
-    <div
-      v-for="node in filteredNodes"
-      :key="node.id"
-      class="node-card"
-      :class="[cardSizeClass, `type-${node.type}`, { selected: isCardSelected(node.id) }, getCardDropClass(node)]"
-      :style="
-        getNodeColor(node)
-          ? { background: `linear-gradient(135deg, ${getNodeColor(node)}55 0%, var(--bg-primary) 80%)` }
-          : {}
-      "
-      :draggable="editingCardId !== node.id && inlineNotesId !== node.id"
-      @click="handleCardClick($event, node)"
-      @dblclick="emit('enter', node)"
-      @dragstart="emit('drag-start', $event, node)"
-      @dragend="emit('drag-end')"
-      @dragover="emit('drag-over', $event, node)"
-      @dragleave="emit('drag-leave')"
-      @drop="emit('drop', $event, node)"
-      @mouseenter="emit('show-tooltip', $event, node)"
-      @mouseleave="emit('hide-tooltip')"
-      @contextmenu.prevent="emit('context-menu', $event, node)"
-    >
-      <!-- Header -->
-      <div class="node-card-header">
-        <span v-if="node.favorite" class="card-favorite-star" title="Favorite">&#9733;</span>
-        <span v-if="cardSizeClass !== 'card-xs'" class="drag-handle card-drag" title="Drag to reorder">::</span>
-        <span class="node-card-type" :class="node.type" :title="'Type: ' + node.type">
-          {{ cardSizeClass === 'card-xs' ? node.type[0].toUpperCase() : node.type.toUpperCase() }}
-        </span>
-        <span
-          v-if="node.importance"
-          class="card-importance"
-          :class="'imp-' + node.importance"
-          :title="getImportanceLabel(node.importance)"
-        >
-          {{ cardSizeClass === 'card-xs' ? node.importance : getImportanceLabel(node.importance) }}
-        </span>
-        <span
-          v-if="node.children?.length && cardSizeClass !== 'card-xs'"
-          class="node-card-children"
-          :title="node.children.length + ' children'"
-        >
-          {{ node.children.length }}
-        </span>
-        <span
-          v-if="node.due_date && cardSizeClass !== 'card-xs'"
-          class="card-due-date"
-          :class="getDueDateClass(node)"
-          :title="node.due_date"
-        >
-          {{ formatDueDate(node) }}
-        </span>
-        <button class="card-add-btn" @click.stop="emit('add-child', node.id, $event)" title="Add child item">+</button>
-        <button class="card-delete-btn" @click.stop="emit('delete', node.id)" title="Delete">x</button>
-      </div>
-
-      <!-- Title row with checkbox -->
-      <div class="node-card-title-row">
-        <input
-          v-if="node.type === 'task'"
-          type="checkbox"
-          class="card-checkbox"
-          :checked="node.completed"
-          draggable="false"
-          @click.stop="emit('toggle-complete', node)"
-          title="Mark as complete"
-        />
-        <CardTitleEdit
-          :title="node.title"
-          :model-value="editingTitle"
-          :is-editing="editingCardId === node.id"
-          :completed="node.completed"
-          size="normal"
-          @start-edit="emit('start-edit', node, $event)"
-          @save="emit('save-edit')"
-          @cancel="emit('cancel-edit')"
-          @update:model-value="emit('update:editingTitle', $event)"
-        />
-      </div>
-
-      <!-- Interactive notes area (hidden by CSS container query if card too short) -->
-      <CardNotes
-        :notes="node.notes"
-        :model-value="inlineNotesText"
-        :is-editing="inlineNotesId === node.id"
-        :sensitive="isSensitiveNode(node)"
-        size="normal"
-        @start-edit="emit('start-notes', node, $event)"
-        @save="emit('save-notes')"
-        @cancel="emit('cancel-notes')"
-        @update:model-value="emit('update:inlineNotesText', $event)"
-      />
-
-      <!-- Person card specialization -->
-      <div v-if="node.type === 'person'" class="person-info">
-        <div class="person-avatar" :style="{ backgroundColor: getNodeColor(node) || 'var(--type-person-bg)' }">
-          {{ getInitials(node.title) }}
-        </div>
-        <div class="person-details">
-          <div v-if="node.role" class="person-role">{{ node.role }}</div>
-          <div v-if="node.organization" class="person-org">{{ node.organization }}</div>
-          <div v-if="node.email" class="person-contact email">
-            <span class="contact-icon">@</span>
-            <a :href="'mailto:' + node.email" @click.stop title="Send email">{{ node.email }}</a>
-          </div>
-          <div v-if="node.phone" class="person-contact phone">
-            <span class="contact-icon">#</span>
-            <a :href="'tel:' + node.phone" @click.stop title="Call">{{ node.phone }}</a>
-          </div>
-          <div v-if="node.website" class="person-contact website">
-            <span class="contact-icon">W</span>
-            <a
-              :href="node.website.startsWith('http') ? node.website : 'https://' + node.website"
-              target="_blank"
-              @click.stop
-              title="Open website"
-            >
-              {{ node.website.replace(/^https?:\/\//, '').replace(/\/$/, '') }}
-            </a>
-          </div>
-          <div v-if="node.location" class="person-location">
-            <span class="contact-icon">L</span>
-            {{ node.location }}
-          </div>
-          <div v-if="node.tags && node.tags.length > 0" class="person-tags">
-            <span v-for="tag in node.tags.slice(0, 3)" :key="tag" class="person-tag">{{ tag }}</span>
-            <span v-if="node.tags.length > 3" class="person-tag-more">+{{ node.tags.length - 3 }}</span>
-          </div>
-          <div v-if="node.notes && !node.role && !node.organization" class="person-notes-preview">
-            {{ node.notes.split('\n')[0].substring(0, 60) }}{{ node.notes.length > 60 ? '...' : '' }}
-          </div>
-        </div>
-      </div>
-
-      <!-- Table miniature preview for cards with tables -->
-      <TableMiniature
-        v-if="node.has_table"
-        :node-id="node.id"
-        :max-rows="99"
-        :max-cols="cardSizeClass === 'card-xl' ? 8 : cardSizeClass === 'card-lg' ? 6 : 5"
-      />
-
-      <!-- Metadata - xl/lg only (start/end dates, location) -->
+    <template v-for="node in filteredNodes" :key="node.id">
+      <!-- The card itself -->
       <div
-        v-if="
-          (cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg') &&
-          (node.start_date || node.end_date || node.location)
+        class="node-card"
+        :class="[cardSizeClass, `type-${node.type}`, { selected: isCardSelected(node.id) }, getCardDropClass(node)]"
+        :style="
+          getNodeColor(node)
+            ? { background: `linear-gradient(135deg, ${getNodeColor(node)}55 0%, var(--bg-primary) 80%)` }
+            : {}
         "
-        class="node-card-meta"
+        :draggable="editingCardId !== node.id && inlineNotesId !== node.id"
+        @click="handleCardClick($event, node)"
+        @dblclick="emit('enter', node)"
+        @dragstart="emit('drag-start', $event, node)"
+        @dragend="emit('drag-end', $event)"
+        @dragover.prevent="handleCardDragOver($event, node)"
+        @dragleave="emit('drag-leave', $event)"
+        @drop="emit('drop', $event, node)"
+        @mouseenter="emit('show-tooltip', $event, node)"
+        @mouseleave="emit('hide-tooltip')"
+        @contextmenu.prevent="emit('context-menu', $event, node)"
       >
-        <span v-if="node.start_date" class="meta-item start">
-          <span class="meta-icon">S</span>{{ node.start_date }}
-        </span>
-        <span v-if="node.end_date" class="meta-item end"> <span class="meta-icon">E</span>{{ node.end_date }} </span>
-        <span v-if="node.location && node.type !== 'person'" class="meta-item location">
-          <span class="meta-icon">⌖</span>{{ node.location }}
-        </span>
-      </div>
-
-      <!-- Task/Project progress bar -->
-      <div
-        v-if="(node.type === 'task' || node.type === 'project') && getChildProgress(node)"
-        class="task-progress"
-        :title="`${getChildProgress(node).completed}/${getChildProgress(node).total} completed`"
-      >
-        <div class="progress-bar">
-          <div
-            class="progress-fill"
-            :class="{ complete: getChildProgress(node).percent === 100 }"
-            :style="{ width: getChildProgress(node).percent + '%' }"
-          ></div>
-        </div>
-        <span class="progress-text">{{ getChildProgress(node).completed }}/{{ getChildProgress(node).total }}</span>
-      </div>
-
-      <!-- Nested children cards -->
-      <div
-        v-if="node.children?.length"
-        class="node-card-children-grid"
-        :class="{ compact: cardSizeClass === 'card-sm' || cardSizeClass === 'card-xs' }"
-        :style="nestedGridStyle(node.children.length, 1)"
-        @click.stop
-      >
-        <div
-          v-for="child in node.children"
-          :key="child.id"
-          class="child-card"
-          :class="[
-            child.type,
-            getNestedCardSize(node.children.length, cardSizeClass),
-            { selected: isCardSelected(child.id) },
-            getCardDropClass(child),
-          ]"
-          :style="
-            getNodeColor(child)
-              ? { background: `linear-gradient(135deg, ${getNodeColor(child)}55 0%, var(--bg-secondary) 80%)` }
-              : {}
-          "
-          :draggable="editingCardId !== child.id && inlineNotesId !== child.id"
-          @click.stop="handleChildCardClick($event, child)"
-          @dblclick.stop="emit('enter', child)"
-          @dragstart.stop="emit('drag-start', $event, child)"
-          @dragend="emit('drag-end')"
-          @dragover.stop="emit('drag-over', $event, child)"
-          @dragleave="emit('drag-leave')"
-          @drop.stop="emit('drop', $event, child)"
-          @mouseenter="emit('show-tooltip', $event, child)"
-          @mouseleave="emit('hide-tooltip')"
-          @contextmenu.prevent="emit('context-menu', $event, child)"
-        >
-          <div class="child-card-header">
-            <input
-              v-if="child.type === 'task'"
-              type="checkbox"
-              class="child-card-checkbox"
-              :checked="child.completed"
-              draggable="false"
-              @click.stop="emit('toggle-complete', child)"
-            />
-            <CardTitleEdit
-              :title="child.title"
-              :model-value="editingTitle"
-              :is-editing="editingCardId === child.id"
-              :completed="child.completed"
-              size="child"
-              @start-edit="emit('start-edit', child, $event)"
-              @save="emit('save-edit')"
-              @cancel="emit('cancel-edit')"
-              @update:model-value="emit('update:editingTitle', $event)"
-            />
-            <button class="child-add-btn" @click.stop="emit('add-child', child.id, $event)" title="Add child">+</button>
-            <button class="child-delete-btn" @click.stop="emit('delete', child.id)" title="Delete">x</button>
-          </div>
-          <CardNotes
-            v-if="
-              child.notes &&
-              !child.notes_sensitive &&
-              getNestedCardSize(node.children.length, cardSizeClass) === 'child-lg'
-            "
-            :notes="child.notes"
-            :sensitive="child.notes_sensitive"
-            size="child"
-            class="child-card-notes"
-          />
-
-          <!-- Grandchildren (hidden for smallest child cards) -->
-          <div
-            v-if="child.children?.length && getNestedCardSize(node.children.length, cardSizeClass) !== 'child-sm'"
-            class="grandchild-list"
-            @click.stop
+        <!-- Header -->
+        <div class="node-card-header">
+          <span v-if="node.favorite" class="card-favorite-star" title="Favorite">&#9733;</span>
+          <span v-if="cardSizeClass !== 'card-xs'" class="drag-handle card-drag" title="Drag to reorder">::</span>
+          <span class="node-card-type" :class="node.type" :title="'Type: ' + node.type">
+            {{ cardSizeClass === 'card-xs' ? node.type[0].toUpperCase() : node.type.toUpperCase() }}
+          </span>
+          <span
+            v-if="node.importance"
+            class="card-importance"
+            :class="'imp-' + node.importance"
+            :title="getImportanceLabel(node.importance)"
           >
-            <div
-              v-for="grandchild in child.children"
-              :key="grandchild.id"
-              class="grandchild-item"
-              :class="[grandchild.type, { selected: isCardSelected(grandchild.id), completed: grandchild.completed }]"
-              @click.stop="handleGrandchildClick($event, grandchild)"
-              @dblclick.stop="emit('enter', grandchild)"
-              @contextmenu.prevent="emit('context-menu', $event, grandchild)"
-            >
-              <input
-                v-if="grandchild.type === 'task'"
-                type="checkbox"
-                class="grandchild-check"
-                :checked="grandchild.completed"
-                draggable="false"
-                @click.stop="emit('toggle-complete', grandchild)"
-              />
-              <span class="grandchild-title" :class="{ completed: grandchild.completed }">{{ grandchild.title }}</span>
-              <span v-if="grandchild.children?.length" class="grandchild-count">{{ grandchild.children.length }}</span>
+            {{ cardSizeClass === 'card-xs' ? node.importance : getImportanceLabel(node.importance) }}
+          </span>
+          <span
+            v-if="node.children?.length && cardSizeClass !== 'card-xs'"
+            class="node-card-children"
+            :title="node.children.length + ' children'"
+          >
+            {{ node.children.length }}
+          </span>
+          <span
+            v-if="node.due_date && cardSizeClass !== 'card-xs'"
+            class="card-due-date"
+            :class="getDueDateClass(node)"
+            :title="node.due_date"
+          >
+            {{ formatDueDate(node) }}
+          </span>
+          <button class="card-add-btn" @click.stop="emit('add-child', node.id, $event)" title="Add child item">
+            +
+          </button>
+          <button class="card-delete-btn" @click.stop="emit('delete', node.id)" title="Delete">x</button>
+        </div>
+
+        <!-- Title row with checkbox -->
+        <div class="node-card-title-row">
+          <input
+            v-if="node.type === 'task'"
+            type="checkbox"
+            class="card-checkbox"
+            :checked="node.completed"
+            draggable="false"
+            @click.stop="emit('toggle-complete', node)"
+            title="Mark as complete"
+          />
+          <CardTitleEdit
+            :title="node.title"
+            :model-value="editingTitle"
+            :is-editing="editingCardId === node.id"
+            :completed="node.completed"
+            size="normal"
+            @start-edit="emit('start-edit', node, $event)"
+            @save="emit('save-edit')"
+            @cancel="emit('cancel-edit')"
+            @update:model-value="emit('update:editingTitle', $event)"
+          />
+        </div>
+
+        <!-- Interactive notes area (hidden by CSS container query if card too short) -->
+        <CardNotes
+          :notes="node.notes"
+          :model-value="inlineNotesText"
+          :is-editing="inlineNotesId === node.id"
+          :sensitive="isSensitiveNode(node)"
+          size="normal"
+          @start-edit="emit('start-notes', node, $event)"
+          @save="emit('save-notes')"
+          @cancel="emit('cancel-notes')"
+          @update:model-value="emit('update:inlineNotesText', $event)"
+        />
+
+        <!-- Person card specialization -->
+        <div v-if="node.type === 'person'" class="person-info">
+          <div class="person-avatar" :style="{ backgroundColor: getNodeColor(node) || 'var(--type-person-bg)' }">
+            {{ getInitials(node.title) }}
+          </div>
+          <div class="person-details">
+            <div v-if="node.role" class="person-role">{{ node.role }}</div>
+            <div v-if="node.organization" class="person-org">{{ node.organization }}</div>
+            <div v-if="node.email" class="person-contact email">
+              <span class="contact-icon">@</span>
+              <a :href="'mailto:' + node.email" @click.stop title="Send email">{{ node.email }}</a>
+            </div>
+            <div v-if="node.phone" class="person-contact phone">
+              <span class="contact-icon">#</span>
+              <a :href="'tel:' + node.phone" @click.stop title="Call">{{ node.phone }}</a>
+            </div>
+            <div v-if="node.website" class="person-contact website">
+              <span class="contact-icon">W</span>
+              <a
+                :href="node.website.startsWith('http') ? node.website : 'https://' + node.website"
+                target="_blank"
+                @click.stop
+                title="Open website"
+              >
+                {{ node.website.replace(/^https?:\/\//, '').replace(/\/$/, '') }}
+              </a>
+            </div>
+            <div v-if="node.location" class="person-location">
+              <span class="contact-icon">L</span>
+              {{ node.location }}
+            </div>
+            <div v-if="node.tags && node.tags.length > 0" class="person-tags">
+              <span v-for="tag in node.tags.slice(0, 3)" :key="tag" class="person-tag">{{ tag }}</span>
+              <span v-if="node.tags.length > 3" class="person-tag-more">+{{ node.tags.length - 3 }}</span>
+            </div>
+            <div v-if="node.notes && !node.role && !node.organization" class="person-notes-preview">
+              {{ node.notes.split('\n')[0].substring(0, 60) }}{{ node.notes.length > 60 ? '...' : '' }}
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Footer metadata for smaller cards (header has less space) -->
-      <div
-        v-if="
-          (cardSizeClass === 'card-md' || cardSizeClass === 'card-sm' || cardSizeClass === 'card-xs') &&
-          (node.importance || node.children?.length || getDateCountdown(node))
-        "
-        class="node-card-footer"
-      >
-        <span v-if="node.importance" class="card-importance" :class="'imp-' + node.importance">{{
-          node.importance
-        }}</span>
-        <span v-if="node.children?.length" class="node-card-children">{{ node.children.length }}</span>
-        <span v-if="getDateCountdown(node)" class="date-countdown" :class="getDateCountdown(node).type">{{
-          getDateCountdown(node).text
-        }}</span>
-      </div>
+        <!-- Table miniature preview for cards with tables -->
+        <TableMiniature
+          v-if="node.has_table"
+          :node-id="node.id"
+          :max-rows="99"
+          :max-cols="cardSizeClass === 'card-xl' ? 8 : cardSizeClass === 'card-lg' ? 6 : 5"
+        />
 
-      <!-- Tags at bottom -->
-      <div v-if="node.tags && node.tags.length > 0 && node.type !== 'person'" class="card-tags">
-        <span v-for="tag in node.tags.slice(0, 5)" :key="tag" class="card-tag">{{ tag }}</span>
-        <span v-if="node.tags.length > 5" class="card-tag-more">+{{ node.tags.length - 5 }}</span>
+        <!-- Metadata - xl/lg only (start/end dates, location) -->
+        <div
+          v-if="
+            (cardSizeClass === 'card-xl' || cardSizeClass === 'card-lg') &&
+            (node.start_date || node.end_date || node.location)
+          "
+          class="node-card-meta"
+        >
+          <span v-if="node.start_date" class="meta-item start">
+            <span class="meta-icon">S</span>{{ node.start_date }}
+          </span>
+          <span v-if="node.end_date" class="meta-item end"> <span class="meta-icon">E</span>{{ node.end_date }} </span>
+          <span v-if="node.location && node.type !== 'person'" class="meta-item location">
+            <span class="meta-icon">⌖</span>{{ node.location }}
+          </span>
+        </div>
+
+        <!-- Task/Project progress bar -->
+        <div
+          v-if="(node.type === 'task' || node.type === 'project') && getChildProgress(node)"
+          class="task-progress"
+          :title="`${getChildProgress(node).completed}/${getChildProgress(node).total} completed`"
+        >
+          <div class="progress-bar">
+            <div
+              class="progress-fill"
+              :class="{ complete: getChildProgress(node).percent === 100 }"
+              :style="{ width: getChildProgress(node).percent + '%' }"
+            ></div>
+          </div>
+          <span class="progress-text">{{ getChildProgress(node).completed }}/{{ getChildProgress(node).total }}</span>
+        </div>
+
+        <!-- Nested children cards -->
+        <div
+          v-if="node.children?.length"
+          class="node-card-children-grid"
+          :class="{ compact: cardSizeClass === 'card-sm' || cardSizeClass === 'card-xs' }"
+          :style="nestedGridStyle(node.children.length, 1)"
+          @click.stop
+        >
+          <div
+            v-for="child in node.children"
+            :key="child.id"
+            class="child-card"
+            :class="[
+              child.type,
+              getNestedCardSize(node.children.length, cardSizeClass),
+              { selected: isCardSelected(child.id) },
+              getCardDropClass(child),
+            ]"
+            :style="
+              getNodeColor(child)
+                ? { background: `linear-gradient(135deg, ${getNodeColor(child)}55 0%, var(--bg-secondary) 80%)` }
+                : {}
+            "
+            :draggable="editingCardId !== child.id && inlineNotesId !== child.id"
+            @click.stop="handleChildCardClick($event, child)"
+            @dblclick.stop="emit('enter', child)"
+            @dragstart.stop="emit('drag-start', $event, child)"
+            @dragend="emit('drag-end', $event)"
+            @dragover.stop="emit('drag-over', $event, child)"
+            @dragleave="emit('drag-leave', $event)"
+            @drop.stop="emit('drop', $event, child)"
+            @mouseenter="emit('show-tooltip', $event, child)"
+            @mouseleave="emit('hide-tooltip')"
+            @contextmenu.prevent="emit('context-menu', $event, child)"
+          >
+            <div class="child-card-header">
+              <input
+                v-if="child.type === 'task'"
+                type="checkbox"
+                class="child-card-checkbox"
+                :checked="child.completed"
+                draggable="false"
+                @click.stop="emit('toggle-complete', child)"
+              />
+              <CardTitleEdit
+                :title="child.title"
+                :model-value="editingTitle"
+                :is-editing="editingCardId === child.id"
+                :completed="child.completed"
+                size="child"
+                @start-edit="emit('start-edit', child, $event)"
+                @save="emit('save-edit')"
+                @cancel="emit('cancel-edit')"
+                @update:model-value="emit('update:editingTitle', $event)"
+              />
+              <button class="child-add-btn" @click.stop="emit('add-child', child.id, $event)" title="Add child">
+                +
+              </button>
+              <button class="child-delete-btn" @click.stop="emit('delete', child.id)" title="Delete">x</button>
+            </div>
+            <CardNotes
+              v-if="
+                child.notes &&
+                !child.notes_sensitive &&
+                getNestedCardSize(node.children.length, cardSizeClass) === 'child-lg'
+              "
+              :notes="child.notes"
+              :sensitive="child.notes_sensitive"
+              size="child"
+              class="child-card-notes"
+            />
+
+            <!-- Grandchildren (hidden for smallest child cards) -->
+            <div
+              v-if="child.children?.length && getNestedCardSize(node.children.length, cardSizeClass) !== 'child-sm'"
+              class="grandchild-list"
+              @click.stop
+            >
+              <div
+                v-for="grandchild in child.children"
+                :key="grandchild.id"
+                class="grandchild-item"
+                :class="[grandchild.type, { selected: isCardSelected(grandchild.id), completed: grandchild.completed }]"
+                @click.stop="handleGrandchildClick($event, grandchild)"
+                @dblclick.stop="emit('enter', grandchild)"
+                @contextmenu.prevent="emit('context-menu', $event, grandchild)"
+              >
+                <input
+                  v-if="grandchild.type === 'task'"
+                  type="checkbox"
+                  class="grandchild-check"
+                  :checked="grandchild.completed"
+                  draggable="false"
+                  @click.stop="emit('toggle-complete', grandchild)"
+                />
+                <span class="grandchild-title" :class="{ completed: grandchild.completed }">{{
+                  grandchild.title
+                }}</span>
+                <span v-if="grandchild.children?.length" class="grandchild-count">{{
+                  grandchild.children.length
+                }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer metadata for smaller cards (header has less space) -->
+        <div
+          v-if="
+            (cardSizeClass === 'card-md' || cardSizeClass === 'card-sm' || cardSizeClass === 'card-xs') &&
+            (node.importance || node.children?.length || getDateCountdown(node))
+          "
+          class="node-card-footer"
+        >
+          <span v-if="node.importance" class="card-importance" :class="'imp-' + node.importance">{{
+            node.importance
+          }}</span>
+          <span v-if="node.children?.length" class="node-card-children">{{ node.children.length }}</span>
+          <span v-if="getDateCountdown(node)" class="date-countdown" :class="getDateCountdown(node).type">{{
+            getDateCountdown(node).text
+          }}</span>
+        </div>
+
+        <!-- Tags at bottom -->
+        <div v-if="node.tags && node.tags.length > 0 && node.type !== 'person'" class="card-tags">
+          <span v-for="tag in node.tags.slice(0, 5)" :key="tag" class="card-tag">{{ tag }}</span>
+          <span v-if="node.tags.length > 5" class="card-tag-more">+{{ node.tags.length - 5 }}</span>
+        </div>
       </div>
-    </div>
+    </template>
 
     <div v-if="filteredNodes.length === 0" class="empty-state">
       <h3>Empty</h3>

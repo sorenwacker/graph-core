@@ -38,45 +38,38 @@ export function useCardDrag({ onMove, onMoveMultiple, onReorder, selectedIds } =
   }
 
   function onDragEnd(e) {
-    e.target.classList.remove('dragging')
+    if (e?.target) {
+      e.target.classList.remove('dragging')
+    }
     draggedNode.value = null
     draggedNodeIds.value = []
     dropTarget.value = null
     dropPosition.value = null
   }
 
-  function onDragOver(e, node) {
+  function onDragOver(e, node, positionHint) {
     // Skip if not dragging or target is one of the dragged nodes
     if (!draggedNode.value) return
     if (draggedNodeIds.value.includes(node.id)) return
+
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     dropTarget.value = node
 
-    // Determine drop position based on mouse position
-    const rect = e.currentTarget.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const width = rect.width
-
-    // Shift key forces reorder-only mode (no nesting)
-    const reorderOnly = e.shiftKey
-
-    // Left 35% = before, right 35% = after, middle 30% = inside
-    // This makes it easier to reorder without accidentally nesting
-    if (x < width * 0.35) {
-      dropPosition.value = 'before'
-    } else if (x > width * 0.65) {
-      dropPosition.value = 'after'
-    } else if (reorderOnly) {
-      // In reorder-only mode, use left/right half for before/after
-      dropPosition.value = x < width * 0.5 ? 'before' : 'after'
+    // Use position hint if provided (from drop zones), otherwise use default
+    if (positionHint) {
+      dropPosition.value = positionHint
     } else {
-      dropPosition.value = 'inside'
+      // Fallback: determine position based on mouse position
+      const rect = e.currentTarget.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const width = rect.width
+      dropPosition.value = e.altKey ? 'inside' : x < width * 0.5 ? 'before' : 'after'
     }
   }
 
   function onDragLeave(e) {
-    if (!e.currentTarget.contains(e.relatedTarget)) {
+    if (!e?.currentTarget || !e.currentTarget.contains(e.relatedTarget)) {
       dropTarget.value = null
       dropPosition.value = null
     }

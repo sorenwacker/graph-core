@@ -93,24 +93,32 @@ function getNodeDimensions(node) {
  * @param {Object} options - Layout options
  */
 function runTetrisGridLayout(cy, options = {}) {
-  const { padding = 50, animate = true, animationDuration = 250 } = options
+  const { padding = 50, animate = true, animationDuration = 250, sortAlphabetically = false } = options
 
   const nodes = cy.nodes().toArray()
   if (nodes.length === 0) return
 
-  // Sort nodes by height (tallest first) then by width (widest first)
-  // This helps pack efficiently
+  // Sort nodes - either alphabetically first or by size first
   nodes.sort((a, b) => {
-    const dimA = getNodeDimensions(a)
-    const dimB = getNodeDimensions(b)
-    // Sort by area (largest first)
-    const areaA = dimA.width * dimA.height
-    const areaB = dimB.width * dimB.height
-    if (areaB !== areaA) return areaB - areaA
-    // Then alphabetically by title for stability
     const titleA = a.data('nodeData')?.title || ''
     const titleB = b.data('nodeData')?.title || ''
-    return titleA.localeCompare(titleB)
+
+    if (sortAlphabetically) {
+      // Primary: alphabetical, Secondary: by size
+      const titleCompare = titleA.localeCompare(titleB)
+      if (titleCompare !== 0) return titleCompare
+      const dimA = getNodeDimensions(a)
+      const dimB = getNodeDimensions(b)
+      return dimB.width * dimB.height - dimA.width * dimA.height
+    } else {
+      // Primary: by area (largest first), Secondary: alphabetical
+      const dimA = getNodeDimensions(a)
+      const dimB = getNodeDimensions(b)
+      const areaA = dimA.width * dimA.height
+      const areaB = dimB.width * dimB.height
+      if (areaB !== areaA) return areaB - areaA
+      return titleA.localeCompare(titleB)
+    }
   })
 
   // Get container dimensions for calculating grid width
@@ -347,6 +355,7 @@ export function useGraphLayout(options = {}) {
     getLayoutMode,
     setLayoutMode,
     getRadialSettings,
+    getSortAlphabetically,
     savePositions,
     clearPositions,
     relaxLocked,
@@ -437,10 +446,31 @@ export function useGraphLayout(options = {}) {
 
     // Use custom Tetris grid layout for grid mode
     if (mode === 'grid') {
-      runTetrisGridLayout(cy, { padding: 20, animate: true, animationDuration: 250 })
-      setTimeout(() => {
-        if (savePositions) savePositions()
-      }, 300)
+      // Reset zoom and spread nodes apart to ensure accurate DOM measurements
+      cy.zoom(1)
+      cy.pan({ x: 0, y: 0 })
+
+      // Spread nodes apart temporarily to avoid overlap affecting dimensions
+      cy.batch(() => {
+        const nodes = cy.nodes().toArray()
+        nodes.forEach((node, i) => {
+          node.position({ x: i * 300, y: 0 })
+        })
+      })
+
+      // Wait for DOM to update with spread positions, then measure and layout
+      requestAnimationFrame(() => {
+        syncNodeDimensions(cy)
+        const sortAlpha = getSortAlphabetically ? getSortAlphabetically() : false
+        runTetrisGridLayout(cy, { padding: 20, animate: false, animationDuration: 0, sortAlphabetically: sortAlpha })
+
+        // Fit to view after layout
+        cy.fit(undefined, 50)
+
+        setTimeout(() => {
+          if (savePositions) savePositions()
+        }, 100)
+      })
       return
     }
 
@@ -800,7 +830,8 @@ export function useGraphLayout(options = {}) {
   function runGridLayout() {
     const cy = getCy ? getCy() : null
     if (!cy) return
-    runTetrisGridLayout(cy, { padding: 20, animate: true, animationDuration: 250 })
+    const sortAlpha = getSortAlphabetically ? getSortAlphabetically() : false
+    runTetrisGridLayout(cy, { padding: 20, animate: true, animationDuration: 250, sortAlphabetically: sortAlpha })
     setTimeout(() => {
       if (savePositions) savePositions()
     }, 300)

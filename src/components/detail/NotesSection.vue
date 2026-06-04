@@ -47,7 +47,6 @@ defineExpose({ getSelection, notesEditorRef, notesEditorSplitRef })
 
 <template>
   <div class="notes-header">
-    <label>Notes</label>
     <div class="notes-header-actions">
       <NotesAIToolbar :notes="notes" :node-id="nodeId" :get-selection="getSelection" @apply-improvement="onAIImprove" />
       <div class="tab-buttons">
