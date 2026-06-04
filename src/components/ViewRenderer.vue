@@ -280,6 +280,7 @@ defineExpose({
     :hide-sensitive="hideSensitive"
     :container-id="currentContainerId"
     :container-title="containerTitle"
+    :color-map="colorMap"
     @navigate="emit('navigate', $event)"
     @toggle-complete="emit('toggle-complete', $event)"
   />
