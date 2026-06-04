@@ -7,6 +7,7 @@ const props = defineProps({
   hideSensitive: { type: Boolean, default: false },
   containerId: { type: Number, default: null }, // Current subgraph root
   containerTitle: { type: String, default: null },
+  colorMap: { type: Object, default: () => ({}) },
 })
 
 const emit = defineEmits(['select', 'navigate', 'toggle-complete'])
@@ -24,6 +25,31 @@ const { isOverdue, isDueSoon, formatDate, formatRelativeDate, getImportanceLabel
 
 function onTaskClick(task) {
   emit('navigate', task)
+}
+
+// Get inherited color for a task by checking its ancestors
+function getTaskColor(task) {
+  // Check task's own color first
+  if (props.colorMap[task.id]) {
+    return props.colorMap[task.id]
+  }
+  // Check ancestors (ordered from root to parent)
+  if (task.ancestorIds) {
+    // Check from closest ancestor to furthest for the first color
+    for (let i = task.ancestorIds.length - 1; i >= 0; i--) {
+      const color = props.colorMap[task.ancestorIds[i]]
+      if (color) return color
+    }
+  }
+  return null
+}
+
+function getTaskRowStyle(task) {
+  const color = getTaskColor(task)
+  if (color && color !== '#0f4c75') {
+    return { background: `linear-gradient(90deg, ${color}55 0%, transparent 50%)` }
+  }
+  return {}
 }
 
 function onCheckboxClick(task, event) {
@@ -93,6 +119,7 @@ defineExpose({ loadTasks })
             overdue: !task.completed && isOverdue(task.due_date),
             'due-soon': !task.completed && !isOverdue(task.due_date) && isDueSoon(task.due_date),
           }"
+          :style="getTaskRowStyle(task)"
           @click="onTaskClick(task)"
         >
           <td class="col-checkbox">

@@ -115,17 +115,20 @@ export function useTaskFiltering({ getWorkspaceId, getContainerId, getHideSensit
 
   /**
    * Build parent paths for each task.
-   * Returns tasks augmented with parentPath and isDirectChild properties.
+   * Returns tasks augmented with parentPath, ancestorIds, and isDirectChild properties.
    */
   async function buildTaskPaths(items, containerId) {
     return Promise.all(
       items.filter(Boolean).map(async task => {
         let path = []
+        let ancestorIds = []
         let isDirectChild = false
         try {
           // getAncestors returns ancestors ordered by depth (root first)
           const ancestors = await api.getAncestors(task.id)
           if (ancestors && ancestors.length > 0) {
+            // Store all ancestor IDs for color lookup
+            ancestorIds = ancestors.map(a => a.id)
             let ancestorList = [...ancestors]
 
             // If in a container, show path relative to container
@@ -147,6 +150,7 @@ export function useTaskFiltering({ getWorkspaceId, getContainerId, getHideSensit
             const parentInfo = await fetchParentInfo(task.parent_id, containerId)
             path = parentInfo.path
             isDirectChild = parentInfo.isDirectChild
+            ancestorIds = [task.parent_id]
           }
         } catch {
           // Silently fail - task might be at root
@@ -154,9 +158,10 @@ export function useTaskFiltering({ getWorkspaceId, getContainerId, getHideSensit
             const parentInfo = await fetchParentInfo(task.parent_id, containerId)
             path = parentInfo.path
             isDirectChild = parentInfo.isDirectChild
+            ancestorIds = [task.parent_id]
           }
         }
-        return { ...task, parentPath: path, isDirectChild }
+        return { ...task, parentPath: path, ancestorIds, isDirectChild }
       })
     )
   }
