@@ -421,12 +421,7 @@ const navigation = useNavigation({
     await navigation.loadChildren(null)
   },
   onAfterNavigate: () => {
-    // Sync filter store from current container settings
-    // Use graphMaxDepth directly for persistence (global setting)
-    filtersStore.syncFromNode(currentContainer.value, {
-      visibleTypes: workspaceGraphSettings.visibleTypes.value,
-      maxDepth: graphMaxDepth.value,
-    })
+    // Don't sync filter settings on navigation - keep global settings persistent
   },
 })
 
@@ -807,12 +802,8 @@ useAppLifecycle({
   showSettings,
   showShortcuts: showShortcutsModal,
   onAfterInitialLoad: () => {
-    // Sync filter store from current container after initial load
-    // Use graphMaxDepth directly for persistence (global setting)
-    filtersStore.syncFromNode(currentContainer.value, {
-      visibleTypes: workspaceGraphSettings.visibleTypes.value,
-      maxDepth: graphMaxDepth.value,
-    })
+    // Initialize filter store with global settings
+    filtersStore.setMaxDepth(graphMaxDepth.value)
   },
 })
 </script>
