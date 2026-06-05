@@ -331,9 +331,10 @@ export function useOllama() {
 
     try {
       const config = getProviderConfig()
+      // Spread to plain array to avoid IPC cloning issues with Vue proxies
       const result = await api.agentResearch({
         prompt: query,
-        enabledTools: aiEnabledTools.value,
+        enabledTools: [...aiEnabledTools.value],
         ...config,
       })
 
