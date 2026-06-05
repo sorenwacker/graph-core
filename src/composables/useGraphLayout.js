@@ -406,7 +406,24 @@ export function useGraphLayout(options = {}) {
         },
       }
     }
-    return LAYOUTS[layoutMode] || LAYOUTS.tree
+
+    // Get base layout options
+    const baseLayout = LAYOUTS[layoutMode] || LAYOUTS.tree
+
+    // Add alphabetical sorting for dagre layouts (tree, horizontal)
+    const sortAlpha = getSortAlphabetically ? getSortAlphabetically() : false
+    if (sortAlpha && (layoutMode === 'tree' || layoutMode === 'horizontal')) {
+      return {
+        ...baseLayout,
+        sort: (a, b) => {
+          const titleA = a.data('nodeData')?.title || ''
+          const titleB = b.data('nodeData')?.title || ''
+          return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' })
+        },
+      }
+    }
+
+    return baseLayout
   }
 
   /**
