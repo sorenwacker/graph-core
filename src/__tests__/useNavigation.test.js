@@ -220,6 +220,63 @@ describe('useNavigation composable', () => {
       expect(navigation.currentContainerId.value).toBe(5)
       expect(navigation.children.value).toHaveLength(1)
     })
+
+    it('should filter out tag nodes from root level', async () => {
+      mockApi.getRoots.mockResolvedValue([
+        { id: 1, title: 'Project', type: 'project' },
+        { id: 2, title: 'My Tag', type: 'tag' },
+        { id: 3, title: 'Note', type: 'note' },
+      ])
+      mockApi.getDescendants.mockResolvedValue([])
+
+      await navigation.loadChildren(null)
+
+      expect(navigation.children.value).toHaveLength(2)
+      expect(navigation.children.value.map(c => c.id)).toEqual([1, 3])
+      expect(navigation.children.value.find(c => c.type === 'tag')).toBeUndefined()
+    })
+
+    it('should filter out tag nodes from descendants', async () => {
+      mockApi.getRoots.mockResolvedValue([{ id: 1, title: 'Project', type: 'project' }])
+      mockApi.getDescendants.mockResolvedValue([
+        { id: 2, title: 'Child Note', type: 'note', parent_id: 1 },
+        { id: 3, title: 'Child Tag', type: 'tag', parent_id: 1 },
+        { id: 4, title: 'Another Note', type: 'note', parent_id: 1 },
+      ])
+
+      await navigation.loadChildren(null)
+
+      expect(navigation.children.value).toHaveLength(1)
+      const root = navigation.children.value[0]
+      expect(root.children).toHaveLength(2)
+      expect(root.children.map(c => c.id)).toEqual([2, 4])
+      expect(root.children.find(c => c.type === 'tag')).toBeUndefined()
+    })
+  })
+
+  describe('sidebar sync', () => {
+    it('should sync sidebar without tag nodes', async () => {
+      const sidebarData = []
+      const navWithSync = useNavigation({
+        api: mockApi,
+        workspace: ref('work'),
+        onSidebarSync: roots => {
+          sidebarData.push(...roots)
+        },
+      })
+
+      mockApi.getRoots.mockResolvedValue([
+        { id: 1, title: 'Project', type: 'project' },
+        { id: 2, title: 'My Tag', type: 'tag' },
+      ])
+      mockApi.getDescendants.mockResolvedValue([])
+
+      await navWithSync.loadChildren(null)
+
+      expect(sidebarData).toHaveLength(1)
+      expect(sidebarData[0].type).toBe('project')
+      expect(sidebarData.find(n => n.type === 'tag')).toBeUndefined()
+    })
   })
 
   describe('sibling navigation', () => {
