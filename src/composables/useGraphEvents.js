@@ -249,6 +249,65 @@ export function useGraphEvents(options = {}) {
   function setupHtmlLabelHandlers(cy, container) {
     let htmlClickPending = null
     let htmlClickTimer = null
+    let isDragging = false
+    let draggedCyNode = null
+
+    // Handle mousedown on HTML labels to initiate Cytoscape drag
+    container.addEventListener('mousedown', e => {
+      const htmlLabel = e.target.closest('.node-html, .node-person')
+      if (!htmlLabel) return
+
+      // Don't initiate drag on interactive elements
+      if (e.target.closest('.collapse-btn, a')) return
+
+      const nodeId = htmlLabel.dataset.nodeId
+      if (!nodeId) return
+
+      const cyNode = cy.$(`#${nodeId}`)
+      if (!cyNode || cyNode.length === 0) return
+
+      // Store for potential drag
+      draggedCyNode = cyNode
+      isDragging = false
+
+      // Track mouse movement to detect drag vs click
+      const startX = e.clientX
+      const startY = e.clientY
+
+      const onMouseMove = moveEvent => {
+        const dx = moveEvent.clientX - startX
+        const dy = moveEvent.clientY - startY
+        if (Math.sqrt(dx * dx + dy * dy) > 5 && !isDragging) {
+          isDragging = true
+          // Trigger Cytoscape grab
+          cyNode.emit('grab')
+          dragStartPos = { ...cyNode.position() }
+        }
+        if (isDragging) {
+          // Move the Cytoscape node
+          const zoom = cy.zoom()
+          const pan = cy.pan()
+          const newX = (moveEvent.clientX - container.getBoundingClientRect().left - pan.x) / zoom
+          const newY = (moveEvent.clientY - container.getBoundingClientRect().top - pan.y) / zoom
+          cyNode.position({ x: newX, y: newY })
+          cyNode.emit('drag')
+        }
+      }
+
+      const onMouseUp = () => {
+        document.removeEventListener('mousemove', onMouseMove)
+        document.removeEventListener('mouseup', onMouseUp)
+        if (isDragging && draggedCyNode) {
+          draggedCyNode.emit('free')
+          if (savePositions) savePositions()
+        }
+        isDragging = false
+        draggedCyNode = null
+      }
+
+      document.addEventListener('mousemove', onMouseMove)
+      document.addEventListener('mouseup', onMouseUp)
+    })
 
     container.addEventListener('click', e => {
       // Handle collapse button click
