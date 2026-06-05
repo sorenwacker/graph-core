@@ -512,6 +512,9 @@ const {
   },
   onSaveNotes: async (nodeId, newNotes, { autoSave }) => {
     await api.updateNode(nodeId, { notes: newNotes })
+    // Update local node data for immediate preview update
+    const node = flatChildren.value.find(n => n.id === nodeId)
+    if (node) node.notes = newNotes
     if (!autoSave) await loadChildren(currentContainerId.value)
   },
 })
