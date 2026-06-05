@@ -9,7 +9,21 @@ const emit = defineEmits(['navigate'])
 <template>
   <nav class="header-breadcrumbs" aria-label="Breadcrumb navigation">
     <div class="breadcrumb-path">
-      <span class="crumb home-crumb" @click="emit('navigate', -1)">⌂</span>
+      <span class="crumb home-crumb" @click="emit('navigate', -1)">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+          <polyline points="9 22 9 12 15 12 15 22"></polyline>
+        </svg>
+      </span>
       <template v-for="(crumb, index) in breadcrumbs" :key="crumb.id">
         <span class="crumb-sep">/</span>
         <span
