@@ -280,16 +280,6 @@ a:hover {
   padding: var(--spacing-sm) var(--spacing-lg);
 }
 
-.sidebar-root-section {
-  flex-shrink: 0;
-  height: 52px;
-  box-sizing: border-box;
-  padding: 0 var(--spacing-lg);
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-}
-
 .sidebar-section-title {
   font-size: 0.75rem;
   font-weight: 600;
