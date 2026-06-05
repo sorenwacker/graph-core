@@ -64,7 +64,9 @@ export function useRefresh({
     if (reloadData) {
       await loadChildren(currentContainerId.value, { silent: true })
       await nextTick()
-    } else if (graphViewRef.value?.updateGraph) {
+    }
+    // Always update graph view after structure changes
+    if (graphViewRef.value?.updateGraph) {
       await graphViewRef.value.updateGraph()
     }
   }
