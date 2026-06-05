@@ -173,14 +173,15 @@ function getNotesSelection() {
   return { text: '', from: 0, to: 0 }
 }
 
-// Handle Escape key to close
+// Handle Escape key to close - always save first
 function handleKeydown(e) {
   if (e.key === 'Escape') {
-    // Don't close if user is typing in an input
+    // Save any pending changes before closing
+    saveChanges()
+    // Blur any active input
     const active = document.activeElement
     if (active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA') {
       active.blur()
-      return
     }
     emit('close')
   }

@@ -43,7 +43,9 @@ export function useKeyboardShortcuts({ actions, state }) {
       target.tagName === 'INPUT' ||
       target.tagName === 'TEXTAREA' ||
       target.tagName === 'SELECT' ||
-      target.isContentEditable
+      target.isContentEditable ||
+      // Check if inside CodeMirror editor
+      target.closest?.('.cm-editor') !== null
     )
   }
 
