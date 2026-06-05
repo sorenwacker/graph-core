@@ -379,6 +379,30 @@ watch(
   { immediate: true }
 )
 
+// Sync filter store changes back to settings for persistence
+watch(
+  () => filtersStore.maxDepth,
+  val => {
+    if (val !== graphMaxDepth.value) {
+      graphMaxDepth.value = val
+    }
+    if (val !== workspaceGraphSettings.maxDepth.value) {
+      workspaceGraphSettings.maxDepth.value = val
+    }
+  }
+)
+
+watch(
+  () => filtersStore.visibleTypes,
+  val => {
+    const current = workspaceGraphSettings.visibleTypes.value
+    if (JSON.stringify(val) !== JSON.stringify(current)) {
+      workspaceGraphSettings.visibleTypes.value = [...val]
+    }
+  },
+  { deep: true }
+)
+
 // Navigation
 const navigation = useNavigation({
   api,
