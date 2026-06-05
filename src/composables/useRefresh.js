@@ -22,11 +22,13 @@ export function useRefresh({
    * @param {boolean} options.silent - Use silent mode for loadChildren
    * @param {boolean} options.sidebar - Whether to refresh sidebar tree
    * @param {boolean} options.recent - Whether to refresh recent items
+   * @param {boolean} options.tags - Whether to refresh tags list
    */
-  async function refreshAfterChange({ silent = true, sidebar = true, recent = true } = {}) {
+  async function refreshAfterChange({ silent = true, sidebar = true, recent = true, tags = true } = {}) {
     await loadChildren(currentContainerId.value, { silent })
     if (sidebar) await loadSidebarTree()
     if (recent) loadRecentItems()
+    if (tags && loadTags) loadTags()
   }
 
   /**
