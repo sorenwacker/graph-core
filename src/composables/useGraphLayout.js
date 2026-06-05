@@ -157,6 +157,10 @@ function runTetrisGridLayout(cy, options = {}) {
             node,
             height: nodeHeight,
           })
+          // Update shelf height if this node is taller
+          if (nodeHeight > shelf.height) {
+            shelf.height = nodeHeight
+          }
           placed = true
           break
         }
