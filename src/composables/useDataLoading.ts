@@ -237,20 +237,25 @@ export function useDataLoading(currentWorkspace: Ref<number | null>): UseDataLoa
 
   // Tags (first-class tag nodes)
   async function loadTags(): Promise<void> {
+    const sortByTitle = (a: Node, b: Node) =>
+      (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' })
+
     try {
       const wsId = currentWorkspace.value
       // Use getTagNodes if available, fall back to getAllTags for backwards compatibility
       if (api.getTagNodes) {
         const tagNodes = await api.getTagNodes(wsId as number)
-        allTags.value = (tagNodes || []).filter((t: Node | null): t is Node => t != null)
+        allTags.value = (tagNodes || []).filter((t: Node | null): t is Node => t != null).sort(sortByTitle)
       } else {
         // Legacy fallback: convert string tags to pseudo-nodes for display
         const tags = await api.getAllTags(wsId as number)
-        allTags.value = (tags || []).map((tag: string, index: number) => ({
-          id: null,
-          title: tag,
-          type: 'tag',
-        })) as unknown as Node[]
+        allTags.value = (
+          (tags || []).map((tag: string) => ({
+            id: null,
+            title: tag,
+            type: 'tag',
+          })) as unknown as Node[]
+        ).sort(sortByTitle)
       }
     } catch {
       allTags.value = []
