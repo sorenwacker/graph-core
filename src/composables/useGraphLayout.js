@@ -449,12 +449,9 @@ export function useGraphLayout(options = {}) {
 
     // Use custom Tetris grid layout for grid mode
     if (mode === 'grid') {
-      // Use window width as basis for landscape layout
-      // The container might not reflect the actual available space
-      const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 1200
-      // Estimate sidebar width (typically 250-280px when pinned) and some margin
-      const estimatedSidebarWidth = 300
-      const measuredWidth = Math.max(windowWidth - estimatedSidebarWidth, 600)
+      // Use Cytoscape's visible canvas dimensions
+      const canvasWidth = cy.width()
+      const measuredWidth = canvasWidth > 0 ? canvasWidth - 40 : 1200
 
       // Reset zoom and spread nodes apart to ensure accurate DOM measurements
       cy.zoom(1)
@@ -846,10 +843,9 @@ export function useGraphLayout(options = {}) {
   function runGridLayout() {
     const cy = getCy ? getCy() : null
     if (!cy) return
-    // Use window width for landscape layout
-    const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 1200
-    const estimatedSidebarWidth = 300
-    const measuredWidth = Math.max(windowWidth - estimatedSidebarWidth, 600)
+    // Use Cytoscape's visible canvas dimensions
+    const canvasWidth = cy.width()
+    const measuredWidth = canvasWidth > 0 ? canvasWidth - 40 : 1200
     const sortAlpha = getSortAlphabetically ? getSortAlphabetically() : false
     runTetrisGridLayout(cy, {
       padding: 20,
