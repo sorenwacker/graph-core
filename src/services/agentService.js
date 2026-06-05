@@ -10,7 +10,29 @@ import sharedConfig from '../../shared/agentConfig.json'
 
 const MAX_ITERATIONS = sharedConfig.maxIterations
 const RESEARCH_SYSTEM_PROMPT = sharedConfig.systemPrompt
-const TOOLS = sharedConfig.tools
+const ALL_TOOLS = sharedConfig.tools
+
+// Map tool names to their tool group (e.g., wikipedia_search -> wikipedia)
+const TOOL_GROUPS = {
+  wikipedia_search: 'wikipedia',
+  wikipedia_get_content: 'wikipedia',
+}
+
+/**
+ * Filter tools based on enabled tool groups
+ * @param {string[]} enabledTools - Array of enabled tool group IDs
+ * @returns {Array} Filtered tools array
+ */
+function getEnabledTools(enabledTools) {
+  if (!enabledTools || enabledTools.length === 0) {
+    return []
+  }
+  return ALL_TOOLS.filter(tool => {
+    const toolName = tool.function?.name
+    const group = TOOL_GROUPS[toolName]
+    return group && enabledTools.includes(group)
+  })
+}
 
 /**
  * Get provider-specific service methods
@@ -99,9 +121,10 @@ async function processToolCalls(toolCalls, iteration) {
  * Run agent loop until completion or max iterations
  * @param {Array} messages - Conversation messages
  * @param {Object} options - Provider options
+ * @param {Array} tools - Tools to use
  * @returns {Promise<string|null>} Final response or null if max iterations
  */
-async function runAgentLoop(messages, options) {
+async function runAgentLoop(messages, options, tools) {
   const { provider } = options
   const service = getProviderService(provider)
   const providerOpts = buildProviderOptions(options, provider)
@@ -109,7 +132,7 @@ async function runAgentLoop(messages, options) {
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     const response = await service.generateWithTools({
       messages,
-      tools: TOOLS,
+      tools,
       ...providerOpts,
     })
 
@@ -155,17 +178,23 @@ async function generateFinalSummary(messages, options) {
  * @param {string} [options.endpoint] - API endpoint
  * @param {string} [options.apiKey] - API key (for OpenAI)
  * @param {number} [options.contextSize] - Context size (for Ollama)
+ * @param {string[]} [options.enabledTools] - Enabled tool groups
  * @returns {Promise<string>} Final research response
  */
 export async function research(options) {
-  const { prompt } = options
+  const { prompt, enabledTools } = options
+
+  const tools = getEnabledTools(enabledTools)
+  if (tools.length === 0) {
+    return 'No agent tools are enabled. Enable tools in AI Settings to use the Research feature.'
+  }
 
   const messages = [
     { role: 'system', content: RESEARCH_SYSTEM_PROMPT },
     { role: 'user', content: prompt },
   ]
 
-  const result = await runAgentLoop(messages, options)
+  const result = await runAgentLoop(messages, options, tools)
   if (result !== null) {
     return result
   }

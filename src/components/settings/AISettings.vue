@@ -2,8 +2,35 @@
 import { ref, computed, toRef } from 'vue'
 import { useOllama } from '../../composables/useOllama.js'
 import { useAIProviderConnection } from '../../composables/useAIProviderConnection.js'
+import { useSettings } from '../../composables/useSettings'
 
-const { presetPrompts, savePrompt, deletePrompt, resetPrompt, isPromptModified, isDefaultPrompt } = useOllama()
+const {
+  presetPrompts,
+  savePrompt,
+  deletePrompt,
+  resetPrompt,
+  isPromptModified,
+  isDefaultPrompt,
+  movePromptUp,
+  movePromptDown,
+} = useOllama()
+const { aiEnabledTools } = useSettings()
+
+// Available agent tools
+const availableTools = [{ id: 'wikipedia', label: 'Wikipedia', description: 'Search and read Wikipedia articles' }]
+
+function isToolEnabled(toolId) {
+  return aiEnabledTools.value.includes(toolId)
+}
+
+function toggleTool(toolId) {
+  const enabled = aiEnabledTools.value
+  if (enabled.includes(toolId)) {
+    aiEnabledTools.value = enabled.filter(t => t !== toolId)
+  } else {
+    aiEnabledTools.value = [...enabled, toolId]
+  }
+}
 
 const props = defineProps({
   aiEnabled: { type: Boolean, default: true },
@@ -61,7 +88,6 @@ const {
 
 // Prompt management
 const showPromptEditor = ref(false)
-const showPromptList = ref(false)
 const editingPrompt = ref(null)
 const promptForm = ref({ id: '', label: '', prompt: '' })
 
@@ -322,25 +348,54 @@ initAIOnMount()
     </div>
   </section>
 
+  <!-- Agent Tools -->
+  <section v-if="isAiEnabled" class="settings-section">
+    <h3 class="section-title">Agent Tools</h3>
+    <div class="tool-list">
+      <div v-for="tool in availableTools" :key="tool.id" class="settings-item tool-item">
+        <label>
+          <input type="checkbox" :checked="isToolEnabled(tool.id)" @change="toggleTool(tool.id)" />
+          {{ tool.label }}
+        </label>
+        <span class="settings-hint">{{ tool.description }}</span>
+      </div>
+    </div>
+  </section>
+
   <!-- AI Prompts -->
   <section v-if="isAiEnabled" class="settings-section">
     <h3 class="section-title">AI Prompts</h3>
     <div class="settings-item">
       <div class="snapshot-actions">
-        <button class="snapshot-btn" @click="showPromptList = !showPromptList" title="Show or hide AI prompts">
-          {{ showPromptList ? 'Hide' : 'Show' }} Prompts
+        <button class="snapshot-btn" @click="openPromptEditor()" title="Create a new custom prompt">
+          Add New Prompt
         </button>
-        <button class="snapshot-btn" @click="openPromptEditor()" title="Create a new custom prompt">Add New</button>
       </div>
     </div>
 
-    <div v-if="showPromptList" class="prompt-list">
-      <div v-for="prompt in presetPrompts" :key="prompt.id" class="prompt-item">
+    <div class="prompt-list">
+      <div v-for="(prompt, index) in presetPrompts" :key="prompt.id" class="prompt-item">
         <div class="prompt-info">
           <span class="prompt-label">{{ prompt.label }}</span>
           <span v-if="isPromptModified(prompt.id)" class="prompt-modified">(modified)</span>
         </div>
         <div class="prompt-actions">
+          <button
+            class="snapshot-restore-btn move-btn"
+            @click="movePromptUp(prompt.id)"
+            :disabled="index === 0"
+            title="Move up"
+          >
+            ▲
+          </button>
+          <button
+            class="snapshot-restore-btn move-btn"
+            @click="movePromptDown(prompt.id)"
+            :disabled="index === presetPrompts.length - 1"
+            title="Move down"
+          >
+            ▼
+          </button>
           <button class="snapshot-restore-btn" @click="openPromptEditor(prompt)" title="Edit">Edit</button>
           <button
             v-if="isPromptModified(prompt.id) && isDefaultPrompt(prompt.id)"
@@ -350,14 +405,7 @@ initAIOnMount()
           >
             Reset
           </button>
-          <button
-            v-if="!isDefaultPrompt(prompt.id)"
-            class="snapshot-restore-btn danger"
-            @click="handleDeletePrompt(prompt.id)"
-            title="Delete"
-          >
-            Del
-          </button>
+          <button class="snapshot-restore-btn danger" @click="handleDeletePrompt(prompt.id)" title="Delete">Del</button>
         </div>
       </div>
     </div>
