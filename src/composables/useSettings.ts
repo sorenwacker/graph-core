@@ -226,6 +226,8 @@ function createSettingsRefs(): UseSettingsReturn & { settingsReady: ShallowRef<b
     aiProvider: persistedRef<AIProvider>('graphcore-aiProvider', 'ollama'),
     aiEnabled: persistedRef<boolean>('graphcore-aiEnabled', false, { type: 'boolean' }),
     aiCustomPrompts: persistedRef<AICustomPrompt[]>('graphcore-aiCustomPrompts', [], { type: 'json' }),
+    aiPromptOrder: persistedRef<string[]>('graphcore-aiPromptOrder', [], { type: 'json' }),
+    aiEnabledTools: persistedRef<string[]>('graphcore-aiEnabledTools', ['wikipedia'], { type: 'json' }),
 
     // Ollama LLM settings
     ollamaEndpoint: persistedRef<string>('graphcore-ollamaEndpoint', 'http://localhost:11434'),

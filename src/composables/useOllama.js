@@ -18,42 +18,42 @@ const defaultPrompts = [
   {
     id: 'improve',
     label: 'Improve',
-    prompt: `You are editing personal notes. Improve clarity and flow while keeping the same meaning and length. Preserve all facts, names, dates, and technical terms exactly. Output only the improved text, nothing else.`,
+    prompt: `Edit these personal notes for clarity and readability. Fix awkward phrasing, improve sentence flow, and tighten wordy passages. Preserve the original voice, meaning, length, and all specific details (names, dates, numbers, technical terms). Keep the same structure and formatting. Output only the improved text.`,
   },
   {
     id: 'summarize',
     label: 'Summarize',
-    prompt: `Summarize these notes into key points. Keep names, dates, and important details. Use 2-4 sentences maximum. Output only the summary, nothing else.`,
+    prompt: `Summarize these notes concisely. Capture the main points, key decisions, and important details. Preserve names, dates, and specific facts. Length should be proportional to content: 1-2 sentences for short notes, up to a paragraph for longer content. Output only the summary.`,
   },
   {
     id: 'expand',
     label: 'Expand',
-    prompt: `Expand these notes with relevant details, context, or examples. Stay on topic and match the existing style. Output only the expanded text, nothing else.`,
+    prompt: `Expand these notes with relevant context, explanations, or examples that add value. Elaborate on concepts that seem incomplete. Match the existing tone and style. Do not pad with filler or repeat information. Output only the expanded text.`,
   },
   {
     id: 'fix-grammar',
     label: 'Fix Grammar',
-    prompt: `Fix only spelling and grammar errors. Do not change wording, style, or meaning. Keep all original formatting. Output only the corrected text, nothing else.`,
+    prompt: `Fix spelling, grammar, and punctuation errors only. Do not rephrase, restructure, or change word choices. Preserve all original formatting, line breaks, and markdown. Output only the corrected text.`,
   },
   {
     id: 'simplify',
     label: 'Simplify',
-    prompt: `Rewrite in plain language using short sentences and common words. Keep all key information. Output only the simplified text, nothing else.`,
+    prompt: `Rewrite in plain language. Use short sentences, common words, and active voice. Break down complex ideas into digestible parts. Remove jargon unless essential. Keep all key information. Output only the simplified text.`,
   },
   {
     id: 'bullet-points',
     label: 'Bullet Points',
-    prompt: `Convert to a markdown bullet list using - for each point. Group related items. Keep all information. Output only the bullet points, nothing else.`,
+    prompt: `Convert to a markdown bullet list. Use - for items, indent with two spaces for sub-items. Group related points together. Each bullet should be a complete thought. Preserve all information. Output only the bullet list.`,
   },
   {
     id: 'action-items',
     label: 'Action Items',
-    prompt: `Extract tasks and action items as a markdown checklist. Use - [ ] format. Include who, what, and when if mentioned. If no action items exist, output "No action items found." Output only the checklist, nothing else.`,
+    prompt: `Extract actionable tasks as a markdown checklist using - [ ] format. Include assignee and deadline if mentioned. Order by priority or sequence if apparent. If no action items exist, respond with "No action items found." Output only the checklist.`,
   },
   {
     id: 'continue',
     label: 'Continue',
-    prompt: `Continue writing in the same style and topic. Add 1-2 relevant paragraphs. Output the original text followed by your continuation, nothing else.`,
+    prompt: `Continue writing from where the text ends. Match the style, tone, and topic. Add 1-2 paragraphs of relevant content that flows naturally from the existing text. Do not summarize or repeat what was already written. Output the original text followed by your continuation.`,
   },
   {
     id: 'research',
@@ -74,6 +74,8 @@ export function useOllama() {
     aiProvider,
     aiEnabled,
     aiCustomPrompts,
+    aiPromptOrder,
+    aiEnabledTools,
     ollamaEndpoint,
     ollamaModel,
     ollamaContextSize,
@@ -132,6 +134,7 @@ export function useOllama() {
   /**
    * Merged prompts: defaults + custom, with custom overriding defaults by id
    * Custom prompts with _deleted: true are filtered out
+   * Respects custom ordering from aiPromptOrder setting
    */
   const presetPrompts = computed(() => {
     const custom = customPrompts.value || []
@@ -146,6 +149,17 @@ export function useOllama() {
     // Add custom prompts that aren't overriding defaults
     const defaultIds = new Set(defaultPrompts.map(p => p.id))
     custom.filter(p => !p._deleted && !defaultIds.has(p.id)).forEach(p => result.push(p))
+
+    // Apply custom ordering if available
+    const order = aiPromptOrder?.value
+    if (order && order.length > 0) {
+      const orderMap = new Map(order.map((id, idx) => [id, idx]))
+      result.sort((a, b) => {
+        const aIdx = orderMap.has(a.id) ? orderMap.get(a.id) : Infinity
+        const bIdx = orderMap.has(b.id) ? orderMap.get(b.id) : Infinity
+        return aIdx - bIdx
+      })
+    }
 
     return result
   })
@@ -227,6 +241,41 @@ export function useOllama() {
   }
 
   /**
+   * Get or initialize the prompt order array
+   */
+  function getPromptOrder() {
+    if (aiPromptOrder?.value && aiPromptOrder.value.length > 0) {
+      return [...aiPromptOrder.value]
+    }
+    // Initialize with current prompt order
+    return presetPrompts.value.map(p => p.id)
+  }
+
+  /**
+   * Move a prompt up in the list
+   */
+  function movePromptUp(id) {
+    const order = getPromptOrder()
+    const idx = order.indexOf(id)
+    if (idx > 0) {
+      ;[order[idx - 1], order[idx]] = [order[idx], order[idx - 1]]
+      aiPromptOrder.value = order
+    }
+  }
+
+  /**
+   * Move a prompt down in the list
+   */
+  function movePromptDown(id) {
+    const order = getPromptOrder()
+    const idx = order.indexOf(id)
+    if (idx >= 0 && idx < order.length - 1) {
+      ;[order[idx], order[idx + 1]] = [order[idx + 1], order[idx]]
+      aiPromptOrder.value = order
+    }
+  }
+
+  /**
    * Improve notes using the configured AI provider
    * @param {string} originalContent - The original notes content
    * @param {string} prompt - The improvement prompt
@@ -284,6 +333,7 @@ export function useOllama() {
       const config = getProviderConfig()
       const result = await api.agentResearch({
         prompt: query,
+        enabledTools: aiEnabledTools.value,
         ...config,
       })
 
@@ -346,5 +396,7 @@ export function useOllama() {
     resetPrompt,
     isPromptModified,
     isDefaultPrompt,
+    movePromptUp,
+    movePromptDown,
   }
 }

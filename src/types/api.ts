@@ -82,6 +82,7 @@ export interface AgentResearchOptions {
   endpoint: string
   apiKey?: string
   contextSize?: number
+  enabledTools?: string[]
 }
 
 /**

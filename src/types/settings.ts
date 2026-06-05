@@ -141,6 +141,8 @@ export interface AppSettings {
   aiProvider: AIProvider
   aiEnabled: boolean
   aiCustomPrompts: AICustomPrompt[]
+  aiPromptOrder: string[]
+  aiEnabledTools: string[]
 
   // Ollama
   ollamaEndpoint: string
@@ -197,6 +199,8 @@ export interface UseSettingsReturn {
   aiProvider: Ref<AIProvider>
   aiEnabled: Ref<boolean>
   aiCustomPrompts: Ref<AICustomPrompt[]>
+  aiPromptOrder: Ref<string[]>
+  aiEnabledTools: Ref<string[]>
 
   // Ollama
   ollamaEndpoint: Ref<string>
