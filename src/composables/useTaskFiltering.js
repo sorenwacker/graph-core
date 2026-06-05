@@ -250,7 +250,7 @@ export function useTaskFiltering({ getWorkspaceId, getContainerId, getHideSensit
    */
   function getSortIcon(column) {
     if (sortBy.value !== column) return ''
-    return sortAsc.value ? ' ^' : ' v'
+    return sortAsc.value ? ' \u25B2' : ' \u25BC'
   }
 
   return {
