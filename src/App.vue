@@ -375,24 +375,12 @@ function onCardDragStart(e, node) {
 // Workspace graph settings defaults (for filter sync)
 const workspaceGraphSettings = useGraphSettings({ workspace: currentWorkspace })
 
-// Sync global graph settings to workspace-scoped settings
-watch(
-  graphMaxDepth,
-  val => {
-    workspaceGraphSettings.maxDepth.value = val
-  },
-  { immediate: true }
-)
-
-// Sync filter store changes back to settings for persistence
+// Sync filter store changes back to global settings for persistence
 watch(
   () => filtersStore.maxDepth,
   val => {
     if (val !== graphMaxDepth.value) {
       graphMaxDepth.value = val
-    }
-    if (val !== workspaceGraphSettings.maxDepth.value) {
-      workspaceGraphSettings.maxDepth.value = val
     }
   }
 )
@@ -434,9 +422,10 @@ const navigation = useNavigation({
   },
   onAfterNavigate: () => {
     // Sync filter store from current container settings
+    // Use graphMaxDepth directly for persistence (global setting)
     filtersStore.syncFromNode(currentContainer.value, {
       visibleTypes: workspaceGraphSettings.visibleTypes.value,
-      maxDepth: workspaceGraphSettings.maxDepth.value,
+      maxDepth: graphMaxDepth.value,
     })
   },
 })
@@ -819,9 +808,10 @@ useAppLifecycle({
   showShortcuts: showShortcutsModal,
   onAfterInitialLoad: () => {
     // Sync filter store from current container after initial load
+    // Use graphMaxDepth directly for persistence (global setting)
     filtersStore.syncFromNode(currentContainer.value, {
       visibleTypes: workspaceGraphSettings.visibleTypes.value,
-      maxDepth: workspaceGraphSettings.maxDepth.value,
+      maxDepth: graphMaxDepth.value,
     })
   },
 })
