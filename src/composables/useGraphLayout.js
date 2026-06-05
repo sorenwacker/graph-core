@@ -122,76 +122,68 @@ function runTetrisGridLayout(cy, options = {}) {
     }
   })
 
-  // Get container dimensions for calculating grid width
-  // Limit max width to prevent overly spread out layouts
+  // Get container dimensions - use actual canvas width for landscape layout
   const container = cy.container()
-  const rawWidth = container ? container.clientWidth - padding * 2 : 1200
-  const containerWidth = Math.min(rawWidth, 1400) // Cap at reasonable width
+  const containerWidth = container ? container.clientWidth - padding * 2 : 1200
 
-  // Shelf-based bin packing algorithm
-  const shelves = [] // Each shelf: { y, height, items: [{ x, width, node }] }
+  // Simple row-based layout (no shelf reuse to avoid overlap issues)
+  const rows = [] // Each row: { items: [{ x, width, height, node }] }
+  let currentRow = { items: [] }
+  let currentRowX = 0
+  let currentRowMaxHeight = 0
 
   for (const node of nodes) {
     const dim = getNodeDimensions(node)
     const nodeWidth = dim.width + GRID_GAP
     const nodeHeight = dim.height + GRID_GAP
 
-    let placed = false
-
-    // Try to fit on an existing shelf
-    for (const shelf of shelves) {
-      // Check if node height fits on this shelf (allow some tolerance)
-      if (nodeHeight <= shelf.height + 20) {
-        // Find the rightmost x position on this shelf
-        let shelfEndX = 0
-        for (const item of shelf.items) {
-          const itemEnd = item.x + item.width
-          if (itemEnd > shelfEndX) shelfEndX = itemEnd
-        }
-
-        // Check if there's room on this shelf
-        if (shelfEndX + nodeWidth <= containerWidth) {
-          shelf.items.push({
-            x: shelfEndX,
-            width: nodeWidth,
-            node,
-            height: nodeHeight,
-          })
-          // Update shelf height if this node is taller
-          if (nodeHeight > shelf.height) {
-            shelf.height = nodeHeight
-          }
-          placed = true
-          break
-        }
-      }
-    }
-
-    // If not placed, create a new shelf
-    if (!placed) {
-      let newShelfY = 0
-      if (shelves.length > 0) {
-        const lastShelf = shelves[shelves.length - 1]
-        newShelfY = lastShelf.y + lastShelf.height
-      }
-
-      shelves.push({
-        y: newShelfY,
+    // Check if node fits on current row
+    if (currentRowX + nodeWidth <= containerWidth || currentRow.items.length === 0) {
+      currentRow.items.push({
+        x: currentRowX,
+        width: nodeWidth,
         height: nodeHeight,
-        items: [{ x: 0, width: nodeWidth, node, height: nodeHeight }],
+        node,
       })
+      currentRowX += nodeWidth
+      if (nodeHeight > currentRowMaxHeight) {
+        currentRowMaxHeight = nodeHeight
+      }
+    } else {
+      // Finalize current row and start new one
+      currentRow.height = currentRowMaxHeight
+      rows.push(currentRow)
+
+      currentRow = {
+        items: [{ x: 0, width: nodeWidth, height: nodeHeight, node }],
+      }
+      currentRowX = nodeWidth
+      currentRowMaxHeight = nodeHeight
     }
+  }
+
+  // Don't forget the last row
+  if (currentRow.items.length > 0) {
+    currentRow.height = currentRowMaxHeight
+    rows.push(currentRow)
+  }
+
+  // Calculate Y positions for each row
+  let currentY = 0
+  for (const row of rows) {
+    row.y = currentY
+    currentY += row.height
   }
 
   // Calculate positions and apply
   const positions = []
-  for (const shelf of shelves) {
-    for (const item of shelf.items) {
+  for (const row of rows) {
+    for (const item of row.items) {
       const dim = getNodeDimensions(item.node)
       positions.push({
         node: item.node,
         x: padding + item.x + dim.width / 2,
-        y: padding + shelf.y + dim.height / 2,
+        y: padding + row.y + dim.height / 2,
       })
     }
   }
