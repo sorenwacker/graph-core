@@ -93,7 +93,13 @@ function getNodeDimensions(node) {
  * @param {Object} options - Layout options
  */
 function runTetrisGridLayout(cy, options = {}) {
-  const { padding = 50, animate = true, animationDuration = 250, sortAlphabetically = false } = options
+  const {
+    padding = 50,
+    animate = true,
+    animationDuration = 250,
+    sortAlphabetically = false,
+    containerWidth: providedWidth,
+  } = options
 
   const nodes = cy.nodes().toArray()
   if (nodes.length === 0) return
@@ -122,9 +128,9 @@ function runTetrisGridLayout(cy, options = {}) {
     }
   })
 
-  // Get container dimensions - use actual canvas width for landscape layout
+  // Use provided width or measure from container
   const container = cy.container()
-  const containerWidth = container ? container.clientWidth - padding * 2 : 1200
+  const containerWidth = providedWidth || (container ? container.clientWidth - padding * 2 : 1200)
 
   // Simple row-based layout (no shelf reuse to avoid overlap issues)
   const rows = [] // Each row: { items: [{ x, width, height, node }] }
@@ -443,6 +449,10 @@ export function useGraphLayout(options = {}) {
 
     // Use custom Tetris grid layout for grid mode
     if (mode === 'grid') {
+      // Measure container dimensions BEFORE any manipulation
+      const container = cy.container()
+      const measuredWidth = container ? container.clientWidth - 40 : 1200
+
       // Reset zoom and spread nodes apart to ensure accurate DOM measurements
       cy.zoom(1)
       cy.pan({ x: 0, y: 0 })
@@ -459,7 +469,13 @@ export function useGraphLayout(options = {}) {
       requestAnimationFrame(() => {
         syncNodeDimensions(cy)
         const sortAlpha = getSortAlphabetically ? getSortAlphabetically() : false
-        runTetrisGridLayout(cy, { padding: 20, animate: false, animationDuration: 0, sortAlphabetically: sortAlpha })
+        runTetrisGridLayout(cy, {
+          padding: 20,
+          animate: false,
+          animationDuration: 0,
+          sortAlphabetically: sortAlpha,
+          containerWidth: measuredWidth,
+        })
 
         // Fit to view after layout
         cy.fit(undefined, 50)
@@ -827,8 +843,17 @@ export function useGraphLayout(options = {}) {
   function runGridLayout() {
     const cy = getCy ? getCy() : null
     if (!cy) return
+    // Measure container width before any manipulation
+    const container = cy.container()
+    const measuredWidth = container ? container.clientWidth - 40 : 1200
     const sortAlpha = getSortAlphabetically ? getSortAlphabetically() : false
-    runTetrisGridLayout(cy, { padding: 20, animate: true, animationDuration: 250, sortAlphabetically: sortAlpha })
+    runTetrisGridLayout(cy, {
+      padding: 20,
+      animate: true,
+      animationDuration: 250,
+      sortAlphabetically: sortAlpha,
+      containerWidth: measuredWidth,
+    })
     setTimeout(() => {
       if (savePositions) savePositions()
     }, 300)
