@@ -218,10 +218,13 @@ watch(legendCollapsed, val => localStorage.setItem('sidebar-legend-collapsed', S
 }
 
 .app-version {
-  margin-top: 12px;
+  margin: 12px 16px;
+  padding: 4px 8px;
   font-size: 10px;
   color: var(--text-tertiary, #888);
   text-align: center;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
 }
 
 .tag-dot {
