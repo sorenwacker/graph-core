@@ -9,6 +9,28 @@ const { AGENT_TOOLS, RESEARCH_SYSTEM_PROMPT, MAX_AGENT_ITERATIONS, isGarbageResp
 const { AGENT_RESEARCH } = require('../ipcChannels')
 const { chatRequest } = require('./llmProvider')
 
+// Map tool names to their tool group (e.g., wikipedia_search -> wikipedia)
+const TOOL_GROUPS = {
+  wikipedia_search: 'wikipedia',
+  wikipedia_get_content: 'wikipedia',
+}
+
+/**
+ * Filter tools based on enabled tool groups
+ * @param {string[]} enabledTools - Array of enabled tool group IDs
+ * @returns {Array} Filtered tools array
+ */
+function getEnabledTools(enabledTools) {
+  if (!enabledTools || enabledTools.length === 0) {
+    return []
+  }
+  return AGENT_TOOLS.filter(tool => {
+    const toolName = tool.function?.name
+    const group = TOOL_GROUPS[toolName]
+    return group && enabledTools.includes(group)
+  })
+}
+
 /**
  * Research options passed to agent functions.
  * @typedef {Object} ResearchOptions
@@ -146,9 +168,10 @@ Write a concise summary (2-4 paragraphs) that answers the user's question. Cite 
  * @param {Function} httpRequest - HTTP request function
  * @param {Array} messages - Initial messages array
  * @param {ResearchOptions} options - Research options
+ * @param {Array} tools - Tools to use
  * @returns {Promise<string>} Final response content
  */
-async function runAgentLoop(httpRequest, messages, options) {
+async function runAgentLoop(httpRequest, messages, options, tools) {
   const { provider, model, endpoint, apiKey, contextSize } = options
 
   for (let i = 0; i < MAX_AGENT_ITERATIONS; i++) {
@@ -159,7 +182,7 @@ async function runAgentLoop(httpRequest, messages, options) {
       apiKey,
       contextSize,
       messages,
-      tools: AGENT_TOOLS,
+      tools,
     })
 
     // Check if model returned garbage (doesn't support tools)
@@ -201,7 +224,12 @@ async function runAgentLoop(httpRequest, messages, options) {
  */
 function registerAgentHandlers(ipcMain, httpRequest) {
   ipcMain.handle(AGENT_RESEARCH, async (_event, options) => {
-    const { prompt, provider, model, endpoint, apiKey, contextSize } = options
+    const { prompt, provider, model, endpoint, apiKey, contextSize, enabledTools } = options
+
+    const tools = getEnabledTools(enabledTools)
+    if (tools.length === 0) {
+      return 'No agent tools are enabled. Enable tools in AI Settings to use the Research feature.'
+    }
 
     const messages = [
       { role: 'system', content: RESEARCH_SYSTEM_PROMPT },
@@ -209,7 +237,12 @@ function registerAgentHandlers(ipcMain, httpRequest) {
     ]
 
     try {
-      return await runAgentLoop(httpRequest, messages, { prompt, provider, model, endpoint, apiKey, contextSize })
+      return await runAgentLoop(
+        httpRequest,
+        messages,
+        { prompt, provider, model, endpoint, apiKey, contextSize },
+        tools
+      )
     } catch (err) {
       // If tool calling fails, try fallback
       console.log('Tool calling failed, using fallback:', err.message)
