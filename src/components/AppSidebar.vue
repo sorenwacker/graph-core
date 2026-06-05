@@ -71,14 +71,6 @@ watch(tagsCollapsed, val => localStorage.setItem('sidebar-tags-collapsed', Strin
       </div>
     </div>
 
-    <!-- Root (sticky, does not scroll) -->
-    <div class="sidebar-section sidebar-root-section">
-      <div class="sidebar-item" :class="{ active: currentContainerId === null }" @click="emit('navigate-root')">
-        <span class="icon">~</span>
-        <span class="label">Root</span>
-      </div>
-    </div>
-
     <div class="sidebar-content">
       <!-- Favorites -->
       <div v-if="favoriteItems.length > 0" class="sidebar-section collapsible-section">
