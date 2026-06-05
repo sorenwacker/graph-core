@@ -140,7 +140,10 @@ const showLayoutSettings = ref(false)
       </svg>
     </button>
     <span class="controls-separator"></span>
-    <div class="depth-control" title="Max depth">
+    <div
+      class="depth-control"
+      title="Visible levels: controls how many levels of nested nodes are shown. 'All' shows everything, '1' shows only direct children."
+    >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M12 3v18M3 12h18M7 7l10 10M17 7l-10 10" />
       </svg>
