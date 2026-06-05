@@ -100,6 +100,8 @@ const { sortAlphabetically, transitioning, transitionDirection } = viewStateCont
 
 // Filter store - shared filter state across all views
 const filtersStore = useFiltersStore()
+// Initialize with persisted settings immediately (before any graph rendering)
+filtersStore.setMaxDepth(graphMaxDepth.value)
 
 // Navigation state
 const { currentContainerId, currentContainer, breadcrumbs, children, syncFromNavigation, resetNavigationState } =

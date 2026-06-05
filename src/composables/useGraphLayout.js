@@ -87,8 +87,8 @@ function getNodeDimensions(node) {
 }
 
 /**
- * Tetris-style bin-packing layout.
- * Places nodes in rows, filling gaps where smaller nodes fit.
+ * Grid layout that matches canvas aspect ratio.
+ * Calculates optimal columns to produce a layout with similar aspect ratio to the canvas.
  * @param {Object} cy - Cytoscape instance
  * @param {Object} options - Layout options
  */
@@ -98,27 +98,25 @@ function runTetrisGridLayout(cy, options = {}) {
     animate = true,
     animationDuration = 250,
     sortAlphabetically = false,
-    containerWidth: providedWidth,
+    aspectRatio = 1.5, // Default landscape aspect ratio
   } = options
 
   const nodes = cy.nodes().toArray()
   if (nodes.length === 0) return
 
-  // Sort nodes - either alphabetically first or by size first
+  // Sort nodes
   const alphaCompare = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
   nodes.sort((a, b) => {
     const titleA = a.data('nodeData')?.title || ''
     const titleB = b.data('nodeData')?.title || ''
 
     if (sortAlphabetically) {
-      // Primary: alphabetical, Secondary: by size
       const titleCompare = alphaCompare(titleA, titleB)
       if (titleCompare !== 0) return titleCompare
       const dimA = getNodeDimensions(a)
       const dimB = getNodeDimensions(b)
       return dimB.width * dimB.height - dimA.width * dimA.height
     } else {
-      // Primary: by area (largest first), Secondary: alphabetical
       const dimA = getNodeDimensions(a)
       const dimB = getNodeDimensions(b)
       const areaA = dimA.width * dimA.height
@@ -128,53 +126,51 @@ function runTetrisGridLayout(cy, options = {}) {
     }
   })
 
-  // Use provided width or measure from container
-  const container = cy.container()
-  const containerWidth = providedWidth || (container ? container.clientWidth - padding * 2 : 1200)
-
-  // Simple row-based layout (no shelf reuse to avoid overlap issues)
-  const rows = [] // Each row: { items: [{ x, width, height, node }] }
-  let currentRow = { items: [] }
-  let currentRowX = 0
-  let currentRowMaxHeight = 0
-
-  for (const node of nodes) {
+  // Calculate average node dimensions
+  let totalWidth = 0
+  let totalHeight = 0
+  const nodeDims = nodes.map(node => {
     const dim = getNodeDimensions(node)
-    const nodeWidth = dim.width + GRID_GAP
-    const nodeHeight = dim.height + GRID_GAP
+    totalWidth += dim.width + GRID_GAP
+    totalHeight += dim.height + GRID_GAP
+    return { node, width: dim.width + GRID_GAP, height: dim.height + GRID_GAP }
+  })
+  const avgWidth = totalWidth / nodes.length
+  const avgHeight = totalHeight / nodes.length
 
-    // Check if node fits on current row
-    if (currentRowX + nodeWidth <= containerWidth || currentRow.items.length === 0) {
-      currentRow.items.push({
-        x: currentRowX,
-        width: nodeWidth,
-        height: nodeHeight,
-        node,
-      })
-      currentRowX += nodeWidth
-      if (nodeHeight > currentRowMaxHeight) {
-        currentRowMaxHeight = nodeHeight
-      }
-    } else {
-      // Finalize current row and start new one
-      currentRow.height = currentRowMaxHeight
-      rows.push(currentRow)
+  // Calculate optimal columns to match aspect ratio
+  // aspectRatio = totalWidth / totalHeight = (cols * avgWidth) / (rows * avgHeight)
+  // rows = nodes / cols
+  // aspectRatio = (cols * avgWidth) / ((nodes / cols) * avgHeight)
+  // aspectRatio = (cols^2 * avgWidth) / (nodes * avgHeight)
+  // cols^2 = aspectRatio * nodes * avgHeight / avgWidth
+  // cols = sqrt(aspectRatio * nodes * avgHeight / avgWidth)
+  const optimalCols = Math.max(1, Math.round(Math.sqrt((aspectRatio * nodes.length * avgHeight) / avgWidth)))
+  const numRows = Math.ceil(nodes.length / optimalCols)
 
-      currentRow = {
-        items: [{ x: 0, width: nodeWidth, height: nodeHeight, node }],
-      }
-      currentRowX = nodeWidth
-      currentRowMaxHeight = nodeHeight
+  // Layout in grid with calculated columns
+  const rows = []
+  for (let r = 0; r < numRows; r++) {
+    const rowItems = []
+    let rowX = 0
+    let rowMaxHeight = 0
+
+    for (let c = 0; c < optimalCols; c++) {
+      const idx = r * optimalCols + c
+      if (idx >= nodeDims.length) break
+
+      const { node, width, height } = nodeDims[idx]
+      rowItems.push({ x: rowX, width, height, node })
+      rowX += width
+      if (height > rowMaxHeight) rowMaxHeight = height
+    }
+
+    if (rowItems.length > 0) {
+      rows.push({ items: rowItems, height: rowMaxHeight })
     }
   }
 
-  // Don't forget the last row
-  if (currentRow.items.length > 0) {
-    currentRow.height = currentRowMaxHeight
-    rows.push(currentRow)
-  }
-
-  // Calculate Y positions for each row
+  // Calculate Y positions
   let currentY = 0
   for (const row of rows) {
     row.y = currentY
@@ -449,9 +445,10 @@ export function useGraphLayout(options = {}) {
 
     // Use custom Tetris grid layout for grid mode
     if (mode === 'grid') {
-      // Use Cytoscape's visible canvas dimensions
-      const canvasWidth = cy.width()
-      const measuredWidth = canvasWidth > 0 ? canvasWidth - 40 : 1200
+      // Get canvas aspect ratio to match layout shape
+      const canvasWidth = cy.width() || 1200
+      const canvasHeight = cy.height() || 800
+      const aspectRatio = canvasWidth / canvasHeight
 
       // Reset zoom and spread nodes apart to ensure accurate DOM measurements
       cy.zoom(1)
@@ -474,7 +471,7 @@ export function useGraphLayout(options = {}) {
           animate: false,
           animationDuration: 0,
           sortAlphabetically: sortAlpha,
-          containerWidth: measuredWidth,
+          aspectRatio,
         })
 
         // Fit to view after layout
@@ -843,16 +840,17 @@ export function useGraphLayout(options = {}) {
   function runGridLayout() {
     const cy = getCy ? getCy() : null
     if (!cy) return
-    // Use Cytoscape's visible canvas dimensions
-    const canvasWidth = cy.width()
-    const measuredWidth = canvasWidth > 0 ? canvasWidth - 40 : 1200
+    // Get canvas aspect ratio to match layout shape
+    const canvasWidth = cy.width() || 1200
+    const canvasHeight = cy.height() || 800
+    const aspectRatio = canvasWidth / canvasHeight
     const sortAlpha = getSortAlphabetically ? getSortAlphabetically() : false
     runTetrisGridLayout(cy, {
       padding: 20,
       animate: true,
       animationDuration: 250,
       sortAlphabetically: sortAlpha,
-      containerWidth: measuredWidth,
+      aspectRatio,
     })
     setTimeout(() => {
       if (savePositions) savePositions()
