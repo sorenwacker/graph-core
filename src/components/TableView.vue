@@ -59,7 +59,12 @@ const { showTooltip, hideTooltip } = useNodeTooltip({
   onOpenDetail: nodeId => emit('open-fullscreen', nodeId),
   onToggleComplete: nodeId => emit('toggle-complete', nodeId),
   getHideSensitive: () => props.hideSensitive,
-  shouldShowTooltip: () => props.hoverPreviewEnabled && !props.showDetail && !props.sidebarVisible,
+  shouldShowTooltip: node => {
+    if (props.hideSensitive && node?.notes_sensitive) {
+      return false
+    }
+    return props.hoverPreviewEnabled && !props.showDetail && !props.sidebarVisible
+  },
 })
 
 // Setup node interactions (shared logic for hover/click/double-click)

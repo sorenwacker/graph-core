@@ -173,12 +173,19 @@ const {
   },
   onOpenDetail: id => emit('open-fullscreen', id),
   getHideSensitive: () => props.hideSensitive,
-  shouldShowTooltip: () =>
-    props.hoverPreviewEnabled &&
-    !props.showDetail &&
-    !props.fullscreenDetailOpen &&
-    !editModal.value.visible &&
-    !props.sidebarVisible,
+  shouldShowTooltip: node => {
+    // Don't show tooltip for sensitive nodes when hideSensitive is enabled
+    if (props.hideSensitive && node?.notes_sensitive) {
+      return false
+    }
+    return (
+      props.hoverPreviewEnabled &&
+      !props.showDetail &&
+      !props.fullscreenDetailOpen &&
+      !editModal.value.visible &&
+      !props.sidebarVisible
+    )
+  },
 })
 
 const {
