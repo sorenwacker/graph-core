@@ -77,7 +77,6 @@ watch(legendCollapsed, val => localStorage.setItem('sidebar-legend-collapsed', S
       <!-- Favorites -->
       <div v-if="favoriteItems.length > 0" class="sidebar-section collapsible-section">
         <div class="sidebar-section-header" @click="favoritesCollapsed = !favoritesCollapsed">
-          <span class="collapse-btn">{{ favoritesCollapsed ? '+' : '-' }}</span>
           <span>Favorites</span>
           <span class="section-count">{{ favoriteItems.length }}</span>
         </div>
@@ -99,7 +98,6 @@ watch(legendCollapsed, val => localStorage.setItem('sidebar-legend-collapsed', S
       <!-- Global Tree -->
       <div class="sidebar-section collapsible-section">
         <div class="sidebar-section-header" @click="treeCollapsed = !treeCollapsed">
-          <span class="collapse-btn">{{ treeCollapsed ? '+' : '-' }}</span>
           <span>Tree</span>
         </div>
         <div v-show="!treeCollapsed" class="sidebar-tree">
@@ -120,7 +118,6 @@ watch(legendCollapsed, val => localStorage.setItem('sidebar-legend-collapsed', S
       <!-- Tags -->
       <div v-if="allTags.length > 0" class="sidebar-section collapsible-section">
         <div class="sidebar-section-header" @click="tagsCollapsed = !tagsCollapsed">
-          <span class="collapse-btn">{{ tagsCollapsed ? '+' : '-' }}</span>
           <span>Tags</span>
           <span class="section-count">{{ allTags.length }}</span>
         </div>
