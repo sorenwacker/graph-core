@@ -99,13 +99,14 @@ function runTetrisGridLayout(cy, options = {}) {
   if (nodes.length === 0) return
 
   // Sort nodes - either alphabetically first or by size first
+  const alphaCompare = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
   nodes.sort((a, b) => {
     const titleA = a.data('nodeData')?.title || ''
     const titleB = b.data('nodeData')?.title || ''
 
     if (sortAlphabetically) {
       // Primary: alphabetical, Secondary: by size
-      const titleCompare = titleA.localeCompare(titleB)
+      const titleCompare = alphaCompare(titleA, titleB)
       if (titleCompare !== 0) return titleCompare
       const dimA = getNodeDimensions(a)
       const dimB = getNodeDimensions(b)
@@ -117,7 +118,7 @@ function runTetrisGridLayout(cy, options = {}) {
       const areaA = dimA.width * dimA.height
       const areaB = dimB.width * dimB.height
       if (areaB !== areaA) return areaB - areaA
-      return titleA.localeCompare(titleB)
+      return alphaCompare(titleA, titleB)
     }
   })
 

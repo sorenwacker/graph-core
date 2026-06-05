@@ -64,14 +64,14 @@ export function filterCompletedNodes(nodeList) {
 }
 
 /**
- * Sort nodes recursively by title alphabetically.
+ * Sort nodes recursively by title alphanumerically.
  * @param {Array} nodeList - Array of nodes to sort
  * @returns {Array} Sorted node array
  */
 export function sortNodesRecursively(nodeList) {
   if (!nodeList) return []
   return [...nodeList]
-    .sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+    .sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' }))
     .map(n => ({
       ...n,
       children: n.children ? sortNodesRecursively(n.children) : [],
@@ -239,9 +239,11 @@ export function useChildrenFiltering({ children, hideCompleted, sortAlphabetical
     let result = filterRecursive(children.value)
     // Then apply type filter from store
     result = applyTypeFilterRecursive(result)
-    // Finally sort if needed
+    // Finally sort if needed (alphanumeric: handles "Item 2" before "Item 10")
     if (sortAlphabetically.value) {
-      result = [...result].sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+      result = [...result].sort((a, b) =>
+        (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' })
+      )
     }
     return result
   })
@@ -252,7 +254,9 @@ export function useChildrenFiltering({ children, hideCompleted, sortAlphabetical
    */
   const sortedChildren = computed(() => {
     if (!sortAlphabetically.value) return children.value
-    return [...children.value].sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+    return [...children.value].sort((a, b) =>
+      (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' })
+    )
   })
 
   return {
