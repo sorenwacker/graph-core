@@ -122,6 +122,7 @@ const {
   onEnter: onSidebarEnter,
   onLeave: onSidebarLeave,
   toggleExpand: toggleSidebarExpand,
+  expandToPath: expandSidebarToPath,
 } = useSidebar({ pinned: sidebarPinned })
 
 // Workspace
@@ -317,6 +318,10 @@ watch(currentContainerId, newId => {
     expandAncestors(newId)
     expandedIds.value.add(newId) // Also expand the current node to show its children
     expandedIds.value = new Set(expandedIds.value) // Trigger reactivity
+    // Also expand sidebar tree to current path
+    expandSidebarToPath(breadcrumbs.value)
+    sidebarExpandedIds.value.add(newId)
+    sidebarExpandedIds.value = new Set(sidebarExpandedIds.value)
   }
 })
 
