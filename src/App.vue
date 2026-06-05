@@ -370,6 +370,15 @@ function onCardDragStart(e, node) {
 // Workspace graph settings defaults (for filter sync)
 const workspaceGraphSettings = useGraphSettings({ workspace: currentWorkspace })
 
+// Sync global graph settings to workspace-scoped settings
+watch(
+  graphMaxDepth,
+  val => {
+    workspaceGraphSettings.maxDepth.value = val
+  },
+  { immediate: true }
+)
+
 // Navigation
 const navigation = useNavigation({
   api,
