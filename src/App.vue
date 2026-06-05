@@ -478,7 +478,8 @@ const {
   onMove: async (sourceId, targetId) => {
     try {
       await api.moveNode(sourceId, targetId)
-      await refreshGraphAfterStructureChange()
+      // Reload data to immediately reflect the move in the UI
+      await refreshGraphAfterStructureChange(true)
       if (selectedNode.value?.id === sourceId) selectedNode.value = await api.getNode(sourceId)
     } catch (e) {
       handleError(e, { context: 'Moving node' })
