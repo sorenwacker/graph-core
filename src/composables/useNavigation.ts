@@ -223,15 +223,19 @@ export function useNavigation({
         const roots = await api.getRoots(ws)
         const filteredRoots = applyWorkspaceFilter(roots)
 
+        // Filter out tag nodes - they have their own section
+        const isNotTag = (n: Node | null) => n?.type !== 'tag'
+
         // Fetch descendants for each root to build nested structure
         const buildFn = externalBuildChildTree || internalBuildChildTree
         const rootsWithChildren = await Promise.all(
-          filteredRoots.map(async root => {
+          filteredRoots.filter(isNotTag).map(async root => {
             if (!root || !root.id) return null
             const descendants = await api.getDescendants(root.id)
+            const filteredDescendants = (descendants || []).filter(isNotTag) as Node[]
             return {
               ...root,
-              children: buildFn(descendants, root.id),
+              children: buildFn(filteredDescendants, root.id),
             } as TreeNode
           })
         )
