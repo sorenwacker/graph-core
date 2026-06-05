@@ -10,7 +10,9 @@ export function useRefresh({
   loadChildren,
   loadSidebarTree,
   loadRecentItems,
+  loadFavorites,
   loadTags,
+  invalidateSidebarCache,
   currentContainerId,
   selectedNode,
   graphViewRef,
@@ -22,12 +24,23 @@ export function useRefresh({
    * @param {boolean} options.silent - Use silent mode for loadChildren
    * @param {boolean} options.sidebar - Whether to refresh sidebar tree
    * @param {boolean} options.recent - Whether to refresh recent items
+   * @param {boolean} options.favorites - Whether to refresh favorites
    * @param {boolean} options.tags - Whether to refresh tags list
    */
-  async function refreshAfterChange({ silent = true, sidebar = true, recent = true, tags = true } = {}) {
+  async function refreshAfterChange({
+    silent = true,
+    sidebar = true,
+    recent = true,
+    favorites = false,
+    tags = true,
+  } = {}) {
     await loadChildren(currentContainerId.value, { silent })
-    if (sidebar) await loadSidebarTree()
-    if (recent) loadRecentItems()
+    if (sidebar) {
+      if (invalidateSidebarCache) invalidateSidebarCache()
+      await loadSidebarTree()
+    }
+    if (recent && loadRecentItems) loadRecentItems()
+    if (favorites && loadFavorites) loadFavorites()
     if (tags && loadTags) loadTags()
   }
 
@@ -36,8 +49,10 @@ export function useRefresh({
    */
   async function refreshAfterDelete() {
     await loadChildren(currentContainerId.value, { silent: true })
+    if (invalidateSidebarCache) invalidateSidebarCache()
     await loadSidebarTree()
-    loadRecentItems()
+    if (loadRecentItems) loadRecentItems()
+    if (loadFavorites) loadFavorites()
     if (loadTags) loadTags()
   }
 

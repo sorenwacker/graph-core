@@ -180,12 +180,7 @@ export function useNodeActionsUI({
     refreshAfterDelete,
     refreshGraphAfterStructureChange,
     refreshDetailPanelLinks,
-    loadSidebarTree,
-    loadFavorites,
     loadChildren,
-    invalidateSidebarCache,
-    loadRecentItems,
-    loadTags,
   } = useAppContext()
 
   /**
@@ -337,8 +332,7 @@ export function useNodeActionsUI({
   async function toggleFavorite(node: Node): Promise<boolean> {
     const success = await nodeOps.toggleFavorite(node)
     if (success) {
-      await loadChildren(currentContainerId.value, { silent: true })
-      await loadFavorites()
+      await refreshAfterChange({ sidebar: false, recent: false, favorites: true, tags: false })
     }
     return success
   }
@@ -404,10 +398,7 @@ export function useNodeActionsUI({
     try {
       const success = await nodeOps.updateNode(updatedNode, { trackUndo })
       if (success) {
-        await loadChildren(currentContainerId.value, { silent: true })
-        invalidateSidebarCache()
-        await loadSidebarTree()
-        await Promise.all([loadRecentItems(), loadFavorites(), loadTags()])
+        await refreshAfterChange({ favorites: true })
       }
       return success
     } catch (e) {
@@ -490,8 +481,7 @@ export function useNodeActionsUI({
       selectedIds.value = new Set()
       selectedNode.value = null
       showDetail.value = false
-      await loadChildren(currentContainerId.value, { silent: true })
-      await loadSidebarTree()
+      await refreshAfterDelete()
     }
   }
 
