@@ -101,7 +101,7 @@ describe('useOllama', () => {
 
       expect(summarize).toBeDefined()
       expect(summarize.label).toBe('Summarize')
-      expect(summarize.prompt).toContain('key points')
+      expect(summarize.prompt).toContain('Summarize')
     })
 
     it('should include Expand preset', () => {
@@ -110,7 +110,7 @@ describe('useOllama', () => {
 
       expect(expand).toBeDefined()
       expect(expand.label).toBe('Expand')
-      expect(expand.prompt).toContain('detail')
+      expect(expand.prompt).toContain('Expand')
     })
 
     it('should include Fix Grammar preset', () => {

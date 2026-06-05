@@ -43,7 +43,12 @@ export interface AppContext {
   /** Navigate back */
   navigateBack: () => void | Promise<void>
   /** Refresh after data change */
-  refreshAfterChange: (options?: { sidebar?: boolean; recent?: boolean; tags?: boolean }) => void | Promise<void>
+  refreshAfterChange: (options?: {
+    sidebar?: boolean
+    recent?: boolean
+    favorites?: boolean
+    tags?: boolean
+  }) => void | Promise<void>
   /** Refresh after delete operation */
   refreshAfterDelete: () => void | Promise<void>
   /** Refresh graph view */

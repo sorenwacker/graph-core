@@ -433,8 +433,12 @@ describe('useNodeActionsUI', () => {
       const result = await toggleFavorite({ id: 1, favorite: false })
 
       expect(mockNodeOps.toggleFavorite).toHaveBeenCalledWith({ id: 1, favorite: false })
-      expect(mockLoadChildren).toHaveBeenCalledWith(5, { silent: true })
-      expect(mockLoadFavorites).toHaveBeenCalled()
+      expect(mockRefreshAfterChange).toHaveBeenCalledWith({
+        sidebar: false,
+        recent: false,
+        favorites: true,
+        tags: false,
+      })
       expect(result).toBe(true)
     })
   })
@@ -527,12 +531,7 @@ describe('useNodeActionsUI', () => {
       const result = await updateNode({ id: 1, title: 'Updated' })
 
       expect(mockNodeOps.updateNode).toHaveBeenCalledWith({ id: 1, title: 'Updated' }, { trackUndo: true })
-      expect(mockLoadChildren).toHaveBeenCalledWith(5, { silent: true })
-      expect(mockInvalidateSidebarCache).toHaveBeenCalled()
-      expect(mockLoadSidebarTree).toHaveBeenCalled()
-      expect(mockLoadRecentItems).toHaveBeenCalled()
-      expect(mockLoadFavorites).toHaveBeenCalled()
-      expect(mockLoadTags).toHaveBeenCalled()
+      expect(mockRefreshAfterChange).toHaveBeenCalledWith({ favorites: true })
       expect(result).toBe(true)
     })
 
@@ -630,8 +629,7 @@ describe('useNodeActionsUI', () => {
       expect(selectedIds.value.size).toBe(0)
       expect(selectedNode.value).toBeNull()
       expect(showDetail.value).toBe(false)
-      expect(mockLoadChildren).toHaveBeenCalledWith(5, { silent: true })
-      expect(mockLoadSidebarTree).toHaveBeenCalled()
+      expect(mockRefreshAfterDelete).toHaveBeenCalled()
     })
   })
 })
