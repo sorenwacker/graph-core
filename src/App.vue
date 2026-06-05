@@ -238,7 +238,12 @@ const {
     if (node) await toggleComplete(node)
   },
   getHideSensitive: () => hideSensitive.value,
-  shouldShowTooltip: () => hoverPreviewEnabled.value && !showDetail.value && !sidebarVisible.value,
+  shouldShowTooltip: node => {
+    if (hideSensitive.value && node?.notes_sensitive) {
+      return false
+    }
+    return hoverPreviewEnabled.value && !showDetail.value && !sidebarVisible.value
+  },
 })
 watch(showDetail, isOpen => {
   if (isOpen) forceHideTooltip()
