@@ -38,11 +38,13 @@ function getTagColor(tagId) {
 const treeCollapsed = ref(localStorage.getItem('sidebar-tree-collapsed') === 'true')
 const favoritesCollapsed = ref(localStorage.getItem('sidebar-favorites-collapsed') === 'true')
 const tagsCollapsed = ref(localStorage.getItem('sidebar-tags-collapsed') === 'true')
+const legendCollapsed = ref(localStorage.getItem('sidebar-legend-collapsed') === 'true')
 
 // Persist collapse state changes
 watch(treeCollapsed, val => localStorage.setItem('sidebar-tree-collapsed', String(val)))
 watch(favoritesCollapsed, val => localStorage.setItem('sidebar-favorites-collapsed', String(val)))
 watch(tagsCollapsed, val => localStorage.setItem('sidebar-tags-collapsed', String(val)))
+watch(legendCollapsed, val => localStorage.setItem('sidebar-legend-collapsed', String(val)))
 </script>
 
 <template>
@@ -139,9 +141,11 @@ watch(tagsCollapsed, val => localStorage.setItem('sidebar-tags-collapsed', Strin
     </div>
 
     <!-- Legend -->
-    <div class="sidebar-legend">
-      <div class="legend-title">Node Types</div>
-      <div class="legend-items">
+    <div class="sidebar-legend collapsible-section">
+      <div class="sidebar-section-header" @click="legendCollapsed = !legendCollapsed">
+        <span>Legend</span>
+      </div>
+      <div v-show="!legendCollapsed" class="legend-items">
         <div v-for="t in nodeTypes" :key="t" class="legend-item">
           <span
             class="legend-badge"
@@ -158,13 +162,29 @@ watch(tagsCollapsed, val => localStorage.setItem('sidebar-tags-collapsed', Strin
 
 <style scoped>
 .sidebar-legend {
-  padding: 12px 16px;
   border-top: 1px solid var(--border-color);
   margin-top: auto;
 }
 
-.legend-title {
-  display: none;
+.sidebar-legend .sidebar-section-header {
+  padding: 8px 16px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sidebar-legend .sidebar-section-header:hover {
+  color: var(--text-secondary);
+}
+
+.sidebar-legend .legend-items {
+  padding: 0 16px 12px;
 }
 
 .legend-items {
