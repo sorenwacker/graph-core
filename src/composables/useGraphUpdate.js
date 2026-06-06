@@ -233,8 +233,7 @@ export function useGraphUpdate(options = {}) {
     cy.batch(() => {
       cy.elements().remove()
       cy.add(elements)
-      // Don't grabify - drag is handled via HTML label mousedown handlers
-      cy.nodes().ungrabify()
+      cy.nodes().grabify()
     })
     cy.viewport({ zoom: savedZoom, pan: savedPan })
 

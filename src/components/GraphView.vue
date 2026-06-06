@@ -578,9 +578,7 @@ async function initGraph() {
     isInitializing = false
     return
   }
-  // Don't grabify - drag is handled via HTML label mousedown handlers
-  // This prevents dragging from outside the visible node boundary
-  cy.nodes().ungrabify()
+  cy.nodes().grabify()
   graphInit.setupHtmlLabels(cy)
   wheel.setupWheelHandler()
   events.setupEvents()
