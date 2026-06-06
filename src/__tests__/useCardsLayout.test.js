@@ -1,8 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { ref } from 'vue'
+import { setActivePinia, createPinia } from 'pinia'
 import { useCardsLayout } from '../composables/useCardsLayout.js'
 
 describe('useCardsLayout', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
   let children
   let hideCompleted
   let sortAlphabetically
@@ -201,7 +205,7 @@ describe('useCardsLayout', () => {
       expect(cardsGridStyle.value.display).toBe('grid')
       expect(cardsGridStyle.value.gridTemplateColumns).toMatch(/repeat\(\d+, 1fr\)/)
       expect(cardsGridStyle.value.gap).toBe('10px')
-      expect(cardsGridStyle.value.height).toBe('100%')
+      expect(cardsGridStyle.value.alignContent).toBe('stretch')
     })
   })
 
