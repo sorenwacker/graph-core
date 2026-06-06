@@ -161,12 +161,12 @@ describe('useCardDrag composable', () => {
       expect(e.preventDefault).not.toHaveBeenCalled()
     })
 
-    it('should set dropPosition to before for left 35%', () => {
+    it('should set dropPosition to before for left half', () => {
       const e = {
         preventDefault: vi.fn(),
         dataTransfer: { dropEffect: '' },
         clientX: 100,
-        shiftKey: false,
+        altKey: false,
         currentTarget: {
           getBoundingClientRect: () => ({ left: 0, width: 1000 }),
         },
@@ -178,12 +178,12 @@ describe('useCardDrag composable', () => {
       expect(drag.dropTarget.value).toEqual({ id: 2 })
     })
 
-    it('should set dropPosition to after for right 35%', () => {
+    it('should set dropPosition to after for right half', () => {
       const e = {
         preventDefault: vi.fn(),
         dataTransfer: { dropEffect: '' },
         clientX: 800,
-        shiftKey: false,
+        altKey: false,
         currentTarget: {
           getBoundingClientRect: () => ({ left: 0, width: 1000 }),
         },
@@ -194,12 +194,12 @@ describe('useCardDrag composable', () => {
       expect(drag.dropPosition.value).toBe('after')
     })
 
-    it('should set dropPosition to inside for middle 30%', () => {
+    it('should set dropPosition to inside with alt key', () => {
       const e = {
         preventDefault: vi.fn(),
         dataTransfer: { dropEffect: '' },
         clientX: 500,
-        shiftKey: false,
+        altKey: true,
         currentTarget: {
           getBoundingClientRect: () => ({ left: 0, width: 1000 }),
         },
@@ -210,12 +210,12 @@ describe('useCardDrag composable', () => {
       expect(drag.dropPosition.value).toBe('inside')
     })
 
-    it('should force reorder mode with shift key', () => {
+    it('should set dropPosition to after at midpoint without alt key', () => {
       const e = {
         preventDefault: vi.fn(),
         dataTransfer: { dropEffect: '' },
-        clientX: 500, // Middle - would normally be 'inside'
-        shiftKey: true,
+        clientX: 500, // Exactly 50%
+        altKey: false,
         currentTarget: {
           getBoundingClientRect: () => ({ left: 0, width: 1000 }),
         },
@@ -223,15 +223,15 @@ describe('useCardDrag composable', () => {
 
       drag.onDragOver(e, { id: 2 })
 
-      expect(drag.dropPosition.value).toBe('after') // 500 > 500 (50%) = after
+      expect(drag.dropPosition.value).toBe('after') // 500 >= 500 (50%) = after
     })
 
-    it('should use before in reorder mode for left half', () => {
+    it('should set dropPosition to before for left of center', () => {
       const e = {
         preventDefault: vi.fn(),
         dataTransfer: { dropEffect: '' },
         clientX: 400, // Left of center
-        shiftKey: true,
+        altKey: false,
         currentTarget: {
           getBoundingClientRect: () => ({ left: 0, width: 1000 }),
         },

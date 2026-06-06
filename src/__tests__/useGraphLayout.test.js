@@ -45,6 +45,8 @@ describe('useGraphLayout', () => {
       animate: vi.fn(),
       zoom: vi.fn().mockReturnValue(1),
       pan: vi.fn().mockReturnValue({ x: 0, y: 0 }),
+      width: vi.fn().mockReturnValue(1200),
+      height: vi.fn().mockReturnValue(800),
       getElementById: vi.fn().mockReturnValue({
         length: 1,
         neighborhood: vi.fn().mockReturnValue({
