@@ -45,9 +45,9 @@ function syncNodeDimensions(cy) {
       if (htmlLabel) {
         const rect = htmlLabel.getBoundingClientRect()
         if (rect.width > 0 && rect.height > 0) {
-          // Divide by zoom to get unscaled dimensions, add padding
-          const width = Math.max(rect.width / zoom + 20, MIN_NODE_WIDTH)
-          const height = Math.max(rect.height / zoom + 20, MIN_NODE_HEIGHT)
+          // Divide by zoom to get unscaled dimensions - match exact visual size
+          const width = rect.width / zoom
+          const height = rect.height / zoom
           node.style({ width, height })
         }
       }
