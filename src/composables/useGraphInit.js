@@ -219,6 +219,10 @@ export function useGraphInit(options = {}) {
         }
       }, NODE_POSITION_SETTLE_DELAY_MS)
     } else {
+      // Sync node dimensions with HTML labels even when loading saved positions
+      setTimeout(() => {
+        if (layout?.syncNodeDimensions) layout.syncNodeDimensions()
+      }, NODE_POSITION_SETTLE_DELAY_MS)
       if (onInitComplete) onInitComplete()
       if (relaxLocked?.value && layout) layout.startContinuousRelax()
       if (fitLocked?.value && layout) layout.startContinuousFit()
