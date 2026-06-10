@@ -403,6 +403,14 @@ watch(
   { deep: true }
 )
 
+// Sync filter state from container settings when navigating
+watch(currentContainer, container => {
+  filtersStore.syncFromNode(container, {
+    maxDepth: graphMaxDepth.value,
+    visibleTypes: workspaceGraphSettings.visibleTypes.value,
+  })
+})
+
 // Navigation
 const navigation = useNavigation({
   api,
