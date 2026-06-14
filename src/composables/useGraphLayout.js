@@ -364,7 +364,6 @@ export function useGraphLayout(options = {}) {
   // Continuous layout state
   let continuousLayout = null
   let continuousFitInterval = null
-  let autoRelaxTimer = null
 
   /**
    * Get layout options for the current mode.
@@ -654,11 +653,6 @@ export function useGraphLayout(options = {}) {
     const cy = getCy ? getCy() : null
     if (!cy || newNodeIds.length === 0) return
 
-    if (autoRelaxTimer) {
-      clearTimeout(autoRelaxTimer)
-      autoRelaxTimer = null
-    }
-
     // Skip if continuous relax is already running
     if (relaxLocked.value) return
 
@@ -845,10 +839,6 @@ export function useGraphLayout(options = {}) {
   function cleanup() {
     stopContinuousRelax()
     stopContinuousFit()
-    if (autoRelaxTimer) {
-      clearTimeout(autoRelaxTimer)
-      autoRelaxTimer = null
-    }
   }
 
   /**

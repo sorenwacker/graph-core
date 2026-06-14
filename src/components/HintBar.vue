@@ -32,8 +32,6 @@
 defineProps({
   /** Whether hint bar is visible */
   visible: { type: Boolean, default: true },
-  /** Current workspace ID */
-  currentWorkspace: { type: String, default: '' },
   /** Whether sidebar is pinned open */
   sidebarPinned: { type: Boolean, default: false },
 })
