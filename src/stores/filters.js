@@ -136,17 +136,6 @@ export const useFiltersStore = defineStore('filters', () => {
   }
 
   /**
-   * Get current filter settings to save to a node
-   * @returns {Object} Filter settings object
-   */
-  function getSettingsForNode() {
-    return {
-      graph_type_filter: [...visibleTypes.value],
-      graph_max_depth: maxDepth.value,
-    }
-  }
-
-  /**
    * Filter an array of nodes by current filter settings
    * @param {Array} nodes - Nodes to filter
    * @param {Object} options - Filter options
@@ -179,36 +168,6 @@ export const useFiltersStore = defineStore('filters', () => {
     return result
   }
 
-  /**
-   * Recursively filter a node tree
-   * @param {Array} nodes - Root nodes to filter
-   * @param {Object} options - Filter options
-   * @returns {Array} Filtered node tree
-   */
-  function filterTree(nodes, options = {}) {
-    const { applyTypeFilter = true } = options
-
-    if (!nodes || !Array.isArray(nodes)) return []
-
-    return nodes
-      .filter(node => {
-        if (node.type === 'tag') return false
-        if (applyTypeFilter && hasTypeFilter.value) {
-          return visibleTypes.value.includes(node.type)
-        }
-        return true
-      })
-      .map(node => {
-        if (node.children?.length) {
-          return {
-            ...node,
-            children: filterTree(node.children, options),
-          }
-        }
-        return node
-      })
-  }
-
   return {
     // State
     visibleTypes,
@@ -231,8 +190,6 @@ export const useFiltersStore = defineStore('filters', () => {
     resetToDefaults,
     showAllTypes,
     syncFromNode,
-    getSettingsForNode,
     filterNodes,
-    filterTree,
   }
 })

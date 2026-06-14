@@ -64,13 +64,4 @@ async function chatRequest(httpRequest, options) {
   }
 }
 
-/**
- * Extract content from a chat response.
- * @param {Object} response - Response from chatRequest
- * @returns {string} Content string or empty string
- */
-function extractContent(response) {
-  return response?.content || ''
-}
-
-module.exports = { chatRequest, extractContent }
+module.exports = { chatRequest }

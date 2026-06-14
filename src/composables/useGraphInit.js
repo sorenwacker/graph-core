@@ -108,7 +108,6 @@ export function useGraphInit(options = {}) {
             'overlay-opacity': 0,
           },
         },
-        { selector: 'node[?isParent]', style: { width: 200, height: 100 } },
         { selector: 'node[?isPerson]', style: { width: 120, height: 40, shape: 'round-rectangle' } },
         { selector: 'node:selected', style: { 'border-width': 0 } },
         {

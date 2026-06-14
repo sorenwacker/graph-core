@@ -1094,12 +1094,7 @@ useAppLifecycle({
       @dismiss-forever="hasSeenOnboarding = true"
       @create-demo="createDemo"
     />
-    <HintBar
-      :visible="showHintBar"
-      :current-workspace="currentWorkspace"
-      :sidebar-pinned="sidebarPinned"
-      @dismiss="showHintBar = false"
-    />
+    <HintBar :visible="showHintBar" :sidebar-pinned="sidebarPinned" @dismiss="showHintBar = false" />
   </div>
 </template>
 
