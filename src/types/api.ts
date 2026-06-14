@@ -143,7 +143,7 @@ export interface Api {
   getTasks(params?: GetTasksParams): Promise<Node[]>
   getChildren(id: number, type?: string | null): Promise<Node[]>
   getDescendants(id: number, maxDepth?: number | null): Promise<Node[]>
-  getDescendantsBatch?(rootIds: number[]): Promise<Map<number, Node[]>>
+  getDescendantsBatch(rootIds: number[]): Promise<Map<number, Node[]>>
   getAncestors(id: number): Promise<Node[]>
   moveNode(id: number, newParentId: number | null): Promise<void>
 
