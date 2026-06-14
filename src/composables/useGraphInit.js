@@ -5,6 +5,8 @@ import dagre from 'cytoscape-dagre'
 import d3Force from 'cytoscape-d3-force'
 import nodeHtmlLabel from 'cytoscape-node-html-label'
 import { marked } from 'marked'
+import { sanitizeHtml } from '../utils/markdown.js'
+import { escapeHtml } from '../utils/html.js'
 import { getContrastColor } from '../utils/formatting.js'
 import { LAYOUT_SETTLE_DELAY_MS, NODE_POSITION_SETTLE_DELAY_MS } from '../utils/settingsConstants'
 
@@ -52,7 +54,7 @@ export function renderMarkdownHtml(text, maxLen = 500) {
     }
   }
 
-  return marked.parse(firstPara)
+  return sanitizeHtml(marked.parse(firstPara))
 }
 
 /**
@@ -173,7 +175,7 @@ export function useGraphInit(options = {}) {
             const collapseBtn = d.hasChildren
               ? `<button class="collapse-btn" data-collapse-node="${n.id}" title="${d.isCollapsed ? 'Expand children' : 'Collapse children'}">${d.isCollapsed ? '+' : '-'}</button>`
               : ''
-            return `<div class="node-html ${n.completed ? 'completed' : ''} ${d.shouldGlow ? 'current-container' : ''} ${n.favorite ? 'favorite' : ''} ${d.isCollapsed ? 'collapsed-node' : ''}" data-node-id="${n.id}" data-selected="${d.isSelected}" style="border-color:${bc};--glow-color:${bc};${bg}">${collapseBtn}${childBadge}<div class="node-html-title">${n.title || 'Untitled'}${n.notes && !d.showDetails ? '<span class="notes-indicator"></span>' : ''}</div>${notes ? `<div class="node-html-notes">${notes}</div>` : ''}</div>`
+            return `<div class="node-html ${n.completed ? 'completed' : ''} ${d.shouldGlow ? 'current-container' : ''} ${n.favorite ? 'favorite' : ''} ${d.isCollapsed ? 'collapsed-node' : ''}" data-node-id="${n.id}" data-selected="${d.isSelected}" style="border-color:${bc};--glow-color:${bc};${bg}">${collapseBtn}${childBadge}<div class="node-html-title">${escapeHtml(n.title) || 'Untitled'}${n.notes && !d.showDetails ? '<span class="notes-indicator"></span>' : ''}</div>${notes ? `<div class="node-html-notes">${notes}</div>` : ''}</div>`
           },
         },
       ],

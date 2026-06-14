@@ -1,6 +1,7 @@
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { getImportanceLabel } from './constants.js'
+import { escapeHtml } from './html.js'
 
 // Configure marked for safe rendering
 marked.setOptions({
@@ -51,11 +52,11 @@ export function buildTooltipHTML(node, options = {}) {
   if (showCheckbox && node.type === 'task') {
     tooltip += `<label class="tt-checkbox"><input type="checkbox" data-node-id="${node.id}" ${isCompleted ? 'checked' : ''} /></label>`
   }
-  tooltip += `<div class="tt-title">${node.title}</div>`
+  tooltip += `<div class="tt-title">${escapeHtml(node.title)}</div>`
   tooltip += `</div>`
 
   tooltip += `<div class="tt-meta">`
-  tooltip += `<span class="tt-type ${node.type}">${node.type}</span>`
+  tooltip += `<span class="tt-type ${escapeHtml(node.type)}">${escapeHtml(node.type)}</span>`
   if (childCount > 0) tooltip += `<span class="tt-children">${childCount} items</span>`
   if (node.importance) tooltip += `<span class="tt-priority">${getImportanceLabel(node.importance)}</span>`
   tooltip += `</div>`

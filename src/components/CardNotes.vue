@@ -29,6 +29,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { marked } from 'marked'
 import { decodeHtmlEntities } from '../utils/html.js'
+import { sanitizeHtml } from '../utils/markdown.js'
 
 const props = defineProps({
   notes: { type: String, default: '' },
@@ -56,7 +57,7 @@ const sizeClass = computed(() => {
 
 const renderedNotes = computed(() => {
   if (!props.notes) return ''
-  return marked.parse(decodeHtmlEntities(props.notes))
+  return sanitizeHtml(marked.parse(decodeHtmlEntities(props.notes)))
 })
 
 function handleKeydown(e) {

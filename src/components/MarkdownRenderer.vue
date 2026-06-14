@@ -5,6 +5,7 @@ import mermaid from 'mermaid'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
 import { decodeHtmlEntities, decodeHtml } from '../utils/html.js'
+import { sanitizeHtml } from '../utils/markdown.js'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
 
 const { handleError } = useErrorHandler()
@@ -135,7 +136,7 @@ async function renderContent() {
 
   // Extract mermaid blocks and update HTML with placeholders
   const { html: processedHtml, blocks: mermaidBlocks } = extractMermaidBlocks(html)
-  renderedHtml.value = processedHtml
+  renderedHtml.value = sanitizeHtml(processedHtml)
 
   // Render mermaid diagrams after DOM update
   await nextTick()
