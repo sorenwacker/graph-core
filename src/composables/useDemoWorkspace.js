@@ -21,7 +21,7 @@ export function useDemoWorkspace({ api, currentWorkspace, loadWorkspaces }) {
   async function createDemo() {
     const exists = await demoWorkspaceExists(api)
     if (exists) {
-      showToast('Demo workspace already exists', 'info')
+      showToast('Demo workspace already exists', { type: 'info' })
       currentWorkspace.value = DEMO_WORKSPACE_ID
       return
     }
@@ -30,9 +30,9 @@ export function useDemoWorkspace({ api, currentWorkspace, loadWorkspaces }) {
     if (result.success) {
       await loadWorkspaces()
       currentWorkspace.value = DEMO_WORKSPACE_ID
-      showToast('Demo workspace created', 'success')
+      showToast('Demo workspace created', { type: 'success' })
     } else {
-      showToast(result.error || 'Failed to create demo workspace', 'error')
+      showToast(result.error || 'Failed to create demo workspace', { type: 'error' })
     }
   }
 
@@ -49,9 +49,9 @@ export function useDemoWorkspace({ api, currentWorkspace, loadWorkspaces }) {
     if (result.success) {
       await loadWorkspaces()
       currentWorkspace.value = DEMO_WORKSPACE_ID
-      showToast('Demo workspace reset', 'success')
+      showToast('Demo workspace reset', { type: 'success' })
     } else {
-      showToast(result.error || 'Failed to reset demo workspace', 'error')
+      showToast(result.error || 'Failed to reset demo workspace', { type: 'error' })
     }
   }
 

@@ -55,8 +55,12 @@ export interface UseWorkspaceReturn {
   renameWorkspace: (workspaceId: WorkspaceId, newName: string) => Promise<boolean>
   /** Switch to a different workspace */
   switchWorkspace: (workspaceId: WorkspaceId) => void
-  /** Get workspace ID for creating new nodes */
-  getWorkspaceIdForNode: () => WorkspaceId
+  /**
+   * Get workspace ID for creating new nodes. Accepts an optional node type to
+   * match consumer call sites; the current implementation returns the active
+   * workspace regardless of type.
+   */
+  getWorkspaceIdForNode: (type?: string) => WorkspaceId
 }
 
 const STORAGE_KEY = 'graphcore-workspace'
@@ -194,9 +198,10 @@ export function useWorkspace(options: UseWorkspaceOptions): UseWorkspaceReturn {
   }
 
   /**
-   * Get workspace ID for creating new nodes
+   * Get workspace ID for creating new nodes.
+   * @param _type Optional node type (reserved for type-based routing; currently unused)
    */
-  function getWorkspaceIdForNode(): WorkspaceId {
+  function getWorkspaceIdForNode(_type?: string): WorkspaceId {
     return currentWorkspace.value
   }
 

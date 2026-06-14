@@ -98,6 +98,12 @@ describe('OllamaImproveNotesCommand', () => {
       expect(description.length).toBeLessThanOrEqual(30)
       expect(description).toContain('...')
     })
+
+    it('should not throw when prompt is undefined (e.g. reconstructed without one)', () => {
+      const cmd = new OllamaImproveNotesCommand({ nodeId: 1, oldNotes: '', newNotes: 'x' })
+      expect(() => cmd.getDescription()).not.toThrow()
+      expect(cmd.getDescription()).toBe('AI  notes')
+    })
   })
 
   describe('deserialization', () => {

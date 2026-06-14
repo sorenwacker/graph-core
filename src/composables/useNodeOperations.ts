@@ -20,7 +20,7 @@ export interface UseNodeOperationsOptions {
   api: Api
   /** Function to push undo commands */
   pushCommand?: (command: Command) => void
-  /** Get workspace ID for node type */
+  /** Get workspace ID for new nodes (current workspace) */
   getWorkspaceIdForNode?: (type: string) => number | null | undefined
   /** Callback after successful operation */
   onSuccess?: (result: OperationResult) => void | Promise<void>
