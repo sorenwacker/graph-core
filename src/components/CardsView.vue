@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { getInitials } from '../utils/formatting.js'
 import { decodeHtml } from '../utils/html.js'
+import { getImportanceLabel } from '../utils/constants.js'
 import CardTitleEdit from './CardTitleEdit.vue'
 import CardNotes from './CardNotes.vue'
 import TableMiniature from './TableMiniature.vue'
@@ -106,11 +107,6 @@ function handleChildCardClick(e, child) {
 function handleGrandchildClick(e, grandchild) {
   e.stopPropagation()
   handleCardClick(e, grandchild)
-}
-
-function getImportanceLabel(importance) {
-  const labels = { 1: 'Low', 2: 'Medium', 3: 'High', 4: 'Critical' }
-  return labels[importance] || importance
 }
 
 function getDateCountdown(node) {
