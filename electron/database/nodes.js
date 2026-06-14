@@ -279,17 +279,26 @@ function createNodeOperations(ctx) {
       const target = ops.getNode(targetId)
       if (!node || !target) return null
 
-      const siblings = ops.getChildren(target.parent_id)
+      // Resequence the target's whole sibling set with contiguous sort_order
+      // values. The previous relative scheme produced colliding/ambiguous orders
+      // (and an 'after' branch whose ternary was a no-op). `parent_id IS ?`
+      // matches both a real parent and the null-parent (root) set.
+      const siblings = ctx
+        ._query('SELECT * FROM nodes WHERE parent_id IS ? AND deleted_at IS NULL ORDER BY sort_order, created_at', [
+          target.parent_id,
+        ])
+        .map(r => ctx._rowToNode(r))
+        .filter(s => s.id !== nodeId)
+
       const targetIndex = siblings.findIndex(s => s.id === targetId)
+      if (targetIndex === -1) return null
 
-      let newOrder
-      if (position === 'before') {
-        newOrder = targetIndex > 0 ? siblings[targetIndex - 1].sort_order + 1 : target.sort_order - 1
-      } else {
-        newOrder = targetIndex < siblings.length - 1 ? target.sort_order + 1 : target.sort_order + 1
-      }
+      const insertIndex = position === 'before' ? targetIndex : targetIndex + 1
+      siblings.splice(insertIndex, 0, node)
 
-      ctx._run('UPDATE nodes SET sort_order = ?, parent_id = ? WHERE id = ?', [newOrder, target.parent_id, nodeId])
+      siblings.forEach((sibling, index) => {
+        ctx._run('UPDATE nodes SET sort_order = ?, parent_id = ? WHERE id = ?', [index, target.parent_id, sibling.id])
+      })
 
       return ops.getNode(nodeId)
     },
@@ -379,12 +388,10 @@ function createNodeOperations(ctx) {
         values.push(pathPrefix, `${pathPrefix}/%`)
       }
 
+      // Path prefixes already scope each root's subtree uniquely, so no
+      // workspace filter is needed. Applying one root's workspace_id globally
+      // (as before) wrongly dropped descendants of roots in other workspaces.
       let sql = `SELECT *, (EXISTS(SELECT 1 FROM node_tables WHERE node_id = nodes.id)) as has_table FROM nodes WHERE (${pathConditions.join(' OR ')}) AND deleted_at IS NULL`
-
-      if (nodes[0].workspace_id) {
-        sql += ' AND workspace_id = ?'
-        values.push(nodes[0].workspace_id)
-      }
 
       sql += ' ORDER BY depth, sort_order, created_at'
       const allDescendants = ctx._query(sql, values).map(r => ctx._rowToNode(r))
