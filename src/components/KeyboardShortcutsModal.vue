@@ -2,7 +2,7 @@
   <Teleport to="body">
     <Transition name="modal">
       <div v-if="visible" class="modal-overlay" @click.self="$emit('close')">
-        <div class="modal shortcuts-modal" @keydown="handleKeydown">
+        <div class="modal shortcuts-modal">
           <!-- Header -->
           <div class="modal-header">
             <div class="modal-title-row">
@@ -51,7 +51,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, watch, onUnmounted } from 'vue'
 import { usePlatform } from '../composables/usePlatform.js'
 import { shortcuts, sectionTitles, resolveKeys } from '../utils/keyboardShortcuts.js'
 import '../assets/modal-base.css'
@@ -65,17 +65,34 @@ const platformKeys = computed(() => ({
   deleteKey: deleteKey.value,
 }))
 
-defineProps({
+const props = defineProps({
   visible: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['close'])
 
+// The modal div is not focusable, so a local @keydown never fires. Listen on
+// the document while the modal is open so Esc reliably closes it.
 function handleKeydown(e) {
   if (e.key === 'Escape') {
     emit('close')
   }
 }
+
+watch(
+  () => props.visible,
+  isVisible => {
+    if (isVisible) {
+      document.addEventListener('keydown', handleKeydown)
+    } else {
+      document.removeEventListener('keydown', handleKeydown)
+    }
+  }
+)
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown)
+})
 </script>
 
 <style scoped>

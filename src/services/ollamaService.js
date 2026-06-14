@@ -75,9 +75,10 @@ export const ollamaService = {
    * @param {Array} options.tools - Tool definitions
    * @param {string} [options.model] - Model name (default: llama3.2)
    * @param {string} [options.endpoint] - Ollama endpoint URL
+   * @param {number} [options.contextSize] - Context window size (num_ctx)
    * @returns {Promise<{content: string|null, tool_calls: Array|null}>}
    */
-  async generateWithTools({ messages, tools, model = DEFAULT_MODEL, endpoint = DEFAULT_ENDPOINT }) {
+  async generateWithTools({ messages, tools, model = DEFAULT_MODEL, endpoint = DEFAULT_ENDPOINT, contextSize }) {
     try {
       const response = await fetch(`${endpoint}/api/chat`, {
         method: 'POST',
@@ -87,6 +88,7 @@ export const ollamaService = {
           messages,
           tools,
           stream: false,
+          options: { num_ctx: contextSize || 32768 },
         }),
       })
 
