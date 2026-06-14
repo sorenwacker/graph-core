@@ -86,21 +86,20 @@ const isInsideEditor = t =>
       t.contentEditable === 'true' ||
       t.closest('.cm-editor')
 
-if (typeof document !== 'undefined') {
-  document.addEventListener('keydown', e => {
-    if (isInsideEditor(e.target)) return
-    if (e.key === 'Alt' || e.altKey) linkModeActive.value = true
-    if (['Shift', 'Meta', 'Control'].includes(e.key)) boxSelectModeActive.value = true
-  })
-  document.addEventListener('keyup', e => {
-    if (e.key === 'Alt') linkModeActive.value = false
-    if (['Shift', 'Meta', 'Control'].includes(e.key)) boxSelectModeActive.value = false
-  })
-  document.addEventListener('mousemove', e => {
-    if (isInsideEditor(e.target)) return
-    linkModeActive.value = e.altKey
-    boxSelectModeActive.value = e.shiftKey || e.metaKey || e.ctrlKey
-  })
+// Named handlers so they can be removed on unmount (anonymous listeners leaked).
+function handleModifierKeydown(e) {
+  if (isInsideEditor(e.target)) return
+  if (e.key === 'Alt' || e.altKey) linkModeActive.value = true
+  if (['Shift', 'Meta', 'Control'].includes(e.key)) boxSelectModeActive.value = true
+}
+function handleModifierKeyup(e) {
+  if (e.key === 'Alt') linkModeActive.value = false
+  if (['Shift', 'Meta', 'Control'].includes(e.key)) boxSelectModeActive.value = false
+}
+function handleModifierMousemove(e) {
+  if (isInsideEditor(e.target)) return
+  linkModeActive.value = e.altKey
+  boxSelectModeActive.value = e.shiftKey || e.metaKey || e.ctrlKey
 }
 
 // Graph settings - pass workspace for workspace-specific localStorage keys
@@ -677,6 +676,9 @@ onMounted(() => {
   initGraph()
   window.addEventListener('graph-center-node', handleCenterEvent)
   window.addEventListener('keydown', handleGlobalKeydown)
+  document.addEventListener('keydown', handleModifierKeydown)
+  document.addEventListener('keyup', handleModifierKeyup)
+  document.addEventListener('mousemove', handleModifierMousemove)
   nextTick(() => {
     if (graphControlsRef.value?.$el)
       graphControlsRef.value.$el.querySelectorAll('button[title]').forEach(b => {
@@ -694,6 +696,9 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('graph-center-node', handleCenterEvent)
   window.removeEventListener('keydown', handleGlobalKeydown)
+  document.removeEventListener('keydown', handleModifierKeydown)
+  document.removeEventListener('keyup', handleModifierKeyup)
+  document.removeEventListener('mousemove', handleModifierMousemove)
   if (updateDebounceTimer) clearTimeout(updateDebounceTimer)
   wheel.cleanup()
   layout.cleanup()

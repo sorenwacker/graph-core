@@ -140,9 +140,11 @@ async function wrapWithParent(node) {
     // Move current node under new parent
     await api.moveNode(node.id, newParent.id)
 
-    // Reload node and broadcast
+    // Reload node and broadcast both the new parent and the moved child's
+    // updated record so other windows see the child's new parent_id.
     await loadNode(node.id)
     broadcastNodeUpdate(newParent)
+    broadcastNodeUpdate(currentNode.value)
   } catch (e) {
     handleError(e, { context: 'Wrapping with parent' })
   }
@@ -153,7 +155,8 @@ async function moveToRoot(node) {
   try {
     await api.moveNode(node.id, null)
     await loadNode(node.id)
-    broadcastNodeUpdate(node)
+    // Broadcast the reloaded record (parent_id now null), not the stale arg.
+    broadcastNodeUpdate(currentNode.value)
   } catch (e) {
     handleError(e, { context: 'Moving to root' })
   }

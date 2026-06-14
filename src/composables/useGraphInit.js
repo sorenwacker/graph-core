@@ -193,7 +193,11 @@ export function useGraphInit(options = {}) {
     const props = getProps()
     const layoutOptions = getLayoutOptions()
 
-    if (props.selectedIds?.size > 0) props.selectedIds.forEach(id => cy.$(`#${id}`).select())
+    // selectedIds may be an Array (GraphView prop) or a Set (selection store);
+    // size is undefined on arrays, so fall back to length.
+    const selectedIds = props.selectedIds
+    const selectedCount = selectedIds ? (selectedIds.size ?? selectedIds.length ?? 0) : 0
+    if (selectedCount > 0) selectedIds.forEach(id => cy.$(`#${id}`).select())
     else if (props.selectedId) cy.$(`#${props.selectedId}`).select()
 
     if (!hasPos && cy.nodes().length > 0) {

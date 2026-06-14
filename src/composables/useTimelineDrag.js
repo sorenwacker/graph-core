@@ -118,8 +118,10 @@ export function useTimelineDrag({
         updates.start_date = newStart
         updates.end_date = newEnd
       } else {
-        // Node only has due_date
-        updates.due_date = newEnd
+        // Node only has due_date. The bar's left edge is the due_date
+        // (displayDate = due_date, endDisplayDate = today), so the dragged
+        // start side maps to due_date, not the end side.
+        updates.due_date = newStart
       }
 
       emit('update', updates)

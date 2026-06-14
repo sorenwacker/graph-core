@@ -301,9 +301,10 @@ const nodeOps = useNodeOperations({
   onSuccess: async ({ type, node, x, y }) => {
     if (type === 'create' && node) saveNodePosition(node.id, x, y, node.parent_id)
   },
-  onError: e => {
-    error.value = e.message
-  },
+  // Surface node-operation failures as a transient toast, consistent with the
+  // selection and move handlers. Previously this set the sticky `error` ref,
+  // which replaced the whole view with a banner that never cleared.
+  onError: e => handleError(e, { context: 'Node operation' }),
   broadcastUpdate: broadcastNodeUpdate,
   broadcastDelete: broadcastNodeDelete,
 })
