@@ -43,7 +43,7 @@
                 @click="createWithType(t)"
                 :title="`Create as ${t}`"
               >
-                <span class="type-icon">{{ getTypeIcon(t) }}</span>
+                <span class="type-icon" v-html="getTypeIcon(t)"></span>
                 <span class="type-label">{{ t }}</span>
               </button>
             </div>
@@ -59,25 +59,8 @@
 
 <script setup>
 import { ref, watch, nextTick } from 'vue'
-import { nodeTypes } from '../utils/constants.js'
+import { nodeTypes, getTypeIcon } from '../utils/constants.js'
 import '../assets/modal-base.css'
-
-const typeIcons = {
-  task: 'T',
-  project: 'P',
-  note: 'N',
-  milestone: 'M',
-  topic: 'Tp',
-  component: 'C',
-  group: 'G',
-  event: 'E',
-  person: 'Pe',
-  organization: 'O',
-}
-
-function getTypeIcon(type) {
-  return typeIcons[type] || type[0].toUpperCase()
-}
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
