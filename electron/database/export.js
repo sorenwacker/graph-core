@@ -242,54 +242,57 @@ function createExportOperations(ctx) {
         throw new Error('Invalid import data: missing root node')
       }
 
-      const idMap = new Map()
-      let importedCount = 0
+      // Persist once for the whole import instead of per node (crash-atomic).
+      return ctx._batch(() => {
+        const idMap = new Map()
+        let importedCount = 0
 
-      function importNodeRecursive(nodeData, parentId) {
-        const oldId = nodeData.id
-        const { id: _id, children, created_at: _created, updated_at: _updated, ...nodeFields } = nodeData
+        function importNodeRecursive(nodeData, parentId) {
+          const oldId = nodeData.id
+          const { id: _id, children, created_at: _created, updated_at: _updated, ...nodeFields } = nodeData
 
-        const newNode = ctx.createNode({
-          ...nodeFields,
-          parent_id: parentId,
-          workspace_id: workspaceId,
-        })
+          const newNode = ctx.createNode({
+            ...nodeFields,
+            parent_id: parentId,
+            workspace_id: workspaceId,
+          })
 
-        idMap.set(oldId, newNode.id)
-        importedCount++
+          idMap.set(oldId, newNode.id)
+          importedCount++
 
-        if (children && Array.isArray(children)) {
-          for (const child of children) {
-            importNodeRecursive(child, newNode.id)
+          if (children && Array.isArray(children)) {
+            for (const child of children) {
+              importNodeRecursive(child, newNode.id)
+            }
           }
+
+          return newNode
         }
 
-        return newNode
-      }
+        const newRoot = importNodeRecursive(data.root, targetParentId)
 
-      const newRoot = importNodeRecursive(data.root, targetParentId)
-
-      let linksCreated = 0
-      if (data.links && Array.isArray(data.links)) {
-        for (const link of data.links) {
-          const newSourceId = idMap.get(link.source_id)
-          const newTargetId = idMap.get(link.target_id)
-          if (newSourceId && newTargetId) {
-            try {
-              ctx.linkNodes(newSourceId, newTargetId)
-              linksCreated++
-            } catch {
-              // Ignore duplicate link errors
+        let linksCreated = 0
+        if (data.links && Array.isArray(data.links)) {
+          for (const link of data.links) {
+            const newSourceId = idMap.get(link.source_id)
+            const newTargetId = idMap.get(link.target_id)
+            if (newSourceId && newTargetId) {
+              try {
+                ctx.linkNodes(newSourceId, newTargetId)
+                linksCreated++
+              } catch {
+                // Ignore duplicate link errors
+              }
             }
           }
         }
-      }
 
-      return {
-        rootId: newRoot.id,
-        nodesImported: importedCount,
-        linksCreated,
-      }
+        return {
+          rootId: newRoot.id,
+          nodesImported: importedCount,
+          linksCreated,
+        }
+      })
     },
 
     /**
@@ -340,51 +343,54 @@ function createExportOperations(ctx) {
         return values
       }
 
-      let importedCount = 0
-      const idMap = new Map()
+      // Persist once for the whole import instead of per row (crash-atomic).
+      return ctx._batch(() => {
+        let importedCount = 0
+        const idMap = new Map()
 
-      for (let i = 1; i < lines.length; i++) {
-        const values = parseCSVLine(lines[i])
-        if (values.length < headers.length) continue
+        for (let i = 1; i < lines.length; i++) {
+          const values = parseCSVLine(lines[i])
+          if (values.length < headers.length) continue
 
-        const row = {}
-        headers.forEach((h, idx) => {
-          row[h] = values[idx] || null
-        })
+          const row = {}
+          headers.forEach((h, idx) => {
+            row[h] = values[idx] || null
+          })
 
-        if (!row.title?.trim()) continue
+          if (!row.title?.trim()) continue
 
-        const oldId = row.id ? parseInt(row.id) : null
-        const oldParentId = row.parent_id ? parseInt(row.parent_id) : null
+          const oldId = row.id ? parseInt(row.id) : null
+          const oldParentId = row.parent_id ? parseInt(row.parent_id) : null
 
-        let parentId = targetParentId
-        if (oldParentId && idMap.has(oldParentId)) {
-          parentId = idMap.get(oldParentId)
+          let parentId = targetParentId
+          if (oldParentId && idMap.has(oldParentId)) {
+            parentId = idMap.get(oldParentId)
+          }
+
+          const newNode = ctx.createNode({
+            title: row.title.trim(),
+            type: row.type || 'note',
+            parent_id: parentId,
+            workspace_id: workspaceId,
+            notes: row.notes || null,
+            completed: row.completed === 'true' || row.completed === '1',
+            importance: row.importance ? parseInt(row.importance) : null,
+            due_date: row.due_date || null,
+            start_date: row.start_date || null,
+            end_date: row.end_date || null,
+            tags: row.tags ? row.tags.split(';').filter(Boolean) : null,
+          })
+
+          if (oldId) {
+            idMap.set(oldId, newNode.id)
+          }
+          importedCount++
         }
 
-        const newNode = ctx.createNode({
-          title: row.title.trim(),
-          type: row.type || 'note',
-          parent_id: parentId,
-          workspace_id: workspaceId,
-          notes: row.notes || null,
-          completed: row.completed === 'true' || row.completed === '1',
-          importance: row.importance ? parseInt(row.importance) : null,
-          due_date: row.due_date || null,
-          start_date: row.start_date || null,
-          end_date: row.end_date || null,
-          tags: row.tags ? row.tags.split(';').filter(Boolean) : null,
-        })
-
-        if (oldId) {
-          idMap.set(oldId, newNode.id)
+        return {
+          nodesImported: importedCount,
         }
-        importedCount++
-      }
-
-      return {
-        nodesImported: importedCount,
-      }
+      })
     },
   }
 }
