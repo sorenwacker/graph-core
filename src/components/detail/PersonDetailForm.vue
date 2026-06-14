@@ -108,14 +108,11 @@ async function loadLinkedOrganizations() {
   }
 }
 
-async function unlinkOrganization(org) {
+function unlinkOrganization(org) {
   if (!props.editedNode?.id) return
-  try {
-    await api.unlinkNodes(props.editedNode.id, org.id)
-    await loadLinkedOrganizations()
-  } catch (err) {
-    handleError(err, { context: 'Unlinking organization' })
-  }
+  // Delegate to the parent, which unlinks and refreshes linkedNodes. Re-deriving
+  // from props.linkedNodes locally would read the stale (pre-unlink) prop.
+  emit('remove-link', org)
 }
 
 function updateField(field, value) {
