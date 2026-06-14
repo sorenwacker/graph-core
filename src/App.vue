@@ -10,7 +10,7 @@ import { useSelection } from './composables/useSelection.js'
 import { useCardDrag } from './composables/useCardDrag.js'
 import { useSearch } from './composables/useSearch.js'
 import { useInlineEdit } from './composables/useInlineEdit.js'
-import { useSnapshots } from './composables/useSnapshots.js'
+import { useMaintenanceDialogs } from './composables/useMaintenanceDialogs.js'
 import { useContextMenu } from './composables/useContextMenu.js'
 import { useUndoRedo } from './composables/useUndoRedo'
 import { useSettings } from './composables/useSettings'
@@ -25,6 +25,7 @@ import { useNavigation } from './composables/useNavigation.js'
 import { useGraphOperations } from './composables/useGraphOperations.js'
 import { useRefresh } from './composables/useRefresh.js'
 import { useNodeActionsUI } from './composables/useNodeActionsUI'
+import { useNodeCreation } from './composables/useNodeCreation.js'
 import { useDetailController } from './composables/useDetailController'
 import { useModalController } from './composables/useModalController'
 import { useViewStateController } from './composables/useViewStateController'
@@ -45,7 +46,6 @@ import OnboardingModal from './components/OnboardingModal.vue'
 import HintBar from './components/HintBar.vue'
 import { showToast } from './composables/useToast.js'
 import { handleError } from './composables/useErrorHandler.js'
-import { useDemoWorkspace } from './composables/useDemoWorkspace.js'
 import { useFiltersStore } from './stores/filters.js'
 import { useGraphSettings } from './composables/useGraphSettings'
 
@@ -197,37 +197,6 @@ const navigateToTag = async tagNode => {
 watch(viewMode, mode => {
   if (mode === 'trash') loadTrashedItems()
 })
-
-// Snapshots
-const { availableSnapshots, snapshotMessage, loadSnapshots, createSnapshot, restoreSnapshot, reloadDatabase } =
-  useSnapshots({
-    onListBackups: api.listBackups,
-    onCreateBackup: api.backup,
-    onRestoreBackup: api.restoreBackup,
-    onReload: api.reload,
-    onAfterRestore: async () => {
-      await loadChildren(null)
-      await loadSidebarTree()
-      selectedNode.value = null
-      currentContainerId.value = null
-      breadcrumbs.value = []
-    },
-    onAfterReload: async () => {
-      await loadChildren(currentContainerId.value)
-      await loadSidebarTree()
-      loadRecentItems()
-      if (selectedNode.value?.id) selectedNode.value = await api.getNode(selectedNode.value.id)
-    },
-  })
-
-function toggleSnapshots() {
-  showSnapshotList.value = !showSnapshotList.value
-  loadSnapshots()
-}
-function toggleLostFound() {
-  loadOrphanedNodes()
-  showLostFound.value = !showLostFound.value
-}
 
 // Tooltip
 const {
@@ -628,37 +597,24 @@ const {
 })
 
 // Node creation
-async function createNode() {
-  if (!newNodeTitle.value.trim()) return
-  const targetParentId = addChildParentId.value || currentContainerId.value
-  const newNode = await nodeOps.createNode({
-    title: newNodeTitle.value,
-    type: newNodeType.value,
-    parentId: targetParentId,
+const { createNode, createNodeAtPosition, addChildFromDetail, showAddNodeModal, handleAddChild, handleCreate } =
+  useNodeCreation({
+    newNodeTitle,
+    newNodeType,
+    addChildParentId,
+    currentContainerId,
+    showDetail,
+    addNodeModal,
+    detailPanelRef,
+    nodeOps,
+    addChildNode,
+    selectNode,
+    loadChildren,
+    loadSidebarTree,
+    refreshAfterChange,
+    hideTooltip,
+    expandedIds,
   })
-  if (newNode) {
-    if (addChildParentId.value) {
-      expandedIds.value.add(addChildParentId.value)
-      await loadSidebarTree()
-    }
-    newNodeTitle.value = ''
-    addChildParentId.value = null
-    await loadChildren(currentContainerId.value, { silent: true })
-  }
-}
-
-const addChildFromDetail = async payload => {
-  await addChildNode(payload)
-  detailPanelRef.value?.loadChildren()
-}
-
-async function createNodeAtPosition({ title, type, x, y }) {
-  const newNode = await nodeOps.createNode({ title, type, parentId: currentContainerId.value, x, y })
-  if (newNode) {
-    await refreshAfterChange()
-    selectNode(newNode)
-  }
-}
 
 const handleDetach = node => node && openDetachedWindow(node.id, node.title)
 
@@ -714,31 +670,6 @@ const handleSelectWithTooltip = (node, event) => {
   selectNode(node)
 }
 
-// Add node modal
-const showAddNodeModal = (parentId = null) => {
-  showDetail.value = false
-  addNodeModal.value = { visible: true, parentId }
-}
-
-function handleAddChild(payload, e) {
-  if (payload?.title) {
-    addChildNode(payload)
-    return
-  }
-  e?.stopPropagation()
-  hideTooltip()
-  showAddNodeModal(payload)
-}
-
-function handleCreate(payload) {
-  if (payload?.title) {
-    createNodeAtPosition(payload)
-    return
-  }
-  hideTooltip()
-  showAddNodeModal(currentContainerId.value)
-}
-
 // Keyboard shortcuts
 const { handleKeydown } = useKeyboardShortcuts({
   actions: {
@@ -780,21 +711,35 @@ const handleOpenLinkSearchEvent = e => {
   if (e.detail?.nodeId === selectedNode.value?.id) openLinkSearch()
 }
 
-// Demo workspace
-const { createDemo, resetDemo } = useDemoWorkspace({ api, currentWorkspace, loadWorkspaces })
-
-function handleShowOnboarding() {
-  showSettings.value = false
-  showOnboarding.value = true
-}
-function handleCreateDemo() {
-  showSettings.value = false
-  createDemo()
-}
-function handleResetDemo() {
-  showSettings.value = false
-  resetDemo()
-}
+// Maintenance dialogs: snapshots, lost & found, demo workspace, onboarding
+const {
+  availableSnapshots,
+  snapshotMessage,
+  createSnapshot,
+  restoreSnapshot,
+  reloadDatabase,
+  toggleSnapshots,
+  toggleLostFound,
+  createDemo,
+  handleShowOnboarding,
+  handleCreateDemo,
+  handleResetDemo,
+} = useMaintenanceDialogs({
+  api,
+  loadChildren,
+  loadSidebarTree,
+  loadRecentItems,
+  loadWorkspaces,
+  loadOrphanedNodes,
+  selectedNode,
+  currentContainerId,
+  breadcrumbs,
+  currentWorkspace,
+  showSnapshotList,
+  showLostFound,
+  showSettings,
+  showOnboarding,
+})
 
 // App lifecycle
 useAppLifecycle({
