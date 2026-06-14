@@ -27,12 +27,13 @@ Resolved:
 - **Importance scale** — canonical direction set to 5 = Critical (higher = more important), matching the
   views and the sort; `constants.importanceLabels` (+ test) updated and CardsView/useTaskFiltering now use
   the shared `getImportanceLabel`/`getImportanceClass`.
+- **DB save batching** — added `Database._batch()` (one transaction, single deferred `_save`, rollback on
+  error); importJSON/importCSV now use it. Covered by new disk-level integration tests.
 
-Deferred (need runtime verification this pass could not provide):
-- **DB save batching** — modifies the universal `_save()` path (silent-data-loss risk) with no disk-level
-  test coverage; needs a `_batch()` design + integration tests.
-- **App.vue split** — 1153 LOC; extraction of deeply-wired setup logic needs runtime verification (no
-  App-level test, Electron not runnable in this environment).
+Deferred:
+- **App.vue split** — 1153 LOC; reaching <1000 means moving ~180 lines out of a tightly-wired orchestrator
+  with strict setup ordering. The risks (reactivity/ordering) only surface at runtime, App.vue has no test
+  coverage, and Electron is not runnable in this environment. Extraction plan is recorded in the task list.
 - **preload.js IPC constants** — large mechanical change, no behavior impact (literals already match).
 
 ## Baseline gates
