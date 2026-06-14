@@ -218,22 +218,22 @@ describe('Constants Module', () => {
   })
 
   describe('importanceLabels', () => {
-    it('should have labels for levels 1-5', () => {
-      expect(importanceLabels[1]).toBe('Critical')
-      expect(importanceLabels[2]).toBe('High')
-      expect(importanceLabels[3]).toBe('Medium')
-      expect(importanceLabels[4]).toBe('Low')
-      expect(importanceLabels[5]).toBe('Trivial')
+    it('should have labels for levels 1-5 (higher = more important)', () => {
+      expect(importanceLabels[1]).toBe('Low')
+      expect(importanceLabels[2]).toBe('Medium')
+      expect(importanceLabels[3]).toBe('High')
+      expect(importanceLabels[4]).toBe('Urgent')
+      expect(importanceLabels[5]).toBe('Critical')
     })
   })
 
   describe('getImportanceLabel', () => {
     it('should return label for valid levels', () => {
-      expect(getImportanceLabel(1)).toBe('Critical')
-      expect(getImportanceLabel(2)).toBe('High')
-      expect(getImportanceLabel(3)).toBe('Medium')
-      expect(getImportanceLabel(4)).toBe('Low')
-      expect(getImportanceLabel(5)).toBe('Trivial')
+      expect(getImportanceLabel(1)).toBe('Low')
+      expect(getImportanceLabel(2)).toBe('Medium')
+      expect(getImportanceLabel(3)).toBe('High')
+      expect(getImportanceLabel(4)).toBe('Urgent')
+      expect(getImportanceLabel(5)).toBe('Critical')
     })
 
     it('should return empty string for invalid levels', () => {

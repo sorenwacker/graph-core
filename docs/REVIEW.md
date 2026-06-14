@@ -24,9 +24,11 @@ Resolved:
 - **Dead code** — removed `useAppController`, `useDetailPanelCore`, `utils/dom`, the orphaned `stores/nodes`
   undo/redo store, and assorted unused exports/props/emits/styles.
 - **Consolidation** — AddNodeModal type icon and tableFormatters default color now use shared sources.
+- **Importance scale** — canonical direction set to 5 = Critical (higher = more important), matching the
+  views and the sort; `constants.importanceLabels` (+ test) updated and CardsView/useTaskFiltering now use
+  the shared `getImportanceLabel`/`getImportanceClass`.
 
-Deferred (need a decision or runtime verification this pass could not provide):
-- **Importance scale** — three conflicting scales; correct direction is a product decision (see below).
+Deferred (need runtime verification this pass could not provide):
 - **DB save batching** — modifies the universal `_save()` path (silent-data-loss risk) with no disk-level
   test coverage; needs a `_batch()` design + integration tests.
 - **App.vue split** — 1153 LOC; extraction of deeply-wired setup logic needs runtime verification (no
