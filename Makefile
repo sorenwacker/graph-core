@@ -1,4 +1,4 @@
-.PHONY: dev install clean stop build dist install-mac reset-db docs lint format check test
+.PHONY: dev install clean clean-release stop build dist install-mac reset-db docs lint format check test
 
 # Start Electron app in dev mode
 dev:
@@ -17,12 +17,37 @@ dist:
 	npm run dist
 
 # Build DMG and install to /Applications (Mac only)
-install-mac: dist
+install-mac: clean-release dist
 	@echo "Installing Graph Core to /Applications..."
-	@hdiutil attach release/*.dmg -nobrowse -quiet
-	@cp -R "/Volumes/Graph Core/Graph Core.app" /Applications/
-	@hdiutil detach "/Volumes/Graph Core" -quiet
-	@echo "Installed to /Applications/Graph Core.app"
+	@DMG_FILE=$$(ls release/*.dmg 2>/dev/null | head -1); \
+	if [ -z "$$DMG_FILE" ]; then \
+		echo "Error: No DMG file found in release/"; \
+		exit 1; \
+	fi; \
+	echo "Mounting $$DMG_FILE..."; \
+	MOUNT_OUTPUT=$$(hdiutil attach "$$DMG_FILE" -nobrowse 2>&1); \
+	VOLUME=$$(echo "$$MOUNT_OUTPUT" | grep -o '/Volumes/[^"]*' | head -1); \
+	if [ -z "$$VOLUME" ]; then \
+		echo "Error: Failed to mount DMG"; \
+		echo "$$MOUNT_OUTPUT"; \
+		exit 1; \
+	fi; \
+	echo "Mounted at $$VOLUME"; \
+	APP_PATH=$$(ls -d "$$VOLUME"/*.app 2>/dev/null | head -1); \
+	if [ -z "$$APP_PATH" ]; then \
+		echo "Error: No .app found in $$VOLUME"; \
+		hdiutil detach "$$VOLUME" -quiet 2>/dev/null || true; \
+		exit 1; \
+	fi; \
+	echo "Found $$APP_PATH"; \
+	rm -rf "/Applications/Graph Core.app"; \
+	cp -R "$$APP_PATH" /Applications/; \
+	hdiutil detach "$$VOLUME" -quiet; \
+	echo "Installed to /Applications/Graph Core.app"
+
+# Clean release artifacts
+clean-release:
+	rm -rf release/*
 
 # Stop dev servers
 stop:
