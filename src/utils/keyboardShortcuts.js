@@ -30,6 +30,7 @@ export const shortcuts = {
   ],
   graphView: [
     { keys: ['{shift}', 'Drag'], desc: 'Lasso select' },
+    { keys: ['{option}'], desc: 'Hold for link mode' },
     { keys: ['{option}', 'Drag'], desc: 'Create link' },
     { keys: ['{modifier}', 'Click'], desc: 'Add child' },
     { keys: ['Double-click'], desc: 'Enter node' },

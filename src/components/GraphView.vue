@@ -19,7 +19,7 @@ import AddNodeModal from './AddNodeModal.vue'
 import GraphControls from './GraphControls.vue'
 import GraphEditModal from './GraphEditModal.vue'
 import GraphPromptModal from './GraphPromptModal.vue'
-import HotkeyHelpModal from './HotkeyHelpModal.vue'
+import KeyboardShortcutsModal from './KeyboardShortcutsModal.vue'
 
 const props = defineProps({
   nodes: { type: Array, default: () => [] },
@@ -150,7 +150,7 @@ const fitLocked = ref(
 const radialSettings = ref(
   props.parent?.graph_physics ? { ..._radialSettings, ...props.parent.graph_physics } : { ..._radialSettings }
 )
-const showHotkeyHelp = ref(false)
+const showShortcuts = ref(false)
 
 const { handleError } = useErrorHandler()
 
@@ -737,7 +737,7 @@ onUnmounted(() => {
         @select-no-types="selectNoTypes"
         @apply-radial-settings="layout.applyRadialSettings()"
         @update:radial-settings="radialSettings = $event"
-        @show-hotkey-help="showHotkeyHelp = true"
+        @show-hotkey-help="showShortcuts = true"
       />
     </Teleport>
     <div class="graph-container" :class="{ 'box-select-mode': boxSelectModeActive }" ref="container">
@@ -746,7 +746,7 @@ onUnmounted(() => {
     <div ref="dropHighlightEl" class="drop-highlight"></div>
     <div v-if="linkModeActive" class="link-mode-indicator">Link Mode</div>
 
-    <HotkeyHelpModal :visible="showHotkeyHelp" @close="showHotkeyHelp = false" />
+    <KeyboardShortcutsModal :visible="showShortcuts" @close="showShortcuts = false" />
 
     <GraphEditModal
       :visible="editModal.visible"
