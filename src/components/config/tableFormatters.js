@@ -4,6 +4,7 @@
  */
 
 import { decodeHtmlEntities } from '../../utils/html.js'
+import { legacyDefaultColor } from './personsGridColumns.js'
 
 /**
  * Format a date string for display.
@@ -90,7 +91,7 @@ export function getDepthRowClass(node) {
  */
 export function getRowStyle(node, colorMap) {
   const color = colorMap[node.id] || node.color
-  if (color && color !== '#0f4c75') {
+  if (color && color !== legacyDefaultColor) {
     return { background: `linear-gradient(90deg, ${color}55 0%, transparent 50%)` }
   }
   return {}

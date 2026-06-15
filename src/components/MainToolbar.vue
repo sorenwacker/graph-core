@@ -163,7 +163,7 @@ const emit = defineEmits([
     <button
       ref="hideCompletedBtn"
       class="icon-btn"
-      :class="{ active: hideCompleted }"
+      :class="{ active: !hideCompleted }"
       @click="emit('toggle-completed')"
       aria-label="Toggle completed items visibility"
       :aria-pressed="hideCompleted"
@@ -332,6 +332,11 @@ const emit = defineEmits([
 .toolbar button.active {
   background: var(--accent-subtle);
   border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.toolbar button.active:hover {
+  background: var(--accent-subtle);
   color: var(--accent-color);
 }
 

@@ -470,11 +470,6 @@ function autoResizeTitle(e) {
   el.style.height = el.scrollHeight + 'px'
 }
 
-function updateTags(newTags) {
-  editedNode.value.tags = newTags
-  saveChanges()
-}
-
 // Handler for ChildrenSection reorder event
 async function onChildReorder({ draggedId, targetId, position }) {
   try {
@@ -796,7 +791,6 @@ defineExpose({
               :collapsed="metadataCollapsed"
               @update:collapsed="metadataCollapsed = $event"
               @update:field="editedNode[$event.field] = $event.value"
-              @update:tags="updateTags"
               @update:color="editedNode.color = $event"
               @change-workspace="changeWorkspace"
               @select-link="emit('select-child', $event)"

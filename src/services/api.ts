@@ -243,6 +243,19 @@ const webApi: Api = {
     return request<Node[]>(`/nodes/${id}/descendants${query}`)
   },
 
+  async getDescendantsBatch(rootIds: number[]): Promise<Map<number, Node[]>> {
+    // No batch HTTP endpoint exists; fetch each root's descendants in parallel
+    // and assemble the same Map shape the Electron path returns.
+    const map = new Map<number, Node[]>()
+    await Promise.all(
+      rootIds.map(async rootId => {
+        const descendants = await request<Node[]>(`/nodes/${rootId}/descendants`)
+        map.set(rootId, descendants || [])
+      })
+    )
+    return map
+  },
+
   async getAncestors(id: number): Promise<Node[]> {
     return request<Node[]>(`/nodes/${id}/ancestors`)
   },
@@ -322,6 +335,25 @@ const webApi: Api = {
   // Export
   async exportMarkdown(nodeId: number): Promise<string> {
     return request<string>(`/nodes/${nodeId}/export`)
+  },
+
+  // JSON/CSV export and import are file-system operations available only in the
+  // desktop app. Stub them like the other desktop-only methods so callers fail
+  // with a clear message instead of "api.exportJSON is not a function".
+  async exportJSON(): Promise<object> {
+    throw new Error('JSON export only available in desktop app')
+  },
+
+  async exportCSV(): Promise<string> {
+    throw new Error('CSV export only available in desktop app')
+  },
+
+  async importJSON(): Promise<{ imported: number }> {
+    throw new Error('JSON import only available in desktop app')
+  },
+
+  async importCSV(): Promise<{ imported: number }> {
+    throw new Error('CSV import only available in desktop app')
   },
 
   // Trash

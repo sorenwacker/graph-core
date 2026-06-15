@@ -174,14 +174,29 @@ export function getGraphColors(type, nodeId = null) {
 }
 
 // Importance labels
+// Importance scale: higher number = more important (5 = Critical). This matches
+// the task list display and the "higher importance first" sort.
 export const importanceLabels = {
-  1: 'Critical',
-  2: 'High',
-  3: 'Medium',
-  4: 'Low',
-  5: 'Trivial',
+  1: 'Low',
+  2: 'Medium',
+  3: 'High',
+  4: 'Urgent',
+  5: 'Critical',
 }
 
 export function getImportanceLabel(level) {
   return importanceLabels[level] || ''
+}
+
+/**
+ * CSS class for importance styling (higher number = more important).
+ * @param {number} level - Importance level 1-5
+ * @returns {string} CSS class name, or '' when unset
+ */
+export function getImportanceClass(level) {
+  if (!level) return ''
+  if (level >= 4) return 'importance-critical'
+  if (level >= 3) return 'importance-high'
+  if (level >= 2) return 'importance-medium'
+  return 'importance-low'
 }

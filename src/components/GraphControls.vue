@@ -140,13 +140,12 @@ const showLayoutSettings = ref(false)
       </svg>
     </button>
     <span class="controls-separator"></span>
-    <div
-      class="depth-control"
-      title="Visible levels: controls how many levels of nested nodes are shown. 'All' shows everything, '1' shows only direct children."
-    >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M12 3v18M3 12h18M7 7l10 10M17 7l-10 10" />
-      </svg>
+    <div class="depth-control">
+      <button type="button" class="icon-btn" title="Visible levels" @click.prevent>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 3v18M3 12h18M7 7l10 10M17 7l-10 10" />
+        </svg>
+      </button>
       <select :value="maxDepth" @change="emit('update:maxDepth', Number($event.target.value))" class="depth-select">
         <option :value="0">All</option>
         <option :value="1">1</option>
@@ -302,8 +301,7 @@ const showLayoutSettings = ref(false)
 .depth-control {
   display: flex;
   align-items: center;
-  gap: 4px;
-  color: var(--text-secondary);
+  gap: 2px;
 }
 
 .depth-select {

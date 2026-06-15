@@ -18,7 +18,6 @@ const linkedNonTags = computed(() => (props.linkedNodes || []).filter(n => n && 
 const emit = defineEmits([
   'update:collapsed',
   'update:field',
-  'update:tags',
   'update:color',
   'change-workspace',
   'select-link',

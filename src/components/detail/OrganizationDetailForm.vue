@@ -1,6 +1,5 @@
 <script setup>
 import { ref, watch } from 'vue'
-import { api } from '../../services/api'
 import { useErrorHandler } from '../../composables/useErrorHandler.js'
 import { getInitials } from '../../utils/formatting.js'
 import { nodeTypes } from '../../utils/constants.js'
@@ -53,14 +52,11 @@ async function loadLinkedMembers() {
   }
 }
 
-async function unlinkMember(person) {
+function unlinkMember(person) {
   if (!props.editedNode?.id) return
-  try {
-    await api.unlinkNodes(props.editedNode.id, person.id)
-    await loadLinkedMembers()
-  } catch (err) {
-    handleError(err, { context: 'Unlinking member' })
-  }
+  // Delegate to the parent, which unlinks and refreshes linkedNodes. Re-deriving
+  // from props.linkedNodes locally would read the stale (pre-unlink) prop.
+  emit('remove-link', person)
 }
 
 function updateField(field, value) {
