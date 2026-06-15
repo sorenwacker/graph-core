@@ -1,67 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#3b82f6"/>
-      <stop offset="100%" style="stop-color:#60a5fa"/>
+    <!-- magenta (top node) -> blue-cyan (bottom-left node) -->
+    <linearGradient id="edgeLeft" x1="256" y1="140" x2="120" y2="370" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ff00ff"/>
+      <stop offset="100%" stop-color="#00ccff"/>
     </linearGradient>
-    <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#22c55e"/>
-      <stop offset="100%" style="stop-color:#4ade80"/>
-    </linearGradient>
-    <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#a855f7"/>
-      <stop offset="100%" style="stop-color:#c084fc"/>
-    </linearGradient>
-    <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#f97316"/>
-      <stop offset="100%" style="stop-color:#fb923c"/>
-    </linearGradient>
-    <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#06b6d4"/>
-      <stop offset="100%" style="stop-color:#22d3ee"/>
-    </linearGradient>
-    <linearGradient id="yellowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#eab308"/>
-      <stop offset="100%" style="stop-color:#fbbf24"/>
+    <!-- magenta (top node) -> cyan (bottom-right node) -->
+    <linearGradient id="edgeRight" x1="256" y1="140" x2="392" y2="370" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ff00ff"/>
+      <stop offset="100%" stop-color="#00ffcc"/>
     </linearGradient>
   </defs>
 
-  <!-- Background -->
-  <rect width="512" height="512" fill="#000000" rx="80"/>
+  <rect width="512" height="512" rx="90" fill="#0a0a12"/>
 
-  <!-- Connection lines (edges) -->
-  <g stroke-width="3" fill="none" opacity="0.6">
-    <!-- Center to outer nodes -->
-    <line x1="256" y1="256" x2="140" y2="140" stroke="url(#blueGrad)"/>
-    <line x1="256" y1="256" x2="372" y2="140" stroke="url(#greenGrad)"/>
-    <line x1="256" y1="256" x2="400" y2="280" stroke="url(#purpleGrad)"/>
-    <line x1="256" y1="256" x2="340" y2="400" stroke="url(#orangeGrad)"/>
-    <line x1="256" y1="256" x2="172" y2="400" stroke="url(#cyanGrad)"/>
-    <line x1="256" y1="256" x2="112" y2="280" stroke="url(#yellowGrad)"/>
+  <!-- EDGES - gradients carrying all three colors -->
+  <path d="M 256 140 L 120 370" stroke="url(#edgeLeft)" stroke-width="20" fill="none"/>
+  <path d="M 256 140 L 392 370" stroke="url(#edgeRight)" stroke-width="20" fill="none"/>
 
-    <!-- Outer connections -->
-    <line x1="140" y1="140" x2="372" y2="140" stroke="#94a3b8" opacity="0.4"/>
-    <line x1="372" y1="140" x2="400" y2="280" stroke="#94a3b8" opacity="0.4"/>
-    <line x1="400" y1="280" x2="340" y2="400" stroke="#94a3b8" opacity="0.4"/>
-    <line x1="340" y1="400" x2="172" y2="400" stroke="#94a3b8" opacity="0.4"/>
-    <line x1="172" y1="400" x2="112" y2="280" stroke="#94a3b8" opacity="0.4"/>
-    <line x1="112" y1="280" x2="140" y2="140" stroke="#94a3b8" opacity="0.4"/>
-  </g>
-
-  <!-- Outer nodes -->
-  <circle cx="140" cy="140" r="28" fill="url(#blueGrad)"/>
-  <circle cx="372" cy="140" r="24" fill="url(#greenGrad)"/>
-  <circle cx="400" cy="280" r="22" fill="url(#purpleGrad)"/>
-  <circle cx="340" cy="400" r="26" fill="url(#orangeGrad)"/>
-  <circle cx="172" cy="400" r="20" fill="url(#cyanGrad)"/>
-  <circle cx="112" cy="280" r="24" fill="url(#yellowGrad)"/>
-
-  <!-- Center node (main/root) - larger -->
-  <circle cx="256" cy="256" r="50" fill="url(#blueGrad)"/>
-  <circle cx="256" cy="256" r="38" fill="#000000"/>
-  <circle cx="256" cy="256" r="30" fill="url(#blueGrad)" opacity="0.8"/>
-
-  <!-- Glow effects -->
-  <circle cx="256" cy="256" r="55" fill="none" stroke="url(#blueGrad)" stroke-width="2" opacity="0.3"/>
-  <circle cx="256" cy="256" r="65" fill="none" stroke="url(#blueGrad)" stroke-width="1" opacity="0.15"/>
+  <!-- NODES -->
+  <rect x="196" y="100" width="120" height="80" rx="14" fill="#ff00ff"/>
+  <rect x="60" y="330" width="120" height="80" rx="14" fill="#00ccff"/>
+  <rect x="332" y="330" width="120" height="80" rx="14" fill="#00ffcc"/>
 </svg>
