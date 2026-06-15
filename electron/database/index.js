@@ -26,6 +26,9 @@ class Database {
     this.dbPath = dbPath
     this.db = null
     this.SQL = null
+    // Batch state: defer per-statement disk writes while inside _batch().
+    this._batchDepth = 0
+    this._pendingSave = false
     this.ready = this._init()
   }
 
@@ -162,9 +165,49 @@ class Database {
   }
 
   _save() {
+    // While batching, defer the (expensive) full-file write until the batch ends.
+    if (this._batchDepth > 0) {
+      this._pendingSave = true
+      return
+    }
     const data = this.db.export()
     const buffer = Buffer.from(data)
     fs.writeFileSync(this.dbPath, buffer)
+  }
+
+  /**
+   * Run fn inside a single SQL transaction and persist to disk once at the end,
+   * instead of after every statement. Nestable; rolls back on error. Use for
+   * bulk operations (imports, large subtree moves) to avoid O(rows) full-file
+   * writes and to make the operation crash-atomic.
+   * @param {Function} fn - Synchronous function performing the writes
+   * @returns {*} Whatever fn returns
+   */
+  _batch(fn) {
+    this._batchDepth += 1
+    const outermost = this._batchDepth === 1
+    if (outermost) this.db.run('BEGIN')
+    try {
+      const result = fn()
+      if (outermost) this.db.run('COMMIT')
+      return result
+    } catch (e) {
+      if (outermost) {
+        try {
+          this.db.run('ROLLBACK')
+        } catch {
+          // ignore rollback failure
+        }
+        this._pendingSave = false
+      }
+      throw e
+    } finally {
+      this._batchDepth -= 1
+      if (this._batchDepth === 0 && this._pendingSave) {
+        this._pendingSave = false
+        this._save()
+      }
+    }
   }
 
   _query(sql, params = []) {

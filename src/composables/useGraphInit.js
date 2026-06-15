@@ -5,6 +5,8 @@ import dagre from 'cytoscape-dagre'
 import d3Force from 'cytoscape-d3-force'
 import nodeHtmlLabel from 'cytoscape-node-html-label'
 import { marked } from 'marked'
+import { sanitizeHtml } from '../utils/markdown.js'
+import { escapeHtml } from '../utils/html.js'
 import { getContrastColor } from '../utils/formatting.js'
 import { LAYOUT_SETTLE_DELAY_MS, NODE_POSITION_SETTLE_DELAY_MS } from '../utils/settingsConstants'
 
@@ -52,7 +54,7 @@ export function renderMarkdownHtml(text, maxLen = 500) {
     }
   }
 
-  return marked.parse(firstPara)
+  return sanitizeHtml(marked.parse(firstPara))
 }
 
 /**
@@ -106,7 +108,6 @@ export function useGraphInit(options = {}) {
             'overlay-opacity': 0,
           },
         },
-        { selector: 'node[?isParent]', style: { width: 200, height: 100 } },
         { selector: 'node[?isPerson]', style: { width: 120, height: 40, shape: 'round-rectangle' } },
         { selector: 'node:selected', style: { 'border-width': 0 } },
         {
@@ -173,7 +174,7 @@ export function useGraphInit(options = {}) {
             const collapseBtn = d.hasChildren
               ? `<button class="collapse-btn" data-collapse-node="${n.id}" title="${d.isCollapsed ? 'Expand children' : 'Collapse children'}">${d.isCollapsed ? '+' : '-'}</button>`
               : ''
-            return `<div class="node-html ${n.completed ? 'completed' : ''} ${d.shouldGlow ? 'current-container' : ''} ${n.favorite ? 'favorite' : ''} ${d.isCollapsed ? 'collapsed-node' : ''}" data-node-id="${n.id}" data-selected="${d.isSelected}" style="border-color:${bc};--glow-color:${bc};${bg}">${collapseBtn}${childBadge}<div class="node-html-title">${n.title || 'Untitled'}${n.notes && !d.showDetails ? '<span class="notes-indicator"></span>' : ''}</div>${notes ? `<div class="node-html-notes">${notes}</div>` : ''}</div>`
+            return `<div class="node-html ${n.completed ? 'completed' : ''} ${d.shouldGlow ? 'current-container' : ''} ${n.favorite ? 'favorite' : ''} ${d.isCollapsed ? 'collapsed-node' : ''}" data-node-id="${n.id}" data-selected="${d.isSelected}" style="border-color:${bc};--glow-color:${bc};${bg}">${collapseBtn}${childBadge}<div class="node-html-title">${escapeHtml(n.title) || 'Untitled'}${n.notes && !d.showDetails ? '<span class="notes-indicator"></span>' : ''}</div>${notes ? `<div class="node-html-notes">${notes}</div>` : ''}</div>`
           },
         },
       ],
@@ -191,7 +192,11 @@ export function useGraphInit(options = {}) {
     const props = getProps()
     const layoutOptions = getLayoutOptions()
 
-    if (props.selectedIds?.size > 0) props.selectedIds.forEach(id => cy.$(`#${id}`).select())
+    // selectedIds may be an Array (GraphView prop) or a Set (selection store);
+    // size is undefined on arrays, so fall back to length.
+    const selectedIds = props.selectedIds
+    const selectedCount = selectedIds ? (selectedIds.size ?? selectedIds.length ?? 0) : 0
+    if (selectedCount > 0) selectedIds.forEach(id => cy.$(`#${id}`).select())
     else if (props.selectedId) cy.$(`#${props.selectedId}`).select()
 
     if (!hasPos && cy.nodes().length > 0) {

@@ -1,7 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { getInitials, getDueStatus } from '../../utils/formatting.js'
-import { getTypeIcon, personIconSvg } from '../../utils/constants.js'
 
 const props = defineProps({
   children: { type: Array, default: () => [] },
@@ -26,10 +25,6 @@ const filteredChildren = computed(() => {
 const completedCount = computed(() => {
   return props.children.filter(c => c.completed).length
 })
-
-// Expanded children and grandchildren
-const expandedChildren = ref(new Set())
-const grandchildren = ref({})
 
 // Drag state
 const draggedChild = ref(null)
@@ -165,27 +160,6 @@ function onDragEnd() {
               +
             </button>
           </div>
-          <!-- Grandchildren -->
-          <template v-if="expandedChildren.has(child.id) && grandchildren[child.id]?.length">
-            <div
-              v-for="gc in grandchildren[child.id]"
-              :key="gc.id"
-              class="grandchild-item"
-              :class="{ completed: gc.completed }"
-              @click="emit('select-child', gc.id)"
-            >
-              <span v-if="gc.type === 'person'" class="gc-type person" v-html="personIconSvg"></span>
-              <span v-else class="gc-type" :class="gc.type" v-html="getTypeIcon(gc.type)"></span>
-              <span class="gc-title">{{ gc.title }}</span>
-              <button
-                class="add-subtask-btn"
-                @click.stop="emit('add-subtask', { parentId: gc.id })"
-                title="Add subtask"
-              >
-                +
-              </button>
-            </div>
-          </template>
         </template>
       </div>
     </div>
@@ -410,48 +384,5 @@ function onDragEnd() {
 
 .add-subtask-btn:hover {
   color: var(--accent-color);
-}
-
-.grandchild-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px 4px 32px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.grandchild-item:hover {
-  background: var(--bg-hover);
-}
-
-.grandchild-item.completed {
-  opacity: 0.6;
-}
-
-.grandchild-item.completed .gc-title {
-  text-decoration: line-through;
-}
-
-.gc-type {
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.gc-type :deep(svg) {
-  width: 12px;
-  height: 12px;
-}
-
-.gc-title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 </style>

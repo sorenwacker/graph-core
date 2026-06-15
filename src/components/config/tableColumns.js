@@ -21,22 +21,6 @@ export const defaultColumnWidths = {
 }
 
 /**
- * Column definitions with metadata.
- * Each column has a key, optional header label, and whether it's resizable.
- */
-export const columnDefinitions = [
-  { key: 'expand', label: '', resizable: false, className: 'col-expand' },
-  { key: 'type', label: 'Type', resizable: true, className: 'col-type' },
-  { key: 'check', label: '', resizable: false, className: 'col-check' },
-  { key: 'title', label: 'Title', resizable: true, className: 'col-title' },
-  { key: 'notes', label: 'Notes', resizable: true, className: 'col-notes' },
-  { key: 'due', label: 'Due', resizable: true, className: 'col-due' },
-  { key: 'children', label: '#', resizable: false, className: 'col-children' },
-  { key: 'fav', label: '', resizable: false, className: 'col-fav' },
-  { key: 'actions', label: '', resizable: false, className: 'col-actions' },
-]
-
-/**
  * Load saved column widths from localStorage.
  * Falls back to defaults if no saved widths or parse error.
  */

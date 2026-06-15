@@ -470,4 +470,64 @@ describe('Database Integration Tests', () => {
       expect(db.getNode(node.id).tags).toEqual([])
     })
   })
+
+  describe('reorderNode', () => {
+    it('should move a child before an earlier sibling', () => {
+      const root = factory.project({ title: 'Root' })
+      const a = factory.task({ title: 'A', parent_id: root.id })
+      const b = factory.task({ title: 'B', parent_id: root.id })
+      const c = factory.task({ title: 'C', parent_id: root.id })
+
+      db.reorderNode(c.id, a.id, 'before')
+
+      const order = db.getChildren(root.id).map(n => n.id)
+      expect(order).toEqual([c.id, a.id, b.id])
+    })
+
+    it('should move a child after a later sibling', () => {
+      const root = factory.project({ title: 'Root' })
+      const a = factory.task({ title: 'A', parent_id: root.id })
+      const b = factory.task({ title: 'B', parent_id: root.id })
+      const c = factory.task({ title: 'C', parent_id: root.id })
+
+      db.reorderNode(a.id, c.id, 'after')
+
+      const order = db.getChildren(root.id).map(n => n.id)
+      expect(order).toEqual([b.id, c.id, a.id])
+    })
+
+    it('should produce contiguous, distinct sort_order values (no collisions)', () => {
+      const root = factory.project({ title: 'Root' })
+      const a = factory.task({ title: 'A', parent_id: root.id })
+      const b = factory.task({ title: 'B', parent_id: root.id })
+      const c = factory.task({ title: 'C', parent_id: root.id })
+
+      db.reorderNode(c.id, b.id, 'before')
+
+      const orders = db.getChildren(root.id).map(n => n.sort_order)
+      expect(orders).toEqual([0, 1, 2])
+      expect(new Set(orders).size).toBe(orders.length)
+    })
+
+    it('should return null when the node or target does not exist', () => {
+      const root = factory.project({ title: 'Root' })
+      const a = factory.task({ title: 'A', parent_id: root.id })
+      expect(db.reorderNode(a.id, 99999, 'before')).toBeNull()
+      expect(db.reorderNode(99999, a.id, 'before')).toBeNull()
+    })
+  })
+
+  describe('getDescendantsBatch across workspaces', () => {
+    it('should return descendants for roots in different workspaces', () => {
+      const rootA = factory.project({ title: 'Root A', workspace_id: 'wsA' })
+      const childA = factory.task({ title: 'Child A', parent_id: rootA.id, workspace_id: 'wsA' })
+      const rootB = factory.project({ title: 'Root B', workspace_id: 'wsB' })
+      const childB = factory.task({ title: 'Child B', parent_id: rootB.id, workspace_id: 'wsB' })
+
+      const result = db.getDescendantsBatch([rootA.id, rootB.id])
+
+      expect(result.get(rootA.id).map(n => n.id)).toEqual([childA.id])
+      expect(result.get(rootB.id).map(n => n.id)).toEqual([childB.id])
+    })
+  })
 })

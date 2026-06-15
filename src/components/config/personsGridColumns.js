@@ -101,14 +101,3 @@ export function maskEmail(email, shouldMask = true) {
   if (!domain) return '***'
   return user.charAt(0) + '***@' + domain
 }
-
-/**
- * Mask a phone number for privacy.
- * @param {string} phone - The phone number to mask
- * @param {boolean} shouldMask - Whether to apply masking
- * @returns {string} The masked or original phone
- */
-export function maskPhone(phone, shouldMask = true) {
-  if (!phone || !shouldMask) return phone
-  return phone.slice(0, 4) + '****' + phone.slice(-2)
-}

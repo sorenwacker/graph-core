@@ -12,7 +12,7 @@ export interface AppContext {
   nodeOps: NodeOperations
   /** Push undo/redo command (from useUndoRedo) */
   pushCommand: (command: Command) => void
-  /** Get workspace ID for node type */
+  /** Get workspace ID for new nodes (current workspace) */
   getWorkspaceIdForNode: (type: string) => number | null | undefined
   /** Current workspace ID */
   currentWorkspace: Ref<number | null>

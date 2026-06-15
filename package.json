@@ -1,7 +1,7 @@
 {
   "name": "graph-core",
   "private": true,
-  "version": "1.10.3",
+  "version": "1.10.5",
   "description": "Graph-based task and note management",
   "author": {
     "name": "Your Name",
@@ -149,7 +149,9 @@
   },
   "overrides": {
     "tar": "^7.5.4",
-    "lodash-es": "^4.17.23"
+    "lodash-es": "^4.17.23",
+    "shell-quote": "^1.8.4",
+    "joi": "^18.2.1"
   },
   "lint-staged": {
     "src/**/*.{js,ts,vue}": [

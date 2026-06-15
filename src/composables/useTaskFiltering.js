@@ -1,6 +1,7 @@
 import { ref, computed, watch } from 'vue'
 import { api } from '../services/api'
 import { useErrorHandler } from './useErrorHandler.js'
+import { getImportanceLabel, getImportanceClass } from '../utils/constants.js'
 
 /**
  * Composable for task filtering, sorting, and data loading.
@@ -324,26 +325,6 @@ export function useTaskDisplayUtils() {
     if (diff === 1) return 'Tomorrow'
     if (diff <= 7) return `in ${diff}d`
     return dateStr.split('T')[0]
-  }
-
-  /**
-   * Get human-readable importance label.
-   */
-  function getImportanceLabel(importance) {
-    if (!importance) return '-'
-    const labels = { 1: 'Low', 2: 'Medium', 3: 'High', 4: 'Urgent', 5: 'Critical' }
-    return labels[importance] || importance
-  }
-
-  /**
-   * Get CSS class for importance styling.
-   */
-  function getImportanceClass(importance) {
-    if (!importance) return ''
-    if (importance >= 4) return 'importance-critical'
-    if (importance >= 3) return 'importance-high'
-    if (importance >= 2) return 'importance-medium'
-    return 'importance-low'
   }
 
   return {

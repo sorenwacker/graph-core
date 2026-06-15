@@ -21,6 +21,24 @@ export function decodeHtmlEntities(text) {
 }
 
 /**
+ * Escape text for safe interpolation into an HTML string or attribute value.
+ * Use this for any user-controlled value placed into raw HTML templates
+ * (e.g. tooltip/label strings) instead of trusting the value verbatim.
+ *
+ * @param {string} text - Untrusted text
+ * @returns {string} - Text with &, <, >, ", ' replaced by entities
+ */
+export function escapeHtml(text) {
+  if (text === null || text === undefined) return ''
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/**
  * Decode HTML using DOM API (handles all entities automatically)
  * Browser-only implementation.
  *

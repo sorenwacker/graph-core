@@ -32,10 +32,12 @@ export class OllamaImproveNotesCommand extends Command {
   }
 
   getDescription() {
+    // Guard against a missing prompt (e.g. reconstructed via fromJSON without one),
+    // mirroring the optional-field handling in the sibling commands.
+    const prompt = this.prompt || ''
     // Truncate long prompts for display
     const maxPromptLength = 15
-    const displayPrompt =
-      this.prompt.length > maxPromptLength ? this.prompt.substring(0, maxPromptLength - 3) + '...' : this.prompt
+    const displayPrompt = prompt.length > maxPromptLength ? prompt.substring(0, maxPromptLength - 3) + '...' : prompt
     return `AI ${displayPrompt} notes`
   }
 }

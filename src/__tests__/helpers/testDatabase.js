@@ -380,6 +380,39 @@ export class TestDatabase {
     return result
   }
 
+  /**
+   * Reorder a node before/after a target sibling by resequencing the sibling set.
+   * Mirrors electron/database/nodes.js reorderNode.
+   * @param {number} nodeId - Node to move
+   * @param {number} targetId - Sibling to position relative to
+   * @param {string} position - 'before' or 'after'
+   * @returns {Object|null} The moved node, or null if either node is missing
+   */
+  reorderNode(nodeId, targetId, position) {
+    const node = this.getNode(nodeId)
+    const target = this.getNode(targetId)
+    if (!node || !target) return null
+
+    const siblings = this._query(
+      'SELECT * FROM nodes WHERE parent_id IS ? AND deleted_at IS NULL ORDER BY sort_order, created_at',
+      [target.parent_id]
+    )
+      .map(r => this._rowToNode(r))
+      .filter(s => s.id !== nodeId)
+
+    const targetIndex = siblings.findIndex(s => s.id === targetId)
+    if (targetIndex === -1) return null
+
+    const insertIndex = position === 'before' ? targetIndex : targetIndex + 1
+    siblings.splice(insertIndex, 0, node)
+
+    siblings.forEach((sibling, index) => {
+      this._run('UPDATE nodes SET sort_order = ?, parent_id = ? WHERE id = ?', [index, target.parent_id, sibling.id])
+    })
+
+    return this.getNode(nodeId)
+  }
+
   getAncestors(id) {
     const node = this.getNode(id)
     if (!node || !node.path) return []
