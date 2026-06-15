@@ -28,7 +28,9 @@ const SENSITIVE_KEYWORDS = ['password', 'secret', 'api_key', 'credential']
 
 // Layout constants for tooltip positioning
 const TOOLTIP_MARGIN = 20
-const TOOLTIP_TOP_OFFSET = 80
+// Fallback top offset (used only when the content area can't be measured);
+// clears the header navbar (~87px).
+const TOOLTIP_TOP_OFFSET = 96
 
 /**
  * Build tooltip HTML for a node
@@ -108,8 +110,14 @@ export function getFixedTooltipReference(event) {
   // Determine which side to show tooltip (opposite of cursor)
   const showOnRight = cursorX < viewportWidth / 2
 
+  // Anchor just below the top chrome — header navbar, add-node bar, and the
+  // breadcrumb/path bar (which also holds the graph control buttons) — so the
+  // tooltip renders inside the view area, not over any of those bars.
+  const contentEl = document.querySelector('.content-body')
+  const topOffset = contentEl ? Math.round(contentEl.getBoundingClientRect().top) + 8 : TOOLTIP_TOP_OFFSET
+
   // Position anchor at top, on opposite side
-  dynamicAnchor.style.top = `${TOOLTIP_TOP_OFFSET}px`
+  dynamicAnchor.style.top = `${topOffset}px`
   // Must explicitly clear the opposite side with 'auto' to override previous positioning
   dynamicAnchor.style.left = showOnRight ? 'auto' : `${TOOLTIP_MARGIN}px`
   dynamicAnchor.style.right = showOnRight ? `${TOOLTIP_MARGIN}px` : 'auto'
