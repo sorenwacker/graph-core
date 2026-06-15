@@ -352,11 +352,14 @@ function onCardDragStart(e, node) {
 // Workspace graph settings defaults (for filter sync)
 const workspaceGraphSettings = useGraphSettings({ workspace: currentWorkspace })
 
-// Sync filter store changes back to global settings for persistence
+// Sync filter store changes back to global (workspace/home) settings for
+// persistence. Only the root view writes the workspace defaults; inside a
+// container the filter store reflects that container's own saved settings, so
+// propagating them here would overwrite the home defaults (lost on navigate-back).
 watch(
   () => filtersStore.maxDepth,
   val => {
-    if (val !== graphMaxDepth.value) {
+    if (currentContainerId.value == null && val !== graphMaxDepth.value) {
       graphMaxDepth.value = val
     }
   }
@@ -365,6 +368,7 @@ watch(
 watch(
   () => filtersStore.visibleTypes,
   val => {
+    if (currentContainerId.value != null) return
     const current = workspaceGraphSettings.visibleTypes.value
     if (JSON.stringify(val) !== JSON.stringify(current)) {
       workspaceGraphSettings.visibleTypes.value = [...val]
