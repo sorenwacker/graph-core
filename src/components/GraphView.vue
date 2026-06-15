@@ -358,8 +358,14 @@ watch(maxDepth, v => {
 watch(
   visibleTypes,
   v => {
-    _visibleTypes.value = v
-    saveNodeSetting(props.parent?.id, 'graph_type_filter', JSON.stringify(v), 'type filter')
+    // Container: persist to the container node. Root: persist to workspace
+    // settings. Mirrors the maxDepth watch so container filters never overwrite
+    // the workspace/home default.
+    if (props.parent?.id) {
+      saveNodeSetting(props.parent.id, 'graph_type_filter', JSON.stringify(v), 'type filter')
+    } else {
+      _visibleTypes.value = v
+    }
   },
   { deep: true }
 )
