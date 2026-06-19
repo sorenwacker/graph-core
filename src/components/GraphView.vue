@@ -331,21 +331,36 @@ function saveNodeSetting(nodeId, field, value, errorContext) {
 }
 
 // Sync settings - save to workspace defaults and node-specific database
+// These watchers must only write the workspace default (_xxx) when at root
+// level. Inside a container they persist to that node. Otherwise the act of
+// syncing a container's saved value (via the parent-change watcher below) would
+// overwrite the workspace/home default with the container's value, e.g. visiting
+// a container with show_root_node off would hide the root node everywhere.
+// Mirrors the maxDepth watch.
 watch(layoutMode, m => {
-  _layoutMode.value = m
-  saveNodeSetting(props.parent?.id, 'graph_layout', m, 'layout mode')
+  if (props.parent?.id) {
+    saveNodeSetting(props.parent.id, 'graph_layout', m, 'layout mode')
+  } else {
+    _layoutMode.value = m
+  }
 })
 watch(showRootNode, v => {
-  _showRootNode.value = v
-  saveNodeSetting(props.parent?.id, 'show_root_node', v ? 1 : 0, 'show root node')
+  if (props.parent?.id) {
+    saveNodeSetting(props.parent.id, 'show_root_node', v ? 1 : 0, 'show root node')
+  } else {
+    _showRootNode.value = v
+  }
 })
 watch(showExternalLinks, v => {
-  _showExternalLinks.value = v
-  if (props.parent?.id) saveNodeSetting(props.parent.id, 'show_external_links', v ? 1 : 0, 'show external links')
-  else if (props.workspace)
-    api
-      .updateWorkspace(props.workspace, { show_external_links: v ? 1 : 0 })
-      .catch(e => handleError(e, { context: 'Saving show external links to workspace', silent: true }))
+  if (props.parent?.id) {
+    saveNodeSetting(props.parent.id, 'show_external_links', v ? 1 : 0, 'show external links')
+  } else {
+    _showExternalLinks.value = v
+    if (props.workspace)
+      api
+        .updateWorkspace(props.workspace, { show_external_links: v ? 1 : 0 })
+        .catch(e => handleError(e, { context: 'Saving show external links to workspace', silent: true }))
+  }
 })
 watch(maxDepth, v => {
   if (props.parent?.id) {
