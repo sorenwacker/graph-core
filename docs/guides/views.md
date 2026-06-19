@@ -328,7 +328,7 @@ Access via the settings panel:
 | Max Depth | Graph view hierarchy depth |
 | Root Max Depth | Graph view multi-root depth |
 | Hide Completed | All views |
-| Hide Sensitive | Persons view, Detail panel |
+| Hide Sensitive | Persons view, Detail panel, Graph hover tooltips |
 | Sort Alphabetically | Cards, Graph views |
 
 ## See Also

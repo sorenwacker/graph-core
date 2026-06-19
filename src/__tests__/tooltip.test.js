@@ -48,7 +48,14 @@ describe('Tooltip Utils', () => {
       expect(html).toContain('tt-notes')
     })
 
-    it('should hide sensitive content when hideSensitive is true and node has notes_sensitive flag', () => {
+    it('should hide notes flagged notes_sensitive even when hideSensitive is false', () => {
+      const node = { id: 1, title: 'Test', type: 'task', notes: 'Secret notes', notes_sensitive: true }
+      const html = buildTooltipHTML(node, { hideSensitive: false })
+      expect(html).toContain('Sensitive content hidden')
+      expect(html).not.toContain('Secret notes')
+    })
+
+    it('should hide notes flagged notes_sensitive when hideSensitive is true', () => {
       const node = { id: 1, title: 'Test', type: 'task', notes: 'Secret notes', notes_sensitive: true }
       const html = buildTooltipHTML(node, { hideSensitive: true })
       expect(html).toContain('Sensitive content hidden')
@@ -69,10 +76,11 @@ describe('Tooltip Utils', () => {
       expect(html).not.toContain('abc123')
     })
 
-    it('should show sensitive content when hideSensitive is false', () => {
-      const node = { id: 1, title: 'Test', type: 'task', notes: 'My password is secret123', notes_sensitive: true }
+    it('should show keyword-detected content when hideSensitive is false and not flagged', () => {
+      const node = { id: 1, title: 'Test', type: 'task', notes: 'My password is secret123' }
       const html = buildTooltipHTML(node, { hideSensitive: false })
       expect(html).not.toContain('Sensitive content hidden')
+      expect(html).toContain('secret123')
     })
 
     // Detail button removed - now use Enter key to toggle details
