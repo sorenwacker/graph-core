@@ -194,6 +194,21 @@ const navigateToTag = async tagNode => {
     await enterContainer(tagNode)
   }
 }
+
+// Delete a tag everywhere (removes the tag node and all its links). Soft-delete,
+// so it lands in Trash and stays recoverable like any other node deletion.
+const deleteTag = async tag => {
+  if (!tag?.id) return
+  if (!confirm(`Delete tag "${tag.title || tag}" everywhere? It will be moved to Trash.`)) return
+  try {
+    await api.deleteNode(tag.id)
+    // If we were viewing the deleted tag, return to the root view.
+    if (currentContainerId.value === tag.id) navigateToBreadcrumb(-1)
+    await loadTags()
+  } catch (e) {
+    handleError(e, { context: 'Deleting tag' })
+  }
+}
 watch(viewMode, mode => {
   if (mode === 'trash') loadTrashedItems()
 })
@@ -803,6 +818,7 @@ useAppLifecycle({
       @toggle-expand="toggleSidebarExpand"
       @select-tag="selectTag"
       @navigate-tag="navigateToTag"
+      @delete-tag="deleteTag"
       @navigate-root="navigateToBreadcrumb(-1)"
       @mouseenter="onSidebarEnter"
       @mouseleave="onSidebarLeave"

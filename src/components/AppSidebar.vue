@@ -24,6 +24,7 @@ const emit = defineEmits([
   'toggle-expand',
   'select-tag',
   'navigate-tag',
+  'delete-tag',
   'navigate-root',
   'mouseenter',
   'mouseleave',
@@ -132,6 +133,14 @@ watch(legendCollapsed, val => localStorage.setItem('sidebar-legend-collapsed', S
             <span v-if="tag.id" class="tag-dot" :style="{ backgroundColor: getTagColor(tag.id) }"></span>
             <span v-else class="tag-hash">#</span>
             <span class="label">{{ tag.title || tag }}</span>
+            <button
+              v-if="tag.id"
+              class="tag-delete-btn"
+              title="Delete tag everywhere"
+              @click.stop="emit('delete-tag', tag)"
+            >
+              &times;
+            </button>
           </div>
         </div>
       </div>
@@ -237,8 +246,37 @@ watch(legendCollapsed, val => localStorage.setItem('sidebar-legend-collapsed', S
   gap: 8px;
 }
 
+.tag-item .label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tag-item.active {
   background: var(--bg-hover);
   color: var(--text-primary);
+}
+
+.tag-delete-btn {
+  flex-shrink: 0;
+  visibility: hidden;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.tag-item:hover .tag-delete-btn {
+  visibility: visible;
+}
+
+.tag-delete-btn:hover {
+  color: var(--danger-color, #e74c3c);
+  background: var(--bg-hover);
 }
 </style>
