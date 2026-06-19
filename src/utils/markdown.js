@@ -38,6 +38,34 @@ export function renderMarkdown(text) {
   return sanitizeHtml(marked.parse(text))
 }
 
+/**
+ * Render a length-bounded markdown preview, e.g. for graph node cards.
+ *
+ * The source is truncated to `maxLen` characters before parsing so the
+ * preview stays small, but line breaks are preserved so multi-line
+ * constructs (lists, headings, tables) render as markdown rather than being
+ * collapsed to a single line.
+ *
+ * @param {string} text - Markdown source
+ * @param {number} [maxLen=500] - Maximum number of source characters to render
+ * @returns {string} Sanitized HTML
+ */
+export function renderMarkdownHtml(text, maxLen = 500) {
+  if (!text) return ''
+  let snippet = text
+  if (snippet.length > maxLen) {
+    snippet = snippet.substring(0, maxLen)
+    // Avoid cutting in the middle of a markdown link, which would leave a
+    // dangling '[label](' that renders as literal text.
+    const lastOpen = snippet.lastIndexOf('[')
+    const lastClose = snippet.lastIndexOf(')')
+    if (lastOpen > lastClose) {
+      snippet = snippet.substring(0, lastOpen).trimEnd()
+    }
+  }
+  return sanitizeHtml(marked.parse(snippet))
+}
+
 // Global click handler for external links - opens in system browser
 export function handleExternalLinkClick(e) {
   const link = e.target.closest('a[href]')

@@ -4,8 +4,7 @@ import cola from 'cytoscape-cola'
 import dagre from 'cytoscape-dagre'
 import d3Force from 'cytoscape-d3-force'
 import nodeHtmlLabel from 'cytoscape-node-html-label'
-import { marked } from 'marked'
-import { sanitizeHtml } from '../utils/markdown.js'
+import { renderMarkdownHtml } from '../utils/markdown.js'
 import { escapeHtml } from '../utils/html.js'
 import { getContrastColor } from '../utils/formatting.js'
 import { LAYOUT_SETTLE_DELAY_MS, NODE_POSITION_SETTLE_DELAY_MS } from '../utils/settingsConstants'
@@ -18,43 +17,6 @@ if (!window.__cytoscapeExtensionsRegistered) {
   cytoscape.use(d3Force)
   nodeHtmlLabel(cytoscape)
   window.__cytoscapeExtensionsRegistered = true
-}
-
-// Configure marked for notes
-marked.use({
-  breaks: true,
-  gfm: true,
-  renderer: {
-    link({ href, title, text }) {
-      return `<a href="${href}"${title ? ` title="${title}"` : ''} target="_blank" rel="noopener">${text}</a>`
-    },
-  },
-})
-
-/**
- * Render markdown text as HTML, truncated to first paragraph.
- * @param {string} text - Markdown text to render
- * @param {number} maxLen - Maximum character length
- * @returns {string} HTML string
- */
-export function renderMarkdownHtml(text, maxLen = 500) {
-  if (!text) return ''
-  // Get first paragraph (split by double newline or single newline)
-  const paragraphs = text.split(/\n\n|\n/)
-  let firstPara = paragraphs[0].trim()
-
-  // Also apply character limit
-  if (firstPara.length > maxLen) {
-    firstPara = firstPara.substring(0, maxLen)
-    // Don't cut in middle of a markdown link
-    const lastOpen = firstPara.lastIndexOf('['),
-      lastClose = firstPara.lastIndexOf(')')
-    if (lastOpen > lastClose) {
-      firstPara = firstPara.substring(0, lastOpen).trimEnd()
-    }
-  }
-
-  return sanitizeHtml(marked.parse(firstPara))
 }
 
 /**
@@ -238,6 +200,5 @@ export function useGraphInit(options = {}) {
     createCytoscapeInstance,
     setupHtmlLabels,
     applyInitialLayout,
-    renderMarkdownHtml,
   }
 }
