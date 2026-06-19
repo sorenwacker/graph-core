@@ -115,9 +115,11 @@ export function buildElements(options) {
   const filteredList = sortAlphabetically ? sortNodesRecursively(typeFiltered) : typeFiltered
   const flat = flattenNodes(filteredList, [], false, maxDepth)
 
-  // Include parent unless hidden by settings, completed when hiding completed, or type is filtered out
-  // Always include parent when there are no children (otherwise graph would be empty)
-  const parentTypeVisible = !parentNode || visibleTypes.includes(parentNode.type)
+  // Include parent unless hidden by settings, completed when hiding completed, or type is filtered out.
+  // The type filter targets the children listing, not the container being viewed: a tag is intentionally
+  // excluded from visibleTypes, but the tag container must still render as the root node when navigated into.
+  // Always include parent when there are no children (otherwise graph would be empty).
+  const parentTypeVisible = !parentNode || parentNode.type === 'tag' || visibleTypes.includes(parentNode.type)
   const hasNoChildren = flat.length === 0
   const includeParent =
     parentNode &&
