@@ -356,10 +356,16 @@ const workspaceGraphSettings = useGraphSettings({ workspace: currentWorkspace })
 // persistence. Only the root view writes the workspace defaults; inside a
 // container the filter store reflects that container's own saved settings, so
 // propagating them here would overwrite the home defaults (lost on navigate-back).
+// Guard on the filter store's own syncedFromId, not currentContainerId. During
+// navigation, currentContainer (and the syncFromNode it triggers) updates a tick
+// before currentContainerId, so a currentContainerId check still reads the old
+// location and would write a container's depth into the home default. syncedFromId
+// is set atomically inside syncFromNode, so it always reflects what the filters
+// currently represent.
 watch(
   () => filtersStore.maxDepth,
   val => {
-    if (currentContainerId.value == null && val !== graphMaxDepth.value) {
+    if (filtersStore.syncedFromId == null && val !== graphMaxDepth.value) {
       graphMaxDepth.value = val
     }
   }
@@ -368,7 +374,7 @@ watch(
 watch(
   () => filtersStore.visibleTypes,
   val => {
-    if (currentContainerId.value != null) return
+    if (filtersStore.syncedFromId != null) return
     const current = workspaceGraphSettings.visibleTypes.value
     if (JSON.stringify(val) !== JSON.stringify(current)) {
       workspaceGraphSettings.visibleTypes.value = [...val]
