@@ -218,7 +218,7 @@ All node types support these fields:
 |-------|-------------|
 | `title` | Display name |
 | `notes` | Markdown content |
-| `notes_sensitive` | Mark notes as sensitive (blurred) |
+| `notes_sensitive` | Mark notes as sensitive; content is always masked in card displays and hover tooltips, independent of the Hide Sensitive setting |
 | `tags` | Array of tag strings |
 | `color` | Custom color override |
 | `importance` | Priority level 1-5 |

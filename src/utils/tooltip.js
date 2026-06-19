@@ -47,8 +47,10 @@ export function buildTooltipHTML(node, options = {}) {
 
   const childCount = node.children?.length || 0
   const isCompleted = node.completed
-  // Check if node is marked sensitive or contains sensitive keywords
-  const isSensitive = node.notes_sensitive || SENSITIVE_KEYWORDS.some(kw => node.notes?.toLowerCase().includes(kw))
+  // Notes explicitly flagged sensitive are always masked in the hover info.
+  // Keyword-detected notes are masked only when the Hide Sensitive setting is on.
+  const explicitlySensitive = !!node.notes_sensitive
+  const keywordSensitive = SENSITIVE_KEYWORDS.some(kw => node.notes?.toLowerCase().includes(kw))
 
   let tooltip = `<div class="tt-header">`
   if (showCheckbox && node.type === 'task') {
@@ -72,7 +74,7 @@ export function buildTooltipHTML(node, options = {}) {
   }
 
   if (node.notes) {
-    if (isSensitive && hideSensitive) {
+    if (explicitlySensitive || (keywordSensitive && hideSensitive)) {
       tooltip += `<div class="tt-notes">[Sensitive content hidden]</div>`
     } else {
       const notesHtml = renderMarkdown(node.notes)

@@ -18,7 +18,7 @@ Access settings via the gear icon in the toolbar.
 |---------|-------------|
 | Sort Alphabetically | Sort nodes A-Z in list views |
 | Hide Completed | Hide completed tasks and projects |
-| Hide Sensitive | Blur sensitive notes and contact info |
+| Hide Sensitive | Mask notes containing sensitive keywords (password, secret, api_key, credential) and contact info. Notes explicitly flagged `notes_sensitive` are always masked regardless of this setting. |
 
 ### Hover Preview
 
