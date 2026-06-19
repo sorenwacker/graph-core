@@ -26,29 +26,41 @@ describe('renderMarkdownHtml', () => {
     expect(renderMarkdownHtml(null)).toBe('')
   })
 
-  it('renders a multi-item list across newlines, not just the first item', () => {
+  it('keeps a multi-line first block (no blank line) intact', () => {
     const html = renderMarkdownHtml('- first\n- second\n- third')
     expect(html).toContain('<li>first</li>')
     expect(html).toContain('<li>second</li>')
     expect(html).toContain('<li>third</li>')
   })
 
-  it('renders a heading followed by body text', () => {
-    const html = renderMarkdownHtml('# Title\n\nBody paragraph here')
-    expect(html).toContain('Title')
-    expect(html).toContain('Body paragraph here')
+  it('cuts off at the first empty line', () => {
+    const html = renderMarkdownHtml('Intro line one\nstill first block\n\nSecond paragraph')
+    expect(html).toContain('Intro line one')
+    expect(html).toContain('still first block')
+    expect(html).not.toContain('Second paragraph')
   })
 
-  it('renders a markdown table', () => {
-    const html = renderMarkdownHtml('| a | b |\n| - | - |\n| 1 | 2 |')
-    expect(html).toContain('<table>')
-    expect(html).toContain('<td>1</td>')
+  it('treats a whitespace-only line as an empty line', () => {
+    const html = renderMarkdownHtml('First block\n   \nDropped paragraph')
+    expect(html).toContain('First block')
+    expect(html).not.toContain('Dropped paragraph')
   })
 
-  it('truncates the source to maxLen characters', () => {
+  it('skips leading empty lines and shows the first non-empty block', () => {
+    const html = renderMarkdownHtml('\n\nActual content here\n\nDropped paragraph')
+    expect(html).toContain('Actual content here')
+    expect(html).not.toContain('Dropped paragraph')
+  })
+
+  it('recognizes a single empty line with CRLF line endings', () => {
+    const html = renderMarkdownHtml('First block\r\n\r\nDropped paragraph')
+    expect(html).toContain('First block')
+    expect(html).not.toContain('Dropped paragraph')
+  })
+
+  it('truncates the first block to maxLen characters', () => {
     const long = 'x'.repeat(500)
     const html = renderMarkdownHtml(long, 100)
-    // Rendered text should not contain more than the truncated length of x's.
     const xCount = (html.match(/x/g) || []).length
     expect(xCount).toBeLessThanOrEqual(100)
   })

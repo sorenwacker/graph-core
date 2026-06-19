@@ -39,31 +39,34 @@ export function renderMarkdown(text) {
 }
 
 /**
- * Render a length-bounded markdown preview, e.g. for graph node cards.
- *
- * The source is truncated to `maxLen` characters before parsing so the
- * preview stays small, but line breaks are preserved so multi-line
- * constructs (lists, headings, tables) render as markdown rather than being
- * collapsed to a single line.
+ * Render a markdown preview for graph node cards. The text is cut off at the
+ * first empty line (blank-line paragraph break), so a multi-line first block
+ * stays intact, and capped at maxLen characters so the node stays compact.
  *
  * @param {string} text - Markdown source
- * @param {number} [maxLen=500] - Maximum number of source characters to render
+ * @param {number} [maxLen=500] - Maximum character length
  * @returns {string} Sanitized HTML
  */
 export function renderMarkdownHtml(text, maxLen = 500) {
   if (!text) return ''
-  let snippet = text
-  if (snippet.length > maxLen) {
-    snippet = snippet.substring(0, maxLen)
-    // Avoid cutting in the middle of a markdown link, which would leave a
-    // dangling '[label](' that renders as literal text.
-    const lastOpen = snippet.lastIndexOf('[')
-    const lastClose = snippet.lastIndexOf(')')
+  // Keep the first non-empty block: skip any leading blank lines, then cut at
+  // the first empty (blank, whitespace-only) line. Normalize CRLF first so a
+  // single empty line is recognized regardless of line-ending style.
+  const blocks = text.replace(/\r\n/g, '\n').split(/\n[ \t]*\n/)
+  let firstBlock = (blocks.find(b => b.trim() !== '') || '').trim()
+
+  // Also apply character limit
+  if (firstBlock.length > maxLen) {
+    firstBlock = firstBlock.substring(0, maxLen)
+    // Don't cut in middle of a markdown link
+    const lastOpen = firstBlock.lastIndexOf('['),
+      lastClose = firstBlock.lastIndexOf(')')
     if (lastOpen > lastClose) {
-      snippet = snippet.substring(0, lastOpen).trimEnd()
+      firstBlock = firstBlock.substring(0, lastOpen).trimEnd()
     }
   }
-  return sanitizeHtml(marked.parse(snippet))
+
+  return sanitizeHtml(marked.parse(firstBlock))
 }
 
 // Global click handler for external links - opens in system browser
