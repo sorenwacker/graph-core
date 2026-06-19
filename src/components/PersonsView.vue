@@ -6,6 +6,7 @@ import { getInitials, getContrastColor } from '../utils/formatting.js'
 import NotesEditor from './NotesEditor.vue'
 import TagInput from './TagInput.vue'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
+import { resolveNodeColor, DEFAULT_NODE_COLOR } from '../utils/nodeColor.js'
 import {
   personsTableColumns,
   defaultPersonsSort,
@@ -125,27 +126,21 @@ function getRandomColor() {
   return personColors[Math.floor(Math.random() * personColors.length)]
 }
 
-// Get effective color for a person (own color or inherited from parent/organization)
+// Get effective color for a person: own color, else the nearest ancestor
+// organization with a color (walking the full chain, not just the direct
+// parent), else a linked organization, else a neutral gray default.
 function getEffectiveColor(person) {
-  // Use own color if set
-  if (person.color && person.color !== legacyDefaultColor) {
-    return person.color
-  }
-  // Try to get color from parent
-  if (person.parent_id) {
-    const parent = organizations.value.find(o => o.id === person.parent_id)
-    if (parent?.color && parent.color !== legacyDefaultColor) {
-      return parent.color
-    }
-  }
-  // Try to get color from linked organization
-  const links = personLinks.value[person.id] || []
-  const linkedOrg = links.find(n => n.type === 'organization' && n.color && n.color !== legacyDefaultColor)
-  if (linkedOrg) {
-    return linkedOrg.color
-  }
+  const orgById = id => organizations.value.find(o => o.id === id) || null
+  const color = resolveNodeColor(person, {
+    getParent: node => (node.parent_id ? orgById(node.parent_id) : null),
+    getLinkedColor: node => {
+      const links = personLinks.value[node.id] || []
+      const linkedOrg = links.find(n => n.type === 'organization' && n.color && n.color !== DEFAULT_NODE_COLOR)
+      return linkedOrg ? linkedOrg.color : null
+    },
+  })
   // Neutral gray default
-  return defaultPersonColor
+  return color || defaultPersonColor
 }
 
 // Get full organization path (e.g., "TU Delft / REIT group")
