@@ -762,7 +762,10 @@ onUnmounted(() => {
       />
     </Teleport>
     <div class="graph-container" :class="{ 'box-select-mode': boxSelectModeActive }" ref="container">
-      <div v-if="nodes.length === 0" class="graph-empty">No nodes to display</div>
+      <div v-if="nodes.length === 0" class="graph-empty">
+        <div>No nodes to display</div>
+        <div class="graph-empty-hint">Press <kbd>Space</kbd> to see details</div>
+      </div>
     </div>
     <div ref="dropHighlightEl" class="drop-highlight"></div>
     <div v-if="linkModeActive" class="link-mode-indicator">Link Mode</div>
