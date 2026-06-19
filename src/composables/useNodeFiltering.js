@@ -1,5 +1,6 @@
 import { computed } from 'vue'
 import { useFiltersStore } from '../stores/filters.js'
+import { buildColorMap } from '../utils/nodeColor.js'
 
 /**
  * Composable for node filtering and transformation operations.
@@ -111,7 +112,8 @@ export function filterCollapsedNodes(nodeList) {
 
 /**
  * Build a map of inherited colors from parent to children.
- * Colors flow down unless a child has its own color set.
+ * Colors flow down unless a child has its own color set. Delegates to the
+ * shared color service so every view resolves colors by the same rule.
  * @param {Array} nodeList - Array of nodes to process
  * @param {string|null} inheritedColor - Color inherited from parent
  * @param {Object} colorMap - Map accumulator (used internally)
@@ -119,20 +121,7 @@ export function filterCollapsedNodes(nodeList) {
  * @returns {Object} Map of nodeId -> effective color
  */
 export function buildInheritedColorMap(nodeList, inheritedColor = null, colorMap = {}, shouldInherit = true) {
-  if (!nodeList) return colorMap
-  for (const node of nodeList) {
-    if (!node || !node.id) continue
-    // Node's effective color: own color if set, otherwise inherited (if enabled)
-    const hasOwnColor = node.color && node.color !== '#0f4c75'
-    const effectiveColor = shouldInherit ? (hasOwnColor ? node.color : inheritedColor) : hasOwnColor ? node.color : null
-    colorMap[node.id] = effectiveColor
-
-    // Pass effective color to children (only if inheritance is enabled)
-    if (node.children?.length) {
-      buildInheritedColorMap(node.children, shouldInherit ? effectiveColor : null, colorMap, shouldInherit)
-    }
-  }
-  return colorMap
+  return buildColorMap(nodeList, inheritedColor, colorMap, shouldInherit)
 }
 
 /**

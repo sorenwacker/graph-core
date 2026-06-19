@@ -1,7 +1,6 @@
 import { computed } from 'vue'
 import { buildInheritedColorMap } from './useNodeFiltering.js'
-
-const DEFAULT_NODE_COLOR = '#0f4c75'
+import { hasExplicitColor } from '../utils/nodeColor.js'
 
 /**
  * Composable for color inheritance in node hierarchies.
@@ -22,19 +21,23 @@ export function useColorInheritance({ children, breadcrumbs, currentContainer, i
   const inheritedColorMap = computed(() => {
     const shouldInherit = inheritColors?.value !== false
 
-    // Find inherited color from ancestors (breadcrumbs)
+    // Find inherited color from ancestors (breadcrumbs): nearest ancestor with
+    // an explicit color wins (breadcrumbs run root -> deepest, so the last match).
     let ancestorColor = null
     if (shouldInherit && breadcrumbs?.value) {
       for (const ancestor of breadcrumbs.value) {
-        if (ancestor && ancestor.color && ancestor.color !== DEFAULT_NODE_COLOR) {
+        if (hasExplicitColor(ancestor)) {
           ancestorColor = ancestor.color
         }
       }
     }
 
     // Container's own color, or inherited from ancestors
-    const containerHasOwnColor = currentContainer?.value?.color && currentContainer.value.color !== DEFAULT_NODE_COLOR
-    const containerColor = containerHasOwnColor ? currentContainer.value.color : shouldInherit ? ancestorColor : null
+    const containerColor = hasExplicitColor(currentContainer?.value)
+      ? currentContainer.value.color
+      : shouldInherit
+        ? ancestorColor
+        : null
 
     // Build color map using shared function
     const colorMap = buildInheritedColorMap(children.value, shouldInherit ? containerColor : null, {}, shouldInherit)
