@@ -35,6 +35,21 @@
   font-size: 0.9rem;
 }
 
+.empty-state .empty-hint {
+  margin-top: 10px;
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.empty-state .empty-hint kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  font-family: inherit;
+  font-size: 0.9em;
+}
+
 /* Card children indicator */
 .node-card-children {
   font-size: 0.65rem;

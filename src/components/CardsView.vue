@@ -552,6 +552,9 @@ function handleCanvasClick(e) {
     <div v-if="filteredNodes.length === 0" class="empty-state">
       <h3>Empty</h3>
       <p>Add a {{ currentContainerId ? 'child node' : 'project' }} to get started</p>
+      <p class="empty-hint">
+        Press <kbd>n</kbd>, or type a title in the <strong>Add new…</strong> bar above and click <strong>Add</strong>.
+      </p>
     </div>
   </div>
 </template>

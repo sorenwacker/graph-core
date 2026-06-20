@@ -304,6 +304,9 @@ function getNodeRowStyle(node) {
     </table>
     <div v-if="filteredNodes.length === 0" class="empty-state">
       <p>No items</p>
+      <p class="empty-hint">
+        Press <kbd>n</kbd>, or type a title in the <strong>Add new…</strong> bar above and click <strong>Add</strong>.
+      </p>
     </div>
   </div>
 </template>
