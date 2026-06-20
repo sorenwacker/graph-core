@@ -768,6 +768,7 @@ onUnmounted(() => {
           Press <kbd>n</kbd> to create a node — or type a title in the <strong>Add new…</strong> bar above and click
           <strong>Add</strong>.
         </div>
+        <div v-if="parent" class="graph-empty-hint">Press <kbd>Space</kbd> to see this node's details.</div>
       </div>
     </div>
     <div ref="dropHighlightEl" class="drop-highlight"></div>
