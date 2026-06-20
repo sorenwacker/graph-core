@@ -765,8 +765,8 @@ onUnmounted(() => {
       <div v-if="nodes.length === 0" class="graph-empty">
         <div class="graph-empty-title">This view is empty</div>
         <div class="graph-empty-hint">
-          Type a title in the <strong>Add new…</strong> bar above and press <kbd>Enter</kbd>, or press <kbd>n</kbd>, to
-          create a node.
+          Press <kbd>n</kbd> to create a node — or type a title in the <strong>Add new…</strong> bar above and click
+          <strong>Add</strong>.
         </div>
       </div>
     </div>
