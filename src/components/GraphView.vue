@@ -763,8 +763,11 @@ onUnmounted(() => {
     </Teleport>
     <div class="graph-container" :class="{ 'box-select-mode': boxSelectModeActive }" ref="container">
       <div v-if="nodes.length === 0" class="graph-empty">
-        <div>No nodes to display</div>
-        <div class="graph-empty-hint">Press <kbd>Space</kbd> to see details</div>
+        <div class="graph-empty-title">This view is empty</div>
+        <div class="graph-empty-hint">
+          Type a title in the <strong>Add new…</strong> bar above and press <kbd>Enter</kbd>, or press <kbd>n</kbd>, to
+          create a node.
+        </div>
       </div>
     </div>
     <div ref="dropHighlightEl" class="drop-highlight"></div>

@@ -232,10 +232,23 @@
   font-size: 14px;
 }
 
+.graph-empty-title {
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
 .graph-empty-hint {
+  max-width: 320px;
+  text-align: center;
+  line-height: 1.5;
   font-size: 12px;
   color: var(--text-tertiary);
-  opacity: 0.8;
+  opacity: 0.85;
+}
+
+.graph-empty-hint strong {
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 .graph-empty-hint kbd {
