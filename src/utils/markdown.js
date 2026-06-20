@@ -39,9 +39,11 @@ export function renderMarkdown(text) {
 }
 
 /**
- * Render a markdown preview for graph node cards. The text is cut off at the
- * first empty line (blank-line paragraph break), so a multi-line first block
- * stays intact, and capped at maxLen characters so the node stays compact.
+ * Render a markdown preview for graph node cards. Only the lines up to the
+ * first empty line are shown, so a multi-line first block stays intact while
+ * everything after a blank line is dropped. If the first line is empty, the
+ * preview is suppressed entirely (a deliberate way to hide note text from the
+ * node). Capped at maxLen characters so the node stays compact.
  *
  * @param {string} text - Markdown source
  * @param {number} [maxLen=500] - Maximum character length
@@ -49,11 +51,20 @@ export function renderMarkdown(text) {
  */
 export function renderMarkdownHtml(text, maxLen = 500) {
   if (!text) return ''
-  // Keep the first non-empty block: skip any leading blank lines, then cut at
-  // the first empty (blank, whitespace-only) line. Normalize CRLF first so a
-  // single empty line is recognized regardless of line-ending style.
-  const blocks = text.replace(/\r\n/g, '\n').split(/\n[ \t]*\n/)
-  let firstBlock = (blocks.find(b => b.trim() !== '') || '').trim()
+  // Collect lines up to (not including) the first empty line. Blank lines inside
+  // a fenced code block (``` or ~~~) don't count, so a leading code block stays
+  // intact. Normalize CRLF so line endings don't matter. An empty first line
+  // yields an empty preview.
+  const lines = text.replace(/\r\n/g, '\n').split('\n')
+  const block = []
+  let inFence = false
+  for (const line of lines) {
+    const isFence = /^\s*(```|~~~)/.test(line)
+    if (isFence) inFence = !inFence
+    if (!inFence && !isFence && line.trim() === '') break
+    block.push(line)
+  }
+  let firstBlock = block.join('\n')
 
   // Also apply character limit
   if (firstBlock.length > maxLen) {

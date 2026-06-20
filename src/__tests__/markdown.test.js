@@ -46,16 +46,25 @@ describe('renderMarkdownHtml', () => {
     expect(html).not.toContain('Dropped paragraph')
   })
 
-  it('skips leading empty lines and shows the first non-empty block', () => {
-    const html = renderMarkdownHtml('\n\nActual content here\n\nDropped paragraph')
-    expect(html).toContain('Actual content here')
-    expect(html).not.toContain('Dropped paragraph')
+  it('suppresses the preview entirely when the first line is empty', () => {
+    expect(renderMarkdownHtml('\nHidden note text')).toBe('')
+    expect(renderMarkdownHtml('\n\nHidden note text')).toBe('')
+    expect(renderMarkdownHtml('   \nHidden note text')).toBe('')
   })
 
   it('recognizes a single empty line with CRLF line endings', () => {
     const html = renderMarkdownHtml('First block\r\n\r\nDropped paragraph')
     expect(html).toContain('First block')
     expect(html).not.toContain('Dropped paragraph')
+  })
+
+  it('keeps a leading fenced code block intact despite blank lines inside it', () => {
+    const text = '```\nimport x\n\nclass Y:\n    z: str\n```\n\n## Dropped heading'
+    const html = renderMarkdownHtml(text)
+    expect(html).toContain('import x')
+    expect(html).toContain('class Y:')
+    expect(html).toContain('z: str')
+    expect(html).not.toContain('Dropped heading')
   })
 
   it('truncates the first block to maxLen characters', () => {
