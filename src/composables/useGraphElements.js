@@ -118,15 +118,11 @@ export function buildElements(options) {
   // Include parent unless hidden by settings, completed when hiding completed, or type is filtered out.
   // The type filter targets the children listing, not the container being viewed: a tag is intentionally
   // excluded from visibleTypes, but the tag container must still render as the root node when navigated into.
-  // Always include parent when there are no children (otherwise graph would be empty).
+  // The showRootNode toggle is authoritative: turning it off hides the root even when there are no children
+  // (the view then shows its empty-state help rather than forcing the root to stay).
   const parentTypeVisible = !parentNode || parentNode.type === 'tag' || visibleTypes.includes(parentNode.type)
-  const hasNoChildren = flat.length === 0
   const includeParent =
-    parentNode &&
-    parentNode.id &&
-    (hasNoChildren || showRootNode) &&
-    parentTypeVisible &&
-    !(hideCompleted && parentNode.completed)
+    parentNode && parentNode.id && showRootNode && parentTypeVisible && !(hideCompleted && parentNode.completed)
   const allNodes = (includeParent ? [{ ...parentNode, children: filteredList }, ...flat] : flat).filter(n => n && n.id)
   const totalNodes = allNodes.length
   const showDetails = totalNodes <= detailThreshold
