@@ -225,6 +225,14 @@ describe('useNodeActionsUI', () => {
       expect(mockRefreshAfterDelete).toHaveBeenCalled()
     })
 
+    it('should reload the tasks view after deleting', async () => {
+      const { deleteNode } = createNodeActionsUI()
+
+      await deleteNode(1)
+
+      expect(viewRendererRef.value.loadTasks).toHaveBeenCalled()
+    })
+
     it('should do nothing if node not found', async () => {
       mockApi.getNode.mockResolvedValue(null)
       const { deleteNode } = createNodeActionsUI()
@@ -282,6 +290,7 @@ describe('useNodeActionsUI', () => {
 
       expect(mockNodeOps.deleteMultipleNodes).toHaveBeenCalledWith([1])
       expect(mockRefreshAfterDelete).toHaveBeenCalled()
+      expect(viewRendererRef.value.loadTasks).toHaveBeenCalled()
     })
 
     it('should ask for confirmation when deleting multiple nodes', async () => {
