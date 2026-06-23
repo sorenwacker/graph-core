@@ -701,7 +701,7 @@ defineExpose({
                 class="notes-codemirror"
               />
 
-              <div v-else-if="activeTab === 'preview'" class="notes-preview markdown-body">
+              <div v-else-if="activeTab === 'preview'" class="notes-preview markdown-body" tabindex="0">
                 <div v-if="editedNode.notes_sensitive && !showSensitivePreview" class="sensitive-hidden">
                   <p>Sensitive notes hidden</p>
                   <button class="unlock-btn" @click="showSensitivePreview = true" title="Show sensitive notes">
@@ -720,7 +720,12 @@ defineExpose({
                   @blur="saveChanges"
                   class="notes-codemirror split-editor"
                 />
-                <div ref="splitPreview" class="notes-preview markdown-body split-preview" @scroll="syncPreviewToEditor">
+                <div
+                  ref="splitPreview"
+                  class="notes-preview markdown-body split-preview"
+                  tabindex="0"
+                  @scroll="syncPreviewToEditor"
+                >
                   <div v-if="editedNode.notes_sensitive && !showSensitivePreview" class="sensitive-hidden">
                     <p>Sensitive notes hidden</p>
                     <button class="unlock-btn" @click="showSensitivePreview = true" title="Show sensitive notes">
