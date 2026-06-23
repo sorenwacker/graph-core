@@ -342,6 +342,14 @@ watch(selectedNode, node => {
   if (!node && !detailPinned.value) showDetail.value = false
 })
 
+// Clicking a task in the Tasks view loads its context, selects it, and opens
+// the detail panel - the list is a flat set of actionable items, so a click is
+// expected to reveal the task rather than only select it.
+async function openTaskDetail(node) {
+  await navigateToNode(node)
+  showDetail.value = true
+}
+
 // Card drag
 const {
   dropTarget,
@@ -973,7 +981,7 @@ useAppLifecycle({
               @go-first-child="goToFirstChild"
               @go-prev-sibling="goToPrevSibling"
               @go-next-sibling="goToNextSibling"
-              @navigate="navigateToNode"
+              @navigate="openTaskDetail"
               @empty-all="emptyAllTrash"
               @restore="restoreFromTrash"
             />
