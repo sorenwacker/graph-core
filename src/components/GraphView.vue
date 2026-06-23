@@ -15,6 +15,7 @@ import { useGraphWheel } from '../composables/useGraphWheel.js'
 import { updateHtmlLabelSelectionFromIds, centerOnNode, isNodeVisible } from '../composables/useGraphSelection.js'
 import { getPositionsKey, loadNodePositions, saveNodePositions } from '../composables/useNodePositions.js'
 import { DEBOUNCE_DELAY_MS, LAYOUT_RELAYOUT_DELAY_MS } from '../utils/settingsConstants'
+import { createCoalescingRunner } from '../utils/asyncRunner.js'
 import AddNodeModal from './AddNodeModal.vue'
 import GraphControls from './GraphControls.vue'
 import GraphEditModal from './GraphEditModal.vue'
@@ -583,11 +584,23 @@ function handleGlobalKeydown(e) {
 }
 
 /**
- * Initialize the graph with nodes and edges.
+ * Build the graph instance with nodes and edges.
+ *
+ * Always destroys any existing instance first so concurrent setting changes can
+ * never leave an orphaned Cytoscape instance attached to the container (which
+ * renders as a blank/dysfunctional graph). Call via {@link initGraph}, which
+ * serialises overlapping invocations.
  */
-async function initGraph() {
+async function initGraphImpl() {
   if (!container.value) return
   isInitializing = true
+
+  // Never leak a previous instance - an orphaned Cytoscape bound to the same
+  // container is a primary cause of the blank-graph state.
+  if (cy) {
+    cy.destroy()
+    cy = null
+  }
 
   const savedPos = _loadPos()
   const elements = await graphUpdate.buildElementsWithLinks(savedPos)
@@ -606,6 +619,17 @@ async function initGraph() {
     isInitializing = false
   })
   setTimeout(() => attachCollapseHandlers(), 300)
+}
+
+// Serialise init so overlapping reactive watchers can't spin up two instances.
+const runInit = createCoalescingRunner(initGraphImpl)
+
+/**
+ * Initialize the graph with nodes and edges (non-reentrant).
+ * @returns {Promise<void>}
+ */
+function initGraph() {
+  return runInit()
 }
 
 /**
@@ -693,8 +717,22 @@ defineExpose({
   visibleTypes,
 })
 
+// Keep the Cytoscape canvas in sync with its container size. Cytoscape only
+// auto-resizes on window resize, so container-only changes (detail panel
+// open/close, sidebar, returning to the graph view) would otherwise leave a
+// stale-sized, blank-looking canvas until the next window resize.
+let containerResizeObserver = null
+function observeContainerResize() {
+  if (typeof ResizeObserver === 'undefined' || !container.value) return
+  containerResizeObserver = new ResizeObserver(() => {
+    if (cy) cy.resize()
+  })
+  containerResizeObserver.observe(container.value)
+}
+
 onMounted(() => {
   initGraph()
+  observeContainerResize()
   window.addEventListener('graph-center-node', handleCenterEvent)
   window.addEventListener('keydown', handleGlobalKeydown)
   document.addEventListener('keydown', handleModifierKeydown)
@@ -721,6 +759,8 @@ onUnmounted(() => {
   document.removeEventListener('keyup', handleModifierKeyup)
   document.removeEventListener('mousemove', handleModifierMousemove)
   if (updateDebounceTimer) clearTimeout(updateDebounceTimer)
+  containerResizeObserver?.disconnect()
+  containerResizeObserver = null
   wheel.cleanup()
   layout.cleanup()
   if (cy) {
