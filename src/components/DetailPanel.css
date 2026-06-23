@@ -432,6 +432,12 @@
   min-height: 0;
 }
 
+/* Preview is focusable (tabindex) so Cmd/Ctrl+A can select its text. */
+.notes-preview:focus,
+.notes-preview:focus-visible {
+  outline: none;
+}
+
 .notes-textarea {
   color: var(--text-primary);
   font-family: inherit;

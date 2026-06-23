@@ -1,4 +1,55 @@
 /**
+ * Resolve the rendered notes preview element that contains a DOM node, if any.
+ *
+ * The notes preview (and split preview) is a non-editable `.notes-preview` div,
+ * so keyboard events targeting it bubble to the window-level handler. This helper
+ * lets the Cmd/Ctrl+A handler recognise that the user is reading preview text.
+ *
+ * @param {Node|null|undefined} node - A DOM node (element or text node).
+ * @returns {Element|null} The enclosing `.notes-preview` element, or null.
+ */
+export function resolveNotesPreview(node) {
+  if (!node) return null
+  const el = node.nodeType === 1 ? node : node.parentElement
+  return el?.closest?.('.notes-preview') || null
+}
+
+/**
+ * Find the notes preview the user is currently interacting with for a key event.
+ *
+ * Checks, in order: the event target, the focused element, and the current text
+ * selection anchor. Any of these landing inside a `.notes-preview` means Cmd+A
+ * should select that text rather than selecting all nodes.
+ *
+ * @param {KeyboardEvent} e - The keyboard event.
+ * @returns {Element|null} The active preview element, or null.
+ */
+export function activeNotesPreview(e) {
+  const sel = typeof window !== 'undefined' && window.getSelection ? window.getSelection() : null
+  return (
+    resolveNotesPreview(e?.target) ||
+    resolveNotesPreview(typeof document !== 'undefined' ? document.activeElement : null) ||
+    resolveNotesPreview(sel?.anchorNode)
+  )
+}
+
+/**
+ * Select all text contents of an element as a native browser selection.
+ *
+ * @param {Element} el - The element whose contents should be selected.
+ */
+export function selectElementText(el) {
+  if (typeof window === 'undefined' || !window.getSelection || typeof document === 'undefined') {
+    return
+  }
+  const range = document.createRange()
+  range.selectNodeContents(el)
+  const sel = window.getSelection()
+  sel.removeAllRanges()
+  sel.addRange(range)
+}
+
+/**
  * Composable for handling global keyboard shortcuts.
  *
  * @param {Object} options - Configuration options
@@ -185,8 +236,15 @@ export function useKeyboardShortcuts({ actions, state }) {
       return
     }
 
-    // Ctrl/Cmd+A - select all visible
+    // Ctrl/Cmd+A - select all visible nodes, unless the user is reading a
+    // rendered notes preview, in which case select that text instead.
     if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+      const previewEl = activeNotesPreview(e)
+      if (previewEl) {
+        e.preventDefault()
+        selectElementText(previewEl)
+        return
+      }
       e.preventDefault()
       selectAll()
       return
