@@ -13,6 +13,7 @@ import { api } from '../services/api'
 import { useMentions } from '../composables/useMentions.js'
 import { useNodeTable } from '../composables/useNodeTable.js'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
+import { selectElementText } from '../composables/useKeyboardShortcuts.js'
 import { AUTOSAVE_DELAY_MS } from '../utils/settingsConstants'
 
 const props = defineProps({
@@ -171,6 +172,19 @@ function getNotesSelection() {
     return editor.getSelection()
   }
   return { text: '', from: 0, to: 0 }
+}
+
+// Cmd/Ctrl+A inside the rendered notes preview selects the preview text.
+// The preview is non-editable, so the browser would otherwise select the whole
+// document (or, in the main window, the global shortcut handler would select all
+// nodes). The detached window has no global handler at all, so this local handler
+// is what makes select-all work there.
+function onPreviewKeydown(e) {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+    e.preventDefault()
+    e.stopPropagation()
+    selectElementText(e.currentTarget)
+  }
 }
 
 // Handle Escape key to close - always save first
@@ -701,7 +715,12 @@ defineExpose({
                 class="notes-codemirror"
               />
 
-              <div v-else-if="activeTab === 'preview'" class="notes-preview markdown-body" tabindex="0">
+              <div
+                v-else-if="activeTab === 'preview'"
+                class="notes-preview markdown-body"
+                tabindex="0"
+                @keydown="onPreviewKeydown"
+              >
                 <div v-if="editedNode.notes_sensitive && !showSensitivePreview" class="sensitive-hidden">
                   <p>Sensitive notes hidden</p>
                   <button class="unlock-btn" @click="showSensitivePreview = true" title="Show sensitive notes">
@@ -724,6 +743,7 @@ defineExpose({
                   ref="splitPreview"
                   class="notes-preview markdown-body split-preview"
                   tabindex="0"
+                  @keydown="onPreviewKeydown"
                   @scroll="syncPreviewToEditor"
                 >
                   <div v-if="editedNode.notes_sensitive && !showSensitivePreview" class="sensitive-hidden">
