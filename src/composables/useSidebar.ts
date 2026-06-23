@@ -65,13 +65,73 @@ export function useSidebar(options: UseSidebarOptions = {}): UseSidebarReturn {
   let hideTimeout: ReturnType<typeof setTimeout> | null = null
   let isUnmounted = false
 
-  // Cleanup on unmount
-  onUnmounted(() => {
-    isUnmounted = true
+  function clearHideTimeout(): void {
     if (hideTimeout) {
       clearTimeout(hideTimeout)
       hideTimeout = null
     }
+  }
+
+  function scheduleHide(): void {
+    clearHideTimeout()
+    hideTimeout = setTimeout(() => {
+      if (!isUnmounted) {
+        hovered.value = false
+      }
+    }, SIDEBAR_HIDE_DELAY_MS)
+  }
+
+  /**
+   * Global pointer tracking while the sidebar is open.
+   *
+   * Relying only on the sidebar's own `mouseleave` is unreliable: if the pointer
+   * is already outside the sidebar when it opens, or leaves through a path/speed
+   * that never delivers a clean `mouseleave`, the sidebar would stay open forever.
+   * Watching pointer position document-wide guarantees the sidebar closes once the
+   * pointer is outside the sidebar zone.
+   */
+  function onGlobalPointerMove(event: MouseEvent): void {
+    if (pinned?.value) return
+    if (event.clientX <= SIDEBAR_WIDTH) {
+      clearHideTimeout()
+    } else {
+      scheduleHide()
+    }
+  }
+
+  // Pointer left the document/window entirely - nothing is being hovered.
+  function onDocumentPointerLeave(): void {
+    if (pinned?.value) return
+    scheduleHide()
+  }
+
+  function addGlobalListeners(): void {
+    if (typeof document === 'undefined') return
+    document.addEventListener('mousemove', onGlobalPointerMove)
+    document.addEventListener('mouseleave', onDocumentPointerLeave)
+  }
+
+  function removeGlobalListeners(): void {
+    if (typeof document === 'undefined') return
+    document.removeEventListener('mousemove', onGlobalPointerMove)
+    document.removeEventListener('mouseleave', onDocumentPointerLeave)
+  }
+
+  // Attach global pointer tracking only while the sidebar is open and unpinned.
+  watch([hovered, () => pinned?.value], ([isHovered, isPinned]) => {
+    if (isHovered && !isPinned) {
+      addGlobalListeners()
+    } else {
+      removeGlobalListeners()
+      if (!isHovered) clearHideTimeout()
+    }
+  })
+
+  // Cleanup on unmount
+  onUnmounted(() => {
+    isUnmounted = true
+    clearHideTimeout()
+    removeGlobalListeners()
   })
 
   // Helper to get boolean from localStorage
@@ -120,10 +180,7 @@ export function useSidebar(options: UseSidebarOptions = {}): UseSidebarReturn {
    * Handle mouse enter on sidebar
    */
   function onEnter(): void {
-    if (hideTimeout) {
-      clearTimeout(hideTimeout)
-      hideTimeout = null
-    }
+    clearHideTimeout()
     hovered.value = true
   }
 
@@ -139,11 +196,7 @@ export function useSidebar(options: UseSidebarOptions = {}): UseSidebarReturn {
       return
     }
 
-    hideTimeout = setTimeout(() => {
-      if (!isUnmounted) {
-        hovered.value = false
-      }
-    }, SIDEBAR_HIDE_DELAY_MS)
+    scheduleHide()
   }
 
   /**
