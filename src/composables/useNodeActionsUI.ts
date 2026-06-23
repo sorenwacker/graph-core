@@ -215,6 +215,9 @@ export function useNodeActionsUI({
         }
       }
       await refreshAfterDelete()
+      // Tasks view is driven by its own list; reload it so a deleted task
+      // (including the previously selected one) disappears immediately.
+      ;(viewRendererRef.value as ViewRendererRef)?.loadTasks?.()
     }
   }
 
@@ -236,6 +239,7 @@ export function useNodeActionsUI({
         navigateBack()
       }
       await refreshAfterDelete()
+      ;(viewRendererRef.value as ViewRendererRef)?.loadTasks?.()
     }
   }
 
