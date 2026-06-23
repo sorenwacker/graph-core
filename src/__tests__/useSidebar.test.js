@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import { useSidebar } from '../composables/useSidebar'
 
 describe('useSidebar composable', () => {
@@ -123,6 +123,50 @@ describe('useSidebar composable', () => {
 
       vi.advanceTimersByTime(200)
       expect(sidebar.hovered.value).toBe(false)
+    })
+  })
+
+  describe('global pointer tracking', () => {
+    function moveMouse(clientX) {
+      document.dispatchEvent(new MouseEvent('mousemove', { clientX }))
+    }
+
+    it('closes when the pointer is outside the sidebar zone even without a mouseleave', async () => {
+      sidebar.onEnter()
+      await nextTick() // let the watcher attach the global listener
+
+      moveMouse(400) // far outside the 280px zone, no mouseleave fired
+      vi.advanceTimersByTime(150)
+      expect(sidebar.hovered.value).toBe(false)
+    })
+
+    it('stays open while the pointer is within the sidebar zone', async () => {
+      sidebar.onEnter()
+      await nextTick()
+
+      moveMouse(100) // inside the 280px zone
+      vi.advanceTimersByTime(200)
+      expect(sidebar.hovered.value).toBe(true)
+    })
+
+    it('cancels a pending hide when the pointer moves back into the zone', async () => {
+      sidebar.onEnter()
+      await nextTick()
+
+      moveMouse(400) // schedules hide
+      moveMouse(50) // back inside, should cancel
+      vi.advanceTimersByTime(200)
+      expect(sidebar.hovered.value).toBe(true)
+    })
+
+    it('does not close a pinned sidebar on pointer move', async () => {
+      const pinnedSidebar = useSidebar({ pinned: ref(true) })
+      pinnedSidebar.onEnter()
+      await nextTick()
+
+      moveMouse(400)
+      vi.advanceTimersByTime(200)
+      expect(pinnedSidebar.hovered.value).toBe(true)
     })
   })
 
