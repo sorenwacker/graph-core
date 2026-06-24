@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { nextTick } from 'vue'
 import { useSettings, _resetSettingsForTesting } from '../composables/useSettings'
 
 describe('useSettings composable', () => {
@@ -61,10 +62,37 @@ describe('useSettings composable', () => {
 
     it('should restore number values from localStorage', () => {
       mockStorage['graphcore-graphDetailThreshold'] = '50'
-      mockStorage['graphcore-graphMaxDepth'] = '3'
+      // graphMaxDepth is workspace-keyed (default workspace 'work')
+      mockStorage['graphcore-graphMaxDepth-work'] = '3'
       const settings = useSettings()
       expect(settings.graphDetailThreshold.value).toBe(50)
       expect(settings.graphMaxDepth.value).toBe(3)
+    })
+
+    it('should read graphMaxDepth per-workspace', () => {
+      mockStorage['graphcore-workspace'] = 'personal'
+      mockStorage['graphcore-graphMaxDepth-personal'] = '5'
+      mockStorage['graphcore-graphMaxDepth-work'] = '2'
+      const settings = useSettings()
+      expect(settings.workspace.value).toBe('personal')
+      expect(settings.graphMaxDepth.value).toBe(5)
+    })
+
+    it('should reload graphMaxDepth when the workspace changes', async () => {
+      mockStorage['graphcore-graphMaxDepth-work'] = '2'
+      mockStorage['graphcore-graphMaxDepth-personal'] = '7'
+      const settings = useSettings()
+      expect(settings.graphMaxDepth.value).toBe(2)
+      settings.workspace.value = 'personal'
+      await nextTick()
+      expect(settings.graphMaxDepth.value).toBe(7)
+    })
+
+    it('should persist graphMaxDepth to the active workspace key', async () => {
+      const settings = useSettings()
+      settings.graphMaxDepth.value = 4
+      await nextTick()
+      expect(mockStorage['graphcore-graphMaxDepth-work']).toBe('4')
     })
 
     it('should handle invalid number values gracefully', () => {

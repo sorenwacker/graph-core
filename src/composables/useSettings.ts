@@ -150,6 +150,66 @@ function persistedRef<T>(key: string, defaultValue: T, { type = 'string' }: Pers
   return value
 }
 
+/**
+ * Create a numeric ref that persists per-workspace to the database (with a
+ * localStorage fallback), keyed `${baseKey}-${workspace}`. Unlike persistedRef,
+ * the value follows the active workspace: it reloads when the workspace changes
+ * and writes to that workspace's key. Used for settings that must be isolated
+ * per workspace yet survive reinstalls (which clear localStorage but not the DB).
+ *
+ * @param baseKey - Base setting key (workspace id is appended).
+ * @param defaultValue - Default when no stored value exists.
+ * @param workspaceRef - Ref holding the active workspace id.
+ * @returns A ref whose reads/writes target the active workspace's key.
+ */
+function workspacePersistedRef(baseKey: string, defaultValue: number, workspaceRef: Ref<string>): Ref<number> {
+  const keyFor = (ws: string): string => `${baseKey}-${ws}`
+
+  function readRaw(key: string): string | null {
+    if (hasElectronAPI() && settingsCache) {
+      const cached = settingsCache[key]
+      if (cached != null) return cached
+    }
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem(key)
+    }
+    return null
+  }
+
+  function readValue(ws: string): number {
+    const stored = readRaw(keyFor(ws))
+    if (stored === null) return defaultValue
+    const parsed = parseInt(String(stored), 10)
+    return isNaN(parsed) ? defaultValue : parsed
+  }
+
+  function persist(ws: string, val: number): void {
+    const key = keyFor(ws)
+    const serialized = String(val)
+    if (hasElectronAPI()) {
+      getElectronAPI()!
+        .setSetting(key, serialized)
+        ?.catch?.((e: unknown) => console.error('Failed to save setting to database:', key, e))
+      if (settingsCache) settingsCache[key] = serialized
+    }
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, serialized)
+    }
+  }
+
+  const value = ref<number>(readValue(workspaceRef.value)) as Ref<number>
+
+  // Persist changes to the active workspace's key.
+  watch(value, val => persist(workspaceRef.value, val))
+
+  // When the workspace changes, load that workspace's stored value.
+  watch(workspaceRef, ws => {
+    value.value = readValue(ws)
+  })
+
+  return value
+}
+
 // Singleton state for settings initialization
 const settingsReady: ShallowRef<boolean> = shallowRef(false)
 let initPromise: Promise<void> | null = null
@@ -192,6 +252,10 @@ export async function initSettings(): Promise<void> {
  * Internal function to create settings refs (called once after cache loads).
  */
 function createSettingsRefs(): UseSettingsReturn & { settingsReady: ShallowRef<boolean> } {
+  // Workspace is created first so per-workspace settings (e.g. graphMaxDepth) can
+  // key off it.
+  const workspace = persistedRef<string>('graphcore-workspace', 'work')
+
   return {
     // Ready state
     settingsReady,
@@ -208,7 +272,9 @@ function createSettingsRefs(): UseSettingsReturn & { settingsReady: ShallowRef<b
 
     // Graph settings
     graphDetailThreshold: persistedRef<number>('graphcore-graphDetailThreshold', 50, { type: 'number' }),
-    graphMaxDepth: persistedRef<number>('graphcore-graphMaxDepth', 0, { type: 'number' }),
+    // Per-workspace so each workspace keeps its own root depth; DB-backed so it
+    // survives reinstalls (localStorage does not).
+    graphMaxDepth: workspacePersistedRef('graphcore-graphMaxDepth', 0, workspace),
     graphNotesPreviewLength: persistedRef<number>('graphcore-graphNotesPreviewLength', 200, { type: 'number' }),
 
     // Detail panel settings
@@ -220,7 +286,7 @@ function createSettingsRefs(): UseSettingsReturn & { settingsReady: ShallowRef<b
     sidebarPinned: persistedRef<boolean>('graphcore-sidebarPinned', true, { type: 'boolean' }),
 
     // Workspace
-    workspace: persistedRef<string>('graphcore-workspace', 'work'),
+    workspace,
 
     // AI provider settings
     aiProvider: persistedRef<AIProvider>('graphcore-aiProvider', 'ollama'),
