@@ -242,35 +242,47 @@ describe('useNodeActionsUI', () => {
       expect(mockNodeOps.deleteNode).not.toHaveBeenCalled()
     })
 
-    it('should navigate to parent if deleting current container', async () => {
+    it('should redirect to parent if deleting current container', async () => {
       currentContainerId.value = 1
       mockApi.getNode.mockResolvedValue({ id: 1, parent_id: 5 })
 
       const { deleteNode } = createNodeActionsUI()
       await deleteNode(1)
 
-      expect(mockEnterContainer).toHaveBeenCalledWith({ id: 5 })
+      expect(mockLoadChildren).toHaveBeenCalledWith(5)
     })
 
-    it('should navigate to root if deleting container with no parent', async () => {
+    it('should redirect to root if deleting container with no parent', async () => {
       currentContainerId.value = 1
       mockApi.getNode.mockResolvedValue({ id: 1, parent_id: null })
 
       const { deleteNode } = createNodeActionsUI()
       await deleteNode(1)
 
-      expect(currentContainerId.value).toBeNull()
-      expect(breadcrumbs.value).toEqual([])
+      expect(mockLoadChildren).toHaveBeenCalledWith(null)
     })
 
-    it('should navigate if deleting node in breadcrumbs', async () => {
+    it('should redirect if deleting a node in the breadcrumbs', async () => {
       breadcrumbs.value = [{ id: 1 }, { id: 2 }]
       mockApi.getNode.mockResolvedValue({ id: 1, parent_id: 5 })
 
       const { deleteNode } = createNodeActionsUI()
       await deleteNode(1)
 
-      expect(mockEnterContainer).toHaveBeenCalledWith({ id: 5 })
+      expect(mockLoadChildren).toHaveBeenCalledWith(5)
+    })
+
+    it('should NOT redirect when deleting a node outside the current path', async () => {
+      currentContainerId.value = 99
+      breadcrumbs.value = [{ id: 99 }]
+      mockApi.getNode.mockResolvedValue({ id: 1, parent_id: 5 })
+
+      const { deleteNode } = createNodeActionsUI()
+      await deleteNode(1)
+
+      // No navigation load - only the deleted node is gone, the view stays put.
+      expect(mockLoadChildren).not.toHaveBeenCalledWith(5)
+      expect(mockLoadChildren).not.toHaveBeenCalledWith(null)
     })
   })
 

@@ -174,7 +174,6 @@ export function useNodeActionsUI({
     flatChildren,
     viewRendererRef,
     error,
-    enterContainer,
     navigateBack,
     refreshAfterChange,
     refreshAfterDelete,
@@ -207,12 +206,12 @@ export function useNodeActionsUI({
     if (result.success) {
       clearSelectionAfterDelete()
       if (needsNavigation) {
-        if (node.parent_id) {
-          await enterContainer({ id: node.parent_id } as Node)
-        } else {
-          currentContainerId.value = null
-          breadcrumbs.value = []
-        }
+        // The deleted node is the current container (or one of its ancestors).
+        // Redirect to the parent - or root when there is none - by loading that
+        // container directly. Passing the id (not a partial node object) avoids
+        // the navigation being misread as a leaf and skipped, which would leave
+        // the view rendering the now-deleted node (a blank/broken screen).
+        await loadChildren(node.parent_id ?? null)
       }
       await refreshAfterDelete()
       // Tasks view is driven by its own list; reload it so a deleted task
