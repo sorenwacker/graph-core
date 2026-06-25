@@ -93,3 +93,82 @@ defineExpose({ getSelection, notesEditorRef, notesEditorSplitRef })
     </div>
   </div>
 </template>
+
+<style scoped>
+/*
+ * NotesSection is rendered inside detail forms (person/organization) whose
+ * styling cannot reach these elements (parent scoped CSS does not penetrate a
+ * child component). The split/editor/preview layout therefore lives here so the
+ * component renders correctly regardless of where it is used.
+ */
+.notes-header {
+  margin-bottom: 4px;
+}
+
+.notes-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tab-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.tab-buttons button {
+  padding: 4px 10px;
+  border: none;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.tab-buttons button.active {
+  background: var(--accent-color);
+  color: white;
+}
+
+.notes-codemirror {
+  flex: 1 1 0;
+  min-height: 200px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.notes-codemirror.split-editor {
+  flex: 1;
+}
+
+.notes-preview {
+  padding: 8px;
+  font-size: 13px;
+  overflow-y: auto;
+  line-height: 1.5;
+}
+
+.notes-preview .placeholder {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+/* Split view: editor and preview side by side, each filling half the height. */
+.notes-split {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.notes-split .split-editor,
+.notes-split .split-preview {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+</style>
