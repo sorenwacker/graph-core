@@ -47,6 +47,7 @@ class Database {
         console.log(`Database loaded with ${count} nodes`)
       } catch (e) {
         console.error('Error loading database:', e)
+        this._preserveCorruptFile()
         this.db = new SQL.Database()
       }
     } else {
@@ -57,6 +58,22 @@ class Database {
     this._initSchema()
     this._initOperations()
     return true
+  }
+
+  /**
+   * Copies an unreadable database file to a timestamped ".corrupt-*" sibling
+   * before it is replaced by a fresh empty database. Without this, the next
+   * _save() would overwrite the original file and destroy recoverable data.
+   * @private
+   */
+  _preserveCorruptFile() {
+    try {
+      const backupPath = `${this.dbPath}.corrupt-${Date.now()}`
+      fs.copyFileSync(this.dbPath, backupPath)
+      console.error(`Preserved unreadable database file at ${backupPath}`)
+    } catch (err) {
+      console.error('Failed to preserve unreadable database file:', err)
+    }
   }
 
   _initSchema() {
