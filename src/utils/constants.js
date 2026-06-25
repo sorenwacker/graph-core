@@ -126,13 +126,6 @@ export function getTypeIcon(type) {
   return config.icon
 }
 
-// Returns HTML for the icon - all types now use SVG
-export function getTypeIconHtml(type) {
-  const config = typeConfig[type]
-  if (!config) return `<span>${type?.[0]?.toUpperCase() || '?'}</span>`
-  return config.icon
-}
-
 export function getTypeLabel(type) {
   return typeConfig[type]?.label || type || 'Unknown'
 }

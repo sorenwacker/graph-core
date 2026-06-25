@@ -5,7 +5,6 @@ import {
   personIconSvg,
   getPersonColor,
   getTypeIcon,
-  getTypeIconHtml,
   getTypeLabel,
   getTypeCssClass,
   getTypeColors,
@@ -118,14 +117,6 @@ describe('Constants Module', () => {
     it('should handle null/undefined type', () => {
       expect(getTypeIcon(null)).toContain('?')
       expect(getTypeIcon(undefined)).toContain('?')
-    })
-  })
-
-  describe('getTypeIconHtml', () => {
-    it('should return same as getTypeIcon', () => {
-      for (const type of nodeTypes) {
-        expect(getTypeIconHtml(type)).toBe(getTypeIcon(type))
-      }
     })
   })
 
