@@ -60,7 +60,8 @@ function isDescendant(parent, childId) {
  * @param {Function} options.getCy - Function returning cytoscape instance
  * @param {Function} options.getContainer - Function returning container element
  * @param {Function} options.getDropHighlight - Function returning drop highlight element
- * @param {Function} options.getLinkModeActive - Function returning link mode state
+ * @param {Function} options.getLinkLine - Function returning the link connector SVG overlay element
+ * @param {Function} options.getLinkModeActive - Function returning whether link mode (Option) is active
  * @param {Function} options.getParent - Function returning parent node
  * @param {Function} options.getSelectedIds - Function returning set of selected node IDs
  * @param {Function} options.emit - Event emitter function
@@ -78,6 +79,7 @@ export function useGraphEvents(options = {}) {
     getCy,
     getContainer,
     getDropHighlight,
+    getLinkLine,
     getLinkModeActive,
     getSelectedIds,
     emit,
@@ -95,6 +97,81 @@ export function useGraphEvents(options = {}) {
   let dragStartPos = null
   let highlightedNode = null
   let selectionUpdateTimer = null
+
+  /**
+   * Draw a link connector from a source node to the pointer. The source node
+   * stays in place; releasing over another node emits a link between them.
+   *
+   * The connector is a single absolutely-positioned div (getLinkLine) rotated to
+   * span from the source node to the cursor - the same plain-div overlay
+   * technique as the working drop-highlight, which avoids SVG viewport clipping.
+   * @param {Object} cy - Cytoscape instance
+   * @param {HTMLElement} container - Cytoscape container element
+   * @param {Object} sourceNode - Source cytoscape node
+   */
+  function startLinkDraw(cy, container, sourceNode) {
+    const lineEl = getLinkLine?.()
+    if (!lineEl) return
+    const start = sourceNode.renderedPosition()
+
+    // Position the line as a rotated bar from the source point to (x, y), all in
+    // container-relative pixels (the overlay shares the container's origin).
+    const drawTo = (x, y) => {
+      const dx = x - start.x
+      const dy = y - start.y
+      const length = Math.sqrt(dx * dx + dy * dy)
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI
+      lineEl.style.left = `${start.x}px`
+      lineEl.style.top = `${start.y}px`
+      lineEl.style.width = `${length}px`
+      lineEl.style.transform = `rotate(${angle}deg)`
+    }
+
+    drawTo(start.x, start.y)
+    lineEl.style.display = 'block'
+
+    let targetNode = null
+    const clearTarget = () => {
+      if (targetNode) {
+        targetNode.removeClass('drop-target')
+        targetNode = null
+      }
+    }
+
+    const onMove = moveEvent => {
+      const rect = container.getBoundingClientRect()
+      drawTo(moveEvent.clientX - rect.left, moveEvent.clientY - rect.top)
+
+      clearTarget()
+      const el = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY)
+      const label = el?.closest?.('.node-html, .node-person') || el?.querySelector?.('.node-html, .node-person')
+      const targetId = label?.dataset?.nodeId
+      if (targetId && targetId !== sourceNode.id()) {
+        const tn = cy.$(`#${targetId}`)
+        if (tn && tn.length) {
+          tn.addClass('drop-target')
+          targetNode = tn
+        }
+      }
+    }
+
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      lineEl.style.display = 'none'
+      if (targetNode) {
+        const source = sourceNode.data('nodeData')
+        const target = targetNode.data('nodeData')
+        if (source && target && source.id !== target.id) {
+          emit('link', { sourceId: source.id, targetId: target.id })
+        }
+      }
+      clearTarget()
+    }
+
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
 
   /**
    * Set up node tap and double-tap handlers.
@@ -249,16 +326,18 @@ export function useGraphEvents(options = {}) {
   function setupHtmlLabelHandlers(cy, container) {
     let htmlClickPending = null
     let htmlClickTimer = null
-    let isDragging = false
-    let draggedCyNode = null
 
-    // Handle mousedown on HTML labels to initiate Cytoscape drag
+    // Handle mousedown on a node card. The node-html-label plugin wraps each card
+    // in a positioned div, so the event target is often that wrapper whose child
+    // is the .node-html (closest() only walks ancestors, never children).
+    // Resolve the card whether the target is it, an ancestor, or the wrapper.
     container.addEventListener('mousedown', e => {
-      const htmlLabel = e.target.closest('.node-html, .node-person')
+      const htmlLabel =
+        e.target.closest?.('.node-html, .node-person') || e.target.querySelector?.('.node-html, .node-person')
       if (!htmlLabel) return
 
-      // Don't initiate drag on interactive elements
-      if (e.target.closest('.collapse-btn, a')) return
+      // Don't initiate on interactive elements
+      if (e.target.closest?.('.collapse-btn, a')) return
 
       const nodeId = htmlLabel.dataset.nodeId
       if (!nodeId) return
@@ -266,47 +345,13 @@ export function useGraphEvents(options = {}) {
       const cyNode = cy.$(`#${nodeId}`)
       if (!cyNode || cyNode.length === 0) return
 
-      // Store for potential drag
-      draggedCyNode = cyNode
-      isDragging = false
-
-      // Track mouse movement to detect drag vs click
-      const startX = e.clientX
-      const startY = e.clientY
-
-      const onMouseMove = moveEvent => {
-        const dx = moveEvent.clientX - startX
-        const dy = moveEvent.clientY - startY
-        if (Math.sqrt(dx * dx + dy * dy) > 5 && !isDragging) {
-          isDragging = true
-          // Trigger Cytoscape grab
-          cyNode.emit('grab')
-          dragStartPos = { ...cyNode.position() }
-        }
-        if (isDragging) {
-          // Move the Cytoscape node
-          const zoom = cy.zoom()
-          const pan = cy.pan()
-          const newX = (moveEvent.clientX - container.getBoundingClientRect().left - pan.x) / zoom
-          const newY = (moveEvent.clientY - container.getBoundingClientRect().top - pan.y) / zoom
-          cyNode.position({ x: newX, y: newY })
-          cyNode.emit('drag')
-        }
+      // Link mode (Option only): draw a link connector from this node instead of
+      // moving it. Normal dragging and reparenting are handled by cytoscape's
+      // native node drag (grab/drag/free), so we only intercept for link mode.
+      if (getLinkModeActive?.()) {
+        e.preventDefault()
+        startLinkDraw(cy, container, cyNode)
       }
-
-      const onMouseUp = () => {
-        document.removeEventListener('mousemove', onMouseMove)
-        document.removeEventListener('mouseup', onMouseUp)
-        if (isDragging && draggedCyNode) {
-          draggedCyNode.emit('free')
-          if (savePositions) savePositions()
-        }
-        isDragging = false
-        draggedCyNode = null
-      }
-
-      document.addEventListener('mousemove', onMouseMove)
-      document.addEventListener('mouseup', onMouseUp)
     })
 
     container.addEventListener('click', e => {
@@ -442,8 +487,7 @@ export function useGraphEvents(options = {}) {
     }
 
     dropHighlight.style.display = 'block'
-    const linkMode = getLinkModeActive()
-    dropHighlight.classList.toggle('link-mode', linkMode)
+    dropHighlight.classList.remove('link-mode')
   }
 
   /**
@@ -517,14 +561,6 @@ export function useGraphEvents(options = {}) {
 
       // Can't drop on self
       if (sourceNode.id === targetNode.id) {
-        if (dragStartPos) draggedNode.position(dragStartPos)
-        dragStartPos = null
-        return
-      }
-
-      // Handle link mode
-      if (getLinkModeActive()) {
-        emit('link', { sourceId: sourceNode.id, targetId: targetNode.id })
         if (dragStartPos) draggedNode.position(dragStartPos)
         dragStartPos = null
         return

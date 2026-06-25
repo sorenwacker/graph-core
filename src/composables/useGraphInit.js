@@ -53,7 +53,9 @@ export function useGraphInit(options = {}) {
     return cytoscape({
       container,
       elements,
-      boxSelectionEnabled: true,
+      // Off by default; GraphView enables it only while a box-select modifier
+      // is held, so a plain or Option (link) drag never starts a selection box.
+      boxSelectionEnabled: false,
       selectionType: 'additive',
       userZoomingEnabled: false, // Disable default wheel zoom - we handle it custom
       style: [

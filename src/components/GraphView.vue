@@ -69,6 +69,7 @@ const emit = defineEmits([
 
 const container = ref(null),
   dropHighlightEl = ref(null),
+  linkLineEl = ref(null),
   graphControlsRef = ref(null)
 let graphControlTippyInstances = [],
   cy = null,
@@ -76,8 +77,13 @@ let graphControlTippyInstances = [],
   lastKnownParentId = props.parent?.id,
   updateDebounceTimer = null
 
-// Link/box select mode
+// Graph interaction modes, driven by held modifier keys. They are mutually
+// exclusive so the on-screen hints and behaviour never contradict each other:
+//   Option only        -> link mode (drag a connector between nodes)
+//   Option + Cmd/Ctrl   -> delete mode (click a node to delete it)
+//   Shift/Cmd/Ctrl only -> box-select (drag a selection box)
 const linkModeActive = ref(false),
+  deleteModeActive = ref(false),
   boxSelectModeActive = ref(false)
 const isInsideEditor = t =>
   !t
@@ -86,21 +92,43 @@ const isInsideEditor = t =>
       t.contentEditable === 'true' ||
       t.closest('.cm-editor')
 
+// Derive all three modes from the current modifier state of an event. Using one
+// helper for keydown/keyup/mousemove keeps them consistent and prevents a stale
+// mode (e.g. link mode lingering while Cmd is held).
+function applyModifierState(e) {
+  const box = e.shiftKey || e.metaKey || e.ctrlKey
+  linkModeActive.value = e.altKey && !box
+  deleteModeActive.value = e.altKey && (e.metaKey || e.ctrlKey)
+  boxSelectModeActive.value = !e.altKey && box
+}
+
 // Named handlers so they can be removed on unmount (anonymous listeners leaked).
 function handleModifierKeydown(e) {
   if (isInsideEditor(e.target)) return
-  if (e.key === 'Alt' || e.altKey) linkModeActive.value = true
-  if (['Shift', 'Meta', 'Control'].includes(e.key)) boxSelectModeActive.value = true
+  applyModifierState(e)
 }
 function handleModifierKeyup(e) {
-  if (e.key === 'Alt') linkModeActive.value = false
-  if (['Shift', 'Meta', 'Control'].includes(e.key)) boxSelectModeActive.value = false
+  applyModifierState(e)
 }
 function handleModifierMousemove(e) {
   if (isInsideEditor(e.target)) return
-  linkModeActive.value = e.altKey
-  boxSelectModeActive.value = e.shiftKey || e.metaKey || e.ctrlKey
+  applyModifierState(e)
 }
+
+// Toggle cytoscape box selection live so it is active only while a box-select
+// modifier is held; otherwise a drag would start a selection box instead of
+// linking (Option) or panning.
+watch(boxSelectModeActive, active => {
+  if (cy) cy.boxSelectionEnabled(active)
+})
+
+// In link mode (Option), nodes must not be draggable: a press should draw a
+// link connector, not move the node. Disable grabbing while link mode is held.
+watch(linkModeActive, active => {
+  if (!cy) return
+  if (active) cy.nodes().ungrabify()
+  else cy.nodes().grabify()
+})
 
 // Graph settings - pass workspace for workspace-specific localStorage keys
 const workspaceRef = toRef(props, 'workspace')
@@ -265,6 +293,7 @@ const events = useGraphEvents({
   getCy: () => cy,
   getContainer: () => container.value,
   getDropHighlight: () => dropHighlightEl.value,
+  getLinkLine: () => linkLineEl.value,
   getLinkModeActive: () => linkModeActive.value,
   getParent: () => props.parent,
   getSelectedIds: () => props.selectedIds,
@@ -599,6 +628,8 @@ async function initGraph() {
     return
   }
   cy.nodes().grabify()
+  // Box selection is only enabled while a box-select modifier is held.
+  cy.boxSelectionEnabled(boxSelectModeActive.value)
   graphInit.setupHtmlLabels(cy)
   wheel.setupWheelHandler()
   events.setupEvents()
@@ -772,7 +803,9 @@ onUnmounted(() => {
       </div>
     </div>
     <div ref="dropHighlightEl" class="drop-highlight"></div>
-    <div v-if="linkModeActive" class="link-mode-indicator">Link Mode</div>
+    <div ref="linkLineEl" class="link-draw-line"></div>
+    <div v-if="deleteModeActive" class="delete-mode-indicator">Delete Mode — click a node to delete it</div>
+    <div v-else-if="linkModeActive" class="link-mode-indicator">Link Mode — drag to another node to link</div>
 
     <KeyboardShortcutsModal :visible="showShortcuts" @close="showShortcuts = false" />
 
