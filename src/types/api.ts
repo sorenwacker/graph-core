@@ -169,17 +169,29 @@ export interface Api {
   reorderNode(nodeId: number, targetId: number, position: 'before' | 'after' | 'inside'): Promise<void>
 
   // Export
-  exportMarkdown(nodeId: number): Promise<string>
-  exportJSON?(nodeId: number, options?: ExportJSONOptions): Promise<object>
-  exportCSV?(nodeId: number, workspaceId?: number | null): Promise<string>
+  exportMarkdown(nodeId: number): Promise<{ markdown: string }>
+  exportJSON?(
+    nodeId: number,
+    options?: ExportJSONOptions
+  ): Promise<{
+    version: number
+    exportedAt: string
+    root: object | null
+    links?: Array<{ source_id: number; target_id: number }>
+  }>
+  exportCSV?(nodeId: number, workspaceId?: number | null): Promise<{ csv: string; headers: string[]; rowCount: number }>
 
   // Import
-  importJSON?(data: object, targetParentId?: number | null, workspaceId?: number | null): Promise<{ imported: number }>
+  importJSON?(
+    data: object,
+    targetParentId?: number | null,
+    workspaceId?: number | null
+  ): Promise<{ rootId: number; nodesImported: number; linksCreated: number }>
   importCSV?(
     csvData: string,
     targetParentId?: number | null,
     workspaceId?: number | null
-  ): Promise<{ imported: number }>
+  ): Promise<{ nodesImported: number }>
 
   // Trash
   getTrash(limit?: number): Promise<Node[]>

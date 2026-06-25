@@ -70,11 +70,27 @@ interface ElectronAPI {
     options?: SearchOptions
   ): Promise<{ count: number }>
   reorderNode(nodeId: number, targetId: number, position: 'before' | 'after' | 'inside'): Promise<void>
-  exportMarkdown(nodeId: number): Promise<string>
-  exportJSON(nodeId: number, options?: ExportJSONOptions): Promise<object>
-  exportCSV(nodeId: number, workspaceId?: number | null): Promise<string>
-  importJSON(data: object, targetParentId?: number | null, workspaceId?: number | null): Promise<{ imported: number }>
-  importCSV(csvData: string, targetParentId?: number | null, workspaceId?: number | null): Promise<{ imported: number }>
+  exportMarkdown(nodeId: number): Promise<{ markdown: string }>
+  exportJSON(
+    nodeId: number,
+    options?: ExportJSONOptions
+  ): Promise<{
+    version: number
+    exportedAt: string
+    root: object | null
+    links?: Array<{ source_id: number; target_id: number }>
+  }>
+  exportCSV(nodeId: number, workspaceId?: number | null): Promise<{ csv: string; headers: string[]; rowCount: number }>
+  importJSON(
+    data: object,
+    targetParentId?: number | null,
+    workspaceId?: number | null
+  ): Promise<{ rootId: number; nodesImported: number; linksCreated: number }>
+  importCSV(
+    csvData: string,
+    targetParentId?: number | null,
+    workspaceId?: number | null
+  ): Promise<{ nodesImported: number }>
   getTrash(limit?: number): Promise<(Node | null)[]>
   restoreNode(id: number): Promise<void>
   emptyTrash(): Promise<void>
@@ -333,26 +349,31 @@ const webApi: Api = {
   },
 
   // Export
-  async exportMarkdown(nodeId: number): Promise<string> {
-    return request<string>(`/nodes/${nodeId}/export`)
+  async exportMarkdown(nodeId: number): Promise<{ markdown: string }> {
+    return { markdown: await request<string>(`/nodes/${nodeId}/export`) }
   },
 
   // JSON/CSV export and import are file-system operations available only in the
   // desktop app. Stub them like the other desktop-only methods so callers fail
   // with a clear message instead of "api.exportJSON is not a function".
-  async exportJSON(): Promise<object> {
+  async exportJSON(): Promise<{
+    version: number
+    exportedAt: string
+    root: object | null
+    links?: Array<{ source_id: number; target_id: number }>
+  }> {
     throw new Error('JSON export only available in desktop app')
   },
 
-  async exportCSV(): Promise<string> {
+  async exportCSV(): Promise<{ csv: string; headers: string[]; rowCount: number }> {
     throw new Error('CSV export only available in desktop app')
   },
 
-  async importJSON(): Promise<{ imported: number }> {
+  async importJSON(): Promise<{ rootId: number; nodesImported: number; linksCreated: number }> {
     throw new Error('JSON import only available in desktop app')
   },
 
-  async importCSV(): Promise<{ imported: number }> {
+  async importCSV(): Promise<{ nodesImported: number }> {
     throw new Error('CSV import only available in desktop app')
   },
 
@@ -757,27 +778,19 @@ const electronApi: Api = {
   reorderNode: (nodeId: number, targetId: number, position: 'before' | 'after' | 'inside'): Promise<void> =>
     window.electronAPI!.reorderNode(nodeId, targetId, position),
 
-  // Export
-  exportMarkdown: (nodeId: number): Promise<string> => window.electronAPI!.exportMarkdown(nodeId),
+  // Export (return shapes inferred from the typed electron bridge)
+  exportMarkdown: (nodeId: number) => window.electronAPI!.exportMarkdown(nodeId),
 
-  exportJSON: (nodeId: number, options?: ExportJSONOptions): Promise<object> =>
-    window.electronAPI!.exportJSON(nodeId, options),
+  exportJSON: (nodeId: number, options?: ExportJSONOptions) => window.electronAPI!.exportJSON(nodeId, options),
 
-  exportCSV: (nodeId: number, workspaceId?: number | null): Promise<string> =>
-    window.electronAPI!.exportCSV(nodeId, workspaceId),
+  exportCSV: (nodeId: number, workspaceId?: number | null) => window.electronAPI!.exportCSV(nodeId, workspaceId),
 
   // Import
-  importJSON: (
-    data: object,
-    targetParentId?: number | null,
-    workspaceId?: number | null
-  ): Promise<{ imported: number }> => window.electronAPI!.importJSON(data, targetParentId, workspaceId),
+  importJSON: (data: object, targetParentId?: number | null, workspaceId?: number | null) =>
+    window.electronAPI!.importJSON(data, targetParentId, workspaceId),
 
-  importCSV: (
-    csvData: string,
-    targetParentId?: number | null,
-    workspaceId?: number | null
-  ): Promise<{ imported: number }> => window.electronAPI!.importCSV(csvData, targetParentId, workspaceId),
+  importCSV: (csvData: string, targetParentId?: number | null, workspaceId?: number | null) =>
+    window.electronAPI!.importCSV(csvData, targetParentId, workspaceId),
 
   // Trash
   async getTrash(limit?: number): Promise<Node[]> {
