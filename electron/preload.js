@@ -1,136 +1,139 @@
 const { contextBridge, ipcRenderer } = require('electron')
+const C = require('./ipcChannels')
 
-// Expose a secure API to the renderer process
+// Expose a secure API to the renderer process. Channel names come from
+// ipcChannels.js so the renderer and main process share a single source of
+// truth; using raw string literals here would silently drift on a rename.
 contextBridge.exposeInMainWorld('electronAPI', {
   // Node CRUD
-  getNodes: params => ipcRenderer.invoke('db:getNodes', params),
-  getNode: id => ipcRenderer.invoke('db:getNode', id),
-  createNode: data => ipcRenderer.invoke('db:createNode', data),
-  updateNode: (id, data) => ipcRenderer.invoke('db:updateNode', id, data),
-  deleteNode: (id, hard) => ipcRenderer.invoke('db:deleteNode', id, hard),
+  getNodes: params => ipcRenderer.invoke(C.DB_GET_NODES, params),
+  getNode: id => ipcRenderer.invoke(C.DB_GET_NODE, id),
+  createNode: data => ipcRenderer.invoke(C.DB_CREATE_NODE, data),
+  updateNode: (id, data) => ipcRenderer.invoke(C.DB_UPDATE_NODE, id, data),
+  deleteNode: (id, hard) => ipcRenderer.invoke(C.DB_DELETE_NODE, id, hard),
 
   // Tree operations
-  getRoots: workspaceId => ipcRenderer.invoke('db:getRoots', workspaceId),
-  getProjects: () => ipcRenderer.invoke('db:getProjects'),
-  getInbox: () => ipcRenderer.invoke('db:getInbox'),
-  getRecent: (limit, workspaceId) => ipcRenderer.invoke('db:getRecent', limit, workspaceId),
-  getFavorites: workspaceId => ipcRenderer.invoke('db:getFavorites', workspaceId),
-  getTasks: params => ipcRenderer.invoke('db:getTasks', params),
-  getChildren: (id, type) => ipcRenderer.invoke('db:getChildren', id, type),
-  getDescendants: (id, maxDepth) => ipcRenderer.invoke('db:getDescendants', id, maxDepth),
-  getDescendantsBatch: rootIds => ipcRenderer.invoke('db:getDescendantsBatch', rootIds),
-  getAncestors: id => ipcRenderer.invoke('db:getAncestors', id),
-  moveNode: (id, newParentId) => ipcRenderer.invoke('db:moveNode', id, newParentId),
+  getRoots: workspaceId => ipcRenderer.invoke(C.DB_GET_ROOTS, workspaceId),
+  getProjects: () => ipcRenderer.invoke(C.DB_GET_PROJECTS),
+  getInbox: () => ipcRenderer.invoke(C.DB_GET_INBOX),
+  getRecent: (limit, workspaceId) => ipcRenderer.invoke(C.DB_GET_RECENT, limit, workspaceId),
+  getFavorites: workspaceId => ipcRenderer.invoke(C.DB_GET_FAVORITES, workspaceId),
+  getTasks: params => ipcRenderer.invoke(C.DB_GET_TASKS, params),
+  getChildren: (id, type) => ipcRenderer.invoke(C.DB_GET_CHILDREN, id, type),
+  getDescendants: (id, maxDepth) => ipcRenderer.invoke(C.DB_GET_DESCENDANTS, id, maxDepth),
+  getDescendantsBatch: rootIds => ipcRenderer.invoke(C.DB_GET_DESCENDANTS_BATCH, rootIds),
+  getAncestors: id => ipcRenderer.invoke(C.DB_GET_ANCESTORS, id),
+  moveNode: (id, newParentId) => ipcRenderer.invoke(C.DB_MOVE_NODE, id, newParentId),
 
   // Links
-  linkNodes: (sourceId, targetId) => ipcRenderer.invoke('db:linkNodes', sourceId, targetId),
-  unlinkNodes: (sourceId, targetId) => ipcRenderer.invoke('db:unlinkNodes', sourceId, targetId),
-  getAllLinks: nodeIds => ipcRenderer.invoke('db:getAllLinks', nodeIds),
-  getLinkedNodes: id => ipcRenderer.invoke('db:getLinkedNodes', id),
+  linkNodes: (sourceId, targetId) => ipcRenderer.invoke(C.DB_LINK_NODES, sourceId, targetId),
+  unlinkNodes: (sourceId, targetId) => ipcRenderer.invoke(C.DB_UNLINK_NODES, sourceId, targetId),
+  getAllLinks: nodeIds => ipcRenderer.invoke(C.DB_GET_ALL_LINKS, nodeIds),
+  getLinkedNodes: id => ipcRenderer.invoke(C.DB_GET_LINKED_NODES, id),
 
   // Tree view
-  getTree: rootId => ipcRenderer.invoke('db:getTree', rootId),
+  getTree: rootId => ipcRenderer.invoke(C.DB_GET_TREE, rootId),
 
   // Search
-  search: (query, type, workspaceId, options) => ipcRenderer.invoke('db:search', query, type, workspaceId, options),
+  search: (query, type, workspaceId, options) => ipcRenderer.invoke(C.DB_SEARCH, query, type, workspaceId, options),
   searchCount: (query, type, workspaceId, options) =>
-    ipcRenderer.invoke('db:searchCount', query, type, workspaceId, options),
+    ipcRenderer.invoke(C.DB_SEARCH_COUNT, query, type, workspaceId, options),
 
   // Reorder
-  reorderNode: (nodeId, targetId, position) => ipcRenderer.invoke('db:reorderNode', nodeId, targetId, position),
+  reorderNode: (nodeId, targetId, position) => ipcRenderer.invoke(C.DB_REORDER_NODE, nodeId, targetId, position),
 
   // Export
-  exportMarkdown: nodeId => ipcRenderer.invoke('db:exportMarkdown', nodeId),
-  exportJSON: (nodeId, options) => ipcRenderer.invoke('db:exportJSON', nodeId, options),
-  exportCSV: (nodeId, workspaceId) => ipcRenderer.invoke('db:exportCSV', nodeId, workspaceId),
+  exportMarkdown: nodeId => ipcRenderer.invoke(C.DB_EXPORT_MARKDOWN, nodeId),
+  exportJSON: (nodeId, options) => ipcRenderer.invoke(C.DB_EXPORT_JSON, nodeId, options),
+  exportCSV: (nodeId, workspaceId) => ipcRenderer.invoke(C.DB_EXPORT_CSV, nodeId, workspaceId),
 
   // Import
   importJSON: (data, targetParentId, workspaceId) =>
-    ipcRenderer.invoke('db:importJSON', data, targetParentId, workspaceId),
+    ipcRenderer.invoke(C.DB_IMPORT_JSON, data, targetParentId, workspaceId),
   importCSV: (csvData, targetParentId, workspaceId) =>
-    ipcRenderer.invoke('db:importCSV', csvData, targetParentId, workspaceId),
+    ipcRenderer.invoke(C.DB_IMPORT_CSV, csvData, targetParentId, workspaceId),
 
   // Trash
-  getTrash: limit => ipcRenderer.invoke('db:getTrash', limit),
-  restoreNode: id => ipcRenderer.invoke('db:restoreNode', id),
-  emptyTrash: () => ipcRenderer.invoke('db:emptyTrash'),
+  getTrash: limit => ipcRenderer.invoke(C.DB_GET_TRASH, limit),
+  restoreNode: id => ipcRenderer.invoke(C.DB_RESTORE_NODE, id),
+  emptyTrash: () => ipcRenderer.invoke(C.DB_EMPTY_TRASH),
 
   // Lost & Found
-  getOrphanedNodes: () => ipcRenderer.invoke('db:getOrphanedNodes'),
-  reparentToRoot: id => ipcRenderer.invoke('db:reparentToRoot', id),
+  getOrphanedNodes: () => ipcRenderer.invoke(C.DB_GET_ORPHANED_NODES),
+  reparentToRoot: id => ipcRenderer.invoke(C.DB_REPARENT_TO_ROOT, id),
 
   // Tags (string-based, legacy)
-  getAllTags: workspaceId => ipcRenderer.invoke('db:getAllTags', workspaceId),
-  getNodesByTag: (tag, workspaceId, options) => ipcRenderer.invoke('db:getNodesByTag', tag, workspaceId, options),
+  getAllTags: workspaceId => ipcRenderer.invoke(C.DB_GET_ALL_TAGS, workspaceId),
+  getNodesByTag: (tag, workspaceId, options) => ipcRenderer.invoke(C.DB_GET_NODES_BY_TAG, tag, workspaceId, options),
 
   // Tags (first-class nodes)
-  getTagNodes: workspaceId => ipcRenderer.invoke('db:getTagNodes', workspaceId),
-  getOrCreateTagNode: (name, workspaceId) => ipcRenderer.invoke('db:getOrCreateTagNode', name, workspaceId),
-  getNodesLinkedToTag: (tagNodeId, options) => ipcRenderer.invoke('db:getNodesLinkedToTag', tagNodeId, options),
-  searchTagNodes: (query, workspaceId, limit) => ipcRenderer.invoke('db:searchTagNodes', query, workspaceId, limit),
+  getTagNodes: workspaceId => ipcRenderer.invoke(C.DB_GET_TAG_NODES, workspaceId),
+  getOrCreateTagNode: (name, workspaceId) => ipcRenderer.invoke(C.DB_GET_OR_CREATE_TAG_NODE, name, workspaceId),
+  getNodesLinkedToTag: (tagNodeId, options) => ipcRenderer.invoke(C.DB_GET_NODES_LINKED_TO_TAG, tagNodeId, options),
+  searchTagNodes: (query, workspaceId, limit) => ipcRenderer.invoke(C.DB_SEARCH_TAG_NODES, query, workspaceId, limit),
 
   // Workspaces
-  getWorkspaces: () => ipcRenderer.invoke('db:getWorkspaces'),
-  getWorkspace: id => ipcRenderer.invoke('db:getWorkspace', id),
-  createWorkspace: data => ipcRenderer.invoke('db:createWorkspace', data),
-  updateWorkspace: (id, data) => ipcRenderer.invoke('db:updateWorkspace', id, data),
-  deleteWorkspace: id => ipcRenderer.invoke('db:deleteWorkspace', id),
+  getWorkspaces: () => ipcRenderer.invoke(C.DB_GET_WORKSPACES),
+  getWorkspace: id => ipcRenderer.invoke(C.DB_GET_WORKSPACE, id),
+  createWorkspace: data => ipcRenderer.invoke(C.DB_CREATE_WORKSPACE, data),
+  updateWorkspace: (id, data) => ipcRenderer.invoke(C.DB_UPDATE_WORKSPACE, id, data),
+  deleteWorkspace: id => ipcRenderer.invoke(C.DB_DELETE_WORKSPACE, id),
 
   // Database Backups & Reload
-  backup: suffix => ipcRenderer.invoke('db:backup', suffix),
-  listBackups: () => ipcRenderer.invoke('db:listBackups'),
-  restoreBackup: backupPath => ipcRenderer.invoke('db:restoreBackup', backupPath),
-  reload: () => ipcRenderer.invoke('db:reload'),
-  repairWorkspaces: () => ipcRenderer.invoke('db:repairWorkspaces'),
-  getDataPath: () => ipcRenderer.invoke('db:getDataPath'),
+  backup: suffix => ipcRenderer.invoke(C.DB_BACKUP, suffix),
+  listBackups: () => ipcRenderer.invoke(C.DB_LIST_BACKUPS),
+  restoreBackup: backupPath => ipcRenderer.invoke(C.DB_RESTORE_BACKUP, backupPath),
+  reload: () => ipcRenderer.invoke(C.DB_RELOAD),
+  repairWorkspaces: () => ipcRenderer.invoke(C.DB_REPAIR_WORKSPACES),
+  getDataPath: () => ipcRenderer.invoke(C.DB_GET_DATA_PATH),
 
   // Node Tables (Spreadsheet)
-  getNodeTable: nodeId => ipcRenderer.invoke('db:getNodeTable', nodeId),
-  createNodeTable: (nodeId, data) => ipcRenderer.invoke('db:createNodeTable', nodeId, data),
-  updateNodeTable: (nodeId, data) => ipcRenderer.invoke('db:updateNodeTable', nodeId, data),
-  deleteNodeTable: nodeId => ipcRenderer.invoke('db:deleteNodeTable', nodeId),
-  getTableCells: nodeId => ipcRenderer.invoke('db:getTableCells', nodeId),
-  setCells: (nodeId, cells) => ipcRenderer.invoke('db:setCells', nodeId, cells),
-  clearCells: nodeId => ipcRenderer.invoke('db:clearCells', nodeId),
+  getNodeTable: nodeId => ipcRenderer.invoke(C.DB_GET_NODE_TABLE, nodeId),
+  createNodeTable: (nodeId, data) => ipcRenderer.invoke(C.DB_CREATE_NODE_TABLE, nodeId, data),
+  updateNodeTable: (nodeId, data) => ipcRenderer.invoke(C.DB_UPDATE_NODE_TABLE, nodeId, data),
+  deleteNodeTable: nodeId => ipcRenderer.invoke(C.DB_DELETE_NODE_TABLE, nodeId),
+  getTableCells: nodeId => ipcRenderer.invoke(C.DB_GET_TABLE_CELLS, nodeId),
+  setCells: (nodeId, cells) => ipcRenderer.invoke(C.DB_SET_CELLS, nodeId, cells),
+  clearCells: nodeId => ipcRenderer.invoke(C.DB_CLEAR_CELLS, nodeId),
 
   // Settings
-  getSetting: key => ipcRenderer.invoke('db:getSetting', key),
-  getAllSettings: () => ipcRenderer.invoke('db:getAllSettings'),
-  setSetting: (key, value) => ipcRenderer.invoke('db:setSetting', key, value),
-  setSettings: settings => ipcRenderer.invoke('db:setSettings', settings),
-  deleteSetting: key => ipcRenderer.invoke('db:deleteSetting', key),
+  getSetting: key => ipcRenderer.invoke(C.DB_GET_SETTING, key),
+  getAllSettings: () => ipcRenderer.invoke(C.DB_GET_ALL_SETTINGS),
+  setSetting: (key, value) => ipcRenderer.invoke(C.DB_SET_SETTING, key, value),
+  setSettings: settings => ipcRenderer.invoke(C.DB_SET_SETTINGS, settings),
+  deleteSetting: key => ipcRenderer.invoke(C.DB_DELETE_SETTING, key),
 
   // Shell
-  openExternal: url => ipcRenderer.invoke('shell:openExternal', url),
+  openExternal: url => ipcRenderer.invoke(C.SHELL_OPEN_EXTERNAL, url),
 
   // Detached Windows
-  openDetachedWindow: (nodeId, nodeTitle) => ipcRenderer.invoke('window:openDetached', nodeId, nodeTitle),
-  closeDetachedWindow: nodeId => ipcRenderer.invoke('window:closeDetached', nodeId),
+  openDetachedWindow: (nodeId, nodeTitle) => ipcRenderer.invoke(C.WINDOW_OPEN_DETACHED, nodeId, nodeTitle),
+  closeDetachedWindow: nodeId => ipcRenderer.invoke(C.WINDOW_CLOSE_DETACHED, nodeId),
 
   // Ollama LLM
-  ollamaGenerate: options => ipcRenderer.invoke('ollama:generate', options),
-  ollamaTestConnection: endpoint => ipcRenderer.invoke('ollama:testConnection', endpoint),
-  ollamaListModels: endpoint => ipcRenderer.invoke('ollama:listModels', endpoint),
+  ollamaGenerate: options => ipcRenderer.invoke(C.OLLAMA_GENERATE, options),
+  ollamaTestConnection: endpoint => ipcRenderer.invoke(C.OLLAMA_TEST_CONNECTION, endpoint),
+  ollamaListModels: endpoint => ipcRenderer.invoke(C.OLLAMA_LIST_MODELS, endpoint),
 
   // OpenAI-compatible API
-  openaiGenerate: options => ipcRenderer.invoke('openai:generate', options),
+  openaiGenerate: options => ipcRenderer.invoke(C.OPENAI_GENERATE, options),
   openaiTestConnection: (endpoint, apiKey, skipSslVerification) =>
-    ipcRenderer.invoke('openai:testConnection', endpoint, apiKey, skipSslVerification),
+    ipcRenderer.invoke(C.OPENAI_TEST_CONNECTION, endpoint, apiKey, skipSslVerification),
   openaiListModels: (endpoint, apiKey, skipSslVerification) =>
-    ipcRenderer.invoke('openai:listModels', endpoint, apiKey, skipSslVerification),
+    ipcRenderer.invoke(C.OPENAI_LIST_MODELS, endpoint, apiKey, skipSslVerification),
 
   // Agent (research with tools)
-  agentResearch: options => ipcRenderer.invoke('agent:research', options),
+  agentResearch: options => ipcRenderer.invoke(C.AGENT_RESEARCH, options),
 
   // Menu events
-  onMenuUndo: callback => ipcRenderer.on('menu-undo', callback),
-  onMenuRedo: callback => ipcRenderer.on('menu-redo', callback),
-  onOpenSettings: callback => ipcRenderer.on('open-settings', callback),
-  onShowShortcuts: callback => ipcRenderer.on('show-shortcuts', callback),
+  onMenuUndo: callback => ipcRenderer.on(C.MENU_UNDO, callback),
+  onMenuRedo: callback => ipcRenderer.on(C.MENU_REDO, callback),
+  onOpenSettings: callback => ipcRenderer.on(C.OPEN_SETTINGS, callback),
+  onShowShortcuts: callback => ipcRenderer.on(C.SHOW_SHORTCUTS, callback),
 
   // App lifecycle
-  onBeforeQuit: callback => ipcRenderer.on('app-before-quit', callback),
+  onBeforeQuit: callback => ipcRenderer.on(C.APP_BEFORE_QUIT, callback),
 
   // App info
-  getVersion: () => ipcRenderer.invoke('app:getVersion'),
+  getVersion: () => ipcRenderer.invoke(C.APP_GET_VERSION),
 })

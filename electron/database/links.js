@@ -1,6 +1,7 @@
 /**
  * Node link operations for creating and managing relationships between nodes.
- * Supports bidirectional links stored in the node_links table.
+ * A link is stored as a single directed row (source_id -> target_id) in the
+ * node_links table but is treated as bidirectional on read and removal.
  * @module database/links
  */
 
@@ -33,7 +34,9 @@
 function createLinkOperations(ctx) {
   return {
     /**
-     * Creates a bidirectional link between two nodes.
+     * Links two nodes, stored as a single directed row (source -> target).
+     * Reads (getLinkedNodes, getAllLinks) and unlinkNodes treat the link as
+     * bidirectional, so direction does not matter to callers.
      * Updates the updated_at timestamp on both nodes.
      * @param {number} sourceId - ID of the source node
      * @param {number} targetId - ID of the target node
@@ -50,14 +53,19 @@ function createLinkOperations(ctx) {
     },
 
     /**
-     * Removes a link between two nodes.
-     * Only removes the link in the specified direction (source -> target).
-     * @param {number} sourceId - ID of the source node
-     * @param {number} targetId - ID of the target node
+     * Removes the link between two nodes in either direction, matching the
+     * bidirectional read semantics so the argument order does not matter.
+     * @param {number} sourceId - ID of one linked node
+     * @param {number} targetId - ID of the other linked node
      * @returns {LinkResult} Success status object
      */
     unlinkNodes(sourceId, targetId) {
-      ctx._run('DELETE FROM node_links WHERE source_id = ? AND target_id = ?', [sourceId, targetId])
+      ctx._run('DELETE FROM node_links WHERE (source_id = ? AND target_id = ?) OR (source_id = ? AND target_id = ?)', [
+        sourceId,
+        targetId,
+        targetId,
+        sourceId,
+      ])
       return { success: true }
     },
 

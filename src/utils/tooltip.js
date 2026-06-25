@@ -1,27 +1,7 @@
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
 import { getImportanceLabel } from './constants.js'
 import { escapeHtml } from './html.js'
-
-// Configure marked for safe rendering
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-})
-
-// Render markdown safely
-function renderMarkdown(text) {
-  if (!text) return ''
-  const html = marked.parse(text)
-  return DOMPurify.sanitize(html)
-}
-
-// Format date for display
-function formatDate(dateStr) {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
+import { renderMarkdown } from './markdown.js'
+import { formatDate } from './formatting.js'
 
 // Keywords that indicate potentially sensitive content in notes
 const SENSITIVE_KEYWORDS = ['password', 'secret', 'api_key', 'credential']
