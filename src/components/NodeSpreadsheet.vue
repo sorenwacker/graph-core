@@ -90,7 +90,6 @@ const emit = defineEmits(['create', 'delete', 'cell-change', 'structure-change',
 
 const gridApi = shallowRef(null)
 const gridWrapper = ref(null)
-let saveTimeout = null
 
 // Context menu state (cell formatting)
 const showContextMenu = ref(false)
@@ -356,22 +355,21 @@ function handleMouseUp() {
 }
 
 function onCellValueChanged(params) {
-  if (saveTimeout) clearTimeout(saveTimeout)
+  // AG Grid fires this once per committed cell value. Emit each change
+  // immediately: a shared debounce across cells would drop earlier edits when
+  // several cells are committed within the debounce window (e.g. fast tabbing).
+  const rowIndex = params.node.rowIndex
+  const colIndex = columnDefs.value.findIndex(c => c.field === params.colDef.field) - 1
+  if (colIndex < 0) return
+  const value = params.newValue ?? ''
+  const valueStr = String(value)
 
-  saveTimeout = setTimeout(() => {
-    const rowIndex = params.node.rowIndex
-    const colIndex = columnDefs.value.findIndex(c => c.field === params.colDef.field) - 1
-    if (colIndex < 0) return
-    const value = params.newValue ?? ''
-    const valueStr = String(value)
-
-    emit('cell-change', {
-      row: rowIndex,
-      col: colIndex,
-      value: valueStr,
-      isFormula: isFormula(valueStr),
-    })
-  }, 300)
+  emit('cell-change', {
+    row: rowIndex,
+    col: colIndex,
+    value: valueStr,
+    isFormula: isFormula(valueStr),
+  })
 }
 
 function addRow() {
@@ -439,7 +437,6 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (saveTimeout) clearTimeout(saveTimeout)
   keyboard.cleanup()
   document.removeEventListener('keydown', keyboard.handleKeyDown, true)
   document.removeEventListener('mousemove', handleMouseMove)

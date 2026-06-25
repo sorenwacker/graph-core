@@ -2,7 +2,7 @@
   <Teleport to="body">
     <Transition name="modal">
       <div v-if="visible" class="modal-overlay" @click.self="handleClose">
-        <div class="modal onboarding-modal" @keydown="handleKeydown">
+        <div class="modal onboarding-modal">
           <!-- Header -->
           <div class="modal-header">
             <div class="modal-title-row">
@@ -97,13 +97,13 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch, onUnmounted } from 'vue'
 import { usePlatform } from '../composables/usePlatform.js'
 import '../assets/modal-base.css'
 
 const { modifierKey } = usePlatform()
 
-defineProps({
+const props = defineProps({
   visible: { type: Boolean, default: false },
 })
 
@@ -118,13 +118,28 @@ function handleClose() {
   emit('close')
 }
 
+// The modal div is not focusable, so a local @keydown never fires. Listen on
+// the document while the modal is open so Esc/Enter reliably close it.
 function handleKeydown(e) {
-  if (e.key === 'Escape') {
-    handleClose()
-  } else if (e.key === 'Enter') {
+  if (e.key === 'Escape' || e.key === 'Enter') {
     handleClose()
   }
 }
+
+watch(
+  () => props.visible,
+  isVisible => {
+    if (isVisible) {
+      document.addEventListener('keydown', handleKeydown)
+    } else {
+      document.removeEventListener('keydown', handleKeydown)
+    }
+  }
+)
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown)
+})
 
 function handleCreateDemo() {
   emit('create-demo')
