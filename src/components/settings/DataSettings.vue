@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { api } from '../../services/api.js'
+import { showToast } from '../../composables/useToast.js'
 
 const props = defineProps({
   snapshotMessage: { type: String, default: '' },
@@ -58,9 +59,12 @@ async function handleImportFile(e) {
     }
 
     emit('import-complete', result)
-    alert(`Imported ${result.nodesImported} nodes${result.linksCreated ? ` and ${result.linksCreated} links` : ''}`)
+    showToast(
+      `Imported ${result.nodesImported} nodes${result.linksCreated ? ` and ${result.linksCreated} links` : ''}`,
+      { type: 'success' }
+    )
   } catch (err) {
-    alert(`Import failed: ${err.message}`)
+    showToast(`Import failed: ${err.message}`, { type: 'error' })
   }
 
   // Reset file input
