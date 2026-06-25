@@ -10,6 +10,7 @@ describe('useGraphEvents', () => {
   let mockCy
   let mockContainer
   let mockDropHighlight
+  let mockLinkLine
   let mockEmit
   let mockShowAddNodeModal
   let mockHideEditModal
@@ -82,6 +83,9 @@ describe('useGraphEvents', () => {
       },
     }
 
+    // Mock link connector overlay (a positioned div)
+    mockLinkLine = { style: {} }
+
     // Mock functions
     mockEmit = vi.fn()
     mockShowAddNodeModal = vi.fn()
@@ -103,6 +107,7 @@ describe('useGraphEvents', () => {
       getCy: () => mockCy,
       getContainer: () => mockContainer,
       getDropHighlight: () => mockDropHighlight,
+      getLinkLine: () => mockLinkLine,
       getLinkModeActive: () => linkModeActive,
       getSelectedIds: () => selectedIds,
       emit: mockEmit,
@@ -504,42 +509,88 @@ describe('useGraphEvents', () => {
       expect(mockSavePositions).toHaveBeenCalled()
     })
 
-    it('should emit link when in link mode', () => {
+    it('should emit link when option-dragging a connector onto another node', () => {
       linkModeActive = true
       const { setupEvents } = createGraphEvents()
       setupEvents()
 
-      // First trigger grab
-      const grabHandler = mockCy.on.mock.calls.find(call => call[0] === 'grab' && call[1] === 'node')[2]
-      grabHandler({
-        target: {
-          position: vi.fn().mockReturnValue({ x: 100, y: 100 }),
-        },
-      })
+      // SVG overlay is created lazily on the container.
+      mockContainer.querySelector = vi.fn().mockReturnValue(null)
+      mockContainer.appendChild = vi.fn()
 
-      // Then trigger free
-      const freeHandler = mockCy.on.mock.calls.find(call => call[0] === 'free' && call[1] === 'node')[2]
-
-      const mockDraggedNode = {
-        position: vi.fn().mockReturnValue({ x: 200, y: 200 }), // Moved significantly
-        id: vi.fn().mockReturnValue('1'),
-        data: vi.fn().mockReturnValue({ id: 1, title: 'Dragged' }),
+      const sourceNode = {
+        length: 1,
+        id: () => '1',
+        data: vi.fn().mockReturnValue({ id: 1, title: 'Source' }),
+        renderedPosition: () => ({ x: 100, y: 100 }),
       }
+      const targetNode = {
+        length: 1,
+        id: () => '2',
+        data: vi.fn().mockReturnValue({ id: 2, title: 'Target' }),
+        addClass: vi.fn(),
+        removeClass: vi.fn(),
+      }
+      mockCy.$ = vi.fn(sel => (sel === '#1' ? sourceNode : targetNode))
 
-      // Mock nodes to return a close node
-      mockCy.nodes.mockReturnValue({
-        forEach: vi.fn(cb => {
-          cb({
-            id: () => '2',
-            position: () => ({ x: 200, y: 200 }), // Within threshold
-            data: vi.fn().mockReturnValue({ id: 2, title: 'Target' }),
-          })
-        }),
+      // Option-mousedown on the source node label starts the connector draw.
+      const sourceLabel = { dataset: { nodeId: '1' } }
+      const mousedownTarget = {
+        closest: vi.fn(sel => (sel === '.node-html, .node-person' ? sourceLabel : null)),
+      }
+      mockContainer._triggerEvent('mousedown', {
+        target: mousedownTarget,
+        altKey: true,
+        clientX: 100,
+        clientY: 100,
+        preventDefault: vi.fn(),
       })
 
-      freeHandler({ target: mockDraggedNode })
+      // Pointer moves over the target node, then releases there.
+      const targetLabel = { dataset: { nodeId: '2' } }
+      document.elementFromPoint = vi.fn().mockReturnValue({
+        closest: vi.fn().mockReturnValue(targetLabel),
+      })
+
+      document.dispatchEvent(new MouseEvent('mousemove', { clientX: 300, clientY: 300 }))
+      document.dispatchEvent(new MouseEvent('mouseup', { clientX: 300, clientY: 300 }))
 
       expect(mockEmit).toHaveBeenCalledWith('link', { sourceId: 1, targetId: 2 })
+    })
+
+    it('should not emit link when releasing the connector away from any node', () => {
+      linkModeActive = true
+      const { setupEvents } = createGraphEvents()
+      setupEvents()
+
+      mockContainer.querySelector = vi.fn().mockReturnValue(null)
+      mockContainer.appendChild = vi.fn()
+      mockCy.$ = vi.fn().mockReturnValue({
+        length: 1,
+        id: () => '1',
+        data: vi.fn().mockReturnValue({ id: 1, title: 'Source' }),
+        renderedPosition: () => ({ x: 100, y: 100 }),
+      })
+
+      const mousedownTarget = {
+        closest: vi.fn(sel => (sel === '.node-html, .node-person' ? { dataset: { nodeId: '1' } } : null)),
+      }
+      mockContainer._triggerEvent('mousedown', {
+        target: mousedownTarget,
+        altKey: true,
+        clientX: 100,
+        clientY: 100,
+        preventDefault: vi.fn(),
+      })
+
+      // Released over empty canvas (no node label under the pointer).
+      document.elementFromPoint = vi.fn().mockReturnValue({
+        closest: vi.fn().mockReturnValue(null),
+      })
+      document.dispatchEvent(new MouseEvent('mousemove', { clientX: 400, clientY: 400 }))
+      document.dispatchEvent(new MouseEvent('mouseup', { clientX: 400, clientY: 400 }))
+
+      expect(mockEmit).not.toHaveBeenCalledWith('link', expect.anything())
     })
 
     it('should emit move when dropping on another node', () => {
