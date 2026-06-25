@@ -72,6 +72,25 @@ function createNodeOperations(ctx) {
     }
   }
 
+  /**
+   * Computes the depth and materialized path a direct child of the given parent
+   * must have. Returns the root values (depth 0, empty path) when parentId is
+   * null/missing. Single source of truth for child path/depth derivation used by
+   * createNode, moveNode, and deleteNode.
+   * @param {number|null} parentId - The parent node ID, or null for a root child
+   * @returns {{depth: number, path: string}} The child's own depth and path
+   * @private
+   */
+  function childPathDepth(parentId) {
+    if (!parentId) return { depth: 0, path: '' }
+    const parent = ops.getNode(parentId)
+    if (!parent) return { depth: 0, path: '' }
+    return {
+      depth: (parent.depth || 0) + 1,
+      path: parent.path ? `${parent.path}/${parent.id}` : `${parent.id}`,
+    }
+  }
+
   const ops = {
     /**
      * Retrieves nodes with optional filtering by type, parent, and workspace.
@@ -223,10 +242,17 @@ function createNodeOperations(ctx) {
         ctx._run('UPDATE nodes SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?', [id])
       }
 
-      const reassignedChildren = ctx._query('SELECT id FROM nodes WHERE parent_id = ? AND deleted_at IS NULL', [
+      // The reassigned children now sit directly under newParentId, so reset
+      // their OWN depth/path before recomputing their subtrees. Without this the
+      // children keep the deleted node's depth/path and corrupt every descendant.
+      const { depth, path } = childPathDepth(newParentId)
+      // `IS` (not `=`) so a null newParentId matches the now-root children;
+      // `parent_id = NULL` would match nothing.
+      const reassignedChildren = ctx._query('SELECT id FROM nodes WHERE parent_id IS ? AND deleted_at IS NULL', [
         newParentId,
       ])
       for (const child of reassignedChildren) {
+        ctx._run('UPDATE nodes SET depth = ?, path = ? WHERE id = ?', [depth, path, child.id])
         updateDescendantPaths(child.id)
       }
 
@@ -244,15 +270,7 @@ function createNodeOperations(ctx) {
       const node = ops.getNode(id)
       if (!node) return null
 
-      let depth = 0
-      let path = ''
-      if (newParentId) {
-        const parent = ops.getNode(newParentId)
-        if (parent) {
-          depth = (parent.depth || 0) + 1
-          path = parent.path ? `${parent.path}/${parent.id}` : `${parent.id}`
-        }
-      }
+      const { depth, path } = childPathDepth(newParentId)
 
       ctx._run('UPDATE nodes SET parent_id = ?, depth = ?, path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [
         newParentId,

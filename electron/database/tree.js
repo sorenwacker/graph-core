@@ -22,7 +22,7 @@
  * @property {Function} _save - Persist changes to disk
  * @property {Function} getNode - Get a single node by ID
  * @property {Function} getDescendants - Get all descendants of a node
- * @property {Function} _updateDescendantPaths - Update paths for node descendants
+ * @property {Function} moveNode - Move a node to a new parent, fixing depth/path
  */
 
 /**
@@ -162,14 +162,14 @@ function createTreeOperations(ctx) {
 
     /**
      * Moves an orphaned node to root level.
-     * Clears the parent_id and updates descendant paths.
+     * Delegates to moveNode so the node's own depth/path are reset to root
+     * (depth 0, empty path) before its descendants are recomputed; clearing only
+     * parent_id would leave the node and its subtree on a stale path.
      * @param {number} nodeId - ID of the orphaned node to reparent
      * @returns {Node} The updated node with parent_id set to null
      */
     reparentToRoot(nodeId) {
-      ctx._run('UPDATE nodes SET parent_id = NULL WHERE id = ?', [nodeId])
-      ctx._updateDescendantPaths(nodeId)
-      return ctx.getNode(nodeId)
+      return ctx.moveNode(nodeId, null)
     },
 
     /**
