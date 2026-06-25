@@ -265,26 +265,24 @@ function toggleNodeCollapse(nodeId) {
 
 // Attach click handlers directly to collapse buttons
 let globalCollapseHandlerAttached = false
+function handleCollapseMousedown(e) {
+  const btn = e.target.closest('.collapse-btn')
+  if (btn) {
+    e.preventDefault()
+    e.stopPropagation()
+    e.stopImmediatePropagation()
+    const nodeId = parseInt(btn.dataset.collapseNode)
+    if (!isNaN(nodeId)) {
+      toggleNodeCollapse(nodeId)
+    }
+  }
+}
 function attachCollapseHandlers() {
-  // Use document-level handler with capture
+  // Document-level capture handler, attached once per component instance and
+  // removed on unmount (see onUnmounted) to avoid leaking a listener per mount.
   if (!globalCollapseHandlerAttached) {
     globalCollapseHandlerAttached = true
-    document.addEventListener(
-      'mousedown',
-      e => {
-        const btn = e.target.closest('.collapse-btn')
-        if (btn) {
-          e.preventDefault()
-          e.stopPropagation()
-          e.stopImmediatePropagation()
-          const nodeId = parseInt(btn.dataset.collapseNode)
-          if (!isNaN(nodeId)) {
-            toggleNodeCollapse(nodeId)
-          }
-        }
-      },
-      true
-    )
+    document.addEventListener('mousedown', handleCollapseMousedown, true)
   }
 }
 
@@ -658,6 +656,9 @@ watch(() => props.parent, debouncedUpdateGraph, { deep: true })
 watch(() => props.detailThreshold, debouncedUpdateGraph)
 watch(() => props.notesPreviewLength, debouncedUpdateGraph)
 watch(() => props.ancestorColor, debouncedUpdateGraph)
+// inheritColors is baked into node element data at build time, so a toggle must
+// rebuild the graph just like ancestorColor does.
+watch(() => props.inheritColors, debouncedUpdateGraph)
 watch(
   () => props.workspace,
   () => {
@@ -751,6 +752,7 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleModifierKeydown)
   document.removeEventListener('keyup', handleModifierKeyup)
   document.removeEventListener('mousemove', handleModifierMousemove)
+  document.removeEventListener('mousedown', handleCollapseMousedown, true)
   if (updateDebounceTimer) clearTimeout(updateDebounceTimer)
   wheel.cleanup()
   layout.cleanup()

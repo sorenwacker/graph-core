@@ -369,7 +369,10 @@ function handleOrgKeydown(e) {
 
   if (e.key === 'ArrowDown') {
     e.preventDefault()
-    const max = exactOrgMatch.value ? filteredOrganizations.value.length : filteredOrganizations.value.length
+    // The synthetic "+ Create" row at index filteredOrganizations.length only
+    // renders when there is no exact match and a query is present.
+    const hasCreateOption = !exactOrgMatch.value && Boolean(orgQuery.value.trim())
+    const max = hasCreateOption ? filteredOrganizations.value.length : filteredOrganizations.value.length - 1
     selectedOrgIndex.value = Math.min(selectedOrgIndex.value + 1, max)
   } else if (e.key === 'ArrowUp') {
     e.preventDefault()
@@ -389,6 +392,15 @@ function handleOrgKeydown(e) {
 function handleOrgInput() {
   showOrgDropdown.value = true
   selectedOrgIndex.value = 0
+}
+
+// Delay closing so a click on a dropdown option (mousedown) registers before
+// the input's blur hides it. `setTimeout` is not a valid Vue template global,
+// so it must live in script, not inline in the template.
+function closeOrgDropdownDelayed() {
+  setTimeout(() => {
+    showOrgDropdown.value = false
+  }, 200)
 }
 
 function selectPerson(person) {
@@ -551,7 +563,7 @@ function getOrganizationsForPerson(personId) {
                   @input="handleOrgInput"
                   @keydown="handleOrgKeydown"
                   @focus="showOrgDropdown = true"
-                  @blur="setTimeout(() => (showOrgDropdown = false), 200)"
+                  @blur="closeOrgDropdownDelayed"
                 />
                 <div
                   v-if="showOrgDropdown && (filteredOrganizations.length > 0 || orgQuery.trim())"
