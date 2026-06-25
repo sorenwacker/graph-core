@@ -638,6 +638,8 @@ describe('useNodeActionsUI', () => {
     })
 
     it('should delete selected nodes and clear selection', async () => {
+      // Delegates to deleteMultipleNodes, so deleting >1 node asks to confirm.
+      global.confirm = vi.fn().mockReturnValue(true)
       selectedIds.value = new Set([1, 2])
       selectedNode.value = { id: 1 }
       showDetail.value = true
@@ -646,6 +648,7 @@ describe('useNodeActionsUI', () => {
       const { deleteSelectedNodes } = createNodeActionsUI()
       await deleteSelectedNodes()
 
+      expect(global.confirm).toHaveBeenCalled()
       expect(mockNodeOps.deleteMultipleNodes).toHaveBeenCalledWith([1, 2])
       expect(selectedIds.value.size).toBe(0)
       expect(selectedNode.value).toBeNull()

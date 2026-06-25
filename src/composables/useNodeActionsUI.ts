@@ -479,13 +479,11 @@ export function useNodeActionsUI({
   async function deleteSelectedNodes(): Promise<void> {
     if (selectedIds.value.size === 0) return
     const idsToDelete = [...selectedIds.value]
-    const result = await nodeOps.deleteMultipleNodes(idsToDelete)
-    if (result.success) {
-      selectedIds.value = new Set()
-      selectedNode.value = null
-      showDetail.value = false
-      await refreshAfterDelete()
-    }
+    // Delegate to deleteMultipleNodes so the keyboard path shares the same
+    // confirmation, navigate-away-if-current-container-deleted, and Tasks-view
+    // reload behaviour as the menu path.
+    selectedIds.value = new Set()
+    await deleteMultipleNodes(idsToDelete)
   }
 
   /**

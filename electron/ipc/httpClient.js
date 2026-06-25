@@ -93,7 +93,7 @@ class HttpClient {
    * @returns {Promise<Object|string>} Response data
    */
   requestWithNode(url, options = {}) {
-    const { method = 'GET', body, headers = {} } = options
+    const { method = 'GET', body, headers = {}, skipSslVerification = false } = options
 
     return new Promise((resolve, reject) => {
       const urlObj = new URL(url)
@@ -106,11 +106,13 @@ class HttpClient {
         path: urlObj.pathname + urlObj.search,
         method,
         headers: { ...headers },
-        rejectUnauthorized: !HttpClient.isLocalhost(urlObj.hostname),
+        // Honor an explicit skip for any host (e.g. a remote self-signed proxy),
+        // not just localhost; localhost stays exempt as a convenience default.
+        rejectUnauthorized: !(skipSslVerification || HttpClient.isLocalhost(urlObj.hostname)),
       }
 
-      if (body) {
-        const bodyStr = JSON.stringify(body)
+      const bodyStr = body ? JSON.stringify(body) : null
+      if (bodyStr) {
         requestOptions.headers['Content-Type'] = 'application/json'
         requestOptions.headers['Content-Length'] = Buffer.byteLength(bodyStr)
       }
@@ -132,11 +134,11 @@ class HttpClient {
       })
 
       request.on('error', error => {
-        reject(HttpClient.handleRequestError(error, this.connectionError, false))
+        reject(HttpClient.handleRequestError(error, this.connectionError, true))
       })
 
-      if (body) {
-        request.write(JSON.stringify(body))
+      if (bodyStr) {
+        request.write(bodyStr)
       }
 
       request.end()
@@ -204,7 +206,7 @@ class HttpClient {
     const { skipSslVerification = false, ...requestOptions } = options
 
     if (skipSslVerification && url.startsWith('https://')) {
-      return this.requestWithNode(url, requestOptions)
+      return this.requestWithNode(url, { ...requestOptions, skipSslVerification })
     }
     return this.requestWithNet(url, requestOptions)
   }
