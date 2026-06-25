@@ -221,27 +221,31 @@ export function useNodeOperations({
       async () => {
         const oldNode = trackUndo ? await api.getNode(updatedNode.id) : null
 
+        // Work on a copy so we never mutate the caller's object (e.g. a
+        // component's reactive editedNode ref passed straight through).
+        const node = { ...updatedNode }
+
         // Auto-set end_date when marking complete (if no end_date)
-        if (updatedNode.completed && !oldNode?.completed && !updatedNode.end_date) {
-          updatedNode.end_date = new Date().toISOString().split('T')[0]
+        if (node.completed && !oldNode?.completed && !node.end_date) {
+          node.end_date = new Date().toISOString().split('T')[0]
         }
 
         // Trim whitespace from title only (not notes - would disrupt editing)
-        if (typeof updatedNode.title === 'string') {
-          updatedNode.title = updatedNode.title.trim()
+        if (typeof node.title === 'string') {
+          node.title = node.title.trim()
         }
 
-        const newValues = pickNodeFields(updatedNode)
-        await api.updateNode(updatedNode.id, newValues)
+        const newValues = pickNodeFields(node)
+        await api.updateNode(node.id, newValues)
 
-        if (broadcastUpdate) broadcastUpdate(updatedNode)
+        if (broadcastUpdate) broadcastUpdate(node)
 
         if (trackUndo && oldNode && pushCommand) {
           const oldValues = pickNodeFields(oldNode)
-          pushCommand(new EditCommand({ nodeId: updatedNode.id, oldValues, newValues }))
+          pushCommand(new EditCommand({ nodeId: node.id, oldValues, newValues }))
         }
 
-        if (onSuccess) await onSuccess({ type: 'update', node: updatedNode })
+        if (onSuccess) await onSuccess({ type: 'update', node })
         return true
       },
       { failValue: false }

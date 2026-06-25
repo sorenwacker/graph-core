@@ -92,8 +92,12 @@ describe('useNodeOperations composable', () => {
 
       await ops.updateNode(updatedNode)
 
-      expect(updatedNode.end_date).toBeDefined()
-      expect(updatedNode.end_date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+      // The persisted values carry the auto-set end_date...
+      const persisted = mockApi.updateNode.mock.calls[0][1]
+      expect(persisted.end_date).toBeDefined()
+      expect(persisted.end_date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+      // ...without mutating the caller's input object.
+      expect(updatedNode.end_date).toBeUndefined()
     })
 
     it('should skip undo tracking when trackUndo is false', async () => {
