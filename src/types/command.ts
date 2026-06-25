@@ -5,21 +5,6 @@
 import type { Api } from './api'
 
 /**
- * Command type identifiers.
- */
-export type CommandType =
-  | 'create'
-  | 'delete'
-  | 'delete-multiple'
-  | 'edit'
-  | 'move'
-  | 'complete'
-  | 'link'
-  | 'unlink'
-  | 'reorder'
-  | 'ollama-improve-notes'
-
-/**
  * Base command interface for undo/redo operations.
  * Note: The type is string to allow interop with JavaScript command classes.
  */

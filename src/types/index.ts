@@ -32,7 +32,7 @@ export type {
   Api,
 } from './api'
 
-export type { CommandType, Command, CommandJSON } from './command'
+export type { Command, CommandJSON } from './command'
 
 // Settings types
 export type {
@@ -50,61 +50,3 @@ export type {
   AppSettings,
   UseSettingsReturn,
 } from './settings'
-
-// Event payload types
-export type {
-  Position,
-  NodeEventPayload,
-  SelectionEventPayload,
-  MultiSelectionEventPayload,
-  DragStartEventPayload,
-  DragMoveEventPayload,
-  DragEndEventPayload,
-  DragEventPayload,
-  ContextMenuEventPayload,
-  NodeUpdateEventPayload,
-  NodeCreateEventPayload,
-  NodeDeleteEventPayload,
-  MultiDeleteEventPayload,
-  NodeMoveEventPayload,
-  NodeReorderEventPayload,
-  LinkEventPayload,
-  ToggleEventPayload,
-  GraphViewEventPayload,
-  ResizeEventPayload,
-  PanelResizeEventPayload,
-  KeyboardEventPayload,
-  NavigationEventPayload,
-  SearchEventPayload,
-  ModalEventPayload,
-  ToastEventPayload,
-  AIEventPayload,
-} from './events'
-
-// Component prop/emit types
-export type {
-  DetailPanelProps,
-  DetailPanelEmits,
-  RadialSettings,
-  GraphViewProps,
-  GraphViewEmits,
-  GraphControlsProps,
-  GraphControlsEmits,
-  CardsViewProps,
-  TableViewProps,
-  TimelineViewProps,
-  TreeItemProps,
-  BreadcrumbsProps,
-  ViewSwitcherProps,
-  WorkspaceSelectorProps,
-  NodeContextMenuProps,
-  SpotlightSearchProps,
-  TagInputProps,
-  NotesEditorProps,
-  AddNodeModalProps,
-  SettingsPanelProps,
-  NodeListEmits,
-  ModalEmits,
-  GraphViewExposed,
-  DetailPanelExposed,
-} from './components'
