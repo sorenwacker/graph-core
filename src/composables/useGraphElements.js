@@ -434,17 +434,3 @@ export async function fetchLinkedNodes(options) {
     }
   }
 }
-
-/**
- * Composable for graph element building.
- * @param {Object} options - Configuration options
- * @returns {Object} Element building functions
- */
-export function useGraphElements(options = {}) {
-  return {
-    buildElements: buildOptions => buildElements({ ...options, ...buildOptions }),
-    addLinkEdges,
-    fetchLinkedNodes: fetchOptions => fetchLinkedNodes({ ...options, ...fetchOptions }),
-    darkenColor,
-  }
-}

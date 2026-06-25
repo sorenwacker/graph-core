@@ -135,39 +135,6 @@ export const useFiltersStore = defineStore('filters', () => {
     isDirty.value = false
   }
 
-  /**
-   * Filter an array of nodes by current filter settings
-   * @param {Array} nodes - Nodes to filter
-   * @param {Object} options - Filter options
-   * @param {boolean} options.applyTypeFilter - Whether to apply type filter
-   * @param {boolean} options.applyDepthFilter - Whether to apply depth filter
-   * @param {number} options.currentDepth - Current depth for depth filtering
-   * @returns {Array} Filtered nodes
-   */
-  function filterNodes(nodes, options = {}) {
-    const { applyTypeFilter = true, applyDepthFilter = false, currentDepth = 0 } = options
-
-    if (!nodes || !Array.isArray(nodes)) return []
-
-    let result = nodes
-
-    // Apply type filter
-    if (applyTypeFilter && hasTypeFilter.value) {
-      result = result.filter(node => {
-        // Always exclude 'tag' type from direct display (shown via links)
-        if (node.type === 'tag') return false
-        return visibleTypes.value.includes(node.type)
-      })
-    }
-
-    // Apply depth filter (only in graph view context)
-    if (applyDepthFilter && maxDepth.value > 0 && currentDepth >= maxDepth.value) {
-      return []
-    }
-
-    return result
-  }
-
   return {
     // State
     visibleTypes,
@@ -190,6 +157,5 @@ export const useFiltersStore = defineStore('filters', () => {
     resetToDefaults,
     showAllTypes,
     syncFromNode,
-    filterNodes,
   }
 })
