@@ -46,6 +46,7 @@ import OnboardingModal from './components/OnboardingModal.vue'
 import HintBar from './components/HintBar.vue'
 import { showToast } from './composables/useToast.js'
 import { handleError } from './composables/useErrorHandler.js'
+import { useTagActions } from './composables/useTagActions.js'
 import { useFiltersStore } from './stores/filters.js'
 import { useGraphSettings } from './composables/useGraphSettings'
 
@@ -180,35 +181,6 @@ const {
   deleteOrphanedNode,
 } = useDataLoading(currentWorkspace)
 
-const selectTag = tag => {
-  // For legacy string tags, search by hashtag
-  const tagName = tag.title || tag
-  searchQuery.value = `#${tagName}`
-  showSearch.value = true
-  onSearchInput()
-}
-
-const navigateToTag = async tagNode => {
-  // Navigate into the tag node to show all linked items
-  if (tagNode && tagNode.id) {
-    await enterContainer(tagNode)
-  }
-}
-
-// Delete a tag everywhere (removes the tag node and all its links). Soft-delete,
-// so it lands in Trash and stays recoverable like any other node deletion.
-const deleteTag = async tag => {
-  if (!tag?.id) return
-  if (!confirm(`Delete tag "${tag.title || tag}" everywhere? It will be moved to Trash.`)) return
-  try {
-    await api.deleteNode(tag.id)
-    // If we were viewing the deleted tag, return to the root view.
-    if (currentContainerId.value === tag.id) navigateToBreadcrumb(-1)
-    await loadTags()
-  } catch (e) {
-    handleError(e, { context: 'Deleting tag' })
-  }
-}
 watch(viewMode, mode => {
   if (mode === 'trash') loadTrashedItems()
 })
@@ -509,6 +481,17 @@ const {
   },
   getAncestors: api.getAncestors,
   getWorkspace: () => currentWorkspace.value,
+})
+
+// Tag actions (depend on search + navigation set up above)
+const { selectTag, navigateToTag, deleteTag } = useTagActions({
+  searchQuery,
+  showSearch,
+  onSearchInput,
+  enterContainer,
+  currentContainerId,
+  navigateToBreadcrumb,
+  loadTags,
 })
 
 // Inline edit
