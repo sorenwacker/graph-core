@@ -4,7 +4,7 @@ import { api } from '../services/api.js'
 import { personColors } from '../utils/constants.js'
 import { getInitials, getContrastColor } from '../utils/formatting.js'
 import NotesEditor from './NotesEditor.vue'
-import TagInput from './TagInput.vue'
+import TagsSection from './detail/TagsSection.vue'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
 import { resolveNodeColor, DEFAULT_NODE_COLOR } from '../utils/nodeColor.js'
 import {
@@ -47,6 +47,7 @@ const orgQuery = ref('')
 const showOrgDropdown = ref(false)
 const selectedOrgIndex = ref(0)
 const linkedOrganizations = ref([]) // Currently linked organizations for editing person
+const editingPersonLinks = ref([]) // All linked nodes for the editing person (tags are filtered out of these)
 
 // Expose column definitions for template
 const tableColumns = personsTableColumns
@@ -229,6 +230,7 @@ async function loadLinkedOrganizations(personId) {
 function showAddPerson() {
   editingPerson.value = createDefaultPerson(getRandomColor)
   linkedOrganizations.value = []
+  editingPersonLinks.value = []
   orgQuery.value = ''
   showOrgDropdown.value = false
 }
@@ -238,6 +240,21 @@ async function editPerson(person) {
   orgQuery.value = ''
   showOrgDropdown.value = false
   await loadLinkedOrganizations(person.id)
+  await loadEditingPersonLinks(person.id)
+}
+
+// Load the editing person's linked nodes; TagsSection filters these to tag nodes.
+async function loadEditingPersonLinks(personId) {
+  if (!personId) {
+    editingPersonLinks.value = []
+    return
+  }
+  try {
+    editingPersonLinks.value = await api.getLinkedNodes(personId)
+  } catch (err) {
+    handleError(err, { context: 'Loading linked tags', silent: true })
+    editingPersonLinks.value = []
+  }
 }
 
 async function savePerson() {
@@ -254,7 +271,6 @@ async function savePerson() {
       website: editingPerson.value.website || '',
       notes: editingPerson.value.notes || '',
       color: editingPerson.value.color || legacyDefaultColor,
-      tags: editingPerson.value.tags || [],
       workspace_id: props.workspaceId,
     }
 
@@ -615,8 +631,17 @@ function getOrganizationsForPerson(personId) {
             </div>
 
             <div class="form-field full-width">
-              <label>Tags</label>
-              <TagInput :tags="editingPerson.tags || []" @update="editingPerson.tags = $event" />
+              <TagsSection
+                v-if="editingPerson.id"
+                :node-id="editingPerson.id"
+                :workspace-id="workspaceId"
+                :linked-nodes="editingPersonLinks"
+                @refresh="loadEditingPersonLinks(editingPerson.id)"
+              />
+              <template v-else>
+                <label>Tags</label>
+                <p class="tags-hint">Save this person to add tags.</p>
+              </template>
             </div>
           </div>
 
