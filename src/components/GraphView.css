@@ -821,6 +821,9 @@
   justify-content: center;
   /* Enable pointer events for click detection, Cytoscape handles drag via grab/free events */
   pointer-events: auto;
+  /* Prevent native text selection so dragging a node (e.g. Option-drag to link)
+     drags the node instead of rubber-band selecting its text. */
+  user-select: none;
 }
 
 :global(.node-html:hover) {
