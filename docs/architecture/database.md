@@ -145,6 +145,23 @@ ORDER BY updated_at DESC
 LIMIT ? OFFSET ?
 ```
 
+## Materialized path invariant
+
+`depth` and `path` form a materialized-path encoding of the tree, enabling
+descendant lookups (`path LIKE '1/5/%'`) and depth-capped queries without
+recursion. The invariant for every live node is:
+
+- `depth` equals the number of its ancestors (0 for roots).
+- `path` is the slash-joined ids of its ancestors, root first, and references
+  only live ancestors (e.g. `"1/5"` for a node whose ancestors are 1 then 5).
+
+Any operation that changes a node's parent must reset that node's **own**
+`depth`/`path` and then recompute its descendants. `moveNode` is the single
+source of truth for this; `deleteNode` (which reassigns children to the
+grandparent) and `reparentToRoot` apply the same reset. Updating only a node's
+descendants while leaving its own `depth`/`path` stale corrupts the whole
+subtree, because descendant paths are derived from the parent's path.
+
 ## Migrations
 
 Schema migrations run automatically on startup in `_runMigrations()`:
