@@ -66,7 +66,8 @@ src/
 
 electron/
 ├── main.js              # Electron main process
-└── preload.js           # IPC bridge
+├── ipcChannels.js       # Channel name constants (shared by main and preload)
+└── preload.js           # IPC bridge (bundled to preload.build.js before launch)
 ```
 
 ## Core Concepts
@@ -158,6 +159,15 @@ Electron IPC handles:
 - File system access
 - AI API calls (Ollama, OpenAI)
 - Window management
+
+Channel names are defined once in `electron/ipcChannels.js` and imported by both
+the main process and the preload script, so a rename cannot silently drift.
+
+The window runs with `sandbox: true`. A sandboxed preload's `require` only
+resolves a fixed whitelist (electron, events, timers, url) and cannot load
+relative modules, so `electron/preload.js` is bundled into `preload.build.js`
+(via `npm run bundle:preload`, run automatically before dev and packaging). This
+inlines `ipcChannels.js` while keeping the OS sandbox enabled.
 
 ## Data Flow
 

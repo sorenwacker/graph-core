@@ -19,7 +19,7 @@ const detachedWindows = new Map()
 function createWindowConfig(options = {}) {
   const baseConfig = {
     webPreferences: {
-      preload: path.join(__dirname, '..', 'preload.js'),
+      preload: path.join(__dirname, '..', 'preload.build.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
