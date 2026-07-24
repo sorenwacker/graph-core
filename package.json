@@ -48,7 +48,7 @@
     "cytoscape-d3-force": "^1.1.4",
     "cytoscape-dagre": "^2.5.0",
     "cytoscape-node-html-label": "^1.2.2",
-    "dompurify": "^3.4.1",
+    "dompurify": "^3.4.12",
     "katex": "^0.16.45",
     "marked": "^17.0.1",
     "mermaid": "^11.12.2",
