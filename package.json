@@ -150,7 +150,7 @@
   "overrides": {
     "tar": "^7.5.4",
     "lodash-es": "^4.17.23",
-    "shell-quote": "^1.8.4",
+    "shell-quote": "^1.10.0",
     "joi": "^18.2.1"
   },
   "lint-staged": {
