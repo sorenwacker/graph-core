@@ -201,10 +201,10 @@ Documentation uses MkDocs with Material theme.
 make docs
 ```
 
-The target creates `.venv/` with `mkdocs`, `mkdocs-material` and `pymdown-extensions` on first run, then serves the site. To check for broken links and nav problems before pushing:
+The target runs MkDocs through [uv](https://docs.astral.sh/uv/), which resolves `mkdocs`, `mkdocs-material` and `pymdown-extensions` into a cached environment — there is no virtualenv to create or keep in sync, and no Python setup beyond installing uv itself. To check for broken links and nav problems before pushing:
 
 ```bash
-.venv/bin/mkdocs build --strict
+make docs-build
 ```
 
 ### Writing Docs

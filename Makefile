@@ -1,4 +1,8 @@
-.PHONY: dev install clean clean-release stop build dist install-mac reset-db docs lint format check test
+.PHONY: dev install clean clean-release stop build dist install-mac reset-db docs docs-build lint format check test
+
+# Documentation toolchain: uv resolves these into a cached ephemeral env, so
+# there is no virtualenv to create or keep in sync.
+MKDOCS := uv run --with mkdocs --with mkdocs-material --with pymdown-extensions mkdocs
 
 # Start Electron app in dev mode
 dev:
@@ -70,8 +74,11 @@ reset-db:
 
 # Serve documentation preview
 docs:
-	@if [ ! -d .venv ]; then python3 -m venv .venv && .venv/bin/pip install mkdocs mkdocs-material pymdown-extensions; fi
-	.venv/bin/mkdocs serve
+	$(MKDOCS) serve
+
+# Build the docs, failing on broken links and nav problems
+docs-build:
+	$(MKDOCS) build --strict
 
 # Lint code with auto-fix
 lint:
