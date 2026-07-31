@@ -1,5 +1,5 @@
 import { provide, inject, type InjectionKey, type Ref } from 'vue'
-import type { Api, Node, Command } from '../types'
+import type { Api, Node, Command, WorkspaceId } from '../types'
 
 /**
  * Application context interface.
@@ -13,9 +13,9 @@ export interface AppContext {
   /** Push undo/redo command (from useUndoRedo) */
   pushCommand: (command: Command) => void
   /** Get workspace ID for new nodes (current workspace) */
-  getWorkspaceIdForNode: (type: string) => number | null | undefined
+  getWorkspaceIdForNode: (type: string) => WorkspaceId | null | undefined
   /** Current workspace ID */
-  currentWorkspace: Ref<number | null>
+  currentWorkspace: Ref<WorkspaceId | null>
   /** Current container ID */
   currentContainerId: Ref<number | null>
   /** Currently selected node */

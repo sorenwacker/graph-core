@@ -638,6 +638,7 @@ describe('useNodeActionsUI', () => {
     })
 
     it('should delete selected nodes and clear selection', async () => {
+      global.confirm = vi.fn().mockReturnValue(true)
       selectedIds.value = new Set([1, 2])
       selectedNode.value = { id: 1 }
       showDetail.value = true

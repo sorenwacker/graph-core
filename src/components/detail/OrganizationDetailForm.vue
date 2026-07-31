@@ -24,6 +24,8 @@ const emit = defineEmits([
   'open-link-search',
   'ai-improve-notes',
   'remove-link',
+  'unlink-tag',
+  'reload-links',
 ])
 
 const { handleError } = useErrorHandler()
@@ -132,12 +134,14 @@ defineExpose({ loadLinkedMembers, getNotesSelection })
           ref="notesSectionRef"
           :notes="editedNode.notes || ''"
           :node-id="editedNode.id"
+          :workspace-id="currentWorkspace"
           :active-tab="activeTab"
           css-class="org-notes"
           @update:notes="onNotesUpdate"
           @update:active-tab="$emit('update:activeTab', $event)"
           @blur="saveChanges"
           @ai-improve="$emit('ai-improve-notes', $event)"
+          @mention-inserted="$emit('reload-links')"
         />
       </div>
     </div>
@@ -224,7 +228,8 @@ defineExpose({ loadLinkedMembers, getNotesSelection })
           :node-id="editedNode.id"
           :workspace-id="editedNode.workspace_id"
           :linked-nodes="linkedNodes"
-          @refresh="saveChanges"
+          @unlink="$emit('unlink-tag', $event)"
+          @refresh="$emit('reload-links')"
         />
 
         <!-- System info -->

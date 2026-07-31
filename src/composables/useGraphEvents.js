@@ -97,6 +97,14 @@ export function useGraphEvents(options = {}) {
   let dragStartPos = null
   let highlightedNode = null
   let selectionUpdateTimer = null
+  // Cleanup for the container DOM listeners added by setupHtmlLabelHandlers.
+  // cy.destroy() removes cytoscape handlers but the container element persists
+  // across re-inits, so these must be removed explicitly or they accumulate.
+  let removeContainerListeners = null
+  // Cleanup for an in-progress link draw. The document mousemove/mouseup
+  // listeners it adds normally come off on mouseup, so unmounting (or a graph
+  // re-init) mid-drag would otherwise leak them and strand the connector.
+  let cancelLinkDraw = null
 
   /**
    * Draw a link connector from a source node to the pointer. The source node
@@ -112,6 +120,8 @@ export function useGraphEvents(options = {}) {
   function startLinkDraw(cy, container, sourceNode) {
     const lineEl = getLinkLine?.()
     if (!lineEl) return
+    // Never stack two draws (e.g. a second mousedown before mouseup landed).
+    cancelLinkDraw?.()
     const start = sourceNode.renderedPosition()
 
     // Position the line as a rotated bar from the source point to (x, y), all in
@@ -155,10 +165,17 @@ export function useGraphEvents(options = {}) {
       }
     }
 
-    const onUp = () => {
+    // Detach the document listeners and hide the connector overlay. Shared by
+    // the normal mouseup path and by teardownEvents (unmount / graph re-init).
+    const detach = () => {
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseup', onUp)
       lineEl.style.display = 'none'
+      cancelLinkDraw = null
+    }
+
+    const onUp = () => {
+      detach()
       if (targetNode) {
         const source = sourceNode.data('nodeData')
         const target = targetNode.data('nodeData')
@@ -166,6 +183,11 @@ export function useGraphEvents(options = {}) {
           emit('link', { sourceId: source.id, targetId: target.id })
         }
       }
+      clearTarget()
+    }
+
+    cancelLinkDraw = () => {
+      detach()
       clearTarget()
     }
 
@@ -322,6 +344,7 @@ export function useGraphEvents(options = {}) {
 
   /**
    * Set up HTML label click handlers for the container element.
+   * Returns a cleanup function that removes the added listeners.
    */
   function setupHtmlLabelHandlers(cy, container) {
     let htmlClickPending = null
@@ -331,7 +354,7 @@ export function useGraphEvents(options = {}) {
     // in a positioned div, so the event target is often that wrapper whose child
     // is the .node-html (closest() only walks ancestors, never children).
     // Resolve the card whether the target is it, an ancestor, or the wrapper.
-    container.addEventListener('mousedown', e => {
+    const onMousedown = e => {
       const htmlLabel =
         e.target.closest?.('.node-html, .node-person') || e.target.querySelector?.('.node-html, .node-person')
       if (!htmlLabel) return
@@ -352,9 +375,9 @@ export function useGraphEvents(options = {}) {
         e.preventDefault()
         startLinkDraw(cy, container, cyNode)
       }
-    })
+    }
 
-    container.addEventListener('click', e => {
+    const onClick = e => {
       // Handle collapse button click
       const collapseBtn = e.target.closest('.collapse-btn')
       if (collapseBtn) {
@@ -404,9 +427,9 @@ export function useGraphEvents(options = {}) {
           }
         }, 200)
       }
-    })
+    }
 
-    container.addEventListener('dblclick', e => {
+    const onDblclick = e => {
       if (htmlClickTimer) clearTimeout(htmlClickTimer)
       htmlClickPending = null
 
@@ -426,7 +449,19 @@ export function useGraphEvents(options = {}) {
         hideEditModal()
         emit('enter', nodeData)
       }
-    })
+    }
+
+    container.addEventListener('mousedown', onMousedown)
+    container.addEventListener('click', onClick)
+    container.addEventListener('dblclick', onDblclick)
+
+    return () => {
+      container.removeEventListener('mousedown', onMousedown)
+      container.removeEventListener('click', onClick)
+      container.removeEventListener('dblclick', onDblclick)
+      if (htmlClickTimer) clearTimeout(htmlClickTimer)
+      htmlClickPending = null
+    }
   }
 
   /**
@@ -601,24 +636,47 @@ export function useGraphEvents(options = {}) {
   }
 
   /**
-   * Set up all event handlers for the graph.
+   * Remove the container DOM listeners, document listeners from an in-progress
+   * link draw, and pending timers added by setupEvents. Safe to call multiple
+   * times; called automatically at the start of each setupEvents so
+   * re-initialization never stacks duplicate listeners.
+   */
+  function teardownEvents() {
+    if (removeContainerListeners) {
+      removeContainerListeners()
+      removeContainerListeners = null
+    }
+    cancelLinkDraw?.()
+    if (selectionUpdateTimer) {
+      clearTimeout(selectionUpdateTimer)
+      selectionUpdateTimer = null
+    }
+  }
+
+  /**
+   * Set up all event handlers for the graph. Idempotent: previously added
+   * container listeners are removed first, so calling this again after a graph
+   * re-init (cy.destroy() + recreate) does not accumulate handlers.
    */
   function setupEvents() {
     const cy = getCy()
     const container = getContainer()
     if (!cy || !container) return
 
+    teardownEvents()
+
     setupNodeTapHandlers(cy)
     setupBackgroundTapHandler(cy)
     setupBoxSelectionHandler(cy)
     setupEdgeTapHandler(cy)
     setupTooltipHandlers(cy)
-    setupHtmlLabelHandlers(cy, container)
+    removeContainerListeners = setupHtmlLabelHandlers(cy, container)
     setupContextMenuHandler(cy, container)
     setupDragDropHandlers(cy, container)
   }
 
   return {
     setupEvents,
+    teardownEvents,
   }
 }

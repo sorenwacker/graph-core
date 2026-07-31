@@ -292,7 +292,7 @@ Filtered view showing task-type nodes from the current container and its descend
 
 ## Persons View
 
-Contact management for person-type nodes.
+Contact management for the person-type nodes of the current workspace; the list reloads when you switch workspaces.
 
 **Features:**
 
@@ -324,12 +324,11 @@ Access via the settings panel:
 
 | Setting | Affects |
 |---------|---------|
-| Detail Threshold | Graph view node limit before abbreviation |
-| Max Depth | Graph view hierarchy depth |
-| Root Max Depth | Graph view multi-root depth |
-| Hide Completed | All views |
-| Hide Sensitive | Persons view, Detail panel, Graph hover tooltips |
-| Sort Alphabetically | Cards, Graph views |
+| Detail threshold | Graph view node limit before details are abbreviated |
+| Max depth | Graph view hierarchy depth (`0` = all levels, stored per workspace) |
+| Notes preview | Characters of note text shown on a graph node |
+| Hide completed | All views (toolbar toggle) |
+| Sort alphabetically | Cards, Graph views (toolbar toggle) |
 
 ## See Also
 

@@ -1,7 +1,6 @@
 <script setup>
 import { ref, watch, computed, nextTick, onMounted, onUnmounted, toRaw } from 'vue'
 import MarkdownRenderer from './MarkdownRenderer.vue'
-import MentionDropdown from './MentionDropdown.vue'
 import NotesEditor from './NotesEditor.vue'
 import NotesAIToolbar from './NotesAIToolbar.vue'
 import NodeSpreadsheet from './NodeSpreadsheet.vue'
@@ -10,10 +9,10 @@ import OrganizationDetailForm from './detail/OrganizationDetailForm.vue'
 import ChildrenSection from './detail/ChildrenSection.vue'
 import MetadataGridSection from './detail/MetadataGridSection.vue'
 import { api } from '../services/api'
-import { useMentions } from '../composables/useMentions.js'
 import { useNodeTable } from '../composables/useNodeTable.js'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
 import { selectElementText } from '../composables/useKeyboardShortcuts.js'
+import { pickNodeFields } from '../utils/nodeFields.js'
 import { AUTOSAVE_DELAY_MS } from '../utils/settingsConstants'
 
 const props = defineProps({
@@ -129,15 +128,6 @@ let notesAutosaveTimeout = null
 // Scroll sync listener for split view
 let editorScrollListener = null
 
-// Mentions system
-const { showMentions, mentionPosition, filteredPersons, selectedMentionIndex, selectMention } = useMentions({
-  onMentionInserted: async () => {
-    // Refresh linked nodes after auto-linking
-    await loadLinkedNodes()
-  },
-  workspaceId: props.currentWorkspace,
-})
-
 // Error handling
 const { handleError } = useErrorHandler()
 
@@ -148,17 +138,6 @@ function onCodeMirrorNotesUpdate(newValue) {
   notesAutosaveTimeout = setTimeout(() => {
     saveChanges()
   }, AUTOSAVE_DELAY_MS)
-}
-
-function onMentionSelect(index) {
-  selectMention(
-    index,
-    editedNode.value.notes,
-    newVal => {
-      editedNode.value.notes = newVal
-    },
-    props.node?.id
-  )
 }
 
 function onAIImproveNotes(payload) {
@@ -347,6 +326,31 @@ function saveChanges() {
   }
   // Use toRaw to unwrap Vue proxy before emitting (prevents IPC cloning errors)
   emit('update', { ...toRaw(editedNode.value) })
+}
+
+/**
+ * Persist the panel's pending edits and resolve only once the write has been
+ * acknowledged by the backend.
+ *
+ * `saveChanges()` merely emits `update`; the parent's handler chain is async
+ * and its promise cannot travel back through `emit`, so callers that must know
+ * the data is durable before they proceed (the pre-quit autosave handshake)
+ * cannot await it. This writes straight through instead - the same
+ * "persist directly, then let the UI catch up" pattern used by
+ * `changeWorkspace()` and DetachedView - so the caller has a real end-to-end
+ * await on the underlying update round-trip.
+ *
+ * @returns {Promise<boolean>} True if an update was issued and acknowledged.
+ */
+async function saveChangesNow() {
+  if (notesAutosaveTimeout) {
+    clearTimeout(notesAutosaveTimeout)
+    notesAutosaveTimeout = null
+  }
+  const node = toRaw(editedNode.value)
+  if (!node?.id) return false
+  await api.updateNode(node.id, pickNodeFields(node))
+  return true
 }
 
 // Toggle handlers for template
@@ -542,6 +546,7 @@ defineExpose({
   loadLinkedOrganizations: () => personFormRef.value?.loadLinkedOrganizations?.(),
   loadLinkedMembers: () => organizationFormRef.value?.loadLinkedMembers?.(),
   saveChanges,
+  saveChangesNow,
   getNotesSelection: getNotesSelectionFromForm,
 })
 </script>
@@ -648,6 +653,8 @@ defineExpose({
         @open-link-search="emit('open-link-search')"
         @remove-link="removeLink"
         @ai-improve-notes="onAIImproveNotes"
+        @unlink-tag="onUnlinkTag"
+        @reload-links="loadLinkedNodes"
       />
 
       <!-- Organization-specific form layout -->
@@ -665,6 +672,8 @@ defineExpose({
         @open-link-search="emit('open-link-search')"
         @remove-link="removeLink"
         @ai-improve-notes="onAIImproveNotes"
+        @unlink-tag="onUnlinkTag"
+        @reload-links="loadLinkedNodes"
       />
 
       <!-- Regular node layout (non-person, non-organization) -->
@@ -710,8 +719,11 @@ defineExpose({
                 v-if="activeTab === 'edit'"
                 ref="notesEditorRef"
                 :model-value="editedNode.notes"
+                :workspace-id="currentWorkspace"
+                :node-id="props.node?.id ?? null"
                 @update:model-value="onCodeMirrorNotesUpdate"
                 @blur="saveChanges"
+                @mention-inserted="loadLinkedNodes"
                 class="notes-codemirror"
               />
 
@@ -735,8 +747,11 @@ defineExpose({
                 <NotesEditor
                   ref="notesEditorSplitRef"
                   :model-value="editedNode.notes"
+                  :workspace-id="currentWorkspace"
+                  :node-id="props.node?.id ?? null"
                   @update:model-value="onCodeMirrorNotesUpdate"
                   @blur="saveChanges"
+                  @mention-inserted="loadLinkedNodes"
                   class="notes-codemirror split-editor"
                 />
                 <div
@@ -756,15 +771,6 @@ defineExpose({
                   <p v-else class="placeholder">No notes yet</p>
                 </div>
               </div>
-
-              <!-- Mention autocomplete dropdown -->
-              <MentionDropdown
-                v-if="showMentions"
-                :persons="filteredPersons"
-                :selected-index="selectedMentionIndex"
-                :position="mentionPosition"
-                @select="onMentionSelect"
-              />
             </div>
           </div>
 

@@ -255,21 +255,3 @@ export function createNodeCache(options = {}) {
     resetStats,
   }
 }
-
-// Default singleton instance for app-wide use
-let defaultCache = null
-
-export function getNodeCache() {
-  if (!defaultCache) {
-    defaultCache = createNodeCache()
-  }
-  return defaultCache
-}
-
-export function resetNodeCache() {
-  if (defaultCache) {
-    defaultCache.clear()
-    defaultCache.resetStats()
-  }
-  defaultCache = null
-}

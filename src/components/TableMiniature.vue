@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { api } from '../services/api.js'
+import { getColumnName } from '../utils/spreadsheetFormulas.js'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
 
 const { handleError } = useErrorHandler()
@@ -33,16 +34,6 @@ onMounted(async () => {
 function getCellValue(rowIndex, colIndex) {
   const cell = cells.value.find(c => c.row_index === rowIndex && c.col_index === colIndex)
   return cell?.value || cell?.computed_value || ''
-}
-
-function getColumnName(index) {
-  let name = ''
-  let i = index
-  while (i >= 0) {
-    name = String.fromCharCode(65 + (i % 26)) + name
-    i = Math.floor(i / 26) - 1
-  }
-  return name
 }
 </script>
 

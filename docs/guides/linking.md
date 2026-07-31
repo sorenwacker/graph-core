@@ -108,10 +108,12 @@ Link people to relevant nodes:
 The notes editor supports `@mentions` that automatically create links:
 
 1. Type `@` followed by a person's name
-2. Select from the dropdown of matching persons
-3. The mention is inserted and a link is created
+2. Select from the dropdown of matching persons (arrow keys plus Enter or Tab, or click)
+3. The mention is inserted and a link between the person and the current node is created
 
-Mention format: `@[Person Name](person:123)`
+Mention format: `@[Person Name](person:123)`, rendered as a `@Name` chip in the preview.
+
+Suggestions come from the persons in the current workspace.
 
 See [Detail Panel](detail-panel.md#mentions) for more details.
 

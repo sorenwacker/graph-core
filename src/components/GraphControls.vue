@@ -271,13 +271,13 @@ const showLayoutSettings = ref(false)
 
 .icon-btn.active {
   background: var(--accent-subtle);
-  color: var(--accent);
+  color: var(--accent-color);
 }
 
 .icon-btn.relax-locked,
 .icon-btn.fit-locked {
   background: var(--accent-subtle);
-  color: var(--accent);
+  color: var(--accent-color);
   animation: pulse 2s infinite;
 }
 
@@ -351,7 +351,7 @@ const showLayoutSettings = ref(false)
   padding: 6px;
   border: none;
   border-radius: 4px;
-  background: var(--accent);
+  background: var(--accent-color);
   color: white;
   cursor: pointer;
   font-size: 12px;

@@ -106,7 +106,7 @@ defineExpose({ inputRef })
 
 .prompt-input:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--accent-color);
 }
 
 .prompt-modal-footer {
@@ -136,7 +136,7 @@ defineExpose({ inputRef })
 }
 
 .btn-primary {
-  background: var(--accent);
+  background: var(--accent-color);
   border: none;
   color: white;
 }

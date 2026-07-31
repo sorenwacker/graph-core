@@ -3,6 +3,8 @@
  * @module database/migrations
  */
 
+const fs = require('fs')
+
 /**
  * Run all schema migrations.
  * @param {Object} ctx - Database context with db, _query, _run, backup, _save methods
@@ -30,8 +32,12 @@ function runColumnMigrations(ctx) {
       column: 'workspace_id',
       def: 'TEXT DEFAULT NULL',
       onAdd: () => {
-        ctx.backup('-pre-workspace-migration')
-        console.log('Created backup before workspace migration')
+        // Only back up when migrating an existing database file; a brand-new
+        // database (file not yet written) has nothing worth backing up.
+        if (ctx.dbPath && fs.existsSync(ctx.dbPath)) {
+          ctx.backup('-pre-workspace-migration')
+          console.log('Created backup before workspace migration')
+        }
         console.log('Added workspace_id column to nodes table')
       },
     },
@@ -45,12 +51,18 @@ function runColumnMigrations(ctx) {
   ]
 
   for (const { table, column, def, onAdd } of columnMigrations) {
+    let added = false
     try {
       ctx.db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`)
-      if (onAdd) onAdd()
-    } catch {
-      // Column already exists, ignore
+      added = true
+    } catch (e) {
+      // Only "column already exists" is expected here; surface anything else.
+      if (!String(e?.message).includes('duplicate column name')) {
+        throw e
+      }
     }
+    // Run onAdd outside the try so its errors are not swallowed.
+    if (added && onAdd) onAdd()
   }
 }
 
@@ -282,7 +294,10 @@ function migrateStringTagsToTagNodes(ctx) {
   if (nodesWithTags.length === 0) return
 
   console.log(`Migrating string tags to tag nodes for ${nodesWithTags.length} nodes`)
-  // Note: backup() not available during migrations - user should backup manually before upgrading
+  if (ctx.dbPath && fs.existsSync(ctx.dbPath)) {
+    ctx.backup('-pre-tag-migration')
+    console.log('Created backup before tag migration')
+  }
 
   // Track created tag nodes per workspace: Map<workspaceId, Map<tagName, tagNodeId>>
   const tagNodeCache = new Map()

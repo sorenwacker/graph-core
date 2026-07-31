@@ -2,7 +2,7 @@ import { ref, type Ref } from 'vue'
 import { api as apiService } from '../services/api.js'
 import { handleError } from './useErrorHandler.js'
 import { createNodeCache } from '../services/nodeCache.js'
-import type { Node } from '../types'
+import type { Node, WorkspaceId } from '../types'
 
 // Cast api to any to allow flexible method calls until api.js is converted to TypeScript
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -85,7 +85,7 @@ const sidebarCache: NodeCache = (createNodeCache as any)({
 /**
  * Composable for loading sidebar, recent items, favorites, tags, trash, and orphaned nodes
  */
-export function useDataLoading(currentWorkspace: Ref<number | null>): UseDataLoadingReturn {
+export function useDataLoading(currentWorkspace: Ref<WorkspaceId | null>): UseDataLoadingReturn {
   const sidebarTree = ref<SidebarTreeNode[]>([])
   const recentItems = ref<Node[]>([])
   const favoriteItems = ref<Node[]>([])
@@ -137,7 +137,7 @@ export function useDataLoading(currentWorkspace: Ref<number | null>): UseDataLoa
 
     try {
       const wsId = currentWorkspace.value
-      const roots = await api.getRoots(wsId as number)
+      const roots = await api.getRoots(wsId)
       const filteredRoots = (roots || []).filter(matchesWorkspace)
 
       if (filteredRoots.length === 0) {
@@ -187,7 +187,7 @@ export function useDataLoading(currentWorkspace: Ref<number | null>): UseDataLoa
   async function loadRecentItems(): Promise<void> {
     try {
       const wsId = currentWorkspace.value
-      const items = await api.getRecent(10, wsId as number)
+      const items = await api.getRecent(10, wsId)
       const clearedAt = typeof localStorage !== 'undefined' ? localStorage.getItem(getRecentClearedKey()) : null
       const validItems = (items || []).filter((item: Node | null): item is Node => item != null)
       if (clearedAt) {
@@ -227,7 +227,7 @@ export function useDataLoading(currentWorkspace: Ref<number | null>): UseDataLoa
     try {
       if (api.getFavorites) {
         const wsId = currentWorkspace.value
-        const items = await api.getFavorites(wsId as number)
+        const items = await api.getFavorites(wsId)
         favoriteItems.value = (items || []).filter((item: Node | null): item is Node => item != null)
       }
     } catch {
@@ -244,11 +244,11 @@ export function useDataLoading(currentWorkspace: Ref<number | null>): UseDataLoa
       const wsId = currentWorkspace.value
       // Use getTagNodes if available, fall back to getAllTags for backwards compatibility
       if (api.getTagNodes) {
-        const tagNodes = await api.getTagNodes(wsId as number)
+        const tagNodes = await api.getTagNodes(wsId)
         allTags.value = (tagNodes || []).filter((t: Node | null): t is Node => t != null).sort(sortByTitle)
       } else {
         // Legacy fallback: convert string tags to pseudo-nodes for display
-        const tags = await api.getAllTags(wsId as number)
+        const tags = await api.getAllTags(wsId)
         allTags.value = (
           (tags || []).map((tag: string) => ({
             id: null,

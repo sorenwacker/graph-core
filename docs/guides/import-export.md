@@ -4,7 +4,7 @@ Graph Core supports multiple formats for importing and exporting your data.
 
 ## Export
 
-Access export options from the context menu or toolbar.
+Open a node's detail panel and use the **Export** menu in the panel footer. The export covers that node and its descendants.
 
 ### Export Formats
 
@@ -16,13 +16,14 @@ Access export options from the context menu or toolbar.
 
 ### Markdown Export
 
-Exports a single node's content as a Markdown document.
+Exports the node and its descendants as one Markdown document.
 
 **Includes:**
 
-- Node title as heading
-- Notes content
-- Basic metadata
+- Each node title as a heading, nested by depth (`#` for the exported node, `##` for its children, down to `######`; deeper titles are bold text)
+- Each node's notes, with headings inside the notes shifted down so they stay below their node's heading
+
+Other metadata (dates, tags, importance) is not included — use JSON or CSV for that.
 
 **Use Cases:**
 
@@ -51,13 +52,11 @@ Exports the complete node structure with all metadata.
 
 Exports nodes as a flat table.
 
-**Columns:**
+**Columns (in order):**
 
-- ID, Title, Type
-- Parent ID
-- Dates (due, start, end)
-- Status fields
-- Tags
+`id`, `title`, `type`, `parent_id`, `workspace_id`, `notes`, `completed`, `importance`, `due_date`, `start_date`, `end_date`, `tags`, `created_at`, `updated_at`
+
+Tags are joined with semicolons. Fields containing a comma, quote, or newline are quoted and internal quotes are doubled, following RFC 4180 — so multi-line notes survive the round trip.
 
 **Use Cases:**
 
@@ -67,23 +66,19 @@ Exports nodes as a flat table.
 
 ## Import
 
+Import from **Settings > Data > Import** with the **JSON** or **CSV** button. Imported nodes are created at the root level of the current workspace.
+
 ### JSON Import
 
 Import a previously exported JSON file.
 
-**Steps:**
-
-1. Select target workspace
-2. Choose parent node (optional)
-3. Select JSON file
-4. Nodes are created with relationships preserved
-
 **Behavior:**
 
-- Creates new nodes (does not update existing)
-- Preserves hierarchy
+- Creates new nodes with new IDs (does not update existing ones)
+- Preserves the hierarchy below the imported root
 - Restores links between imported nodes
-- Assigns to selected workspace
+- Assigns everything to the current workspace
+- Runs as a single transaction with one write to disk, so a crash mid-import cannot leave a half-imported tree
 
 ### CSV Import
 
@@ -95,19 +90,26 @@ Import data from a CSV file.
 
 **Optional Columns:**
 
+- `id`, `parent_id` - Used to rebuild parent/child relationships between imported rows
 - `type` - Node type (defaults to "note")
 - `notes` - Note content
+- `completed` - `true` or `1`
 - `due_date`, `start_date`, `end_date`
 - `importance`
-- `tags` - Comma-separated list
+- `tags` - Semicolon-separated list
 
-**Steps:**
+**Behavior:**
 
-1. Prepare CSV with required columns
-2. Select target workspace
-3. Choose parent node
-4. Select CSV file
-5. Nodes are created as children of the parent
+- The parser follows RFC 4180: quoted fields may contain commas, doubled quotes, and newlines, so a CSV exported from Graph Core re-imports unchanged (multi-line notes included)
+- Rows are matched to parents through their original `id`/`parent_id`; rows whose parent is not in the file are created at root level
+- Rows with too few columns or an empty `title` are skipped, and the import summary reports how many were skipped:
+
+```
+Imported 42 nodes
+Skipped 2 malformed or title-less rows
+```
+
+- Like JSON import, the whole file is imported in one transaction with a single write to disk
 
 ## Backup and Restore
 

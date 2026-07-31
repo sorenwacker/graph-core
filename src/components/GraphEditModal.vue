@@ -265,7 +265,7 @@ defineExpose({ editTitleInput, editModalEl })
 .edit-select:focus,
 .edit-textarea:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--accent-color);
 }
 
 .edit-textarea {
@@ -398,7 +398,7 @@ defineExpose({ editTitleInput, editModalEl })
 }
 
 .btn-primary {
-  background: var(--accent);
+  background: var(--accent-color);
   border: none;
   color: white;
 }

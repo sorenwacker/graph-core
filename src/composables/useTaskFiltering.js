@@ -1,7 +1,8 @@
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { api } from '../services/api'
 import { useErrorHandler } from './useErrorHandler.js'
 import { getImportanceLabel, getImportanceClass } from '../utils/constants.js'
+import { formatDate as formatDateShared, daysFromToday, isOverdue, isDueSoon } from '../utils/formatting.js'
 
 /**
  * Composable for task filtering, sorting, and data loading.
@@ -11,9 +12,8 @@ import { getImportanceLabel, getImportanceClass } from '../utils/constants.js'
  * @param {Object} options
  * @param {Function} options.getWorkspaceId - Function returning current workspace ID
  * @param {Function} options.getContainerId - Function returning current container ID (or null)
- * @param {Function} options.getHideSensitive - Function returning hideSensitive flag
  */
-export function useTaskFiltering({ getWorkspaceId, getContainerId, getHideSensitive }) {
+export function useTaskFiltering({ getWorkspaceId, getContainerId }) {
   const { handleError } = useErrorHandler()
 
   // State
@@ -41,16 +41,12 @@ export function useTaskFiltering({ getWorkspaceId, getContainerId, getHideSensit
       if (filterImportance.value > 0) {
         params.importance = filterImportance.value
       }
-      // Filter by parent container if specified
-      if (containerId) {
-        params.parentId = containerId
-      }
 
+      // Fetch once: all matching workspace tasks. When a container is set,
+      // filter the same result down to the container's subtree.
       let items = await api.getTasks(params)
-
-      // If we have a container, also get tasks from descendants
       if (containerId && items) {
-        items = await filterTasksByContainer(items, containerId, workspaceId)
+        items = await filterTasksByContainer(items, containerId)
       }
 
       // Load parent paths for each task
@@ -67,50 +63,21 @@ export function useTaskFiltering({ getWorkspaceId, getContainerId, getHideSensit
 
   /**
    * Filter tasks to only include those within a container's subtree.
+   * Uses a single getDescendants call; the descendant set fully determines
+   * subtree membership, so no per-task ancestry fetches are needed.
    */
-  async function filterTasksByContainer(items, containerId, workspaceId) {
+  async function filterTasksByContainer(items, containerId) {
     try {
       // Get all descendant IDs
       const descendants = await api.getDescendants(containerId)
       const descendantIds = new Set((descendants || []).map(d => d.id))
-      descendantIds.add(containerId)
 
-      // Get all tasks and filter to those in the subtree
-      const allParams = {
-        workspaceId,
-        completed: showCompleted.value ? undefined : false,
-      }
-      if (filterImportance.value > 0) {
-        allParams.importance = filterImportance.value
-      }
-      const allTasks = await api.getTasks(allParams)
-
-      // Filter to tasks that are descendants of the container
-      const preliminaryItems = (allTasks || []).filter(task => {
-        // Check if task itself or any of its ancestors is in the descendant set
-        return descendantIds.has(task.id) || descendantIds.has(task.parent_id)
-      })
-
-      // Also need to check full ancestry for deeply nested tasks
-      const filteredItems = []
-      for (const task of preliminaryItems) {
-        try {
-          const ancestors = await api.getAncestors(task.id)
-          const ancestorIds = (ancestors || []).map(a => a.id)
-          if (ancestorIds.includes(containerId) || task.parent_id === containerId) {
-            filteredItems.push(task)
-          }
-        } catch {
-          // If we can't get ancestors, include if direct child
-          if (task.parent_id === containerId) {
-            filteredItems.push(task)
-          }
-        }
-      }
-      return filteredItems
+      // Tasks below the container, but not the container itself
+      return items.filter(task => descendantIds.has(task.id) || task.parent_id === containerId)
     } catch (e) {
       handleError(e, { context: 'Filtering tasks by container', silent: true })
-      return items
+      // Fallback: at least keep direct children of the container
+      return items.filter(task => task.parent_id === containerId)
     }
   }
 
@@ -275,39 +242,15 @@ export function useTaskFiltering({ getWorkspaceId, getContainerId, getHideSensit
 
 /**
  * Date and importance utility functions for task display.
+ * Date comparisons are date-based in LOCAL time (date-only strings are never
+ * treated as UTC midnight), so a task due today is neither overdue nor 'Yesterday'.
  */
 export function useTaskDisplayUtils() {
   /**
-   * Check if a due date is overdue (before today).
-   */
-  function isOverdue(dueDateStr) {
-    if (!dueDateStr) return false
-    const dueDate = new Date(dueDateStr)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    dueDate.setHours(0, 0, 0, 0)
-    return dueDate < today
-  }
-
-  /**
-   * Check if a due date is within the next 3 days.
-   */
-  function isDueSoon(dueDateStr) {
-    if (!dueDateStr) return false
-    const dueDate = new Date(dueDateStr)
-    const today = new Date()
-    const threeDays = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000)
-    today.setHours(0, 0, 0, 0)
-    dueDate.setHours(0, 0, 0, 0)
-    return dueDate >= today && dueDate <= threeDays
-  }
-
-  /**
-   * Format date as YYYY-MM-DD.
+   * Format date as YYYY-MM-DD ('-' for missing dates).
    */
   function formatDate(dateStr) {
-    if (!dateStr) return '-'
-    return dateStr.split('T')[0]
+    return formatDateShared(dateStr, { style: 'iso', empty: '-' })
   }
 
   /**
@@ -315,16 +258,15 @@ export function useTaskDisplayUtils() {
    */
   function formatRelativeDate(dateStr) {
     if (!dateStr) return '-'
-    const date = new Date(dateStr)
-    const now = new Date()
-    const diff = Math.floor((date - now) / (1000 * 60 * 60 * 24))
+    const diff = daysFromToday(dateStr)
+    if (diff === null) return '-'
 
     if (diff < -1) return `${Math.abs(diff)}d ago`
     if (diff === -1) return 'Yesterday'
     if (diff === 0) return 'Today'
     if (diff === 1) return 'Tomorrow'
     if (diff <= 7) return `in ${diff}d`
-    return dateStr.split('T')[0]
+    return formatDate(dateStr)
   }
 
   return {

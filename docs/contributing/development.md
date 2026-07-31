@@ -32,10 +32,12 @@ graph-core/
 │   ├── stores/          # Pinia state stores
 │   ├── commands/        # Command pattern implementations
 │   ├── services/        # API services
-│   └── utils/           # Utility functions
+│   ├── utils/           # Utility functions
+│   └── __tests__/       # Vitest tests
 ├── electron/            # Electron main process
-├── docs/                # Documentation (MkDocs)
-└── tests/               # Test files (co-located)
+│   ├── database/        # SQLite (sql.js) operations
+│   └── ipc/             # IPC handlers
+└── docs/                # Documentation (MkDocs)
 ```
 
 ## Development Workflow
@@ -155,23 +157,39 @@ describe('featureName', () => {
 
 ### Integration Tests
 
-Database integration tests use a shared test helper:
+Database integration tests run against the real database. `createTestDatabase()` constructs the production `Database` (`electron/database/index.js`) on a throwaway temp file — same schema, same migrations, same operations — and adds a `close()` that also removes the file. Nothing under `electron/database/` needs the `electron` module, so it imports cleanly in Vitest.
 
 ```javascript
-import { createTestDatabase, cleanup } from './helpers/testDatabase.js'
+import { createTestDatabase, createNodeFactory } from './helpers/testDatabase.js'
 
 describe('database operations', () => {
   let db
+  let factory
 
   beforeEach(async () => {
     db = await createTestDatabase()
+    factory = createNodeFactory(db)
   })
 
-  afterEach(async () => {
-    await cleanup(db)
+  afterEach(() => {
+    db.close()
+  })
+
+  it('keeps descendant paths correct after a move', () => {
+    const { root, children } = factory.tree()
+    const other = factory.project({ title: 'Other' })
+
+    db.moveNode(children[0].id, other.id)
+
+    expect(db.getNode(children[0].id).path).toBe(`${other.id}`)
+    expect(db.getDescendants(root.id)).not.toContainEqual(expect.objectContaining({ id: children[0].id }))
   })
 })
 ```
+
+`createNodeFactory(db)` provides `task()`, `project()`, `note()`, `person()`, `tree()` and `linked()` builders.
+
+Because the helper is the production class, a regression in `electron/database/*` fails these tests. Do not add schema or path logic to the helper — that turns it back into a mirror that can silently drift from the code it is supposed to protect.
 
 ## Documentation
 
@@ -180,35 +198,38 @@ Documentation uses MkDocs with Material theme.
 ### Serving Docs Locally
 
 ```bash
-# Install mkdocs
-pip install mkdocs-material mkdocs-mermaid2-plugin
+make docs
+```
 
-# Serve documentation
-mkdocs serve
+The target creates `.venv/` with `mkdocs`, `mkdocs-material` and `pymdown-extensions` on first run, then serves the site. To check for broken links and nav problems before pushing:
+
+```bash
+.venv/bin/mkdocs build --strict
 ```
 
 ### Writing Docs
 
 - Place guides in `docs/guides/`
 - Place reference docs in `docs/reference/`
+- Add the page to `nav` in `mkdocs.yml` — MkDocs publishes every file under `docs/`, so a page missing from the nav is live but unreachable
+- Keep internal engineering documents out of the build with `exclude_docs`
+- Mermaid diagrams use ` ```mermaid ` fences (rendered by `pymdownx.superfences`, no extra plugin)
 - Use admonitions sparingly
 - Include code examples
 
 ## Commit Guidelines
 
-- Use imperative mood ("Add feature" not "Added feature")
-- Keep first line under 72 characters
+Commit messages are checked by commitlint (`@commitlint/config-conventional`) in a Husky hook:
+
+- `type(scope): description` with a type from `feat`, `fix`, `refactor`, `docs`, `test`, `ci`, `chore`, `perf`, `build`, `style`, `revert`
+- Header at most 72 characters, imperative mood, no emojis
 - Reference issues when applicable
 
 ```
-Add timeline zoom controls
-
-- Implement Ctrl+scroll zoom
-- Add zoom level indicator
-- Store zoom preference in settings
-
-Fixes #123
+feat(timeline): add Ctrl+scroll zoom
 ```
+
+See [Standards](standards.md#commit-conventions).
 
 ## Pull Request Process
 

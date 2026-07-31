@@ -34,6 +34,7 @@
 /**
  * @typedef {Object} CSVImportResult
  * @property {number} nodesImported - Total number of nodes imported
+ * @property {number} rowsSkipped - Number of malformed or title-less rows skipped
  */
 
 /**
@@ -307,57 +308,84 @@ function createExportOperations(ctx) {
      * @throws {Error} If CSV has fewer than 2 lines or missing title column
      */
     importCSV(csvData, targetParentId = null, workspaceId = 'work') {
-      const lines = csvData.trim().split('\n')
-      if (lines.length < 2) {
+      // RFC-4180-style scanner: splits the whole document into records,
+      // honouring quoted fields that contain commas, escaped quotes ("") and
+      // embedded newlines (which exportCSV produces for multi-line notes).
+      const parseCSV = text => {
+        const records = []
+        let record = []
+        let field = ''
+        let inQuotes = false
+        for (let i = 0; i < text.length; i++) {
+          const char = text[i]
+          if (inQuotes) {
+            if (char === '"') {
+              if (text[i + 1] === '"') {
+                field += '"'
+                i++
+              } else {
+                inQuotes = false
+              }
+            } else {
+              field += char
+            }
+          } else if (char === '"') {
+            inQuotes = true
+          } else if (char === ',') {
+            record.push(field)
+            field = ''
+          } else if (char === '\n' || char === '\r') {
+            if (char === '\r' && text[i + 1] === '\n') i++
+            record.push(field)
+            records.push(record)
+            field = ''
+            record = []
+          } else {
+            field += char
+          }
+        }
+        if (field !== '' || record.length > 0) {
+          record.push(field)
+          records.push(record)
+        }
+        // Drop blank records (e.g. trailing newlines)
+        return records.filter(r => r.length > 1 || r[0] !== '')
+      }
+
+      const records = parseCSV(csvData.trim())
+      if (records.length < 2) {
         throw new Error('CSV must have header row and at least one data row')
       }
 
-      const headers = lines[0].split(',').map(h => h.trim())
+      const headers = records[0].map(h => h.trim())
       const titleIdx = headers.indexOf('title')
 
       if (titleIdx === -1) {
         throw new Error('CSV must have a "title" column')
       }
 
-      const parseCSVLine = line => {
-        const values = []
-        let current = ''
-        let inQuotes = false
-        for (let i = 0; i < line.length; i++) {
-          const char = line[i]
-          if (char === '"') {
-            if (inQuotes && line[i + 1] === '"') {
-              current += '"'
-              i++
-            } else {
-              inQuotes = !inQuotes
-            }
-          } else if (char === ',' && !inQuotes) {
-            values.push(current)
-            current = ''
-          } else {
-            current += char
-          }
-        }
-        values.push(current)
-        return values
-      }
-
       // Persist once for the whole import instead of per row (crash-atomic).
       return ctx._batch(() => {
         let importedCount = 0
+        let rowsSkipped = 0
         const idMap = new Map()
 
-        for (let i = 1; i < lines.length; i++) {
-          const values = parseCSVLine(lines[i])
-          if (values.length < headers.length) continue
+        for (let i = 1; i < records.length; i++) {
+          const values = records[i]
+          if (values.length < headers.length) {
+            rowsSkipped++
+            continue
+          }
 
           const row = {}
           headers.forEach((h, idx) => {
             row[h] = values[idx] || null
           })
 
-          if (!row.title?.trim()) continue
+          if (!row.title?.trim()) {
+            rowsSkipped++
+            continue
+          }
 
           const oldId = row.id ? parseInt(row.id) : null
           const oldParentId = row.parent_id ? parseInt(row.parent_id) : null
@@ -387,8 +415,13 @@ function createExportOperations(ctx) {
           importedCount++
         }
 
+        if (rowsSkipped > 0) {
+          console.log(`importCSV: skipped ${rowsSkipped} malformed or title-less rows`)
+        }
+
         return {
           nodesImported: importedCount,
+          rowsSkipped,
         }
       })
     },

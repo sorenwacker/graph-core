@@ -32,7 +32,6 @@ describe('useNodeTable', () => {
       expect(result).toHaveProperty('loading')
       expect(result).toHaveProperty('error')
       expect(result).toHaveProperty('hasTable')
-      expect(result).toHaveProperty('cellsAsMatrix')
 
       // Actions
       expect(result).toHaveProperty('loadTable')
@@ -41,11 +40,6 @@ describe('useNodeTable', () => {
       expect(result).toHaveProperty('deleteTable')
       expect(result).toHaveProperty('saveCell')
       expect(result).toHaveProperty('saveCellStyle')
-      expect(result).toHaveProperty('saveCells')
-      expect(result).toHaveProperty('clearAllCells')
-      expect(result).toHaveProperty('addRows')
-      expect(result).toHaveProperty('addColumns')
-      expect(result).toHaveProperty('getColumnName')
     })
 
     it('should start with null table', () => {
@@ -65,80 +59,6 @@ describe('useNodeTable', () => {
       const { loading } = useNodeTable()
 
       expect(loading.value).toBe(false)
-    })
-  })
-
-  describe('getColumnName', () => {
-    it('should return A for index 0', () => {
-      const { getColumnName } = useNodeTable()
-
-      expect(getColumnName(0)).toBe('A')
-    })
-
-    it('should return B for index 1', () => {
-      const { getColumnName } = useNodeTable()
-
-      expect(getColumnName(1)).toBe('B')
-    })
-
-    it('should return Z for index 25', () => {
-      const { getColumnName } = useNodeTable()
-
-      expect(getColumnName(25)).toBe('Z')
-    })
-
-    it('should return AA for index 26', () => {
-      const { getColumnName } = useNodeTable()
-
-      expect(getColumnName(26)).toBe('AA')
-    })
-
-    it('should return AB for index 27', () => {
-      const { getColumnName } = useNodeTable()
-
-      expect(getColumnName(27)).toBe('AB')
-    })
-  })
-
-  describe('cellsAsMatrix', () => {
-    it('should return empty array when no table', () => {
-      const { cellsAsMatrix } = useNodeTable()
-
-      expect(cellsAsMatrix.value).toEqual([])
-    })
-
-    it('should convert cells to 2D matrix', () => {
-      const { table, cells, cellsAsMatrix } = useNodeTable()
-
-      table.value = {
-        row_count: 3,
-        column_definitions: [{ id: 'col0' }, { id: 'col1' }],
-      }
-
-      cells.value = [
-        { row_index: 0, col_index: 0, value: 'A1' },
-        { row_index: 0, col_index: 1, value: 'B1' },
-        { row_index: 1, col_index: 0, value: 'A2' },
-      ]
-
-      expect(cellsAsMatrix.value).toEqual([
-        ['A1', 'B1'],
-        ['A2', ''],
-        ['', ''],
-      ])
-    })
-
-    it('should prefer formula over value', () => {
-      const { table, cells, cellsAsMatrix } = useNodeTable()
-
-      table.value = {
-        row_count: 1,
-        column_definitions: [{ id: 'col0' }],
-      }
-
-      cells.value = [{ row_index: 0, col_index: 0, value: '10', formula: '=5+5' }]
-
-      expect(cellsAsMatrix.value[0][0]).toBe('=5+5')
     })
   })
 
@@ -307,63 +227,6 @@ describe('useNodeTable', () => {
           value: 'Hello',
         }),
       ])
-    })
-  })
-
-  describe('clearAllCells', () => {
-    it('should clear all cells', async () => {
-      api.clearCells.mockResolvedValue(undefined)
-
-      const { cells, clearAllCells } = useNodeTable()
-      cells.value = [
-        { row_index: 0, col_index: 0, value: 'A' },
-        { row_index: 0, col_index: 1, value: 'B' },
-      ]
-
-      await clearAllCells(1)
-
-      expect(api.clearCells).toHaveBeenCalledWith(1)
-      expect(cells.value).toEqual([])
-    })
-  })
-
-  describe('addRows', () => {
-    it('should add rows to table', async () => {
-      api.updateNodeTable.mockResolvedValue({ row_count: 7 })
-
-      const { table, addRows } = useNodeTable()
-      table.value = { row_count: 5 }
-
-      await addRows(1, 2)
-
-      expect(api.updateNodeTable).toHaveBeenCalledWith(1, { row_count: 7 })
-    })
-
-    it('should do nothing if no table', async () => {
-      const { addRows } = useNodeTable()
-
-      await addRows(1, 2)
-
-      expect(api.updateNodeTable).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('addColumns', () => {
-    it('should add columns to table', async () => {
-      api.updateNodeTable.mockResolvedValue({})
-
-      const { table, addColumns } = useNodeTable()
-      table.value = { column_definitions: [{ id: 'col0', name: 'A' }] }
-
-      await addColumns(1, 2)
-
-      expect(api.updateNodeTable).toHaveBeenCalledWith(1, {
-        column_definitions: [
-          { id: 'col0', name: 'A' },
-          { id: 'col1', name: 'B', type: 'text', width: 100 },
-          { id: 'col2', name: 'C', type: 'text', width: 100 },
-        ],
-      })
     })
   })
 })

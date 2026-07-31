@@ -1,7 +1,8 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { api } from './services/api.js'
 import { handleExternalLinkClick } from './utils/markdown.js'
+import { STORAGE_KEYS } from './utils/uiConstants.js'
 import { provideAppContext } from './composables/useAppContext'
 import { useAppLifecycle } from './composables/useAppLifecycle.js'
 import { useNodeTooltip } from './composables/useNodeTooltip.js'
@@ -27,7 +28,6 @@ import { useRefresh } from './composables/useRefresh.js'
 import { useNodeActionsUI } from './composables/useNodeActionsUI'
 import { useNodeCreation } from './composables/useNodeCreation.js'
 import { useDetailController } from './composables/useDetailController'
-import { useModalController } from './composables/useModalController'
 import { useViewStateController } from './composables/useViewStateController'
 import { useNavigationState } from './composables/useNavigationState'
 import DetailPanel from './components/DetailPanel.vue'
@@ -88,10 +88,13 @@ const {
   onDetailResizeStart,
 } = useDetailController()
 
-// Modal controller
-const modalController = useModalController()
-const { addNodeModal, showShortcutsModal, showOnboarding, showSettings, showSnapshotList, showLostFound } =
-  modalController
+// Modal visibility state
+const addNodeModal = ref({ visible: false, parentId: null })
+const showShortcutsModal = ref(false)
+const showOnboarding = ref(false)
+const showSettings = ref(false)
+const showSnapshotList = ref(false)
+const showLostFound = ref(false)
 if (!hasSeenOnboarding.value) showOnboarding.value = true
 
 // View state controller
@@ -109,6 +112,16 @@ const { currentContainerId, currentContainer, breadcrumbs, children, syncFromNav
 
 // Core state
 const error = ref(null)
+// Node-operation failures were migrated to transient toasts, but
+// useNodeActionsUI's handleReorder still reports failures by writing this
+// shared app-context error ref, which used to replace the whole view with a
+// sticky banner (ViewRenderer renders it before any view). Route those writes
+// to the same toast pattern and clear the ref so the banner never sticks.
+watch(error, message => {
+  if (message == null) return
+  handleError(message, { context: 'Reordering node' })
+  error.value = null
+})
 const newNodeTitle = ref('')
 const newNodeType = ref('task')
 const containerWidth = ref(800)
@@ -197,14 +210,14 @@ const navigateToTag = async tagNode => {
 
 // Delete a tag everywhere (removes the tag node and all its links). Soft-delete,
 // so it lands in Trash and stays recoverable like any other node deletion.
+// Routed through the shared deleteNode action so tag deletes behave like every
+// other node deletion: undo command, view/sidebar/tags refresh, and navigation
+// away when the deleted tag (or an ancestor) is the current container.
 const deleteTag = async tag => {
   if (!tag?.id) return
   if (!confirm(`Delete tag "${tag.title || tag}" everywhere? It will be moved to Trash.`)) return
   try {
-    await api.deleteNode(tag.id)
-    // If we were viewing the deleted tag, return to the root view.
-    if (currentContainerId.value === tag.id) navigateToBreadcrumb(-1)
-    await loadTags()
+    await deleteNode(tag.id)
   } catch (e) {
     handleError(e, { context: 'Deleting tag' })
   }
@@ -435,9 +448,14 @@ const navigation = useNavigation({
   },
   onNotFound: async () => {
     currentContainerId.value = null
-    localStorage.removeItem('graphcore-containerId')
+    localStorage.removeItem(STORAGE_KEYS.CONTAINER_ID)
     await navigation.loadChildren(null)
   },
+  // Surface non-404 load failures as a transient toast, like the sibling data
+  // loaders (sidebar/recent/tags). useNavigation records the error silently and
+  // only stores it in an internal ref, so without this callback a failed
+  // container load would leave stale content with no user feedback at all.
+  onError: e => handleError(e, { context: 'Loading container' }),
   onAfterNavigate: () => {
     // Don't sync filter settings on navigation - keep global settings persistent
   },
@@ -593,8 +611,8 @@ provideAppContext({
   refreshDetailPanelLinks,
 })
 
-// Graph operations
-const graphOps = useGraphOperations({
+// Graph operations (failures are surfaced as toasts by the composable itself)
+const { saveNodePosition, insertBetween } = useGraphOperations({
   api,
   currentContainerId,
   currentWorkspace,
@@ -602,7 +620,6 @@ const graphOps = useGraphOperations({
   getWorkspaceIdForNode,
   refreshAfterChange,
 })
-const { saveNodePosition, insertBetween } = graphOps
 
 // Node actions UI (uses app context for shared state)
 const {

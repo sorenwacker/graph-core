@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { TestDatabase, createNodeFactory } from './helpers/testDatabase.js'
+import { createTestDatabase, createNodeFactory } from './helpers/testDatabase.js'
 
 /**
  * Database Integration Tests
  *
- * These tests run against a real in-memory SQLite database using sql.js.
- * No mocks - actual database operations are verified.
+ * These tests run the REAL production database module
+ * (electron/database/index.js) against a throwaway SQLite file. No mocks and no
+ * mirrored logic - a regression in electron/database/* fails these tests.
  */
 
 describe('Database Integration Tests', () => {
@@ -13,7 +14,7 @@ describe('Database Integration Tests', () => {
   let factory
 
   beforeEach(async () => {
-    db = await TestDatabase.create()
+    db = await createTestDatabase()
     factory = createNodeFactory(db)
   })
 
@@ -251,6 +252,25 @@ describe('Database Integration Tests', () => {
 
       const allLinked = db.getLinkedNodes(center.id)
       expect(allLinked.length).toBe(linked.length)
+    })
+
+    it('should not delete linked nodes when soft deleting a node', () => {
+      const person = factory.person({ title: 'John Doe' })
+      const org = factory.task({ title: 'Acme Task' })
+      db.linkNodes(person.id, org.id)
+
+      db.deleteNode(person.id, false)
+
+      // The linked partner survives, and the deleted node is excluded from its links
+      expect(db.getNode(person.id)).toBeNull()
+      expect(db.getNode(org.id)).not.toBeNull()
+      expect(db.getLinkedNodes(org.id).length).toBe(0)
+
+      // Restoring the node brings the link back (soft delete keeps the link row)
+      db.restoreNode(person.id)
+      const linked = db.getLinkedNodes(org.id)
+      expect(linked.length).toBe(1)
+      expect(linked[0].id).toBe(person.id)
     })
   })
 
@@ -514,6 +534,200 @@ describe('Database Integration Tests', () => {
       const a = factory.task({ title: 'A', parent_id: root.id })
       expect(db.reorderNode(a.id, 99999, 'before')).toBeNull()
       expect(db.reorderNode(99999, a.id, 'before')).toBeNull()
+    })
+  })
+
+  describe('path/depth maintenance after reparenting', () => {
+    it('should update path/depth of reparented children when deleting their parent', () => {
+      const grandparent = factory.project({ title: 'Grandparent' })
+      const parent = factory.task({ title: 'Parent', parent_id: grandparent.id })
+      const child = factory.task({ title: 'Child', parent_id: parent.id })
+      const grandchild = factory.task({ title: 'Grandchild', parent_id: child.id })
+
+      db.deleteNode(parent.id)
+
+      const movedChild = db.getNode(child.id)
+      expect(movedChild.parent_id).toBe(grandparent.id)
+      expect(movedChild.path).toBe(`${grandparent.id}`)
+      expect(movedChild.depth).toBe(1)
+
+      const movedGrandchild = db.getNode(grandchild.id)
+      expect(movedGrandchild.path).toBe(`${grandparent.id}/${child.id}`)
+      expect(movedGrandchild.depth).toBe(2)
+
+      // Path-based subtree lookup must still find the whole subtree
+      const descendants = db.getDescendants(grandparent.id).map(n => n.id)
+      expect(descendants).toContain(child.id)
+      expect(descendants).toContain(grandchild.id)
+    })
+
+    it('should reset children to roots when deleting a root parent', () => {
+      const root = factory.project({ title: 'Root' })
+      const child = factory.task({ title: 'Child', parent_id: root.id })
+
+      db.deleteNode(root.id)
+
+      const promoted = db.getNode(child.id)
+      expect(promoted.parent_id).toBeNull()
+      expect(promoted.path).toBe('')
+      expect(promoted.depth).toBe(0)
+    })
+
+    it('should update descendant paths when moving a node', () => {
+      const rootA = factory.project({ title: 'Root A' })
+      const rootB = factory.project({ title: 'Root B' })
+      const child = factory.task({ title: 'Child', parent_id: rootA.id })
+      const grandchild = factory.task({ title: 'Grandchild', parent_id: child.id })
+
+      db.moveNode(child.id, rootB.id)
+
+      expect(db.getNode(child.id).path).toBe(`${rootB.id}`)
+      expect(db.getNode(grandchild.id).path).toBe(`${rootB.id}/${child.id}`)
+      expect(db.getNode(grandchild.id).depth).toBe(2)
+    })
+
+    it('should update path/depth when reorderNode reparents onto another parent', () => {
+      const rootA = factory.project({ title: 'Root A' })
+      const rootB = factory.project({ title: 'Root B' })
+      const nodeA = factory.task({ title: 'A child', parent_id: rootA.id })
+      const childOfA = factory.task({ title: 'A grandchild', parent_id: nodeA.id })
+      const nodeB = factory.task({ title: 'B child', parent_id: rootB.id })
+
+      db.reorderNode(nodeA.id, nodeB.id, 'after')
+
+      const moved = db.getNode(nodeA.id)
+      expect(moved.parent_id).toBe(rootB.id)
+      expect(moved.path).toBe(`${rootB.id}`)
+      expect(moved.depth).toBe(1)
+
+      const movedChild = db.getNode(childOfA.id)
+      expect(movedChild.path).toBe(`${rootB.id}/${nodeA.id}`)
+      expect(movedChild.depth).toBe(2)
+    })
+  })
+
+  describe('foreign key cascades', () => {
+    it('should cascade-delete links when a linked node is hard deleted', () => {
+      const a = factory.task({ title: 'A' })
+      const b = factory.task({ title: 'B' })
+      db.linkNodes(a.id, b.id)
+
+      db.deleteNode(a.id, true)
+
+      const links = db._query('SELECT * FROM node_links')
+      expect(links).toHaveLength(0)
+    })
+  })
+
+  describe('updateNode reparenting', () => {
+    it('should recompute path/depth of the subtree when updateNode changes parent_id', () => {
+      const rootA = factory.project({ title: 'Root A' })
+      const rootB = factory.project({ title: 'Root B' })
+      const child = factory.task({ title: 'Child', parent_id: rootA.id })
+      const grandchild = factory.task({ title: 'Grandchild', parent_id: child.id })
+
+      db.updateNode(child.id, { parent_id: rootB.id })
+
+      const moved = db.getNode(child.id)
+      expect(moved.parent_id).toBe(rootB.id)
+      expect(moved.path).toBe(`${rootB.id}`)
+      expect(moved.depth).toBe(1)
+
+      const movedGrandchild = db.getNode(grandchild.id)
+      expect(movedGrandchild.path).toBe(`${rootB.id}/${child.id}`)
+      expect(movedGrandchild.depth).toBe(2)
+
+      // Path-based subtree lookup must follow the node to its new parent
+      expect(
+        db
+          .getDescendants(rootB.id)
+          .map(n => n.id)
+          .sort()
+      ).toEqual([child.id, grandchild.id].sort())
+      expect(db.getDescendants(rootA.id)).toEqual([])
+    })
+
+    it('should promote a node to root when updateNode clears parent_id', () => {
+      const root = factory.project({ title: 'Root' })
+      const child = factory.task({ title: 'Child', parent_id: root.id })
+      const grandchild = factory.task({ title: 'Grandchild', parent_id: child.id })
+
+      db.updateNode(child.id, { parent_id: null })
+
+      const promoted = db.getNode(child.id)
+      expect(promoted.parent_id).toBeNull()
+      expect(promoted.path).toBe('')
+      expect(promoted.depth).toBe(0)
+      expect(db.getNode(grandchild.id).path).toBe(`${child.id}`)
+      expect(db.getNode(grandchild.id).depth).toBe(1)
+    })
+
+    it('should leave path/depth untouched when the update does not reparent', () => {
+      const root = factory.project({ title: 'Root' })
+      const child = factory.task({ title: 'Child', parent_id: root.id })
+
+      db.updateNode(child.id, { title: 'Renamed' })
+
+      const updated = db.getNode(child.id)
+      expect(updated.title).toBe('Renamed')
+      expect(updated.path).toBe(`${root.id}`)
+      expect(updated.depth).toBe(1)
+    })
+  })
+
+  describe('trash purge and hard delete under ON DELETE SET NULL', () => {
+    it('should not orphan a live node whose trashed parent is purged', () => {
+      const root = factory.project({ title: 'Root' })
+      const parent = factory.task({ title: 'Parent', parent_id: root.id })
+      const child = factory.task({ title: 'Child', parent_id: parent.id })
+
+      // Trash the child first so the parent's soft delete does not reparent it,
+      // then restore it: a live node whose parent is still in the trash.
+      db.deleteNode(child.id)
+      db.deleteNode(parent.id)
+      db.restoreNode(child.id)
+      const grandchild = factory.task({ title: 'Grandchild', parent_id: child.id })
+
+      db.emptyTrash()
+
+      const survivor = db.getNode(child.id)
+      expect(survivor).not.toBeNull()
+      expect(survivor.parent_id).toBeNull()
+      expect(survivor.path).toBe('')
+      expect(survivor.depth).toBe(0)
+
+      // It must show up as a real root, not a depth-1 node pointing at a purged id
+      expect(db.getRoots('work').map(n => n.id)).toContain(child.id)
+      expect(db.getOrphanedNodes().map(n => n.id)).not.toContain(child.id)
+
+      const movedGrandchild = db.getNode(grandchild.id)
+      expect(movedGrandchild.path).toBe(`${child.id}`)
+      expect(movedGrandchild.depth).toBe(1)
+      expect(db.getDescendants(child.id).map(n => n.id)).toEqual([grandchild.id])
+    })
+
+    it('should report the number of purged nodes', () => {
+      factory.task({ title: 'A' })
+      const b = factory.task({ title: 'B' })
+      db.deleteNode(b.id)
+
+      expect(db.emptyTrash()).toEqual({ deleted: 1 })
+      expect(db.getTrash()).toEqual([])
+    })
+
+    it('should fix path/depth of trashed children when their parent is hard deleted', () => {
+      const root = factory.project({ title: 'Root' })
+      const parent = factory.task({ title: 'Parent', parent_id: root.id })
+      const child = factory.task({ title: 'Child', parent_id: parent.id })
+
+      db.deleteNode(child.id)
+      db.deleteNode(parent.id, true)
+
+      const restored = db.restoreNode(child.id)
+      expect(restored.parent_id).toBeNull()
+      expect(restored.path).toBe('')
+      expect(restored.depth).toBe(0)
+      expect(db.getRoots('work').map(n => n.id)).toContain(child.id)
     })
   })
 

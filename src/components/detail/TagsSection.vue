@@ -8,7 +8,7 @@ const props = defineProps({
   linkedNodes: { type: Array, default: () => [] },
 })
 
-const emit = defineEmits(['refresh'])
+const emit = defineEmits(['refresh', 'unlink'])
 
 // Filter linked nodes to get only tag nodes
 const linkedTags = computed(() => (props.linkedNodes || []).filter(n => n && n.type === 'tag'))
@@ -17,7 +17,13 @@ const linkedTags = computed(() => (props.linkedNodes || []).filter(n => n && n.t
 <template>
   <div class="tags-section">
     <label>Tags</label>
-    <TagInput :node-id="nodeId" :workspace-id="workspaceId" :linked-tags="linkedTags" @refresh="emit('refresh')" />
+    <TagInput
+      :node-id="nodeId"
+      :workspace-id="workspaceId"
+      :linked-tags="linkedTags"
+      @unlink="emit('unlink', $event)"
+      @refresh="emit('refresh')"
+    />
   </div>
 </template>
 

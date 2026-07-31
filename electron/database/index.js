@@ -54,8 +54,14 @@ class Database {
       this.db = new SQL.Database()
     }
 
-    this._initSchema()
+    // sql.js defaults foreign-key enforcement OFF; enable it so the declared
+    // ON DELETE CASCADE / SET NULL clauses in the schema actually fire.
+    this.db.run('PRAGMA foreign_keys = ON')
+
+    // Operations are lazy closures, so binding them first is safe and makes
+    // ctx.backup available to migrations (pre-migration backups).
     this._initOperations()
+    this._initSchema()
     return true
   }
 
@@ -98,6 +104,7 @@ class Database {
     this.getDescendantsBatch = nodeOps.getDescendantsBatch.bind(nodeOps)
     this.getAncestors = nodeOps.getAncestors.bind(nodeOps)
     this._updateDescendantPaths = nodeOps._updateDescendantPaths.bind(nodeOps)
+    this._updateSubtreePath = nodeOps._updateSubtreePath.bind(nodeOps)
 
     // Links
     this.linkNodes = linkOps.linkNodes.bind(linkOps)
@@ -131,7 +138,6 @@ class Database {
     this.emptyTrash = treeOps.emptyTrash.bind(treeOps)
     this.getOrphanedNodes = treeOps.getOrphanedNodes.bind(treeOps)
     this.reparentToRoot = treeOps.reparentToRoot.bind(treeOps)
-    this.repairWorkspaces = treeOps.repairWorkspaces.bind(treeOps)
 
     // Export/Import
     this.exportMarkdown = exportOps.exportMarkdown.bind(exportOps)
@@ -171,6 +177,9 @@ class Database {
       return
     }
     const data = this.db.export()
+    // sql.js export() closes and reopens the underlying connection, which
+    // resets per-connection pragmas; re-enable foreign-key enforcement.
+    this.db.run('PRAGMA foreign_keys = ON')
     const buffer = Buffer.from(data)
     fs.writeFileSync(this.dbPath, buffer)
   }
@@ -264,7 +273,9 @@ class Database {
       ...row,
       completed: Boolean(row.completed),
       favorite: Boolean(row.favorite),
-      has_table: Boolean(row.has_table),
+      // Only some queries compute has_table (via an EXISTS subquery); preserve
+      // "not computed" as undefined instead of coercing it to a false negative.
+      has_table: 'has_table' in row ? Boolean(row.has_table) : undefined,
       notes_sensitive: Boolean(row.notes_sensitive),
       collapsed: Boolean(row.collapsed),
       tags,

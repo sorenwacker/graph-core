@@ -99,7 +99,7 @@ export function useOllama() {
 
   /**
    * Get provider-specific configuration
-   * @returns {{provider: string, model: string, endpoint: string, apiKey?: string, contextSize?: number}}
+   * @returns {{provider: string, model: string, endpoint: string, apiKey?: string, contextSize?: number, skipSslVerification?: boolean}}
    */
   function getProviderConfig() {
     if (provider.value === AI_PROVIDERS.OPENAI) {
@@ -108,6 +108,7 @@ export function useOllama() {
         model: openaiModel.value,
         endpoint: openaiEndpoint.value,
         apiKey: openaiApiKey.value,
+        skipSslVerification: openaiSkipSslVerification.value,
       }
     }
     return {

@@ -132,7 +132,9 @@ export async function pasteSelection({ selectionBounds, columns, rowData, gridAp
 
   if (!text) return
 
-  const lines = text.split('\n')
+  // Normalize CRLF/CR line endings (Excel/Windows) and strip the trailing
+  // newline Excel appends, which would otherwise clear the row below the paste.
+  const lines = text.replace(/\r\n?/g, '\n').replace(/\n$/, '').split('\n')
 
   for (let r = 0; r < lines.length; r++) {
     const cells = lines[r].split('\t')

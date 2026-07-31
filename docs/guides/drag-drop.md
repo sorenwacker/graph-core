@@ -14,6 +14,8 @@ When dragging a node over a target, three drop zones determine the outcome:
 
 Visual indicators show the active drop zone during drag operations.
 
+A node always moves with its whole subtree — including dropping it before or after a target that has a different parent, which reparents it. Descendants keep their position under the moved node.
+
 ## Modifier Keys
 
 ### Shift+Drag (Reorder Only)

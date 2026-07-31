@@ -5,6 +5,8 @@ import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } f
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { markdown, markdownKeymap } from '@codemirror/lang-markdown'
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
+import MentionDropdown from './MentionDropdown.vue'
+import { useMentions } from '../composables/useMentions.js'
 
 // Custom keymap for multi-cursor (Cmd+Alt+Up/Down)
 const multiCursorKeymap = [
@@ -62,12 +64,83 @@ const multiCursorKeymap = [
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
+  // Workspace used to load persons for @mention autocomplete
+  workspaceId: { type: String, default: 'work' },
+  // When set, inserting a mention auto-links the person to this node
+  nodeId: { type: Number, default: null },
 })
 
-const emit = defineEmits(['update:modelValue', 'blur'])
+const emit = defineEmits(['update:modelValue', 'blur', 'mention-inserted'])
 
 const container = ref(null)
 let editor = null
+
+// @person mention autocomplete
+const {
+  showMentions,
+  mentionPosition,
+  filteredPersons,
+  selectedMentionIndex,
+  checkMention,
+  handleKeydown,
+  selectMention,
+  hideMentions,
+  refreshPersons,
+} = useMentions({
+  // Getter, not a snapshot: the editor stays mounted across workspace switches,
+  // so the person list must be re-scoped when the prop changes.
+  workspaceId: () => props.workspaceId,
+  onMentionInserted: (personId, nodeId) => emit('mention-inserted', { personId, nodeId }),
+})
+
+watch(
+  () => props.workspaceId,
+  () => {
+    hideMentions()
+    refreshPersons()
+  }
+)
+
+// Apply the text produced by insertMention to the editor and place the caret
+// just after the inserted mention.
+function applyMentionText(newText, cursorPos) {
+  if (!editor) return
+  editor.dispatch({
+    changes: { from: 0, to: editor.state.doc.length, insert: newText },
+    selection: { anchor: Math.min(cursorPos, newText.length) },
+  })
+  editor.focus()
+}
+
+// Run mention detection against the current document and cursor position.
+function detectMention(view) {
+  const sel = view.state.selection.main
+  if (!sel.empty) {
+    hideMentions()
+    return
+  }
+  checkMention({
+    text: view.state.doc.toString(),
+    cursorPos: sel.head,
+    getCoords: () => {
+      const coords = view.coordsAtPos(sel.head)
+      if (!coords) return { top: 0, left: 0 }
+      return {
+        top: Math.min(coords.bottom + 4, window.innerHeight - 200),
+        left: Math.min(coords.left, window.innerWidth - 250),
+      }
+    },
+  })
+}
+
+function onMentionSelect(index) {
+  if (!editor) return
+  selectMention(index, editor.state.doc.toString(), applyMentionText, props.nodeId)
+}
+
+function onMentionHover(index) {
+  selectedMentionIndex.value = index
+}
 
 const theme = EditorView.theme(
   {
@@ -120,6 +193,14 @@ function setupEditor() {
     state: EditorState.create({
       doc: startDoc,
       extensions: [
+        // Highest precedence so mention navigation (ArrowUp/Down, Enter, Tab,
+        // Escape) wins over the default and markdown keymaps while the
+        // mention dropdown is open; handleKeydown returns false otherwise.
+        Prec.highest(
+          EditorView.domEventHandlers({
+            keydown: (e, view) => handleKeydown(e, view.state.doc.toString(), applyMentionText, props.nodeId),
+          })
+        ),
         lineNumbers(),
         highlightActiveLine(),
         drawSelection(),
@@ -135,7 +216,13 @@ function setupEditor() {
           if (update.docChanged) {
             emit('update:modelValue', update.state.doc.toString())
           }
+          if (update.docChanged || (update.selectionSet && showMentions.value)) {
+            // Detect on typing; while the dropdown is open, cursor moves
+            // re-validate the query (and hide when the cursor leaves it).
+            detectMention(update.view)
+          }
           if (update.focusChanged && !update.view.hasFocus) {
+            hideMentions()
             emit('blur')
           }
         }),
@@ -210,6 +297,15 @@ defineExpose({ getSelection, replaceSelection, getScrollElement, getScrollInfo, 
 
 <template>
   <div ref="container" class="cm-container"></div>
+  <!-- @person mention autocomplete (teleports itself to body) -->
+  <MentionDropdown
+    v-if="showMentions"
+    :persons="filteredPersons"
+    :selected-index="selectedMentionIndex"
+    :position="mentionPosition"
+    @select="onMentionSelect"
+    @hover="onMentionHover"
+  />
 </template>
 
 <style scoped>
