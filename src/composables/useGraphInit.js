@@ -7,7 +7,16 @@ import nodeHtmlLabel from 'cytoscape-node-html-label'
 import { renderMarkdownHtml } from '../utils/markdown.js'
 import { escapeHtml } from '../utils/html.js'
 import { getContrastColor } from '../utils/formatting.js'
+import { hasExplicitColor } from '../utils/nodeColor.js'
 import { LAYOUT_SETTLE_DELAY_MS, NODE_POSITION_SETTLE_DELAY_MS } from '../utils/settingsConstants'
+
+// Only accept simple hex colors in style attributes; anything else (including
+// injection attempts) falls back to a default (same rule as useTableDrag.js).
+const SAFE_HEX_COLOR = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i
+
+function safeColor(value, fallback) {
+  return SAFE_HEX_COLOR.test(value) ? value : fallback
+}
 
 // Register cytoscape extensions once
 if (!window.__cytoscapeExtensionsRegistered) {
@@ -120,13 +129,16 @@ export function useGraphInit(options = {}) {
             const n = d.nodeData
             if (!n) return ''
             if (n.type === 'person') {
-              const c = n.color && n.color !== '#0f4c75' ? n.color : d.customBgTint || '#6b7280'
-              return `<div class="node-person" data-node-id="${n.id}" data-selected="${d.isSelected}" style="background-color:${c};color:${getContrastColor(c)}"><span class="person-name">${n.title || 'Untitled'}</span></div>`
+              // Only accept simple hex colors in the style attribute; anything
+              // else (including injection attempts) falls back to the default.
+              const c = safeColor(hasExplicitColor(n) ? n.color : d.customBgTint, '#6b7280')
+              return `<div class="node-person" data-node-id="${n.id}" data-selected="${d.isSelected}" style="background-color:${c};color:${getContrastColor(c)}"><span class="person-name">${escapeHtml(n.title) || 'Untitled'}</span></div>`
             }
-            const bc = d.borderColor || '#3498db',
-              bg = d.customBgTint
-                ? `background:linear-gradient(135deg,${d.customBgTint}99 0%,${d.customBgTint}44 50%,var(--bg-secondary) 100%),var(--bg-secondary);`
-                : ''
+            const bc = safeColor(d.borderColor, '#3498db')
+            const tint = d.customBgTint && safeColor(d.customBgTint, '')
+            const bg = tint
+              ? `background:linear-gradient(135deg,${tint}99 0%,${tint}44 50%,var(--bg-secondary) 100%),var(--bg-secondary);`
+              : ''
             let notes = ''
             if (d.showDetails && n.notes) {
               notes =

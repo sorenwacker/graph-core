@@ -1,9 +1,7 @@
 import { ref, watch, type Ref } from 'vue'
-import type { Api, CreateWorkspaceData } from '../types'
+import type { Api, CreateWorkspaceData, WorkspaceId } from '../types'
 import { useErrorHandler } from './useErrorHandler'
-
-/** Workspace ID type - supports both string and number for backward compatibility */
-export type WorkspaceId = string | number
+import { STORAGE_KEYS } from '../utils/uiConstants.js'
 
 /** Workspace with flexible ID type */
 export interface WorkspaceItem {
@@ -63,7 +61,7 @@ export interface UseWorkspaceReturn {
   getWorkspaceIdForNode: (type?: string) => WorkspaceId
 }
 
-const STORAGE_KEY = 'graphcore-workspace'
+const STORAGE_KEY = STORAGE_KEYS.WORKSPACE
 const DEFAULT_WORKSPACE = 'work'
 
 /**
@@ -145,19 +143,19 @@ export function useWorkspace(options: UseWorkspaceOptions): UseWorkspaceReturn {
     const ws = workspaces.value.find(w => w.id === currentWorkspace.value)
     if (!ws) return false
 
-    // Check if workspace has nodes
-    const roots = await api.getRoots(currentWorkspace.value as number)
-    if (roots && roots.length > 0) {
-      if (typeof alert !== 'undefined') {
-        alert(
-          `Cannot delete workspace "${ws.name}". It still contains ${roots.length} root node(s). Move or delete them first.`
-        )
-      }
-      return false
-    }
-
     try {
-      await api.deleteWorkspace(currentWorkspace.value as number)
+      // Check if workspace has nodes
+      const roots = await api.getRoots(currentWorkspace.value)
+      if (roots && roots.length > 0) {
+        if (typeof alert !== 'undefined') {
+          alert(
+            `Cannot delete workspace "${ws.name}". It still contains ${roots.length} root node(s). Move or delete them first.`
+          )
+        }
+        return false
+      }
+
+      await api.deleteWorkspace(currentWorkspace.value)
       await loadWorkspaces()
       if (workspaces.value.length > 0) {
         currentWorkspace.value = workspaces.value[0].id
@@ -175,7 +173,7 @@ export function useWorkspace(options: UseWorkspaceOptions): UseWorkspaceReturn {
   async function renameWorkspace(workspaceId: WorkspaceId, newName: string): Promise<boolean> {
     if (!newName?.trim()) return false
     try {
-      await api.updateWorkspace(workspaceId as number, { name: newName.trim() })
+      await api.updateWorkspace(workspaceId, { name: newName.trim() })
       await loadWorkspaces()
       return true
     } catch (e) {

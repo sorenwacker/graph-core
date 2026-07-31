@@ -19,10 +19,11 @@
  * @property {Function} _run - Execute SQL statement returning result info
  * @property {Function} _rowToNode - Convert database row to Node object
  * @property {Function} _applyWorkspaceFilter - Add workspace filter to SQL query
- * @property {Function} _save - Persist changes to disk
+ * @property {Function} _batch - Run a function in a single transaction with one disk write
  * @property {Function} getNode - Get a single node by ID
  * @property {Function} getDescendants - Get all descendants of a node
  * @property {Function} _updateDescendantPaths - Update paths for node descendants
+ * @property {Function} _updateSubtreePath - Recompute a node's own path/depth and its descendants'
  */
 
 /**
@@ -131,10 +132,28 @@ function createTreeOperations(ctx) {
      * @returns {{deleted: number}} Object with count of permanently deleted nodes
      */
     emptyTrash() {
-      const result = ctx._query('SELECT COUNT(*) as count FROM nodes WHERE deleted_at IS NOT NULL')
-      const count = result[0]?.count || 0
-      ctx._run('DELETE FROM nodes WHERE deleted_at IS NOT NULL')
-      return { deleted: count }
+      return ctx._batch(() => {
+        const result = ctx._query('SELECT COUNT(*) as count FROM nodes WHERE deleted_at IS NOT NULL')
+        const count = result[0]?.count || 0
+
+        // nodes.parent_id is declared ON DELETE SET NULL, so purging the trash
+        // silently nulls the parent_id of any LIVE node whose parent is being
+        // purged — leaving it with a path/depth that points at a deleted id.
+        // Capture those survivors first so their subtrees can be recomputed.
+        const survivors = ctx._query(
+          `SELECT id FROM nodes
+           WHERE deleted_at IS NULL
+             AND parent_id IN (SELECT id FROM nodes WHERE deleted_at IS NOT NULL)`
+        )
+
+        ctx._run('DELETE FROM nodes WHERE deleted_at IS NOT NULL')
+
+        for (const survivor of survivors) {
+          ctx._updateSubtreePath(survivor.id)
+        }
+
+        return { deleted: count }
+      })
     },
 
     /**
@@ -167,44 +186,13 @@ function createTreeOperations(ctx) {
      * @returns {Node} The updated node with parent_id set to null
      */
     reparentToRoot(nodeId) {
-      ctx._run('UPDATE nodes SET parent_id = NULL WHERE id = ?', [nodeId])
-      ctx._updateDescendantPaths(nodeId)
-      return ctx.getNode(nodeId)
-    },
-
-    /**
-     * Repairs workspace_id inconsistencies in the tree.
-     * Ensures all descendants inherit their root node's workspace_id.
-     * Automatically saves changes to disk if any fixes are made.
-     * @returns {{fixed: number}} Object with count of nodes that were fixed
-     */
-    repairWorkspaces() {
-      const roots = ctx._query('SELECT * FROM nodes WHERE parent_id IS NULL AND deleted_at IS NULL')
-      let fixed = 0
-
-      for (const root of roots) {
-        const rootWorkspace = root.workspace_id
-        const pathPrefix = root.path ? `${root.path}/${root.id}` : `${root.id}`
-        const descendants = ctx._query(
-          'SELECT id, workspace_id FROM nodes WHERE (path = ? OR path LIKE ?) AND deleted_at IS NULL',
-          [pathPrefix, `${pathPrefix}/%`]
-        )
-
-        for (const desc of descendants) {
-          const descWorkspace = desc.workspace_id
-          const needsFix =
-            (rootWorkspace === null && descWorkspace !== null) ||
-            (rootWorkspace !== null && descWorkspace !== rootWorkspace)
-          if (needsFix) {
-            ctx._run('UPDATE nodes SET workspace_id = ? WHERE id = ?', [rootWorkspace, desc.id])
-            fixed++
-          }
-        }
-      }
-
-      console.log(`repairWorkspaces: fixed ${fixed} nodes`)
-      if (fixed > 0) ctx._save()
-      return { fixed }
+      return ctx._batch(() => {
+        // Reset the node's own path/depth along with parent_id so descendants
+        // are rebuilt from a correct root prefix, not the stale orphan path.
+        ctx._run("UPDATE nodes SET parent_id = NULL, path = '', depth = 0 WHERE id = ?", [nodeId])
+        ctx._updateDescendantPaths(nodeId)
+        return ctx.getNode(nodeId)
+      })
     },
   }
 }

@@ -21,7 +21,7 @@ const typeConfig = {
   group: { label: 'Groups', color: 'var(--type-group-text)' },
   event: { label: 'Events', color: 'var(--type-event-text)' },
   person: { label: 'People', color: 'var(--type-person-text)' },
-  organization: { label: 'Organizations', color: 'var(--type-org-text)' },
+  organization: { label: 'Organizations', color: 'var(--type-organization-text)' },
 }
 
 const availableTypes = computed(() => {

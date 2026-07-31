@@ -1,4 +1,4 @@
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, toValue } from 'vue'
 import { api } from '../services/api.js'
 import { useErrorHandler } from './useErrorHandler'
 
@@ -6,7 +6,10 @@ import { useErrorHandler } from './useErrorHandler'
  * Composable for @person mentions in textarea fields
  * @param {Object} options - Configuration options
  * @param {Function} options.onMentionInserted - Callback when a mention is inserted (receives personId, nodeId)
- * @param {string} options.workspaceId - Current workspace ID
+ * @param {string|import('vue').Ref<string>|(() => string)} options.workspaceId - Current
+ *   workspace ID. Pass a ref or getter when the workspace can change while the
+ *   editor stays mounted; it is read at load time, so refreshPersons() then
+ *   re-scopes the list to the current workspace.
  * @returns {Object} - Mention handlers and state
  */
 export function useMentions(options = {}) {
@@ -17,16 +20,24 @@ export function useMentions(options = {}) {
   const mentionQuery = ref('')
   const mentionPosition = ref({ top: 0, left: 0 })
   const mentionStartIndex = ref(-1)
+  const mentionEndIndex = ref(-1)
   const persons = ref([])
   const filteredPersons = ref([])
   const selectedMentionIndex = ref(0)
   const textareaEl = ref(null)
 
-  // Load all persons from current workspace
+  // Load all persons from the workspace that is current *now*. Concurrent loads
+  // (rapid workspace switches) are sequenced so a slow earlier response cannot
+  // overwrite the newer workspace's list.
+  let loadToken = 0
   async function loadPersons() {
+    const token = ++loadToken
     try {
-      persons.value = await api.getNodes({ type: 'person', workspace_id: workspaceId })
+      const result = await api.getNodes({ type: 'person', workspace_id: toValue(workspaceId) ?? 'work' })
+      if (token !== loadToken) return
+      persons.value = result
     } catch (err) {
+      if (token !== loadToken) return
       handleError(err, { context: 'Loading persons', silent: true })
       persons.value = []
     }
@@ -70,13 +81,10 @@ export function useMentions(options = {}) {
     }
   }
 
-  // Handle input in textarea
-  function handleInput(e, _currentNodeId = null) {
-    const textarea = e.target
-    textareaEl.value = textarea
-    const text = textarea.value
-    const cursorPos = textarea.selectionStart
-
+  // Editor-agnostic mention detection. Callers provide the current text, the
+  // cursor offset, and a getCoords() callback returning the dropdown position
+  // ({ top, left } in viewport pixels), invoked only when a mention is active.
+  function checkMention({ text, cursorPos, getCoords }) {
     // Look for @ that starts a mention
     const textBeforeCursor = text.substring(0, cursorPos)
     const lastAtIndex = textBeforeCursor.lastIndexOf('@')
@@ -90,12 +98,15 @@ export function useMentions(options = {}) {
         const query = textBeforeCursor.substring(lastAtIndex + 1)
         // Check if query contains spaces (might be completing or invalid)
         const hasNewline = query.includes('\n')
+        // '@[' is an already-inserted mention (@[Name](person:id)) - don't re-trigger
+        const isCompletedMention = query.startsWith('[')
 
-        if (!hasNewline && query.length <= 30) {
+        if (!hasNewline && !isCompletedMention && query.length <= 30) {
           mentionStartIndex.value = lastAtIndex
+          mentionEndIndex.value = cursorPos
           mentionQuery.value = query
           filterPersons(query)
-          mentionPosition.value = calculatePosition(textarea, cursorPos)
+          mentionPosition.value = getCoords()
           showMentions.value = true
           return
         }
@@ -136,13 +147,15 @@ export function useMentions(options = {}) {
     return false
   }
 
-  // Insert selected mention
+  // Insert selected mention. updateValue receives the new text and the cursor
+  // offset just after the inserted mention (so non-textarea editors can restore
+  // the caret themselves).
   async function insertMention(modelValue, updateValue, currentNodeId = null) {
     const person = filteredPersons.value[selectedMentionIndex.value]
     if (!person) return
 
     const text = modelValue
-    const cursorPos = textareaEl.value?.selectionStart || 0
+    const cursorPos = mentionEndIndex.value >= 0 ? mentionEndIndex.value : 0
 
     // Replace @query with @[Person Name](person:id)
     const beforeMention = text.substring(0, mentionStartIndex.value)
@@ -150,18 +163,10 @@ export function useMentions(options = {}) {
     const mentionText = `@[${person.title}](person:${person.id})`
 
     const newText = beforeMention + mentionText + ' ' + afterMention
-    updateValue(newText)
+    const newCursorPos = beforeMention.length + mentionText.length + 1
+    updateValue(newText, newCursorPos)
 
     showMentions.value = false
-
-    // Focus back on textarea and set cursor
-    nextTick(() => {
-      if (textareaEl.value) {
-        const newCursorPos = beforeMention.length + mentionText.length + 1
-        textareaEl.value.focus()
-        textareaEl.value.setSelectionRange(newCursorPos, newCursorPos)
-      }
-    })
 
     // Auto-link person to current node if callback provided
     if (onMentionInserted && currentNodeId) {
@@ -188,7 +193,7 @@ export function useMentions(options = {}) {
     mentionPosition,
     filteredPersons,
     selectedMentionIndex,
-    handleInput,
+    checkMention,
     handleKeydown,
     selectMention,
     hideMentions: () => {

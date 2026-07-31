@@ -1,6 +1,6 @@
 import { ref, type Ref } from 'vue'
 import { useErrorHandler } from './useErrorHandler'
-import type { Node } from '../types'
+import type { Node, WorkspaceId } from '../types'
 
 /**
  * Context menu state structure.
@@ -34,7 +34,7 @@ export interface UnlinkParams {
  */
 export interface MoveToWorkspaceParams {
   node: Node
-  workspaceId: number
+  workspaceId: WorkspaceId
 }
 
 /**
@@ -68,7 +68,7 @@ export interface UseContextMenuOptions {
   /** Called to unlink nodes */
   onUnlink?: (sourceId: number, targetId: number) => Promise<void>
   /** Called to move node to workspace */
-  onMoveToWorkspace?: (nodeId: number, workspaceId: number) => Promise<void>
+  onMoveToWorkspace?: (nodeId: number, workspaceId: WorkspaceId) => Promise<void>
   /** Called to delete node */
   onDelete?: (nodeId: number) => void
   /** Called to refresh selected node after unlink */

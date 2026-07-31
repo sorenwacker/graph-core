@@ -101,13 +101,13 @@ Right-click any node to access:
 - **View Details**: Open detail panel
 - **Open in Window**: Open in separate window (desktop only)
 - **Enter**: Navigate into the node
-- **Add Child**: Create a new child node
-- **Mark Complete/Incomplete**: Toggle completion status
+- **Add Child**: Create a new child node (not shown for person nodes)
+- **Mark Complete/Incomplete**: Toggle completion status (not shown for person nodes)
 - **Add/Remove Favorite**: Star or unstar the node
 - **Link to...**: Create a link to another node
 - **Move to...**: Change parent node
-- **Unlink from...**: Remove existing links
-- **Move to Workspace**: Transfer to different workspace
+- **Linked items**: The node's existing links, each with an unlink button
+- **Move to Workspace**: Move the node to one of your workspaces; the current one is highlighted
 - **Delete**: Send to trash
 
 ## Drag and Drop

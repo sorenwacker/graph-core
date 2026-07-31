@@ -40,6 +40,7 @@ function getEnabledTools(enabledTools) {
  * @property {string} endpoint - API endpoint
  * @property {string} apiKey - API key (for OpenAI)
  * @property {number} contextSize - Context size for Ollama
+ * @property {boolean} [skipSslVerification] - Skip SSL verification (OpenAI only)
  */
 
 /**
@@ -118,7 +119,7 @@ async function processToolCalls(httpRequest, toolCalls, messages, iterationIndex
  * @returns {Promise<string>} Research result
  */
 async function fallbackResearch(httpRequest, options) {
-  const { prompt, provider, model, endpoint, apiKey, contextSize } = options
+  const { prompt, provider, model, endpoint, apiKey, contextSize, skipSslVerification } = options
 
   // Search Wikipedia directly
   const searchResults = await wikipedia.search(httpRequest, prompt, 3)
@@ -151,6 +152,7 @@ Write a concise summary (2-4 paragraphs) that answers the user's question. Cite 
     model,
     apiKey,
     contextSize,
+    skipSslVerification,
     messages: [
       {
         role: 'system',
@@ -172,7 +174,7 @@ Write a concise summary (2-4 paragraphs) that answers the user's question. Cite 
  * @returns {Promise<string>} Final response content
  */
 async function runAgentLoop(httpRequest, messages, options, tools) {
-  const { provider, model, endpoint, apiKey, contextSize } = options
+  const { provider, model, endpoint, apiKey, contextSize, skipSslVerification } = options
 
   for (let i = 0; i < MAX_AGENT_ITERATIONS; i++) {
     const response = await chatRequest(httpRequest, {
@@ -181,6 +183,7 @@ async function runAgentLoop(httpRequest, messages, options, tools) {
       model,
       apiKey,
       contextSize,
+      skipSslVerification,
       messages,
       tools,
     })
@@ -211,6 +214,7 @@ async function runAgentLoop(httpRequest, messages, options, tools) {
     model,
     apiKey,
     contextSize,
+    skipSslVerification,
     messages: [...messages, { role: 'user', content: 'Based on the information gathered, provide a final summary.' }],
   })
 
@@ -224,7 +228,7 @@ async function runAgentLoop(httpRequest, messages, options, tools) {
  */
 function registerAgentHandlers(ipcMain, httpRequest) {
   ipcMain.handle(AGENT_RESEARCH, async (_event, options) => {
-    const { prompt, provider, model, endpoint, apiKey, contextSize, enabledTools } = options
+    const { prompt, provider, model, endpoint, apiKey, contextSize, skipSslVerification, enabledTools } = options
 
     const tools = getEnabledTools(enabledTools)
     if (tools.length === 0) {
@@ -236,17 +240,14 @@ function registerAgentHandlers(ipcMain, httpRequest) {
       { role: 'user', content: prompt },
     ]
 
+    const researchOptions = { prompt, provider, model, endpoint, apiKey, contextSize, skipSslVerification }
+
     try {
-      return await runAgentLoop(
-        httpRequest,
-        messages,
-        { prompt, provider, model, endpoint, apiKey, contextSize },
-        tools
-      )
+      return await runAgentLoop(httpRequest, messages, researchOptions, tools)
     } catch (err) {
       // If tool calling fails, try fallback
       console.log('Tool calling failed, using fallback:', err.message)
-      return await fallbackResearch(httpRequest, { prompt, provider, model, endpoint, apiKey, contextSize })
+      return await fallbackResearch(httpRequest, researchOptions)
     }
   })
 }

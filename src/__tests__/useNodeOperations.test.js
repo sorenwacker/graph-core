@@ -150,6 +150,16 @@ describe('useNodeOperations composable', () => {
 
       expect(mockPushCommand).not.toHaveBeenCalled()
     })
+
+    it('should not push undo command when the move fails', async () => {
+      mockApi.moveNode.mockRejectedValue(new Error('move failed'))
+
+      const result = await ops.moveNode({ nodeId: 1, oldParentId: 2, newParentId: 3 })
+
+      expect(result).toBe(false)
+      expect(mockPushCommand).not.toHaveBeenCalled()
+      expect(mockOnError).toHaveBeenCalled()
+    })
   })
 
   describe('toggleComplete', () => {

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { api } from '../services/api.js'
 import { personColors } from '../utils/constants.js'
 import { getInitials, getContrastColor } from '../utils/formatting.js'
@@ -60,6 +60,15 @@ onMounted(async () => {
   await loadOrganizations()
 })
 
+// Reload when switching workspaces (same pattern as TasksView)
+watch(
+  () => props.workspaceId,
+  async () => {
+    await loadPersons()
+    await loadOrganizations()
+  }
+)
+
 // Load organization nodes from current workspace
 async function loadOrganizations() {
   try {
@@ -93,8 +102,12 @@ const sortedPersons = computed(() => {
   }
   const sorted = [...filtered]
   sorted.sort((a, b) => {
-    const aVal = (a[sortBy.value] || '').toLowerCase()
-    const bVal = (b[sortBy.value] || '').toLowerCase()
+    // The 'organization' field on person nodes is deprecated and always empty;
+    // sort by the linked organizations the table actually displays.
+    const valueOf =
+      sortBy.value === 'organization' ? p => getOrganizationsForPerson(p.id).join(', ') : p => p[sortBy.value]
+    const aVal = (valueOf(a) || '').toLowerCase()
+    const bVal = (valueOf(b) || '').toLowerCase()
     if (aVal < bVal) return sortDir.value === 'asc' ? -1 : 1
     if (aVal > bVal) return sortDir.value === 'asc' ? 1 : -1
     return 0
@@ -369,7 +382,9 @@ function handleOrgKeydown(e) {
 
   if (e.key === 'ArrowDown') {
     e.preventDefault()
-    const max = exactOrgMatch.value ? filteredOrganizations.value.length : filteredOrganizations.value.length
+    // When an exact match exists the '+ Create' option is not rendered, so the
+    // last selectable index is the last organization entry.
+    const max = exactOrgMatch.value ? filteredOrganizations.value.length - 1 : filteredOrganizations.value.length
     selectedOrgIndex.value = Math.min(selectedOrgIndex.value + 1, max)
   } else if (e.key === 'ArrowUp') {
     e.preventDefault()
@@ -389,6 +404,14 @@ function handleOrgKeydown(e) {
 function handleOrgInput() {
   showOrgDropdown.value = true
   selectedOrgIndex.value = 0
+}
+
+// Delay closing so a mousedown on a dropdown option can register first.
+// (setTimeout is not available inside template expressions.)
+function handleOrgBlur() {
+  setTimeout(() => {
+    showOrgDropdown.value = false
+  }, 200)
 }
 
 function selectPerson(person) {
@@ -551,7 +574,7 @@ function getOrganizationsForPerson(personId) {
                   @input="handleOrgInput"
                   @keydown="handleOrgKeydown"
                   @focus="showOrgDropdown = true"
-                  @blur="setTimeout(() => (showOrgDropdown = false), 200)"
+                  @blur="handleOrgBlur"
                 />
                 <div
                   v-if="showOrgDropdown && (filteredOrganizations.length > 0 || orgQuery.trim())"
@@ -597,6 +620,8 @@ function getOrganizationsForPerson(personId) {
               <div class="person-notes-editor">
                 <NotesEditor
                   :model-value="editingPerson.notes || ''"
+                  :workspace-id="props.workspaceId"
+                  :node-id="editingPerson.id || null"
                   @update:model-value="editingPerson.notes = $event"
                 />
               </div>

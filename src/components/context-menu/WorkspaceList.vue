@@ -4,7 +4,7 @@
  */
 import MenuIcon from './MenuIcon.vue'
 
-const props = defineProps({
+defineProps({
   workspaces: {
     type: Array,
     required: true,
@@ -29,14 +29,6 @@ function moveToWorkspace(workspaceId) {
       <span>Move to Workspace</span>
     </div>
     <div class="workspace-list">
-      <button
-        class="workspace-item"
-        :class="{ active: currentWorkspaceId === null }"
-        @click="moveToWorkspace('people')"
-      >
-        <MenuIcon name="users" class="workspace-icon" />
-        <span>People</span>
-      </button>
       <button
         v-for="ws in workspaces"
         :key="ws.id"

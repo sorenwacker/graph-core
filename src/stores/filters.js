@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { DEFAULT_VISIBLE_TYPES, ALL_NODE_TYPES } from '../composables/useGraphSettings'
+import { DEFAULT_VISIBLE_TYPES } from '../composables/useGraphSettings'
 
 /**
  * Filters store - manages shared filter state across all views.
@@ -17,23 +17,12 @@ export const useFiltersStore = defineStore('filters', () => {
   /** Maximum depth to display (0 = unlimited) */
   const maxDepth = ref(0)
 
-  /** Whether filters have been modified from container defaults */
-  const isDirty = ref(false)
-
   /** Current container ID these filters are synced from */
   const syncedFromId = ref(null)
 
   // ===========================================
   // GETTERS (COMPUTED)
   // ===========================================
-
-  /** Check if a node type is visible */
-  const isTypeVisible = computed(() => {
-    return type => visibleTypes.value.includes(type)
-  })
-
-  /** Get all available node types */
-  const allTypes = computed(() => ALL_NODE_TYPES)
 
   /** Number of types currently hidden */
   const hiddenTypesCount = computed(() => {
@@ -43,16 +32,6 @@ export const useFiltersStore = defineStore('filters', () => {
   /** Whether any type filter is active */
   const hasTypeFilter = computed(() => {
     return visibleTypes.value.length < DEFAULT_VISIBLE_TYPES.length
-  })
-
-  /** Whether depth filter is active */
-  const hasDepthFilter = computed(() => {
-    return maxDepth.value > 0
-  })
-
-  /** Whether any filter is active */
-  const hasActiveFilter = computed(() => {
-    return hasTypeFilter.value || hasDepthFilter.value
   })
 
   // ===========================================
@@ -70,7 +49,6 @@ export const useFiltersStore = defineStore('filters', () => {
     } else {
       visibleTypes.value.push(type)
     }
-    isDirty.value = true
   }
 
   /**
@@ -79,7 +57,6 @@ export const useFiltersStore = defineStore('filters', () => {
    */
   function setVisibleTypes(types) {
     visibleTypes.value = [...types]
-    isDirty.value = true
   }
 
   /**
@@ -88,16 +65,6 @@ export const useFiltersStore = defineStore('filters', () => {
    */
   function setMaxDepth(depth) {
     maxDepth.value = depth
-    isDirty.value = true
-  }
-
-  /**
-   * Reset filters to defaults
-   */
-  function resetToDefaults() {
-    visibleTypes.value = [...DEFAULT_VISIBLE_TYPES]
-    maxDepth.value = 0
-    isDirty.value = true
   }
 
   /**
@@ -105,7 +72,6 @@ export const useFiltersStore = defineStore('filters', () => {
    */
   function showAllTypes() {
     visibleTypes.value = [...DEFAULT_VISIBLE_TYPES]
-    isDirty.value = true
   }
 
   /**
@@ -132,64 +98,23 @@ export const useFiltersStore = defineStore('filters', () => {
     }
 
     syncedFromId.value = node?.id ?? null
-    isDirty.value = false
-  }
-
-  /**
-   * Filter an array of nodes by current filter settings
-   * @param {Array} nodes - Nodes to filter
-   * @param {Object} options - Filter options
-   * @param {boolean} options.applyTypeFilter - Whether to apply type filter
-   * @param {boolean} options.applyDepthFilter - Whether to apply depth filter
-   * @param {number} options.currentDepth - Current depth for depth filtering
-   * @returns {Array} Filtered nodes
-   */
-  function filterNodes(nodes, options = {}) {
-    const { applyTypeFilter = true, applyDepthFilter = false, currentDepth = 0 } = options
-
-    if (!nodes || !Array.isArray(nodes)) return []
-
-    let result = nodes
-
-    // Apply type filter
-    if (applyTypeFilter && hasTypeFilter.value) {
-      result = result.filter(node => {
-        // Always exclude 'tag' type from direct display (shown via links)
-        if (node.type === 'tag') return false
-        return visibleTypes.value.includes(node.type)
-      })
-    }
-
-    // Apply depth filter (only in graph view context)
-    if (applyDepthFilter && maxDepth.value > 0 && currentDepth >= maxDepth.value) {
-      return []
-    }
-
-    return result
   }
 
   return {
     // State
     visibleTypes,
     maxDepth,
-    isDirty,
     syncedFromId,
 
     // Getters
-    isTypeVisible,
-    allTypes,
     hiddenTypesCount,
     hasTypeFilter,
-    hasDepthFilter,
-    hasActiveFilter,
 
     // Actions
     toggleType,
     setVisibleTypes,
     setMaxDepth,
-    resetToDefaults,
     showAllTypes,
     syncFromNode,
-    filterNodes,
   }
 })

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useGraphEvents } from '../composables/useGraphEvents.js'
 
 // Mock useGraphSelection
-vi.mock('./useGraphSelection.js', () => ({
+vi.mock('../composables/useGraphSelection.js', () => ({
   updateHtmlLabelsFromCySelection: vi.fn(),
 }))
 
@@ -64,6 +64,12 @@ describe('useGraphEvents', () => {
       addEventListener: vi.fn((event, handler) => {
         if (!containerEventListeners[event]) containerEventListeners[event] = []
         containerEventListeners[event].push(handler)
+      }),
+      removeEventListener: vi.fn((event, handler) => {
+        const handlers = containerEventListeners[event]
+        if (!handlers) return
+        const index = handlers.indexOf(handler)
+        if (index !== -1) handlers.splice(index, 1)
       }),
       getBoundingClientRect: vi.fn().mockReturnValue({ left: 0, top: 0, width: 800, height: 600 }),
       querySelectorAll: vi.fn().mockReturnValue([]),
@@ -626,6 +632,127 @@ describe('useGraphEvents', () => {
       freeHandler({ target: mockDraggedNode })
 
       expect(mockEmit).toHaveBeenCalledWith('move', { nodeId: 1, oldParentId: 5, newParentId: 2 })
+    })
+  })
+
+  describe('re-initialization', () => {
+    function makeDblclickEvent() {
+      return {
+        target: {
+          closest: vi.fn().mockReturnValue({ dataset: { nodeId: '1' } }),
+        },
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      }
+    }
+
+    it('does not accumulate container listeners across repeated setupEvents calls', () => {
+      const { setupEvents } = createGraphEvents()
+
+      // Simulate graph re-inits (cy.destroy() + recreate reuses the container)
+      setupEvents()
+      setupEvents()
+      setupEvents()
+
+      mockContainer._triggerEvent('dblclick', makeDblclickEvent())
+
+      // With accumulated listeners this would emit 'enter' three times
+      expect(mockEmit).toHaveBeenCalledTimes(1)
+      expect(mockEmit).toHaveBeenCalledWith('enter', { id: 1, title: 'Test Node' })
+    })
+
+    it('removes old click listeners on re-init so select fires once', () => {
+      const { setupEvents } = createGraphEvents()
+      setupEvents()
+      setupEvents()
+
+      const clickEvent = {
+        target: {
+          closest: vi.fn().mockImplementation(selector => {
+            if (selector === '.collapse-btn') return null
+            return { dataset: { nodeId: '1' } }
+          }),
+        },
+        metaKey: false,
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      }
+      mockContainer._triggerEvent('click', clickEvent)
+      vi.advanceTimersByTime(200)
+
+      expect(mockEmit).toHaveBeenCalledTimes(1)
+      expect(mockEmit).toHaveBeenCalledWith('select', { id: 1, title: 'Test Node' })
+    })
+
+    it('teardownEvents removes container listeners', () => {
+      const { setupEvents, teardownEvents } = createGraphEvents()
+      setupEvents()
+      teardownEvents()
+
+      mockContainer._triggerEvent('dblclick', makeDblclickEvent())
+
+      expect(mockEmit).not.toHaveBeenCalled()
+    })
+
+    it('teardownEvents is safe to call multiple times and before setup', () => {
+      const { setupEvents, teardownEvents } = createGraphEvents()
+
+      expect(() => teardownEvents()).not.toThrow()
+      setupEvents()
+      teardownEvents()
+      expect(() => teardownEvents()).not.toThrow()
+    })
+
+    it('teardownEvents removes the document listeners of an in-progress link draw', () => {
+      linkModeActive = true
+      const { setupEvents, teardownEvents } = createGraphEvents()
+      setupEvents()
+
+      const sourceNode = {
+        length: 1,
+        id: () => '1',
+        data: vi.fn().mockReturnValue({ id: 1, title: 'Source' }),
+        renderedPosition: () => ({ x: 100, y: 100 }),
+      }
+      const targetNode = {
+        length: 1,
+        id: () => '2',
+        data: vi.fn().mockReturnValue({ id: 2, title: 'Target' }),
+        addClass: vi.fn(),
+        removeClass: vi.fn(),
+      }
+      mockCy.$ = vi.fn(sel => (sel === '#1' ? sourceNode : targetNode))
+
+      const mousedownTarget = {
+        closest: vi.fn(sel => (sel === '.node-html, .node-person' ? { dataset: { nodeId: '1' } } : null)),
+      }
+      mockContainer._triggerEvent('mousedown', {
+        target: mousedownTarget,
+        altKey: true,
+        clientX: 100,
+        clientY: 100,
+        preventDefault: vi.fn(),
+      })
+
+      // Unmount (or graph re-init) while the drag is still in progress.
+      teardownEvents()
+
+      // Hidden connector, target highlight cleared, and no stray document
+      // listeners: a later mousemove/mouseup must be inert.
+      expect(mockLinkLine.style.display).toBe('none')
+      expect(targetNode.removeClass).not.toHaveBeenCalled()
+
+      document.elementFromPoint = vi.fn().mockReturnValue({
+        closest: vi.fn().mockReturnValue({ dataset: { nodeId: '2' } }),
+      })
+      document.dispatchEvent(new MouseEvent('mousemove', { clientX: 300, clientY: 300 }))
+      document.dispatchEvent(new MouseEvent('mouseup', { clientX: 300, clientY: 300 }))
+
+      expect(targetNode.addClass).not.toHaveBeenCalled()
+      expect(mockEmit).not.toHaveBeenCalledWith('link', expect.anything())
     })
   })
 

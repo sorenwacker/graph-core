@@ -92,7 +92,7 @@ Deleting a node moves it to Trash rather than permanently removing it:
 2. Press `Cmd/Ctrl + Delete/Backspace` or right-click > Delete
 3. The node moves to Trash with a timestamp
 
-Deleted nodes are excluded from search, views, and exports. Children of deleted nodes become orphans (moved to Lost and Found).
+Deleted nodes are excluded from search, views, and exports. The children of a deleted node are re-attached to its parent, so a delete never hides a subtree; if the trash is later emptied, any child still hanging off a purged node is moved up to root level. Nodes whose parent is missing or sitting in the trash are listed in Lost and Found (see [Settings](../reference/settings.md#lost-and-found)).
 
 ### Restoring from Trash
 
@@ -105,7 +105,7 @@ Deleted nodes are excluded from search, views, and exports. Children of deleted 
 From Trash view:
 
 - Click "Delete" on individual items for permanent removal
-- Use "Empty Trash" in Settings to permanently delete all trashed items
+- Click "Empty Trash" to permanently delete everything in the trash
 
 Permanent deletion cannot be undone.
 

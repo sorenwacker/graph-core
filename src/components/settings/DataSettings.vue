@@ -42,6 +42,22 @@ function triggerImport(type) {
   }, 0)
 }
 
+/**
+ * Build the user-facing summary of an import, including rows the importer had
+ * to skip (malformed or title-less CSV rows) so silent data loss is visible.
+ * @param {{nodesImported?: number, linksCreated?: number, rowsSkipped?: number}} result
+ * @returns {string} Summary message
+ */
+function buildImportMessage(result) {
+  const parts = [`Imported ${result.nodesImported ?? 0} nodes`]
+  if (result.linksCreated) parts.push(`${result.linksCreated} links`)
+  let message = parts.join(' and ')
+  if (result.rowsSkipped) {
+    message += `\nSkipped ${result.rowsSkipped} malformed or title-less row${result.rowsSkipped === 1 ? '' : 's'}`
+  }
+  return message
+}
+
 async function handleImportFile(e) {
   const file = e.target.files?.[0]
   if (!file) return
@@ -58,7 +74,7 @@ async function handleImportFile(e) {
     }
 
     emit('import-complete', result)
-    alert(`Imported ${result.nodesImported} nodes${result.linksCreated ? ` and ${result.linksCreated} links` : ''}`)
+    alert(buildImportMessage(result))
   } catch (err) {
     alert(`Import failed: ${err.message}`)
   }

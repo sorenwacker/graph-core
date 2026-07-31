@@ -16,7 +16,6 @@ const emit = defineEmits(['select', 'navigate', 'toggle-complete'])
 const { loading, sortedTasks, showCompleted, filterImportance, loadTasks, toggleSort, getSortIcon } = useTaskFiltering({
   getWorkspaceId: () => props.workspaceId,
   getContainerId: () => props.containerId,
-  getHideSensitive: () => props.hideSensitive,
 })
 
 // Display utility functions

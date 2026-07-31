@@ -25,12 +25,31 @@ class HttpClient {
   }
 
   /**
-   * Check if a hostname is localhost (safe for SSL bypass).
-   * @param {string} hostname - The hostname to check
-   * @returns {boolean} True if localhost
+   * Check if a hostname is a local endpoint (localhost, loopback, or *.local
+   * mDNS host) — the only hosts for which SSL verification bypass is allowed.
+   * @param {string} hostname - The hostname to check (may be a bracketed IPv6 literal)
+   * @returns {boolean} True if the host is local
    */
   static isLocalhost(hostname) {
-    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname.endsWith('.local')
+    if (!hostname) return false
+    // URL.hostname keeps the brackets around IPv6 literals ('[::1]'), so strip
+    // them before comparing or the IPv6 loopback would never match.
+    const host = hostname.toLowerCase().replace(/^\[|\]$/g, '')
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host.endsWith('.local')
+  }
+
+  /**
+   * Check if an error looks like an SSL/certificate error.
+   * @param {Error} error - The error to inspect
+   * @returns {boolean} True if the error is certificate-related
+   */
+  static isCertError(error) {
+    return Boolean(
+      error.message?.includes('SSL') ||
+      error.message?.includes('ERR_SSL') ||
+      error.message?.includes('CERT') ||
+      error.message?.includes('certificate')
+    )
   }
 
   /**
@@ -68,21 +87,38 @@ class HttpClient {
    * @returns {Error} Processed error
    */
   static handleRequestError(error, connectionError, includeSslHint = false) {
-    if (error.code === 'ECONNREFUSED') {
+    // Node's http/https path sets error.code = 'ECONNREFUSED'; Electron's net
+    // module emits plain Errors with Chromium-style messages instead.
+    if (error.code === 'ECONNREFUSED' || error.message?.includes('ERR_CONNECTION_REFUSED')) {
       return new Error(connectionError)
     }
-    if (
-      includeSslHint &&
-      (error.message?.includes('SSL') ||
-        error.message?.includes('ERR_SSL') ||
-        error.message?.includes('CERT') ||
-        error.message?.includes('certificate'))
-    ) {
+    if (includeSslHint && HttpClient.isCertError(error)) {
       return new Error(
-        `SSL/TLS error: ${error.message}. For self-signed certificates, enable "Skip SSL verification" in settings.`
+        `SSL/TLS error: ${error.message}. For self-signed certificates on local endpoints ` +
+          `(localhost, 127.0.0.1, ::1, *.local), enable "Skip SSL verification" in settings. ` +
+          `Certificates for remote hosts are always verified.`
       )
     }
     return error
+  }
+
+  /**
+   * Handle errors on the SSL-bypass (Node) path. This path only runs when the
+   * user enabled "Skip SSL verification", so be truthful about why a cert
+   * error can still occur on remote hosts.
+   * @param {Error} error - Original error
+   * @param {boolean} isLocal - Whether the request host is a local endpoint
+   * @param {string} connectionError - Custom connection error message
+   * @returns {Error} Processed error
+   */
+  static handleBypassRequestError(error, isLocal, connectionError) {
+    if (!isLocal && HttpClient.isCertError(error)) {
+      return new Error(
+        `SSL/TLS error: ${error.message}. "Skip SSL verification" only applies to local endpoints ` +
+          `(localhost, 127.0.0.1, ::1, *.local); certificates for remote hosts are always verified.`
+      )
+    }
+    return HttpClient.handleRequestError(error, connectionError, false)
   }
 
   /**
@@ -99,6 +135,9 @@ class HttpClient {
       const urlObj = new URL(url)
       const isHttps = urlObj.protocol === 'https:'
       const transport = isHttps ? https : http
+      // SSL bypass is deliberately restricted to local endpoints; remote
+      // certificates are always verified even when the setting is enabled.
+      const isLocal = HttpClient.isLocalhost(urlObj.hostname)
 
       const requestOptions = {
         hostname: urlObj.hostname,
@@ -106,7 +145,7 @@ class HttpClient {
         path: urlObj.pathname + urlObj.search,
         method,
         headers: { ...headers },
-        rejectUnauthorized: !HttpClient.isLocalhost(urlObj.hostname),
+        rejectUnauthorized: !isLocal,
       }
 
       if (body) {
@@ -132,7 +171,7 @@ class HttpClient {
       })
 
       request.on('error', error => {
-        reject(HttpClient.handleRequestError(error, this.connectionError, false))
+        reject(HttpClient.handleBypassRequestError(error, isLocal, this.connectionError))
       })
 
       if (body) {

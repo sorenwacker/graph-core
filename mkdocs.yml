@@ -29,6 +29,12 @@ theme:
 plugins:
   - search
 
+# MkDocs builds every file under docs/, whether or not it is in the nav.
+# REVIEW.md is an internal engineering report: keep it in the repo, off the site.
+# (exclude_docs requires MkDocs >= 1.5; the Makefile installs the latest.)
+exclude_docs: |
+  REVIEW.md
+
 markdown_extensions:
   - admonition
   - pymdownx.details
@@ -58,6 +64,7 @@ nav:
     - Drag and Drop: guides/drag-drop.md
     - Search: guides/search.md
     - Workspaces: guides/workspaces.md
+    - Demo Workspace: guides/demo-workspace.md
     - AI Notes: guides/ai-notes.md
     - Import and Export: guides/import-export.md
   - Reference:

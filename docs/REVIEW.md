@@ -1,525 +1,920 @@
-# Codebase Review
+# Codebase Review — graph-core
 
-Date: 2026-06-14
-Scope: full source tree (`src/`, `electron/`, `shared/`), non-test files — 205 source files, ~44k LOC.
-Method: 21 per-module reviewer agents followed by an adversarial verification pass that attempts to
-refute every high/medium finding before it is reported. Findings below are the confirmed survivors.
+_Full multi-agent review of 2026-07-30 (v1.10.19, commit 9bb5c29): 279 files / ~61k LOC read file-by-file by 17 review agents; every high/medium finding adversarially verified by an independent agent (108 agents total). Findings below are the confirmed set._
 
-## Remediation status (2026-06-14)
-
-Fixes were applied on branch `review/high-severity-fixes`, each commit with tests where the logic is
-unit-testable; the full suite stayed green throughout.
-
-Resolved:
-- **XSS** — shared `escapeHtml` + `sanitizeHtml`/`renderMarkdown` (DOMPurify) applied to MarkdownRenderer,
-  CardNotes, graph node labels, tooltip title/type, and the marked link renderer.
-- **Web-mode crash** — `getDescendantsBatch` implemented in `webApi`; `Api` type made required; desktop-only
-  export/import stubbed.
-- **DB correctness** — cross-workspace `getDescendantsBatch` filter removed; `reorderNode` resequences
-  (no more collisions / dead ternary).
-- **Reactivity/leaks** — GraphView document listeners cleaned up; node-op errors → toast; DetachedView and
-  detail-form unlink use fresh data; timeline due_date mapping; graph multi-select Array check.
-- **Correctness** — toast options, `viewMode 'graph'`, Ollama `num_ctx`, KeyboardShortcutsModal Esc,
-  `getDescription` guard, `getWorkspaceIdForNode` signature.
-- **Dead code** — removed `useAppController`, `useDetailPanelCore`, `utils/dom`, the orphaned `stores/nodes`
-  undo/redo store, and assorted unused exports/props/emits/styles.
-- **Consolidation** — AddNodeModal type icon and tableFormatters default color now use shared sources.
-- **Importance scale** — canonical direction set to 5 = Critical (higher = more important), matching the
-  views and the sort; `constants.importanceLabels` (+ test) updated and CardsView/useTaskFiltering now use
-  the shared `getImportanceLabel`/`getImportanceClass`.
-- **DB save batching** — added `Database._batch()` (one transaction, single deferred `_save`, rollback on
-  error); importJSON/importCSV now use it. Covered by new disk-level integration tests.
-
-- **App.vue (partial)** — reduced 1153 → 1098 LOC by extracting two cohesive handler clusters
-  (`useNodeCreation`, `useMaintenanceDialogs`), verified with vue-tsc + vite build + tests. Crossing under
-  1000 would require fragmenting the orchestrator into ~6-8 dependency-heavy micro-composables (worsening
-  coupling), so the remainder is left for a deliberate architectural split (shell + feature panels) done
-  with the app runnable.
-
-Deferred:
-- **preload.js IPC constants** — large mechanical change, no behavior impact (literals already match).
-- **shell-quote / joi** dev-dependency CVEs were patched via npm overrides (audit clean).
+> **Status: all 91 confirmed findings were remediated on 2026-07-31** (uncommitted working tree on top of 9bb5c29; 108 files, +3645/−4792). Gates after remediation: eslint 0 errors, prettier clean, vue-tsc clean, **1387/1387 tests**. The fixes were then re-reviewed by three independent read-only agents, whose findings — including two regressions the fixes themselves introduced — are recorded in [Remediation review](#remediation-review) at the end of this document. Individual findings below are left as originally written; treat them as the historical record, not the current state of the code.
 
 ## Baseline gates
 
-The project's own definition of "passing", run before the review:
+| Gate                  | Result                                          |
+| --------------------- | ----------------------------------------------- |
+| `eslint src electron` | ✅ 0 errors (363 warn-only complexity warnings) |
+| `prettier --check`    | ✅ clean                                        |
+| `vue-tsc --noEmit`    | ✅ clean                                        |
+| `vitest run`          | ✅ 1383/1383 tests, 71 files                    |
 
-| Gate | Command | Result |
-|------|---------|--------|
-| Lint | `npm run lint` (eslint src electron) | Pass — 0 errors, 355 warnings (all `max-lines-per-function` / `complexity` / `max-depth`) |
-| Format | `prettier --check` | Pass — all files conform |
-| Types | `vue-tsc --noEmit` | Pass — clean |
-| Tests | `vitest run` | Pass — 1384 tests / 67 files |
-| File size (≤1000 LOC) | style rule | 1 violation: `src/App.vue` (1157 LOC) |
-
-Notes:
-- No JS dead-code gate is configured (the global vulture/mypy rules are Python-only and do not apply to
-  this Vue/Electron project). Dead-code findings below come from the review, not a tool.
-- The 355 lint warnings are function-length/complexity advisories the project does not currently fail on;
-  they are not repeated as findings here.
+Only `src/App.vue` (1132 LOC) exceeds the ~1000-line size guideline. No TODO/FIXME markers.
 
 ## Summary
 
-| | High | Medium | Low | Total |
-|---|---|---|---|---|
-| Confirmed (verified) | 5 | 28 | 15 | 48 |
-| Manually verified (verifier hit session limit) | 0 | 4 | 1 | 5 |
-
-140 candidate findings were raised; 8 were refuted by verification (3 genuinely refuted, 5 lost to a
-session limit and re-checked by hand below), 84 low-confidence notes were not verified (Appendix A).
-
-Severity reflects the verifier's corrected severity where it differs from the reviewer's original.
+- **206 raw findings** → **91 confirmed** (11 high, 52 medium, 28 low), 0 refuted, 115 lower-confidence notes not adversarially verified (appendix).
+- Confirmed by category: correctness 48, dead-code 16, consistency 13, typing 8, design 5, docstring 1.
 
 ### Recurring themes
 
-1. **Unsanitized HTML / XSS (`v-html` and innerHTML templates).** `dompurify` is a dependency and is
-   applied in `utils/tooltip.js`, but not in `MarkdownRenderer.vue`, `CardNotes.vue`, the graph node
-   HTML label (`useGraphInit.js`), the tooltip title/type fields, or the custom marked link renderer.
-   Several paths also run `decodeHtmlEntities` *after* `marked.parse`, re-introducing live markup.
-2. **`webApi` / `electronApi` divergence.** The web-mode API object is missing methods the renderer
-   calls unconditionally (`getDescendantsBatch` — a hard crash) and stubs some desktop-only methods
-   while silently omitting others (`exportJSON`/`importCSV`…). The `Api` type marks methods optional,
-   so TypeScript does not catch the gaps.
-3. **Two parallel undo/redo systems.** The Command pattern (`src/commands/`) and a second
-   action-stack inside `stores/nodes.js` coexist; the store version has its own delete-restore bugs
-   (recreates nodes instead of restoring soft-deleted rows) and appears to be the unused/older path.
-4. **Dead code at module scale.** Whole composables/utilities are exported but never imported
-   (`useAppController.js`, `useDetailPanelCore.js`, `utils/dom.js`, `stores/filters.js` helpers),
-   plus many unused exports, props, emits, and style rules. The project's no-dead-code rule is not met.
-5. **Local reimplementations of shared helpers drift.** Importance labels (three incompatible scales),
-   type icons, and the legacy default-color literal are re-defined per component instead of imported,
-   so the same data renders differently across views.
-6. **Stale-data / reactivity handlers.** Several handlers broadcast or re-derive from the pre-update
-   object (`DetachedView.moveToRoot`, the detail-form unlink paths) instead of the reloaded record,
-   and `GraphView.vue` leaks three document listeners that are never removed on unmount.
+1. **Tree-integrity maintenance in the DB layer** — `path`/`depth` are not updated on delete-reparent, cross-parent reorder, or reparent-to-root; `PRAGMA foreign_keys` is never enabled so declared cascades are inert.
+2. **Workspace ID type confusion** — DB uses TEXT slugs, but TS types (and one context-menu entry) treat IDs as numbers; one path moves nodes to a nonexistent `'people'` workspace.
+3. **Event-payload contract mismatches** — DetachedView handles three DetailPanel events with the wrong payload shape; ViewRenderer drops TimelineView events.
+4. **Silent error paths** — multiple composables collect errors into refs nobody reads; failures (insert-between, navigation load, reorder) vanish without UI feedback.
+5. **Unescaped HTML interpolation** — node titles flow into `innerHTML`-style templates in the graph person template and drag ghost.
+6. **Timezone bugs** — date-only strings parsed as UTC make 'due today' render as overdue/yesterday west of UTC.
+7. **Dead or drifted parallel implementations** — unused composables/type files that have drifted from reality (`types/components.ts`, `useModalController`, `useGraphSelection`, webApi's duplicated LLM clients).
+8. **Tests that don't test production code** — several suites exercise inline replicas of old logic; a few `vi.mock` paths don't resolve, making mocks ineffective.
 
-## Manually verified (verifier hit the session limit)
+## High severity (11)
 
-These five findings were raised by reviewers but their adversarial verifier could not run (session
-limit). They were re-checked by hand against the source and confirmed.
+### `electron/database/nodes.js:226` — deleteNode leaves reparented children with stale path/depth referencing the deleted node
 
-#### `src/composables/useGraphInit.js:194` — Initial multi-selection highlight branch is dead (Array treated as Set)
+_Category: correctness · group: electron-database_
 
-- **Category:** correctness
-- **Problem:** `applyInitialLayout` does `if (props.selectedIds?.size > 0) props.selectedIds.forEach(...)`. `GraphView.vue:28` declares the prop as `selectedIds: { type: Array, default: () => [] }` — an Array, not a Set — so `.size` is always `undefined` and the branch never executes. On graph init only the single `selectedId` is ever highlighted; a restored multi-selection is not.
-- **Fix:** Iterate the array directly (`props.selectedIds?.length`) or normalize the prop to a Set. Note the internal `useSelection` store uses a real `Set<number>`, so the type contract across the prop boundary is inconsistent.
+deleteNode reassigns children to the deleted node's parent (`UPDATE nodes SET parent_id = ? WHERE parent_id = ?`) and then calls `updateDescendantPaths(child.id)` for each child of the new parent. But updateDescendantPaths(nodeId) only rewrites the _children of nodeId_ based on nodeId's current path — it never fixes nodeId itself. So a reassigned child keeps its old path (which still contains the deleted node's id) and its old depth (one too deep), and its entire subtree stays consistent with that stale path, so recursion changes nothing. Example: GP(path '', d0) -> P(path 'GP', d1) -> C(path 'GP/P', d2). After deleteNode(P), C.parent_id = GP but C.path stays 'GP/P' and depth 2 instead of 'GP'/1. After emptyTrash() hard-deletes P, C.path references a nonexistent id; depth-based logic (getDescendants maxDepth, getAncestors ordering) is off by one per deleted ancestor, and errors compound across repeated deletes. The integration test only asserts parent_id reassignment, not path/depth.
 
-#### `src/composables/useGraphInit.js:176` — Node HTML label interpolates `n.title` unsanitized (XSS)
+**Fix:** After reassigning, recompute each reassigned child's own path/depth from the new parent (path = parent.path ? `${parent.path}/${parent.id}` : `${parent.id}`, or ''/0 when newParentId is null), then recurse — e.g. loop over the _former children of the deleted node_ and apply the same logic moveNode uses, or extend updateDescendantPaths to fix the node itself relative to its parent_id.
 
-- **Category:** correctness
-- **Problem:** The `node-html-label` template returns a raw HTML string with `...>${n.title || 'Untitled'}<...` interpolated directly into innerHTML. Node titles are user-controlled, so a title containing markup is injected live. Notes in the same template go through `renderMarkdownHtml`, but the title (and the data attributes) do not. Same XSS class as the confirmed `utils/tooltip.js` finding.
-- **Fix:** Escape `n.title` (and any other user-controlled interpolations) before building the label string, consistent with how the tooltip path should sanitize.
+### `electron/database/nodes.js:300` — reorderNode can reparent a node (sets parent_id = target.parent_id) without updating path/depth or descendants
 
-#### `src/composables/useWorkspace.ts:59` — `getWorkspaceIdForNode` ignores the `type` argument every caller passes
+_Category: correctness · group: electron-database_
 
-- **Category:** consistency
-- **Problem:** The implementation is `function getWorkspaceIdForNode(): WorkspaceId` (no parameters, line 199) and the exported type is `getWorkspaceIdForNode: () => WorkspaceId` (line 59). But every consumer calls it with a node type and types it `(type: string) => number | null | undefined` — `useGraphOperations.js:71,81` (`getWorkspaceIdForNode(nodeType)`), `useNodeActionsUI.ts:257` (`getWorkspaceIdForNode('group')`), `useNodeOperations.ts:195`, and the `useAppContext.ts` interface. The argument is silently discarded, and the return type disagrees with the consumer interfaces.
-- **Fix:** Reconcile the contract: either the function should branch on `type` (if workspace routing is type-dependent), or drop the argument at all call sites and align the interfaces. As written, callers pass data that has no effect.
+reorderNode writes `UPDATE nodes SET sort_order = ?, parent_id = ? WHERE id = ?` using target.parent_id for every resequenced sibling including the moved node. If nodeId's original parent differs from target's parent, the node is silently reparented but its path/depth and all descendant paths are left stale (no updateDescendantPaths call, unlike moveNode). Today the UI routes cross-parent drops through moveNode (useTableDrag 'inside' branch) so this is latent, but the DB API accepts any targetId and the IPC channel db:reorderNode is directly callable with a target under a different parent. Related: updateNode also accepts parent_id via NODE_FIELDS and would likewise skip path/depth recomputation.
 
-#### `src/composables/useViewStateController.ts:99` — Navigation-state sync duplicated with `useNavigationState`
+**Fix:** Either reject targets whose parent_id differs from the node's (return null), or perform a proper move first (recompute depth/path + updateDescendantPaths) before resequencing; consider excluding parent_id from updateNode's writable fields so moveNode is the single reparent path.
 
-- **Category:** consistency (medium confidence — not adversarially verified)
-- **Problem:** `useViewStateController` and `useNavigationState` both maintain overlapping navigation/view-state synchronization logic. App.vue wires both. Verify whether one is authoritative before consolidating.
-- **Fix:** Consolidate the shared sync into one composable and have the other consume it, or document the boundary between them.
+### `src/components/DetachedView.vue:71` — handleDelete treats DetailPanel's numeric delete payload as a node object
 
-#### `src/composables/useSnapshots.js:127` — `cleanup()` is never called
+_Category: correctness · group: components-A_
 
-- **Category:** dead-code
-- **Problem:** `useSnapshots` returns a `cleanup()` that clears a message timeout, but App.vue (`src/App.vue:203`) calls `useSnapshots({...})` without ever invoking the returned `cleanup()` (only `keyboard.cleanup()`, `wheel.cleanup()`, `layout.cleanup()` are wired, in other components). Impact is benign because App is the root component and effectively never unmounts, but the cleanup contract is unused.
-- **Fix:** Call `cleanup()` from App.vue's `onUnmounted`, or remove the unused return if it is not needed at the root.
+DetailPanel emits `emit('delete', props.node.id)` (a number; App.vue handles it as `deleteNode(nodeId: number)`), but DetachedView's handler is `async function handleDelete(node) { await api.deleteNode(node.id); broadcastNodeDelete(node.id); window.close() }`. With a numeric payload, `node.id` is undefined, so `api.deleteNode(undefined)` is called, an undefined id is broadcast to other windows, and the window closes anyway — masking that the node was never deleted. There are no DetachedView tests, which is why the suite doesn't catch it.
 
-## High-severity confirmed findings (5)
+**Fix:** Change the handler to `handleDelete(nodeId)` and use `api.deleteNode(nodeId)` / `broadcastNodeDelete(nodeId)`, matching the contract App.vue uses for the same event.
 
-#### `src/App.vue:304` — error ref is set but never cleared, leaving a permanent error banner
+### `src/components/DetachedView.vue:129` — wrapWithParent handler mismatches DetailPanel's { nodeId, parentTitle } payload
 
-- **Category:** correctness
-- **Problem:** The local `error` ref (line 111) is written in exactly one place: the `nodeOps` onError callback `onError: e => { error.value = e.message }` (lines 304-306). It is provided into the app context (line 574) and bound to `ViewRenderer :error="error"`, which renders it as a blocking full-view banner (`<div v-else-if="error" class="error">{{ error }}</div>` in ViewRenderer.vue:130). Nothing in App.vue ever resets `error.value = null`. After any single node-operation failure (e.g. a failed create), the entire view is replaced by the persistent error banner and never recovers until a full reload, even after subsequent successful operations. Note the sibling `useAppController.js` deliberately does `error.value = null` before each load (line 104) - App.vue omits that reset path.
-- **Fix:** Reset `error.value = null` at the start of each load/operation (e.g. in loadChildren success path or before invoking nodeOps), or drive node-operation failures through `handleError` (toast) like the rest of the file instead of the sticky banner ref.
+_Category: correctness · group: components-A_
 
-#### `src/components/CardNotes.vue:24` — v-html renders marked output without DOMPurify sanitization (XSS)
+DetailPanel emits `emit('wrap-with-parent', { nodeId: props.node.id, parentTitle: title })`, and the canonical handler (useNodeActionsUI.wrapWithParent) destructures `{ nodeId, parentTitle }`. DetachedView's `wrapWithParent(node)` instead reads `node.parent_id`, `node.workspace_id`, and `node.id` — all undefined on that payload — so it creates a parent with undefined parent/workspace, then calls `api.moveNode(undefined, newParent.id)`, which cannot move the current node. It also ignores the user-entered `parentTitle` and hardcodes 'New Parent', so even the intended title is lost.
 
-- **Category:** correctness
-- **Problem:** Line 24 `<div ... v-html="renderedNotes">` renders renderedNotes, computed at lines 57-60 as `marked.parse(decodeHtmlEntities(props.notes))`. No sanitizer is applied and decodeHtmlEntities un-escapes entities before parsing, so user note content can inject live HTML/script. Same XSS vector as MarkdownRenderer.vue, and the same project rule (apply dompurify to markdown/HTML rendering) is violated. dompurify is already a dependency.
-- **Fix:** Wrap the result with DOMPurify.sanitize(), e.g. `return DOMPurify.sanitize(marked.parse(decodeHtmlEntities(props.notes)))`.
+**Fix:** Destructure `{ nodeId, parentTitle }`, look up the current node (it is `currentNode.value`), use `parentTitle` for the new parent's title, and move `nodeId` under the new parent.
 
-#### `src/components/MarkdownRenderer.vue:150` — v-html renders marked output without DOMPurify sanitization (XSS)
+### `src/components/MarkdownRenderer.vue:74` — processPersonMentions regex no longer matches marked output; person: links then lose their href to DOMPurify
 
-- **Category:** correctness
-- **Problem:** renderContent() runs marked.parse() on user-controlled note content and assigns the result to renderedHtml, which is rendered via `<div ... v-html="renderedHtml">` (line 150). marked.setOptions only sets {breaks, gfm} (lines 20-23) with no sanitizer, and the project ships dompurify (used in src/utils/tooltip.js: `DOMPurify.sanitize(html)`) but it is NOT applied here. Worse, line 130 `html = decodeHtmlEntities(html)` runs AFTER marked.parse, converting marked's escaped `&lt;`/`&gt;`/`&quot;` back into live `<`, `>`, `"`, which defeats marked's built-in HTML escaping. A note containing raw or entity-encoded HTML (e.g. an onerror img / script) becomes executable markup. This is the project's stated XSS rule violation (markdown rendering must apply dompurify).
-- **Fix:** Sanitize the final HTML with DOMPurify before assigning to renderedHtml (e.g. `renderedHtml.value = DOMPurify.sanitize(processedHtml)`), consistent with src/utils/tooltip.js. Re-evaluate the post-parse decodeHtmlEntities call, which re-introduces unescaped HTML.
+_Category: correctness · group: components-B_
 
-#### `src/composables/useTimelineDrag.js:116` — Incorrect field-detection logic for due_date-only nodes drops the move to start_date
+The regex `/<a href="person:(\d+)">@?\[?([^\]<]+)\]?<\/a>/g` requires `">` immediately after the href. But this component imports sanitizeHtml from utils/markdown.js, whose module top-level `marked.use({renderer: {link(...)}})` registers a custom link renderer on the shared marked singleton that emits `<a href="..." class="external-link" rel="noopener">`. Mentions are stored as `@[Name](person:id)` (useMentions.js:150), so every mention renders through that renderer with the extra attributes and the regex never matches — no person-mention chips are produced. The surviving `<a href="person:123" ...>` then has its href stripped by DOMPurify (person: is not a whitelisted URI scheme), leaving a dead, unstyled link. The .person-mention CSS and data-person-id plumbing are effectively unreachable.
 
-- **Category:** correctness
-- **Problem:** handleDragEnd decides which date fields to persist with: `if (node.start_date || !node.due_date) { updates.start_date = newStart; updates.end_date = newEnd } else { updates.due_date = newEnd }`. The else branch is only reached when the node has a due_date AND no start_date. But timelineNodes.flatten in useTimelineLayout assigns `displayDate = node.start_date || node.due_date || ...` and `endDisplayDate = node.end_date || today`. For a due_date-only node, displayDate is the due_date and endDisplayDate is today, so the bar spans due_date..today. When such a node is dragged ('move'), newEnd is the new today-side date and newStart is the new due-date-side date, yet only `due_date = newEnd` is written (the today side), discarding newStart. The due_date the user dragged is silently lost / set to the wrong value.
-- **Fix:** For due_date-only nodes the meaningful dragged date is the start side (newStart, which corresponds to the due_date), not newEnd. Map `updates.due_date = newStart` (and/or handle 'move' vs 'resize-*' explicitly), or normalize the field detection to match how displayDate/endDisplayDate were derived in useTimelineLayout.
+**Fix:** Match anchors with arbitrary attributes, e.g. `/<a href="person:(\d+)"[^>]*>...<\/a>/g`, or better, add a dedicated marked extension for person: links instead of post-processing HTML with a renderer-coupled regex.
 
-#### `src/services/api.ts:151` — webApi is missing getDescendantsBatch, breaking sidebar loading in web mode
+### `src/components/context-menu/WorkspaceList.vue:35` — 'People' entry moves nodes to a nonexistent workspace id 'people'
 
-- **Category:** correctness
-- **Problem:** electronApi implements getDescendantsBatch (api.ts:674), but webApi (the object exported when not running in Electron, api.ts:151-616) has no getDescendantsBatch method at all. The caller in src/composables/useDataLoading.ts:151 invokes it unconditionally: `const descendantsByRoot: Map<number, Node[]> = await api.getDescendantsBatch(rootIds)` with no optional-chaining or guard. In web mode `api.getDescendantsBatch` is undefined, so this throws `TypeError: api.getDescendantsBatch is not a function` and the entire sidebar tree fails to load whenever a workspace has roots. The Api type marks the method optional (types/api.ts:146 `getDescendantsBatch?`), which is why TypeScript does not catch the unguarded call.
-- **Fix:** Implement getDescendantsBatch in webApi (e.g. call a /descendants-batch endpoint or fall back to per-root getDescendants and assemble a Map), or guard the call site in useDataLoading.ts to fall back to api.getDescendants when the batch method is absent.
+_Category: correctness · group: commands-and-small-components_
 
+The hardcoded People button emits `moveToWorkspace('people')`. Grep of the entire tree shows no workspace with id 'people' exists anywhere: seeded workspaces are 'work' and 'private' (electron/database/migrations.js seedDefaultWorkspaces), and no code in src/, electron/, or src/services special-cases the string 'people' (only test mocks use it). App.vue's onMoveToWorkspace handler does `api.updateNode(nodeId, { workspace_id: wsId })` verbatim, so clicking People stores the literal string 'people' in nodes.workspace_id. Every workspace-scoped query filters `workspace_id = ?` with a real workspace id, so the node silently disappears from all views (it is not parent-orphaned, so Lost & Found won't surface it either). The active-state check on the same button (`:class="{ active: currentWorkspaceId === null }"`) is also stale: since the migratePersonsOrgsToWorkWorkspace migration, persons have workspace_id='work', so `node.workspace_id === null` is never true.
 
-## Medium-severity confirmed findings (28)
+**Fix:** Remove the hardcoded People button (persons now live in regular workspaces via PersonsView, which filters by props.workspaceId), or if a people destination is still wanted, map it to a real workspace id and make the active check compare against that same id.
 
-#### `electron/database/index.js:181` — _run persists to disk on every write, and last_insert_rowid is read after a separate query without a transaction
+### `src/composables/useGraphEvents.js:334` — Container DOM listeners accumulate on every graph re-init (duplicate emits, broken collapse toggle)
 
-- **Category:** correctness
-- **Problem:** _run calls this._save() (full this.db.export() + fs.writeFileSync) after every single statement. Bulk operations that loop calling ctx._run (e.g. deleteNode reassigning children then recursing updateDescendantPaths, importJSON/importCSV creating many nodes via createNode->_run) rewrite the entire database file once per row. For large imports/subtree moves this is an O(n * dbsize) disk write amplification and there is no surrounding transaction, so a crash mid-import leaves a partially written tree. Migrations correctly batch with a single ctx._save() at the end, but the per-statement _save in the ops path is inconsistent with that and is a real performance/durability defect.
-- **Fix:** Add a transaction/batch mode (e.g. _runMany or begin/commit) and call _save once per logical operation, as the migration code already does. At minimum wrap multi-row operations (import, deleteNode, moveNode subtree updates) in a single save.
+_Category: correctness · group: composables-A_
 
-#### `electron/database/nodes.js:289` — reorderNode 'after' branch has a redundant no-op ternary
+setupHtmlLabelHandlers registers `container.addEventListener('mousedown', ...)`, `container.addEventListener('click', ...)` and `container.addEventListener('dblclick', ...)` but nothing ever removes them. GraphView.vue calls `events.setupEvents()` from initGraph (line 635), and initGraph is re-run after `cy.destroy()` by the watchers on showExternalLinks, showRootNode and visibleTypes (GraphView.vue lines 507-531, also 663-668 and 728). `cy.destroy()` removes only cytoscape-bound handlers; the container element persists, so each re-init stacks another full set of listeners. After N re-inits a single click on a collapse button runs `onToggleCollapse(nodeId)` N times (for even N the button appears dead), a plain click emits 'select' N times, dblclick emits 'enter' N times, and in link mode `startLinkDraw` is started N times so releasing over a target emits 'link' N times (duplicate link creation). The module-level `selectionUpdateTimer` is likewise never cleared on teardown.
 
-- **Category:** correctness
-- **Problem:** In reorderNode, the 'after' position computes:   newOrder = targetIndex < siblings.length - 1 ? target.sort_order + 1 : target.sort_order + 1 Both ternary outcomes are identical (target.sort_order + 1), so the condition is dead and the result never depends on whether the target is the last sibling. Worse, this does not place the node between the target and the next sibling (it just sets sort_order = target.sort_order + 1, which collides with the next sibling's order). Combined with the 'before' branch (siblings[targetIndex-1].sort_order + 1) the sort_order values are not guaranteed to be distinct or correctly ordered, so reordering can fail to move a node to the intended slot.
-- **Fix:** Compute a fractional/midpoint order or shift subsequent siblings. At minimum collapse the dead ternary: for 'after', use the next sibling's order to interpolate (e.g. between target.sort_order and siblings[targetIndex+1].sort_order), and resequence siblings if collisions occur.
+**Fix:** Return a teardown function from setupEvents/setupHtmlLabelHandlers that removes the container listeners (or use an AbortController signal), and have GraphView call it before every re-init; alternatively register the container listeners only once per component lifetime and resolve the current `cy` via getCy() inside the handlers instead of closing over the instance passed to setupEvents.
 
-#### `electron/database/nodes.js:384` — getDescendantsBatch applies only the first root's workspace filter to all roots
+### `src/composables/useGraphInit.js:124` — Person node HTML template interpolates unescaped user title
 
-- **Category:** correctness  ·  **Severity adjusted:** high → medium
-- **Problem:** getDescendantsBatch builds path conditions for every requested root, but the workspace filter is taken solely from nodes[0]:   if (nodes[0].workspace_id) {     sql += ' AND workspace_id = ?'     values.push(nodes[0].workspace_id)   } If the requested roots live in different workspaces, descendants of roots in other workspaces are excluded (because the global AND workspace_id = nodes[0].workspace_id is applied to the whole result set). If nodes[0].workspace_id is null/undefined but other roots have a workspace, no filter is applied at all. This diverges from getDescendants, which filters per node via ctx._applyWorkspaceFilter on each node's own workspace_id.
-- **Fix:** Drop the global workspace filter and rely on the path conditions alone (paths are unique across the tree), or fold each root's workspace into its own path condition group. Match the single-root getDescendants semantics.
+_Category: correctness · group: composables-A_
 
-#### `electron/ipc/llmProvider.js:72` — extractContent is exported but never used anywhere
+In setupHtmlLabels the person branch builds `<span class="person-name">${n.title || 'Untitled'}</span>` with the raw title, while the regular node branch correctly uses `${escapeHtml(n.title) || 'Untitled'}` (line 141). Node titles are user input rendered via innerHTML by the node-html-label plugin, so a person named e.g. `Smith & Jones <QA>` renders wrongly, and markup in the title is injected as live HTML into the renderer.
 
-- **Category:** dead-code
-- **Problem:** extractContent is defined and exported (`module.exports = { chatRequest, extractContent }`). A tree-wide grep for `extractContent` across src, electron, and src/__tests__ shows the only matches are its definition and export in this file. No caller exists in the renderer, main process, or tests. Callers everywhere read `response.content` directly (e.g. agent.js lines 189, 203, 217 use `response.content`).
-- **Fix:** Remove the extractContent function and drop it from module.exports, per the project's no-dead-code rule.
+**Fix:** Use `escapeHtml(n.title) || 'Untitled'` in the person template, matching the regular-node branch.
 
-#### `src/App.vue:304` — Divergent error-handling strategy within the same file
+### `src/composables/useMentions.js:74` — @mention autocomplete can never trigger: handleInput/handleKeydown are never wired to any input
 
-- **Category:** consistency
-- **Problem:** App.vue handles errors two incompatible ways. Selection errors use `onError: handleError` (line 349) and the move handler uses `handleError(e, { context: 'Moving node' })` (line 500), both producing transient toasts. But node operations route through `onError: e => { error.value = e.message }` (lines 304-306), which produces a persistent full-view error banner via ViewRenderer. The same class of failure (a node CRUD operation) is surfaced two different ways depending on which code path triggered it, and only one of them (the banner) is non-dismissable.
-- **Fix:** Pick one mechanism. Route nodeOps.onError through `handleError` for consistency with the other operation handlers, or document/justify why creation errors specifically use the blocking banner.
+_Category: correctness · group: composables-B_
 
-#### `src/commands/OllamaImproveNotesCommand.js:37` — getDescription() throws when prompt is undefined
+useMentions returns `handleInput` and `handleKeydown`, which are the ONLY code paths that set `showMentions.value = true`. Grepping all of src/, the sole production consumer is DetailPanel.vue:133, which destructures only `{ showMentions, mentionPosition, filteredPersons, selectedMentionIndex, selectMention }` and never calls handleInput/handleKeydown (notes editing goes through CodeMirror via `onCodeMirrorNotesUpdate`, not a textarea @input). Consequently `showMentions` stays false forever and the `<MentionDropdown v-if="showMentions">` at DetailPanel.vue:762 is unreachable — the entire @person mention feature (including auto-linking via `api.linkNodes`) is silently dead in the app. Only src/**tests**/useMentions.test.js exercises handleInput, which is why the 1383 tests still pass.
 
-- **Category:** correctness
-- **Problem:** getDescription() reads `this.prompt.length` and `this.prompt.substring(...)` with no null guard. If a command is reconstructed via commandFactory.fromJSON from serialized data missing `prompt` (or constructed without it), this throws `Cannot read properties of undefined`. Sibling commands defend against missing data: CreateCommand uses `this.nodeData?.title`, EditCommand uses `Object.keys(this.newValues || {})`, DeleteCommand uses `this.nodeData?.title`. This command is inconsistent with that pattern.
-- **Fix:** Guard with a default, e.g. `const prompt = this.prompt || ''` before measuring length/substring, or short-circuit to a generic 'AI notes' description when prompt is empty.
+**Fix:** Either wire mention detection into the CodeMirror notes editor (a CodeMirror update listener calling the detection logic, plus key handling for ArrowUp/Down/Enter/Escape) or remove useMentions + MentionDropdown usage from DetailPanel if the feature was intentionally dropped.
 
-#### `src/components/AddNodeModal.vue:65` — Local getTypeIcon reimplements a shared util with divergent (text) output
+### `src/composables/useTaskFiltering.js:316` — useTaskDisplayUtils parses date-only strings as UTC; formatRelativeDate shows 'Yesterday' for tasks due today
 
-- **Category:** consistency
-- **Problem:** AddNodeModal defines a local typeIcons map and getTypeIcon() that return short text abbreviations (e.g. 'T', 'P', 'Tp', 'Pe'):      const typeIcons = { task: 'T', project: 'P', ... }     function getTypeIcon(type) { return typeIcons[type] || type[0].toUpperCase() }  Every sibling that shows type icons (SpotlightSearch.vue, AppSidebar.vue) imports getTypeIcon from ../utils/constants.js, which returns SVG markup rendered via v-html. This component instead renders text via {{ getTypeIcon(t) }}, so the same node types are shown with different visuals than the rest of the app. The local function also shadows the well-known util name while behaving differently (aspirational/misleading naming).
-- **Fix:** Import getTypeIcon from utils/constants.js and render it consistently (v-html) so the type icons match the rest of the UI, and remove the local typeIcons map and function.
+_Category: correctness · group: composables-D_
 
-#### `src/components/CardsView.vue:111` — CardsView importance labels conflict with the rest of the app (three incompatible scales)
+due_date is stored as a date-only string (electron/database/schema.js: `due_date TEXT`, compared with 'YYYY-MM-DD' strings). `new Date('YYYY-MM-DD')` parses as UTC midnight. formatRelativeDate computes `Math.floor((date - now) / 86400000)` with no hour normalization, so from shortly after midnight local time a task due _today_ yields a negative fraction, floors to -1, and renders 'Yesterday'; a task due tomorrow renders 'Today' for most of the day. isOverdue (line 283) and isDueSoon (line 295) normalize hours but still UTC-parse the due date first, so in timezones west of UTC `setHours(0,0,0,0)` lands on the _previous_ local day and tasks due today are flagged overdue. The codebase already has parseLocalDate in useTimelineDates.js written explicitly 'to avoid timezone shift issues' but these utils do not use it. formatRelativeDate is consumed by TasksView.vue, so this is user-visible.
 
-- **Category:** correctness  ·  **Severity adjusted:** high → medium
-- **Problem:** CardsView defines its own local getImportanceLabel: `const labels = { 1: 'Low', 2: 'Medium', 3: 'High', 4: 'Critical' }`. This contradicts the two other importance scales in the codebase. useTaskFiltering.js (used by TasksView) defines `{ 1: 'Low', 2: 'Medium', 3: 'High', 4: 'Urgent', 5: 'Critical' }`, and the exported constants.js importanceLabels is the inverse `{ 1: 'Critical', 2: 'High', 3: 'Medium', 4: 'Low', 5: 'Trivial' }`. As a result importance value 4 renders as 'Critical' on a card but 'Urgent' in the tasks table, and the card scale has no value 5. The same node shows different priority labels depending on the view.
-- **Fix:** Remove the local getImportanceLabel and import the canonical mapping (decide whether constants.js importanceLabels or the useTaskFiltering scale is authoritative, then converge all three on it).
+**Fix:** Parse with parseLocalDate from ./useTimelineDates.js (or split the string manually) in isOverdue, isDueSoon, and formatRelativeDate, and compute day diffs from local-midnight-normalized dates.
 
-#### `src/components/config/personsGridColumns.js:111` — maskPhone is exported but never used
+### `src/types/workspace.ts:10` — Workspace.id typed number but DB primary key is TEXT slug; phantom description/updated_at fields
 
-- **Category:** dead-code
-- **Problem:** `export function maskPhone(...)` has no references anywhere in src or tests (grep for `maskPhone` returns only the definition). Its sibling `maskEmail` is used in PersonsView.vue, but phone masking was never wired up. Violates the project rule to remove dead code.
-- **Fix:** Remove maskPhone, or apply it in PersonsView.vue where person.phone is displayed if phone masking is intended.
+_Category: typing · group: app-shell-themes-types_
 
-#### `src/components/config/tableColumns.js:27` — Exported columnDefinitions is never imported and duplicates hardcoded template columns
+`id: number` — the actual schema is `CREATE TABLE workspaces (id TEXT PRIMARY KEY, ...)` (electron/database/schema.js:87) with slug ids like 'work' (migrations.js:258 `SET workspace_id = 'work'`). The interface also declares `description: string | null` and `updated_at: string`, columns that do not exist in the workspaces table (it has is_default, which the interface omits). This propagates: Node.workspace_id is `number | null` (node.ts:51) but the column is `TEXT DEFAULT NULL` (migrations.js), and every `workspaceId?: number | null` parameter in the Api interface (api.ts:138-201) actually receives the string workspace slug at runtime — settings.ts itself says `workspace: Ref<string>` (line 196) and WorkspaceSelectorProps hedges with `string | number`. The types module contradicts both the schema and itself.
 
-- **Category:** dead-code
-- **Problem:** `columnDefinitions` is exported but grep across src (excluding the defining file) finds zero imports. The only consumer of this module, src/composables/useColumnResize.js, imports only loadColumnWidths/saveColumnWidths/MIN_COLUMN_WIDTH. TableView.vue hardcodes every column (col-expand, col-type, col-title, col-notes, col-due ...) directly in its template rather than iterating over columnDefinitions, so this array is dead code that also duplicates (and can drift from) the real column metadata.
-- **Fix:** Either remove columnDefinitions, or refactor TableView.vue to render its header/cells by iterating over columnDefinitions so the single source of truth is honoured.
+**Fix:** Make workspace ids `string` throughout (Workspace.id, Node.workspace_id, all Api workspaceId params, GetNodesParams/GetTasksParams), drop description/updated_at, and add is_default.
 
-#### `src/components/config/tableFormatters.js:93` — getRowStyle hardcodes the legacy default color literal instead of the shared constant
+## Medium severity (52)
 
-- **Category:** consistency
-- **Problem:** getRowStyle compares `color !== '#0f4c75'`. That exact value is already exported as a named constant `legacyDefaultColor = '#0f4c75'` in the sibling config file personsGridColumns.js and is used throughout PersonsView.vue for the same 'is this the inherited default color?' check. Duplicating the magic literal here means the two will silently diverge if the default ever changes.
-- **Fix:** Import legacyDefaultColor from ./personsGridColumns.js and compare against it in getRowStyle.
+### `electron/database/export.js:310` — importCSV cannot re-import CSV that exportCSV produces when any field contains a newline
 
-#### `src/components/DetachedView.vue:157` — moveToRoot broadcasts the stale pre-move node object
+_Category: correctness · group: electron-database_
 
-- **Category:** correctness
-- **Problem:** moveToRoot does `await api.moveNode(node.id, null); await loadNode(node.id); broadcastNodeUpdate(node)`. It broadcasts the original `node` argument, which still carries the old parent_id, instead of the freshly reloaded `currentNode.value`. Other windows therefore receive stale data (still parented). Compare with the onMessage/handleUpdate paths which use currentNode.value. wrapWithParent has a similar pattern (broadcasts only `newParent`, never the moved child's updated record).
-- **Fix:** Broadcast the reloaded node: after `await loadNode(node.id)` call `broadcastNodeUpdate(currentNode.value)`.
+exportCSV correctly quotes fields containing newlines (`str.includes('\n')` -> wrapped in double quotes). importCSV, however, starts with `csvData.trim().split('\n')`, which splits inside quoted fields, then `if (values.length < headers.length) continue` silently drops the broken fragments. Any exported node whose notes (or title) contain a line break is silently lost or truncated on round-trip import — rows disappear with no error and nodesImported undercounts without explanation.
 
-#### `src/components/detail/PersonDetailForm.vue:111` — Unlinking re-derives from stale props, so the removed item is not reflected
+**Fix:** Parse the CSV into records with a quote-aware scanner (the existing parseCSVLine logic extended to treat newlines inside quotes as data) instead of a naive split('\n'), and count/report skipped malformed rows instead of silently continuing.
 
-- **Category:** correctness
-- **Problem:** `unlinkOrganization` (lines 111-119) calls `await api.unlinkNodes(...)` then `await loadLinkedOrganizations()`. But `loadLinkedOrganizations` derives its result from `props.linkedNodes` (line 74), which is owned by the parent and has NOT been refreshed after the unlink call. There is no emit to ask the parent to reload links (the emits list has no reload event). So the just-unlinked organization can still appear until the parent independently refreshes linkedNodes. OrganizationDetailForm.unlinkMember (lines 56-64) has the identical problem with `loadLinkedMembers`.
-- **Fix:** Emit an event (e.g. 'reload-links') to the parent after unlinking so the source-of-truth linkedNodes prop is refreshed, instead of re-filtering stale props locally.
+### `electron/database/index.js` — PRAGMA foreign_keys never enabled — declared ON DELETE CASCADE/SET NULL clauses are inert, hard deletes orphan rows
 
-#### `src/components/GraphView.vue:89` — Document keydown/keyup/mousemove listeners leak (never removed)
+_Category: correctness · group: electron-database_
 
-- **Category:** correctness  ·  **Severity adjusted:** high → medium
-- **Problem:** At setup time the component registers three document listeners with anonymous handlers:  ```js document.addEventListener('keydown', e => { ... linkModeActive.value = true ... }) document.addEventListener('keyup', e => { ... }) document.addEventListener('mousemove', e => { ... }) ```  These are added on every mount but onUnmounted (lines 694-706) only removes the `window` 'graph-center-node' and 'keydown' listeners. The anonymous handlers cannot be removed and are never cleaned up, so each mount/unmount cycle (navigation away/back, HMR, or any future multi-instance use) leaks three document listeners. The leaked handlers also keep mutating the destroyed instance's `linkModeActive`/`boxSelectModeActive` refs.
-- **Fix:** Hoist the three handlers into named functions, register them in onMounted, and call document.removeEventListener for each in onUnmounted (matching the pattern already used for the window listeners).
+No `PRAGMA foreign_keys = ON` exists anywhere in electron/ or src/ (grep-verified), and sql.js defaults FK enforcement OFF. schema.js declares node_links (source_id/target_id ON DELETE CASCADE), node_table_cells (table_id ON DELETE CASCADE), node_tables (node_id ON DELETE CASCADE) and nodes.parent_id ON DELETE SET NULL, but none of these ever fire. deleteNode(id, hard=true) and tree.js emptyTrash() run plain `DELETE FROM nodes ...` with no manual cleanup, permanently accumulating orphaned node_links rows (returned by getAllLinks(), which feeds graph rendering), plus orphaned node_tables and node_table_cells rows for hard-deleted nodes.
 
-#### `src/components/KeyboardShortcutsModal.vue:5` — Escape @keydown handler cannot fire (no focusable element receives focus)
+**Fix:** Run `db.run('PRAGMA foreign_keys = ON')` right after constructing each SQL.Database instance (in \_init, restoreBackup, and reload), or explicitly delete dependent node_links/node_tables/node_table_cells rows in deleteNode(hard) and emptyTrash.
 
-- **Category:** correctness
-- **Problem:** The modal root <div class="modal shortcuts-modal" @keydown="handleKeydown"> relies on keydown to close on Escape, but the div has no tabindex and the modal auto-focuses nothing, so it never holds keyboard focus and the keydown listener does not fire. The same pattern exists in OnboardingModal.vue (line 5, @keydown="handleKeydown" handling Escape/Enter with no auto-focused element). AddNodeModal works only incidentally because it auto-focuses its input. Escape closing for these two modals effectively depends on the global keydown handler in useKeyboardShortcuts.js, making the local handlers unreliable/dead.
-- **Fix:** Add tabindex="-1" to the modal root and focus it on open, or attach the Escape handler at window level (as the rest of the app does), and remove the non-functional local @keydown handlers if the global handler already covers it.
+### `electron/database/index.js:267` — has_table is only computed by some queries but \_rowToNode coerces it to false everywhere else
 
-#### `src/components/PersonsView.vue:377` — Dead/identical ternary causes off-by-one in organization dropdown keyboard navigation
+_Category: consistency · group: electron-database_
 
-- **Category:** correctness  ·  **Severity adjusted:** high → medium
-- **Problem:** In handleOrgKeydown: `const max = exactOrgMatch.value ? filteredOrganizations.value.length : filteredOrganizations.value.length` — both branches are identical, so the ternary is meaningless. The intent was that the highlightable max index is `length` when a 'Create' option is shown (selectedOrgIndex === filteredOrganizations.length, see template line 581/582) and `length - 1` when there is no create row. The create row only renders when `!exactOrgMatch` (template line 579). Because max is always `length`, ArrowDown can move the highlight to a non-existent create row when an exact org match exists, and pressing Enter then hits the `selectedOrgIndex.value < filteredOrganizations.value.length` branch as false but the create branch is guarded by `!exactOrgMatch`, leaving Enter doing nothing.
-- **Fix:** Compute `const max = exactOrgMatch.value ? filteredOrganizations.value.length - 1 : filteredOrganizations.value.length` (clamp to >= 0).
+getNode, getChildren, getDescendants, getDescendantsBatch and tree.getRoots select `(EXISTS(SELECT 1 FROM node_tables ...)) as has_table`, but getNodes, search, getRecent, getFavorites, getTasks, getNodesByTag, getTrash, getTagNodes, getLinkedNodes, getAncestors, getProjects and getInbox do not — yet all pass rows through \_rowToNode, which does `has_table: Boolean(row.has_table)`. Nodes fetched via those paths therefore report has_table: false even when they have a table, indistinguishable from a genuine false. Any UI that renders a table indicator from search/favorites/recent/linked-node results shows wrong state.
 
-#### `src/components/ViewRenderer.vue:196` — start-edit / start-notes event argument dropped in CardsView relay
+**Fix:** Either add the EXISTS subquery to all node-returning queries (or a shared SELECT fragment), or have \_rowToNode set has_table only when the column is present (`'has_table' in row ? Boolean(row.has_table) : undefined`).
 
-- **Category:** correctness
-- **Problem:** CardsView emits these with two args: `emit('start-edit', node, $event)` and `emit('start-notes', node, $event)`. ViewRenderer relays them with `@start-edit="emit('start-edit', $event)"` and `@start-notes="emit('start-notes', $event)"`, where `$event` is only the FIRST emitted argument (the node). The DOM event is silently dropped before reaching App.vue's startEditing(node, e)/startInlineNotes(node, e), which call `e?.stopPropagation()`. The `?.` guard prevents a crash, but stopPropagation never runs, so the click can bubble (e.g. trigger card selection/deselection) when starting an inline edit. Other multi-arg relays in this file correctly use arrow functions (e.g. drag-over).
-- **Fix:** Relay with explicit arrow functions: `@start-edit="(node, e) => emit('start-edit', node, e)"` and likewise for start-notes.
+### `electron/database/migrations.js:33` — workspace_id migration's onAdd calls ctx.backup() which is undefined during migrations; failure is silently swallowed
 
-#### `src/components/WorkspaceSelector.vue:117` — Workspace deletion asks the user to confirm twice
+_Category: correctness · group: electron-database_
 
-- **Category:** correctness  ·  **Severity adjusted:** high → medium
-- **Problem:** WorkspaceSelector.deleteWorkspace() shows a native confirm dialog before emitting 'delete':      if (confirm(`Delete workspace "${currentWorkspace.value?.name}"? This cannot be undone.`)) {       emit('delete', props.modelValue)       closeSettings()     }  The parent (src/App.vue:155-157) wires @delete to deleteCurrentWorkspace, which shows ANOTHER confirm:      async function deleteCurrentWorkspace() {       const ws = workspaces.value.find(w => w.id === currentWorkspace.value)       if (ws && confirm(`Delete workspace "${ws.name}"?`)) await _deleteCurrentWorkspace()     }  So the user is prompted to confirm the same deletion twice. The two prompts are also worded differently.
-- **Fix:** Confirm in exactly one place. Either remove the confirm() from WorkspaceSelector and let the emitted 'delete' be handled by App.vue's confirm, or remove the App.vue confirm and treat the emitted event as already-confirmed intent.
+In index.js, `_initSchema()` (createTables -> runMigrations -> createIndexes) runs before `_initOperations()`, and `this.backup` is only assigned in \_initOperations. So when runColumnMigrations adds the workspace_id column and invokes `onAdd: () => { ctx.backup('-pre-workspace-migration') ... }`, ctx.backup is undefined and the arrow function throws TypeError. That exception is swallowed by the bare `catch { /* Column already exists, ignore */ }` wrapping `ctx.db.run(ALTER...); if (onAdd) onAdd()`. Net effect: the promised pre-migration backup is never created before migrateUnassignedNodesToWork bulk-rewrites workspace assignments, and the log lines never print — all silently. The comment at line 285 (`backup() not available during migrations`) confirms the constraint that this code violates. The over-broad catch also hides genuine ALTER failures, not just 'column exists'.
 
-#### `src/composables/useDemoWorkspace.js:33` — showToast called with a string instead of an options object, dropping toast type
+**Fix:** Either bind backup ops before running migrations (create backupOps in \_init prior to \_initSchema), or call the backup logic directly (fs copy of dbPath) inside migrations; and narrow the catch so only 'duplicate column name' errors are ignored while onAdd errors surface.
 
-- **Category:** correctness  ·  **Severity adjusted:** high → medium
-- **Problem:** showToast's signature is showToast(message, { duration = 3000, type = 'info' } = {}). Every call in useDemoWorkspace passes a plain string as the second argument, e.g. showToast('Demo workspace created', 'success') and showToast(result.error || 'Failed to create demo workspace', 'error'). Destructuring { type } from the string 'success'/'error' yields undefined, so type silently falls back to the default 'info'. Success and error toasts are therefore rendered as info toasts (wrong styling/semantics). This is the only place in the codebase that calls showToast with a string; every other caller (useErrorHandler.js, tests) passes an options object. Affects lines 24, 33, 35, 52, 54.
-- **Fix:** Pass an options object: showToast('Demo workspace created', { type: 'success' }), showToast(msg, { type: 'error' }), etc.
+### `electron/database/nodes.js:70` — updateDescendantPaths does one full database-file write per descendant; moveNode/deleteNode ignore the \_batch mechanism built for this
 
-#### `src/composables/useDetailPanelCore.js:0` — Entire useDetailPanelCore composable is unused by production code
+_Category: design · group: electron-database_
 
-- **Category:** dead-code  ·  **Severity adjusted:** high → medium
-- **Problem:** This 498-line composable is never imported by any Vue component. DetailPanel.vue re-implements the same logic inline (it imports useMentions, useNodeTable, useErrorHandler directly and re-declares editedNode/children/notes autosave/export/drag handlers itself), and the detail/ forms (PersonDetailForm.vue, OrganizationDetailForm.vue) do not import it either. Verified via grep: the only references to useDetailPanelCore across src/ are the file itself and src/__tests__/useDetailPanelCore.test.js. The module duplicates a large amount of logic that actually lives in DetailPanel.vue, so it is dead code that also drifts from the real implementation (e.g. it hardcodes a 500ms notes autosave delay while DetailPanel.vue uses the shared AUTOSAVE_DELAY_MS constant).
-- **Fix:** Delete useDetailPanelCore.js (and its test), or refactor DetailPanel.vue / the detail forms to actually consume it so the duplicated logic has a single source of truth.
+updateDescendantPaths uses ctx.\_run per child, and \_run calls \_save(), which exports and rewrites the entire SQLite file to disk. Moving or deleting a node with N descendants therefore performs N+1 full-file writes plus N recursive getNode/getChildren query rounds. index.js's \_batch docstring explicitly says it exists for 'bulk operations (imports, large subtree moves)', but only importJSON/importCSV use it — moveNode, deleteNode, reorderNode (one \_run per sibling) and reparentToRoot do not, so they are neither crash-atomic nor efficient on large subtrees.
 
-#### `src/composables/useKeyboardShortcuts.js:198` — Tab navigation checks viewMode 'nodes' which is not a valid ViewMode, so graph view never uses flatChildren
+**Fix:** Wrap moveNode, deleteNode, reorderNode and reparentToRoot bodies in ctx.\_batch(() => ...) so the transaction commits once and the file is written once.
 
-- **Category:** correctness  ·  **Severity adjusted:** high → medium
-- **Problem:** Line 198: const nodes = viewMode.value === 'nodes' ? flatChildren?.value || [] : filteredChildren?.value || []. The valid ViewMode union (src/types/settings.ts) is 'graph' | 'cards' | 'list' | 'table' | 'timeline' | 'persons' | 'tasks' | 'trash' | 'tree' — there is no 'nodes'. The default view mode is 'graph'. The adjacent comment says 'Use flatChildren for graph view (all nodes in subgraph)', and git history shows the commit 'Fix Tab to visit all nodes in graph view subgraph' intended this branch to fire in graph view. Because viewMode.value can never equal 'nodes', the condition is always false and Tab in graph view falls back to filteredChildren (only top-level nodes) instead of the full flattened subgraph — the intended fix is dead.
-- **Fix:** Change the comparison to viewMode.value === 'graph' to match the actual ViewMode literal.
+### `electron/database/tree.js:169` — reparentToRoot clears parent_id but never resets the node's own path/depth
 
-#### `src/services/api.ts:380` — webApi omits exportJSON/exportCSV/importJSON/importCSV while stubbing other desktop-only methods
+_Category: correctness · group: electron-database_
 
-- **Category:** consistency
-- **Problem:** webApi implements stubs for desktop-only features that throw or return inert values (e.g. backup at api.ts:427, restoreBackup at 435, getOrCreateTagNode at 385 throws a clear message). However exportJSON, exportCSV, importJSON, and importCSV are simply absent from webApi (only exportMarkdown is present, api.ts:323). These methods are called via `api.` in non-Electron-guarded UI code: src/composables/useDetailPanelCore.js:315/325 (api.exportJSON/api.exportCSV) and src/components/settings/DataSettings.vue:55/57 (api.importJSON/api.importCSV). In web mode these are undefined and throw `is not a function` rather than the controlled 'only available in desktop app' error used elsewhere. Inconsistent with the established stub pattern.
-- **Fix:** Add webApi stubs for exportJSON/exportCSV/importJSON/importCSV that throw or return the same 'only available in desktop app' style result used by backup/restore, so web-mode failures are controlled and consistent.
+reparentToRoot runs `UPDATE nodes SET parent_id = NULL WHERE id = ?` and then `ctx._updateDescendantPaths(nodeId)`. Same defect class as deleteNode: \_updateDescendantPaths only rewrites descendants from the node's _current_ path, so the newly-rooted node keeps its stale path (pointing at the missing ancestors that made it an orphan) and stale depth, and all descendants are rebuilt on top of that stale prefix. The repaired 'root' therefore never appears in path-based root/subtree queries correctly (getRoots matches parent_id so it shows up, but fixRootNodePaths will later report it as a corrupt root and rewrite everything).
 
-#### `src/services/ollamaService.js:80` — Ollama generateWithTools ignores contextSize, dropping the configured num_ctx
+**Fix:** Set path = '' and depth = 0 in the same UPDATE before calling \_updateDescendantPaths(nodeId).
 
-- **Category:** correctness
-- **Problem:** agentService.buildProviderOptions (agentService.js:52-58) forwards contextSize for the ollama provider, and runAgentLoop spreads it into service.generateWithTools (agentService.js:133-137). But ollamaService.generateWithTools (line 80) destructures only `{ messages, tools, model, endpoint }` and never sets `options.num_ctx` on the /api/chat request body. By contrast api.ts ollamaGenerate (line 500) does set `num_ctx: contextSize || 32768`. As a result the research agent's tool-calling requests silently run with Ollama's default context window regardless of the user's configured contextSize, which can truncate long agent conversations.
-- **Fix:** Accept contextSize in generateWithTools and include `options: { num_ctx: contextSize || 32768 }` in the request body, matching ollamaGenerate in api.ts.
+### `electron/ipc/agent.js:227` — AGENT_RESEARCH drops skipSslVerification for OpenAI provider
 
-#### `src/stores/nodes.js:240` — redo() of a delete action reads non-existent action.nodeId
+_Category: consistency · group: electron-ipc_
 
-- **Category:** correctness  ·  **Severity adjusted:** high → medium
-- **Problem:** deleteNode() pushes a delete action shaped as `{ type: 'delete', nodeData: node, parentId: node.parent_id }` (line 140) — there is no `nodeId` field. But redo()'s delete case does `await api.deleteNode(action.nodeId, true)` (line 240), so `action.nodeId` is always undefined, and the redo deletes nothing (or errors). The undo path correctly uses `action.nodeData` but redo does not. The two halves of the same action use inconsistent field names.
-- **Fix:** Use `action.nodeData.id` in the redo delete case (and consider hard vs soft delete to match deleteNode's soft delete with `false`).
+The handler destructures `{ prompt, provider, model, endpoint, apiKey, contextSize, enabledTools }` and never forwards `skipSslVerification`, even though the underlying chatRequest → openaiRequest chain fully supports it (electron/ipc/llmProvider.js line 26, electron/ipc/openai.js line 23). Every other OpenAI handler (OPENAI_GENERATE, OPENAI_TEST_CONNECTION, OPENAI_LIST_MODELS) honors the setting. Result: a user with a self-signed OpenAI-compatible endpoint who enabled 'Skip SSL verification' can generate/test/list models, but the Research feature fails with an SSL error. The gap continues upstream (getProviderConfig in src/composables/useOllama.js and AgentResearchOptions in src/types/api.ts also omit the field), but the ResearchOptions typedef at agent.js line 36 and the handler are where the supported option is silently discarded.
 
-#### `src/stores/nodes.js:0` — Orphaned store duplicating the Command-based undo/redo system
+**Fix:** Destructure skipSslVerification in the AGENT_RESEARCH handler and thread it through runAgentLoop/fallbackResearch into chatRequest; add it to ResearchOptions, AgentResearchOptions, and getProviderConfig's openai branch.
 
-- **Category:** design
-- **Problem:** useNodesStore is only imported by its own test (src/__tests__/stores-nodes.test.js); it is not used by App.vue, any component, or any composable (verified via grep). The actual app performs node CRUD and undo/redo through src/commands/* via useNodeOperations.ts / useUndoRedo.ts / useNodeActionsUI.ts. This store re-implements a parallel, plain-object action format with an inline switch (lines 199-257) that diverges from the Command class hierarchy and contains the delete bugs above. Maintaining two undo systems is a consistency/maintenance hazard and the buggy one is unreachable from production.
-- **Fix:** Either remove useNodesStore (and its test) if superseded by the composable+Command path, or wire it in and make it delegate to the Command classes so there is a single source of truth for undo/redo semantics.
+### `electron/ipc/httpClient.js:71` — connectionError never triggers on the default Electron net path
 
-#### `src/types/node.ts:109` — graph_type_filter typed as single-string union but used as an array of type strings
+_Category: correctness · group: electron-ipc_
 
-- **Category:** correctness  ·  **Severity adjusted:** high → medium
-- **Problem:** Node.graph_type_filter is declared `graph_type_filter: GraphTypeFilter | null` where `GraphTypeFilter = 'all' | 'tasks' | 'notes' | 'persons'` (a single string value). However, the actual runtime code treats this field as a JSON-serialized array of visible node-type strings. In src/stores/filters.js:118-119 it does `if (Array.isArray(node?.graph_type_filter)) { visibleTypes.value = [...node.graph_type_filter] }` and at line 144 writes `graph_type_filter: [...visibleTypes.value]`. In src/components/GraphView.vue:363 it is serialized with `JSON.stringify(v)` and at 388-389 read via `Array.isArray(props.parent?.graph_type_filter) ? props.parent.graph_type_filter : ...`. The type therefore does not match reality (an array of arbitrary type-name strings, not one of four enum values). UpdateNodeData.graph_type_filter (node.ts:164) has the same wrong type. This is a genuine type/implementation mismatch that will mislead any TypeScript consumer.
-- **Fix:** Either retype the field to `string[] | null` (matching the array-of-type-names actually stored), or if the stored form is a JSON string, type it as `string | null`. Update both Node and UpdateNodeData. Reconcile or remove the now-unused GraphTypeFilter union.
+handleRequestError matches `error.code === 'ECONNREFUSED'`, which is Node's errno convention. But the default request path is requestWithNet (Electron's net module), whose request 'error' events emit plain Errors with Chromium-style messages like 'net::ERR_CONNECTION_REFUSED' and no `.code` property. So the configured connectionError messages ('Ollama is not running. Start with: ollama serve' / 'Cannot connect to API endpoint') can never be shown for the common case — Ollama and non-SSL-bypass OpenAI requests — and users get the raw 'net::ERR_CONNECTION_REFUSED' instead. The check only works on the requestWithNode path, which is used solely when skipSslVerification is enabled.
 
-#### `src/utils/markdown.js:8` — Custom link renderer interpolates href/title unescaped, removing marked's built-in href sanitization
+**Fix:** In handleRequestError, also match the Chromium form: `if (error.code === 'ECONNREFUSED' || error.message?.includes('ERR_CONNECTION_REFUSED')) return new Error(connectionError)`.
 
-- **Category:** correctness
-- **Problem:** The link renderer override builds anchors by raw interpolation: `<a href="${href}"${titleAttr} class="external-link" rel="noopener">${text}</a>` with `titleAttr = title ? \` title="${title}"\` : ''`. marked's default link renderer escapes the href and title; overriding it removes that protection, so a markdown link href like `javascript:...` or a title containing a double-quote can break out of the attribute. This global `marked.use(...)` affects every consumer of the singleton marked, including MarkdownRenderer.vue which renders with v-html and no DOMPurify.
-- **Fix:** Escape href and title (and validate the href scheme to http/https/mailto) before interpolating, or keep marked's default link handling and only add the class/rel attributes via post-processing.
+### `electron/ipc/httpClient.js:109` — skipSslVerification silently only works for localhost/.local hosts, contradicting the error hint
 
-#### `src/utils/tooltip.js:54` — Tooltip HTML injects node.title/type unsanitized (XSS) while only notes are sanitized
+_Category: correctness · group: electron-ipc_
 
-- **Category:** correctness
-- **Problem:** buildTooltipHTML interpolates user-controlled fields raw into the returned HTML string: `tooltip += \`<div class="tt-title">${node.title}</div>\`` (line 54) and `<span class="tt-type ${node.type}">${node.type}</span>` (line 58). Only node.notes is passed through DOMPurify.sanitize (renderMarkdown, line 75). The returned string is rendered by tippy with `allowHTML: true` (tooltipOptions, line 134-135) via useNodeTooltip.js and useGraphElements.js, so a node title such as `<img src=x onerror=...>` executes. The notes path already demonstrates the project's DOMPurify pattern; the rest of the tooltip bypasses it.
-- **Fix:** Sanitize the entire assembled tooltip string with DOMPurify before returning, or HTML-escape node.title/node.type (and the date strings) before interpolation, consistent with the notes path.
+request() routes to requestWithNode only when skipSslVerification is true, but requestWithNode then sets `rejectUnauthorized: !HttpClient.isLocalhost(urlObj.hostname)`, so for any non-local https endpoint the user-enabled 'Skip SSL verification' setting has no effect. Meanwhile handleRequestError (line 81) explicitly tells users hitting cert errors: 'For self-signed certificates, enable "Skip SSL verification" in settings.' — advice that does nothing for remote hosts. Worse, on the requestWithNode path includeSslHint is false, so after enabling the setting the user gets a raw SSL error with no explanation of why it still fails. If restricting the bypass to local hosts is a deliberate security decision, the hint and option semantics should say so. Also, `isLocalhost` returns true for any `*.local` hostname (mDNS LAN hosts), which are not localhost — the name overstates the check.
 
+**Fix:** Either honor skipSslVerification for all hosts (it is an explicit user opt-in), or scope the settings hint to local endpoints and emit a clear 'SSL bypass is only supported for local endpoints' error on remote hosts; rename isLocalhost to something like isLocalHost/isLocalNetworkHost if .local stays included.
 
-## Low-severity confirmed findings (15)
+### `electron/main.js:248` — before-quit autosave is fire-and-forget; renderer save can race app teardown
 
-#### `electron/preload.js:6` — preload.js hardcodes IPC channel strings instead of importing ipcChannels constants
+_Category: correctness · group: electron-core_
 
-- **Category:** consistency  ·  **Severity adjusted:** medium → low
-- **Problem:** The whole point of ipcChannels.js is to centralize channel names so both sides of the IPC boundary stay in sync. Every handler module (electron/ipc/database.js, ollama.js, openai.js, agent.js, window.js) and main.js import constants from ipcChannels.js. preload.js instead inlines all ~80 channel strings as literals, e.g. `getNodes: params => ipcRenderer.invoke('db:getNodes', params)`, `onMenuUndo: callback => ipcRenderer.on('menu-undo', callback)`, `getVersion: () => ipcRenderer.invoke('app:getVersion')`. I verified that all current literals happen to match the constant values, so there is no live bug, but this is the one file that diverges from the centralized pattern and is the most error-prone place for a future typo (a mismatched string fails silently with no handler error).
-- **Fix:** Import the channel constants from ./ipcChannels and use them in preload.js the same way the handler modules do, so renaming a channel in one place keeps both sides consistent.
+app.on('before-quit') does `mainWindow.webContents.send(APP_BEFORE_QUIT)` and returns immediately without event.preventDefault() or waiting for an ack. The renderer handler (src/composables/useAppLifecycle.js:83) reacts by calling saveInlineNotes() and detailPanelRef.value?.saveChanges(), which issue async ipcRenderer.invoke('db:updateNode', ...) calls. Nothing guarantees those invokes reach the main process and the sql.js write-to-disk completes before the window is destroyed and the process exits, so unsaved note edits can be silently lost on quit. The comment 'Notify renderer to save before quitting' promises more than the code delivers.
 
-#### `src/components/detail/ChildrenSection.vue:31` — Grandchildren state and template block are never populated (dead feature)
+**Fix:** Use the standard two-phase quit: on first before-quit call event.preventDefault(), send APP_BEFORE_QUIT, have the renderer reply (e.g. an 'app:saveComplete' invoke or ipcRenderer.send ack) after its saves resolve, then call app.quit() again with a guard flag (plus a short timeout fallback).
 
-- **Category:** dead-code  ·  **Severity adjusted:** medium → low
-- **Problem:** `expandedChildren = ref(new Set())` (line 31) and `grandchildren = ref({})` (line 32) are declared but no function or template handler ever writes to them (verified by grep across the component and its consumers DetailPanel.vue / DetachedView.vue — there is no toggle-expand / load-grandchildren wiring). Consequently the entire grandchildren `<template v-if="expandedChildren.has(child.id) && grandchildren[child.id]?.length">` block (lines 169-188) is permanently unreachable. The `getTypeIcon`/`personIconSvg` imports (line 4) are referenced ONLY inside that dead block, so they are effectively dead too.
-- **Fix:** Either implement the expand/collapse interaction that populates `expandedChildren` and lazily loads `grandchildren`, or remove lines 31-32, the dead template block (169-188), and the now-unused imports on line 4.
+### `src/App.vue:291` — Reorder failures still use the sticky full-view error banner the comment says was removed
 
-#### `src/components/detail/LinkedItemsSection.vue:14` — Tag nodes are not excluded from the links list, causing duplicate display in the forms
+_Category: consistency · group: app-shell-themes-types_
 
-- **Category:** correctness  ·  **Severity adjusted:** medium → low
-- **Problem:** `filteredLinks` (lines 14-17) only filters out the single `excludeType`. In PersonDetailForm.vue (LinkedItemsSection with exclude-type="organization") and OrganizationDetailForm.vue (exclude-type="person"), tag nodes (type 'tag') are NOT excluded, so any linked tag is rendered both as a link chip here AND in TagsSection (which filters linkedNodes to type==='tag'). MetaInfoSection/MetadataGridSection avoid this by splitting into linkedTags vs linkedNonTags; the form path does not, so tags appear twice.
-- **Fix:** Filter out 'tag' nodes from the links list in the forms (e.g. exclude tags in `filteredLinks` or pass an exclude set), matching the linkedNonTags treatment used by MetadataGridSection.
+The comment at lines 288-291 documents that node-operation failures were moved from the sticky `error` ref ("which replaced the whole view with a banner that never cleared") to transient toasts, and wires nodeOps' onError to handleError accordingly. But `handleReorder` in useNodeActionsUI.ts:472 still does `error.value = (e as Error).message` on the app-context error ref provided by App.vue (line 578). Since ViewRenderer renders `v-else-if="error"` before any view (ViewRenderer.vue:130), a single failed drag-reorder replaces the entire view with a banner that nothing ever clears — exactly the regression the comment claims was fixed for the other operations.
 
-#### `src/components/detail/MetadataGridSection.vue:21` — Declared emit 'update:tags' is never emitted; parent listener never fires
+**Fix:** In useNodeActionsUI.handleReorder, replace the error.value assignment with `handleError(e, { context: 'Reordering node' })` like the other node operations.
 
-- **Category:** dead-code  ·  **Severity adjusted:** medium → low
-- **Problem:** `'update:tags'` is declared in defineEmits (line 21) but the template never calls `emit('update:tags', ...)`. Tag editing in this section is delegated to `TagInput`, which emits `@unlink` (→ 'unlink-tag') and `@refresh` (→ 'reload-links'). DetailPanel.vue wires `@update:tags="updateTags"` (line 799), so `updateTags` will never be invoked from this component. This is a stale event contract that hides the fact tag updates flow through unlink-tag/reload-links instead.
-- **Fix:** Remove `'update:tags'` from the emits list (and reconsider the `@update:tags` listener on the parent), since tag mutations are actually communicated via 'unlink-tag' and 'reload-links'.
+### `src/App.vue:448` — Navigation load errors are invisible: navigation's error ref is never surfaced
 
-#### `src/components/HintBar.vue:36` — Unused 'currentWorkspace' prop
+_Category: correctness · group: app-shell-themes-types_
 
-- **Category:** dead-code  ·  **Severity adjusted:** medium → low
-- **Problem:** HintBar declares prop currentWorkspace ({ type: String, default: '' }) and App.vue passes :current-workspace="currentWorkspace" (App.vue:1098), but the prop is never referenced anywhere in HintBar's template or script. It is dead.
-- **Fix:** Remove the currentWorkspace prop from HintBar and drop the :current-workspace binding in App.vue, or use it if a per-workspace hint was intended.
+App.vue destructures `loading, loadChildren, ...` from `useNavigation` but not `error`, and passes no `onError` callback. On a non-404 load failure useNavigation calls `handleError(e, { context: 'Loading container', silent: true })` (no toast) and sets its own internal `error` ref (useNavigation.ts:297), which nothing reads — `syncFromNavigation` only syncs children/breadcrumbs/container/id. ViewRenderer's error banner is fed from App.vue's separate `error` ref (line 111 → `:error="error"` line 912), which navigation never writes. Net effect: if loading a container fails, the user sees no toast and no banner — the view silently keeps stale or empty content.
 
-#### `src/composables/useAppController.js:19` — useAppController is never imported or used anywhere
+**Fix:** Either destructure and pass `navigation.error` to ViewRenderer, or provide an `onError` callback that calls handleError non-silently / sets the app error ref.
 
-- **Category:** dead-code  ·  **Severity adjusted:** high → low
-- **Problem:** useAppController is exported as the 'Main orchestration composable for App.vue' but a tree-wide grep for `useAppController`/`AppController` across src/, electron/, and __tests__ returns only its own definition. App.vue does not use it; instead App.vue wires up useDetailController, useModalController, useViewStateController, useNavigationState, and defines its own helpers (e.g. its own `addChildFromDetail` at App.vue:649) directly. The entire file (including handleNodeDeselection, handleDetailOpen, addChildFromDetail, showAddNodeModal wrapper, handleShowOnboarding/CreateDemo/ResetDemo, setError/clearError) is dead code. CLAUDE.md mandates removing dead code.
-- **Fix:** Delete src/composables/useAppController.js, or actually adopt it in App.vue to replace the manual controller wiring it was meant to consolidate.
+### `src/App.vue:605` — graphOps.error discarded — insert-between failures are completely silent
 
-#### `src/composables/useDetailPanelCore.js:8` — Docstring claims consumers that do not exist (aspirational/inaccurate)
+_Category: correctness · group: app-shell-themes-types_
 
-- **Category:** docstring  ·  **Severity adjusted:** medium → low
-- **Problem:** The header comment states: "Core composable for DetailPanel shared functionality / Used by DetailPanel, PersonDetailForm, and OrganizationDetailForm". None of those three components import or use this composable (confirmed by grep). The docstring describes an intended-but-unrealized design, violating the project rule that names/docs must honestly reflect what the code does.
-- **Fix:** Either wire the named components to use the composable, or remove the file. If kept temporarily, correct the docstring to not assert false usage.
+`const { saveNodePosition, insertBetween } = graphOps` drops the `error` ref that useGraphOperations returns. `insertBetween`'s catch block only does `error.value = e.message` (useGraphOperations.js:90) on that now-unread ref — no toast, no rethrow. A failed @insert-between from the graph view (line 977) therefore produces no user feedback at all, unlike sibling operations which route through handleError/showToast.
 
-#### `src/composables/useGraphInit.js:109` — Cytoscape style rule for node[?isParent] never matches
+**Fix:** Change useGraphOperations' catch to call handleError (consistent with the node-operation pattern documented at App.vue:288-291), then delete the vestigial error ref.
 
-- **Category:** dead-code  ·  **Severity adjusted:** medium → low
-- **Problem:** The style array contains { selector: 'node[?isParent]', style: { width: 200, height: 100 } }, but buildElements (useGraphElements.js) never sets an isParent data field on any node; it uses isCurrentContainer, hasChildren, shouldGlow, etc. Grep across src confirms isParent is only ever set on plain org objects in PersonsView/PersonDetailForm, never on cytoscape node data. The rule is dead and the intended container sizing never applies.
-- **Fix:** Either set an isParent/isCurrentContainer data flag in buildElements and target that selector, or remove the dead style rule.
+### `src/__tests__/GraphView.layout.test.js` — Tests exercise inline copies of GraphView logic, not GraphView.vue; cited line numbers and mechanism are stale
 
-#### `src/composables/useGraphLayout.js:575` — relaxLayout docstring names cose-bilkent but uses cola
+_Category: design · group: tests-A_
 
-- **Category:** docstring  ·  **Severity adjusted:** medium → low
-- **Problem:** JSDoc says 'Run single relaxation pass with cose-bilkent.' but the layoutOptions built at line 588 use name: 'cola'. Inaccurate docstring; misleads maintainers about which layout engine runs.
-- **Fix:** Update the docstring to say cola (or change the layout) so it honestly reflects the implementation.
+Every test constructs a local `ref` and re-implements the initialization/watcher/persistence logic in the test body (e.g. `const layoutMode = ref(parent?.graph_layout || _layoutMode.value)`), so they pass regardless of what GraphView.vue does. The anchoring comments are already stale: 'This mirrors line 153 of GraphView.vue' (the init is at line 146), 'watch handler from GraphView.vue lines 223-229' and 'watcher logic from lines 233-241' (the actual watcher is at lines 441-462). The persistence tests simulate `await api.updateNode(parentId, { graph_layout: newLayout })`, but GraphView.vue now persists via `saveNodeSetting(props.parent.id, 'graph_layout', ...)` (line 371), and the navigation fallback in the real watcher uses `_layoutMode.value` from useGraphSettings, not a direct `localStorage.getItem('graph-layout-mode')` read as simulated here.
 
-#### `src/composables/useGraphLayout.js:367` — autoRelaxTimer is cleared but never assigned
+**Fix:** Either mount GraphView.vue (or extract the init/watcher logic into a testable helper and import it), or delete the file; at minimum remove the stale line-number comments so they stop asserting a false mirror.
 
-- **Category:** dead-code  ·  **Severity adjusted:** medium → low
-- **Problem:** let autoRelaxTimer = null is cleared in autoRelaxNewNodes (lines 657-660) and cleanup (lines 848-851) but is never assigned a setTimeout handle anywhere, so it is always null. The clearTimeout guards are dead code, a remnant of removed debounce logic.
-- **Fix:** Remove autoRelaxTimer and its clearTimeout blocks, or implement the intended debounce by assigning the timer when scheduling autoRelaxNewNodes.
+### `src/__tests__/delete-node.test.js` — Entire file tests a self-contained mock, never imports production code
 
-#### `src/composables/useNodeTable.js:116` — Inconsistent silent flag in handleError across sibling actions in the same file
+_Category: design · group: tests-A_
 
-- **Category:** consistency  ·  **Severity adjusted:** medium → low
-- **Problem:** Most actions call handleError with `{ ..., silent: true }` (loadTable, createTable, updateTable, saveCell, saveCellStyle, saveCells), but deleteTable (line 116, `{ context: 'Deleting table' }`) and clearAllCells (line 230, `{ context: 'Clearing cells' }`) omit `silent: true`. This means delete/clear failures surface a user-facing error toast while all other failures are swallowed silently, an inconsistent error-handling policy within one composable with no apparent rationale.
-- **Fix:** Pick one policy. Either add `silent: true` to deleteTable/clearAllCells for consistency, or remove it from the others if user-visible errors are intended.
+The file defines its own `mockDb` (createNode/getNode/deleteNode/restoreNode) and all four tests assert against that mock's behavior. No production module is imported, so the suite cannot catch any regression. Worse, the mock's semantics diverge from the real implementation: `mockDb.deleteNode` comments 'Soft delete - only marks this node, NOT children' and leaves children's parent_id pointing at the deleted node, while the real `electron/database/nodes.js:214-218` (and `helpers/testDatabase.js:278-291`) reparent children to the grandparent (`UPDATE nodes SET parent_id = ? WHERE parent_id = ?`). The delete behavior is already covered for real in database.integration.test.js ('should reassign children to grandparent when deleting parent', 'should soft delete a node', 'should restore a soft-deleted node').
 
-#### `src/stores/filters.js:188` — filterTree() is never used
+**Fix:** Delete this file, or rewrite it against TestDatabase/the real delete path; the integration suite already covers everything it claims to test.
 
-- **Category:** dead-code  ·  **Severity adjusted:** medium → low
-- **Problem:** filterTree is exported in the store's public API (line 236) but is not referenced anywhere in the source tree or tests (verified via grep across src excluding the store definition). It duplicates the type-filter logic already in filterNodes.
-- **Fix:** Remove filterTree, or if recursive tree filtering is needed, consolidate the duplicated 'tag' exclusion + visibleTypes check shared with filterNodes.
+### `src/__tests__/null-roots.test.js:12` — Claims to replicate App.vue loadChildren/loadSidebarTree logic that has since moved and changed
 
-#### `src/stores/filters.js:142` — getSettingsForNode() is never used
+_Category: docstring · group: tests-A_
 
-- **Category:** dead-code  ·  **Severity adjusted:** medium → low
-- **Problem:** getSettingsForNode is exported (line 234) but unreferenced anywhere (verified via grep). Filter persistence is instead done directly in GraphView.vue via saveNodeSetting('graph_max_depth', ...) and saveNodeSetting('graph_type_filter', ...). This method is dead code that also represents a divergent persistence path that the app does not actually use.
-- **Fix:** Remove getSettingsForNode, or route GraphView's save logic through it to centralize the settings shape.
+The comment says 'Replicate the filtering logic from App.vue loadChildren and loadSidebarTree' and defines local `filterRoots`/`processRoots` (person-type filter keyed on `wsFilter === null`, per-root `getDescendants` calls). The real implementation now lives in `src/composables/useDataLoading.ts` (loadSidebarTree at ~line 126) and works differently: it filters via `matchesWorkspace`, excludes `type === 'tag'`, and batch-fetches with `api.getDescendantsBatch(rootIds)` instead of per-root getDescendants. The tests therefore validate a replica of code that no longer exists and provide no protection for the actual null-root handling in useDataLoading.ts.
 
-#### `src/stores/nodes.js:210` — undo()/redo() of delete re-creates the node instead of restoring the soft-deleted one
+**Fix:** Point these tests at useDataLoading (mock api.getRoots to return arrays containing null and assert sidebarTree is built without crashing), or fold the null-entry cases into useDataLoading.test.js and delete this file.
 
-- **Category:** correctness  ·  **Severity adjusted:** high → low
-- **Problem:** deleteNode() performs a soft delete via `api.deleteNode(nodeId, false)`. The correct inverse is `api.restoreNode(id)` (which exists in api.ts and is what the Command-based DeleteCommand uses). Instead, undo()'s delete case calls `api.createNode(action.nodeData)` (line 210), creating a brand-new node with a new id while the original soft-deleted row remains in the database. This duplicates/orphans data and loses the original id and links.
-- **Fix:** Use `api.restoreNode(action.nodeData.id)` to undo a soft delete, mirroring DeleteCommand.undo().
+### `src/__tests__/sidebar.test.js:19` — Stale inline replica of old App.vue sidebar logic, superseded by useSidebar.test.js
 
-#### `src/utils/dom.js:9` — scrollToNode is never referenced anywhere in the source tree or tests
+_Category: design · group: tests-A_
 
-- **Category:** dead-code  ·  **Severity adjusted:** medium → low
-- **Problem:** Grep across src/ and electron/ shows the only occurrence of `scrollToNode` is its definition in src/utils/dom.js. The function (and effectively the whole dom.js module) is dead. Note it also hardcodes a 2000ms highlight timeout that duplicates settingsConstants.SEARCH_HIGHLIGHT_DURATION_MS.
-- **Fix:** Remove dom.js (and scrollToNode) unless it is intended for imminent use; per CLAUDE.md dead code should be removed.
+The file states 'Replicate the sidebar logic from App.vue' and defines local `onSidebarEnter`/`onSidebarLeave`/`toggleSidebarPin` closures, then tests those closures. The real logic now lives in `src/composables/useSidebar.ts` and differs from the replica (composable uses `event.clientX <= SIDEBAR_WIDTH`, this file hardcodes `event.clientX < 300`; the composable also has pointer-tracking watches this file knows nothing about). `useSidebar.test.js` already tests the real composable including pin, hover, hide-timeout, and bounds cases, so this file adds no protection and can silently drift further.
 
+**Fix:** Remove sidebar.test.js; its scenarios are covered against the real composable in useSidebar.test.js.
 
-## Appendix A — Unverified lower-severity notes (84)
+### `src/__tests__/tasks.test.js:71` — 'Task Helper Functions' tests assert on inline copies, not production code
 
-These low-severity notes were reported by reviewers but not put through adversarial verification. Treat as leads, not confirmed defects.
+_Category: correctness · group: tests-B_
 
-| File:line | Cat | Note |
-|---|---|---|
-| `electron/agentConfig.js:12` | docstring | isGarbageResponse JSDoc is incomplete compared to sibling functions |
-| `electron/database/export.js:306` | correctness | importCSV splits on newlines before parsing quotes, corrupting fields containing newlines |
-| `electron/database/migrations.js:47` | consistency | Migrations swallow all ALTER/INSERT errors via empty catch, masking real failures |
-| `electron/database/nodes.js:226` | correctness | deleteNode recomputes descendant paths from already-reassigned parent but skips the moved nodes' own path update |
-| `electron/database/nodes.js:62` | naming | updateDescendantPaths exposed as _updateDescendantPaths but recomputes only descendants, never the node argument |
-| `electron/database/search.js:53` | design | person/workspace special-case duplicated between search and searchCount |
-| `electron/database/tags.js:0` | consistency | Tag operations assigned without .bind() unlike every sibling module |
-| `electron/database/tags.js:61` | consistency | getOrCreateTagNode reimplements _run instead of using it |
-| `electron/database/tree.js:51` | consistency | Unconditional debug console.log in hot query path |
-| `electron/database/workspaces.js:75` | design | deleteWorkspace can delete the default workspace and orphans nodes without reassignment |
-| `electron/ipc/agent.js:254` | dead-code | executeAgentTool, fallbackResearch, runAgentLoop exported but only used internally |
-| `electron/ipc/httpClient.js:112` | correctness | Request body is JSON.stringified twice in requestWithNode |
-| `electron/ipc/httpClient.js:219` | consistency | OpenAI errors lose their provider-specific prefix; only Ollama sets errorPrefix/connectionError |
-| `electron/ipc/openai.js:56` | correctness | error.data?.error?.message assumes parsed JSON but parseResponse may return a string |
-| `electron/main.js:229` | consistency | APP_GET_VERSION handler registered inline in main.js instead of in an ipc/ module |
-| `electron/wikipedia.js:57` | dead-code | WIKIPEDIA_ACTION_API and WIKIPEDIA_REST_API are exported but never imported anywhere |
-| `electron/wikipedia.js:0` | design | wikipedia.js duplicates search/getContent logic already present in src/services/wikipediaService.js |
-| `src/components/CardsView.vue:4` | dead-code | Unused import decodeHtml |
-| `src/components/CardsView.vue:430` | dead-code | nestedGridStyle called with an extra ignored argument |
-| `src/components/config/personsGridColumns.js:61` | dead-code | personsViewModes is exported but never used |
-| `src/components/config/tableFormatters.js:43` | docstring | getBadgeStyle docstring and signature do not match its no-op behaviour |
-| `src/components/detail/OrganizationDetailForm.vue:79` | dead-code | onTagsUpdate is defined but never referenced |
-| `src/components/detail/OrganizationDetailForm.vue:43` | consistency | loadLinkedMembers is async with try/catch but performs no async work |
-| `src/components/detail/PersonDetailForm.vue:134` | dead-code | onTagsUpdate is defined but never referenced |
-| `src/components/detail/PersonDetailForm.vue:17` | dead-code | currentWorkspace prop is declared but never used |
-| `src/components/DetailPanel.vue:668` | design | Notes edit/preview/split UI duplicated instead of reusing NotesSection.vue |
-| `src/components/GraphEditModal.vue:43` | dead-code | defineExpose exposes refs that no parent consumes |
-| `src/components/GraphView.vue:6` | dead-code | Unused import ALL_NODE_TYPES |
-| `src/components/GraphView.vue:82` | correctness | isInsideEditor predicate returns an Element instead of a boolean |
-| `src/components/HotkeyHelpModal.vue:0` | design | Duplicate 'Keyboard Shortcuts' modal with divergent, hard-coded content |
-| `src/components/MarkdownRenderer.vue:146` | correctness | onMounted(renderContent) duplicates the immediate watcher, causing a redundant render |
-| `src/components/MentionDropdown.vue:23` | consistency | Mixed emit() and $emit() within the same template |
-| `src/components/NodeContextMenu.vue:24` | dead-code | menuRef bound in template but never read programmatically |
-| `src/components/NotesEditor.vue:180` | dead-code | Exposed replaceSelection() is never called |
-| `src/components/OllamaDiffPreview.vue:11` | dead-code | Declared 'edit' emit is never emitted |
-| `src/components/PersonsView.vue:21` | dead-code | Unused prop selectedId |
-| `src/components/PersonsView.vue:26` | dead-code | Declared emit 'update' is never emitted |
-| `src/components/settings/AboutSettings.vue:2` | dead-code | props captured from defineProps but never referenced in script |
-| `src/components/settings/AISettings.vue:62` | correctness | isAiEnabled fallback to ollamaEnabled is unreachable due to aiEnabled default |
-| `src/components/SpotlightSearch.vue:127` | correctness | Notes ellipsis test uses raw length while text is decoded then truncated |
-| `src/components/SpotlightSearch.vue:153` | correctness | selectedResultIndex shared between search results and recent items |
-| `src/components/TableView.vue:27` | dead-code | Unused prop currentParentId |
-| `src/components/TableView.vue:38` | dead-code | Declared emit 'toggle-favorite' is never emitted |
-| `src/components/TimelineView.vue:36` | dead-code | Dead option passed to useTimelineLayout (_getColorMap is never consumed) |
-| `src/components/TypeFilterDropdown.vue:37` | dead-code | Unused local variable in buttonLabel computed |
-| `src/composables/useAIProviderConnection.js:152` | correctness | Debounce timers never cleared on unmount (timer leak) |
-| `src/composables/useAppContext.ts:32` | typing | AppContext.children/flatChildren typed as Node[] but navigation produces TreeNode[] |
-| `src/composables/useCardGrid.js:91` | dead-code | calculateGridColumns exported from composable but never used by any caller |
-| `src/composables/useDataLoading.ts:226` | consistency | loadFavorites and loadTags swallow errors silently while sibling loaders use handleError |
-| `src/composables/useDetailController.ts:7` | consistency | DetailPanelRef interface conflicts with the one in useAppContext.ts |
-| `src/composables/useDetailPanelCore.js:246` | correctness | onDragLeave never clears drop indicator due to type mismatch / missing dataset attribute |
-| `src/composables/useDetailPanelCore.js:285` | correctness | generateFilename assumes editedNode.value.title is a non-null string |
-| `src/composables/useGraphElements.js:76` | docstring | buildElements JSDoc omits ancestorColor and inheritColors params |
-| `src/composables/useGraphEvents.js:64` | dead-code | Documented getParent option is never used |
-| `src/composables/useGraphInit.js:5` | dead-code | cytoscape-d3-force registered but no d3-force layout used |
-| `src/composables/useGraphSettings.ts:48` | dead-code | radialSettings.nestingFactor and gravityRange are persisted but never consumed |
-| `src/composables/useInlineEdit.js:10` | docstring | onSaveNotes JSDoc omits the options argument actually passed |
-| `src/composables/useMentions.js:74` | dead-code | Unused _currentNodeId parameter in handleInput |
-| `src/composables/useMentions.js:184` | correctness | loadPersons() fire-and-forget at composable setup with workspaceId fixed at construction |
-| `src/composables/useNavigation.ts:346` | correctness | enterContainer setTimeout is never tracked or cleared on unmount |
-| `src/composables/useNavigation.ts:420` | correctness | goToSibling treats parent_id 0 as falsy and would query roots instead of children |
-| `src/composables/useNodeActionsUI.ts:3` | dead-code | Unused type imports: Ref, Api, CreateNodeParams, DeleteResult, DeleteMultipleResult |
-| `src/composables/useNodeOperations.ts:53` | design | Duplicate type definitions across useNodeOperations.ts and useAppContext.ts |
-| `src/composables/useNodeTable.js:277` | consistency | getColumnName duplicated across modules |
-| `src/composables/useSelection.ts:255` | consistency | removeFromSelection mutates the Set in place while the rest of the file reassigns a new Set |
-| `src/composables/useTimelineDates.js:220` | consistency | calculateDueUrgency parses dates with new Date() instead of the module's parseLocalDate helper |
-| `src/composables/useTimelineLayout.js:40` | docstring | JSDoc documents getColorMap but parameter is _getColorMap and is never used |
-| `src/composables/useTreeExpand.js:57` | consistency | expandAncestors and setExpandedIds mutate expanded state without persisting, unlike sibling mutators |
-| `src/main.js:37` | correctness | Unvalidated parseInt of detached query param can yield NaN nodeId |
-| `src/services/nodeCache.js:262` | dead-code | getNodeCache and resetNodeCache singleton accessors are never used |
-| `src/services/ollamaService.js:12` | dead-code | Unused _model parameter on handleConnectionError |
-| `src/services/wikipediaService.js:49` | dead-code | getSummary is never used |
-| `src/stores/filters.js:97` | dead-code | resetToDefaults() is never used and duplicates showAllTypes() |
-| `src/stores/filters.js:54` | dead-code | hasActiveFilter and allTypes getters are never used |
-| `src/stores/nodes.js:191` | naming | pushUndo accepts plain action objects, not Command instances |
-| `src/types/command.ts:10` | dead-code | CommandType union exported but never used; Command.type is plain string |
-| `src/types/components.ts:5` | dead-code | Unused import GraphTypeFilter in components.ts |
-| `src/types/settings.ts:173` | consistency | UseSettingsReturn omits settingsReady that the composable always returns |
-| `src/utils/constants.js:130` | dead-code | getTypeIconHtml is a duplicate of getTypeIcon, used only by a test asserting they are identical |
-| `src/utils/constants.js:117` | correctness | getPersonColor treats personId 0 as missing |
-| `src/utils/demoData.js:31` | dead-code | deleteDemoWorkspace is exported but only used internally |
-| `src/utils/errorTypes.js:58` | dead-code | Several AppError subclasses are never instantiated outside their own tests |
-| `src/utils/markdown.js:32` | dead-code | `export { marked }` is unused; only handleExternalLinkClick is imported elsewhere |
-| `src/utils/tooltip.js:19` | consistency | Duplicated formatDate implementation instead of reusing utils/formatting.js |
+The whole `describe('Task Helper Functions')` block (lines 71-159) defines its own `isOverdue` (re-declared four times) and `formatDueDate` (re-declared twice) inside each test and asserts against those local copies. No production module is imported or executed, so these six tests can never fail due to an app regression. Meanwhile the real `isOverdue` lives in `src/composables/useTaskFiltering.js` (line 283) and no test file imports `useTaskFiltering` at all, so the actual implementation is untested while a hand-copied duplicate is 'covered'.
 
-## Appendix B — Refuted by verification
+**Fix:** Import and test the real helpers (e.g. `isOverdue` from useTaskFiltering, the date formatters from src/components/config/tableFormatters.js), and delete the inline duplicate implementations. Hoist the shared helper out of the individual `it` blocks if a local fixture is kept.
 
-These reviewer findings were checked and rejected as not-real (or not applicable); recorded for transparency.
+### `src/components/DetachedView.vue:154` — moveToRoot handler mismatches DetailPanel's numeric payload
 
-- `src/components/GraphView.vue:240` — "Module-level `globalCollapseHandlerAttached` binds collapse handling to the first instance and never cleans up" — refuted.
-- `src/components/DetailPanel.vue:371` — "`changeWorkspace` emits raw Vue proxy, bypassing the `toRaw` IPC-safety pattern" — refuted.
-- `src/composables/useSpreadsheetKeyboard.js:121` — "Multi-cell typing buffer keeps stale characters after the 1.5s timeout" — refuted.
+_Category: correctness · group: components-A_
+
+DetailPanel emits `emit('move-to-root', props.node.id)` (a number; App.vue wires this to `moveNodeToRoot(nodeId: number)`). DetachedView's `moveToRoot(node)` does `await api.moveNode(node.id, null)` — `node.id` is undefined on a number, so the move silently does nothing meaningful, then `loadNode(node.id)` reloads with undefined. Move to Root is broken in detached windows.
+
+**Fix:** Accept the id directly: `async function moveToRoot(nodeId) { await api.moveNode(nodeId, null); await loadNode(nodeId); ... }`.
+
+### `src/components/GraphControls.vue:273` — Undefined CSS variable --accent used for active states and primary buttons
+
+_Category: correctness · group: components-A_
+
+The stylesheet uses `var(--accent)` (`.icon-btn.active`, `.relax-locked/.fit-locked`, `.apply-btn { background: var(--accent) }`), but only `--accent-color`, `--accent-hover`, and `--accent-subtle` are defined (src/style.css:33-35); grep of the whole src tree finds no `--accent:` definition. `background: var(--accent)` resolves to transparent and `color: var(--accent)` falls back to the inherited color, so the Apply button renders as white text on a transparent background and active layout buttons lose their accent tint. The same undefined variable is used in GraphEditModal.vue (lines 268, 401) and GraphPromptModal.vue (lines 109, 139).
+
+**Fix:** Replace `var(--accent)` with `var(--accent-color)` in GraphControls.vue, GraphEditModal.vue, and GraphPromptModal.vue, matching every other component in the group.
+
+### `src/components/MarkdownRenderer.vue:131` — decodeHtmlEntities over the full rendered HTML corrupts escaped content in code blocks
+
+_Category: correctness · group: components-B_
+
+`html = decodeHtmlEntities(html)` runs after marked.parse over the entire HTML string, turning intentionally escaped `&lt;`/`&gt;`/`&amp;` inside <code>/<pre> back into real markup. E.g. notes containing `` `<div>` `` render to `<code>&lt;div&gt;</code>`, are decoded to `<code><div></code>`, and DOMPurify then reparses/strips it, so the code's text content is destroyed. Mermaid blocks already use the DOM-based decodeHtml on just their own content (line 94), so the global decode is a blunt instrument that breaks any code sample containing HTML/entities.
+
+**Fix:** Remove the global decodeHtmlEntities pass; decode only where needed (mermaid already does), or restrict decoding to non-code segments.
+
+### `src/components/NodeContextMenu.vue:129` — Computed refs interpolated without .value render '[object Object]' in shortcut hints
+
+_Category: correctness · group: components-B_
+
+`shortcut: `${modifierKey}+Click`` (line 129) and `shortcut: `${optionKey}+${modifierKey}+Click``(line 177).`usePlatform()`returns`modifierKey`/`optionKey`as`computed()`refs (src/composables/usePlatform.js:41,47), and script-setup code does not auto-unwrap refs, so the template literals stringify the ref objects: the menu shows '[object Object]+Click' and '[object Object]+[object Object]+Click' in MenuItem's <kbd> (MenuItem.vue renders item.shortcut verbatim). KeyboardShortcutsModal.vue correctly uses`.value` on the same refs.
+
+**Fix:** Use `${modifierKey.value}` / `${optionKey.value}` inside the computed() bodies.
+
+### `src/components/NodeSpreadsheet.vue:359` — Single shared debounce timer in onCellValueChanged drops an earlier cell's pending save
+
+_Category: correctness · group: components-B_
+
+`if (saveTimeout) clearTimeout(saveTimeout); saveTimeout = setTimeout(...)` — the debounce timer is shared across all cells, not keyed per cell. If a second cell edit commits within 300ms of the first (Enter-navigates-vertically + fast typing, or Tab-through entry), the first cell's pending `emit('cell-change', ...)` is cancelled and that edit is silently never persisted, though it remains visible in the grid until reload.
+
+**Fix:** Debounce per cell (map keyed by row/col), or emit immediately and debounce only the persistence layer upstream.
+
+### `src/components/OnboardingModal.vue:5` — @keydown on non-focusable modal div: Esc/Enter do not work until focus enters the modal
+
+_Category: correctness · group: components-B_
+
+`<div class="modal onboarding-modal" @keydown="handleKeydown">` — the div has no tabindex and nothing is focused on open, so keydown never fires until the user tabs/clicks into the modal; Escape and Enter are dead on open. KeyboardShortcutsModal.vue in the same group explicitly documents and fixes this exact problem ("The modal div is not focusable, so a local @keydown never fires") by attaching a document-level listener while visible.
+
+**Fix:** Mirror KeyboardShortcutsModal: watch props.visible and add/remove a document keydown listener (with onUnmounted cleanup).
+
+### `src/components/PersonsView.vue:58` — PersonsView never reloads when workspaceId changes, unlike sibling TasksView
+
+_Category: consistency · group: components-B_
+
+Data is loaded only in onMounted. TasksView.vue (same ViewRenderer sibling, same :workspace-id="workspace" prop) has `watch(() => props.workspaceId, loadTasks)`, but PersonsView has no equivalent watch, and ViewRenderer/App.vue apply no :key tied to workspace (verified). Switching workspaces while the Persons view is open keeps showing the previous workspace's persons and organizations, and new persons/orgs are created into the new workspace while stale ones are listed.
+
+**Fix:** Add `watch(() => props.workspaceId, async () => { await loadPersons(); await loadOrganizations() })`.
+
+### `src/components/PersonsView.vue:554` — Template @blur handler calls setTimeout, which is not available in Vue template expressions
+
+_Category: correctness · group: components-B_
+
+`@blur="setTimeout(() => (showOrgDropdown = false), 200)"` — Vue template expressions can only reference setup bindings and the globals allowlist (verified in node_modules/@vue/shared: 'Infinity,undefined,NaN,...,console,Error,Symbol'); `setTimeout` is not in it and there are no app.config.globalProperties in this project (grepped). The compiler emits `_ctx.setTimeout(...)`, which is undefined, so every blur of the organization autocomplete input throws `TypeError: _ctx.setTimeout is not a function` and the dropdown never closes on blur (only via Escape or selecting an item). eslint/vue-tsc do not catch this.
+
+**Fix:** Add a `handleOrgBlur()` method in script setup that does the delayed `showOrgDropdown.value = false` and bind `@blur="handleOrgBlur"`.
+
+### `src/components/SpotlightSearch.vue:56` — Local getImportanceLabel uses wrong importance scale (4=Critical, no 5)
+
+_Category: correctness · group: components-C_
+
+SpotlightSearch defines its own `getImportanceLabel` with `{ 1: 'Low', 2: 'Medium', 3: 'High', 4: 'Critical' }`, but the canonical scale in src/utils/constants.js (importanceLabels, used by TasksView via useTaskDisplayUtils and matching the TasksView filter dropdown) is `{1: Low, 2: Medium, 3: High, 4: Urgent, 5: Critical}`. In search results, importance 4 is mislabeled 'Critical' (should be 'Urgent') and importance 5 falls through `labels[importance] || importance` and renders the raw number '5'.
+
+**Fix:** Delete the local function and import getImportanceLabel from '../utils/constants.js' (same source TasksView uses).
+
+### `src/components/ViewRenderer.vue:250` — TimelineView 'add-child' and 'delete' events are silently dropped
+
+_Category: correctness · group: components-C_
+
+TimelineView emits 'add-child' (Cmd+Click) and 'delete' (Cmd+Alt+Click) via useTimelineInteractions.handleNodeClick (src/composables/useTimelineInteractions.js:49-51), and declares both in its defineEmits. But ViewRenderer's <TimelineView> usage (lines 250-262) only binds @select, @enter, @show-tooltip, @hide-tooltip, @context-menu, and @update. ViewRenderer is the only consumer of TimelineView (verified by grep), and ViewRenderer itself declares and forwards 'add-child' and 'delete' for other views, so in timeline view Cmd+Click (add child) and Cmd+Alt+Click (delete) emit events that no one receives — the documented interactions are silent no-ops.
+
+**Fix:** Add @add-child="emit('add-child', $event)" and @delete="emit('delete', $event)" to the TimelineView binding in ViewRenderer (payload shapes match TableView's: {parentId, title, prompt} and node.id).
+
+### `src/components/config/tableFormatters.js:32` — isOverdue marks items due today as overdue for users west of UTC
+
+_Category: correctness · group: commands-and-small-components_
+
+`const due = new Date(dateStr)` parses a date-only string ('2026-07-30') as UTC midnight. For a user in a UTC-negative timezone that is the previous local day, so `due < today` (local midnight) is true and an item due today renders as overdue in TableView. The near-duplicate isOverdue in src/composables/useTaskFiltering.js:283 has the same UTC-parse flaw but additionally normalizes the due date with setHours(0,0,0,0), so the two copies can also disagree for datetime-bearing strings.
+
+**Fix:** Parse the date parts explicitly into a local date (e.g. split on '-' and use new Date(y, m-1, d)) before comparing, and share one implementation between tableFormatters.js and useTaskDisplayUtils instead of maintaining two divergent copies.
+
+### `src/components/detail/TagsSection.vue:20` — Tag link/unlink leaves stale chips in Person/Organization forms
+
+_Category: correctness · group: components-detail_
+
+TagInput emits 'link', 'unlink', and 'refresh', and renders its chips from the linkedTags prop (derived from props.linkedNodes). TagsSection only declares emits ['refresh'] and drops the 'unlink' event entirely (`<TagInput ... @refresh="emit('refresh')" />`), and both PersonDetailForm and OrganizationDetailForm wire `@refresh="saveChanges"`, which just does `emit('save')`. In DetailPanel, `saveChanges()` only emits 'update' for the node and `linkedNodes` is reloaded exclusively in the node watcher when `newNode.id !== oldNode?.id` (isNewNode). Result: in the person/organization detail forms, adding a tag never shows a new chip and removing a tag leaves its chip visible until the user switches to a different node. Contrast MetadataGridSection (used for regular nodes), which correctly wires `@unlink="emit('unlink-tag', $event)"` (optimistic removal in DetailPanel.onUnlinkTag) and `@refresh="emit('reload-links')"` (DetailPanel.loadLinkedNodes).
+
+**Fix:** Make TagsSection mirror MetadataGridSection: declare and forward 'unlink' (and ideally rename/add a 'reload-links'-style event), then in PersonDetailForm/OrganizationDetailForm wire these to new emits that DetailPanel connects to onUnlinkTag/loadLinkedNodes instead of saveChanges.
+
+### `src/composables/useGraphElements.js:139` — Hardcodes '#0f4c75' placeholder-color checks instead of hasExplicitColor/DEFAULT_NODE_COLOR
+
+_Category: consistency · group: composables-A_
+
+buildElements repeats `parentNode.color !== '#0f4c75'` three times (lines 139, 142, 148) as a magic literal, and useGraphInit.js line 123 does the same for person nodes. src/utils/nodeColor.js explicitly declares itself the 'single source of truth' for this rule and exports `hasExplicitColor(node)` and `DEFAULT_NODE_COLOR`; the sibling composable useColorInheritance.js already uses it. If the placeholder color ever changes, the graph view silently diverges from the cards view. (Also: the buildElements JSDoc omits the `ancestorColor` and `inheritColors` options it destructures.)
+
+**Fix:** Replace the literal comparisons in useGraphElements.js and useGraphInit.js with `hasExplicitColor(...)` / `DEFAULT_NODE_COLOR` from ../utils/nodeColor.js, and document the two missing options in the buildElements JSDoc.
+
+### `src/composables/useGraphLayout.js:524` — applyRadialSettings ignores the user's iterations setting and diverges from getLayoutOptions
+
+_Category: consistency · group: composables-B_
+
+`applyRadialSettings()` builds an inline cose-bilkent config with `numIter: 2500` hardcoded and `gravityRange: 3.8`, while `getLayoutOptions()` for the same radial mode uses `numIter: radialSettings.iterations` and `gravityRange: 10`. GraphControls exposes an "Iterations" slider (GraphControls.vue:214-217) and the Apply button calls `layout.applyRadialSettings()` (GraphView.vue:790), so the slider's iterations value is silently ignored on Apply but honored on re-layout — two divergent radial configs for the same settings.
+
+**Fix:** Build the Apply config from `getLayoutOptions('radial')` (spreading in randomize:false and gravityCenter) so both paths share one source of truth, and pass radialSettings.iterations through.
+
+### `src/composables/useGraphOperations.js:90` — insertBetween failures are swallowed into an error ref nobody reads
+
+_Category: correctness · group: composables-B_
+
+`catch (e) { error.value = e.message }` writes to the composable-local `error` ref, but the only consumer (App.vue:597-605) destructures just `{ saveNodePosition, insertBetween }`; `graphOps.error` is never rendered or watched anywhere. If unlinkNodes/createNode/moveNode fails mid-sequence, the user gets no feedback and the graph may be left half-mutated (e.g. link removed but new node not created). App.vue explicitly migrated node-operation failures to `handleError` toasts (comment at App.vue:~289: sticky error ref "replaced the whole view with a banner"), so this path is also inconsistent with the sibling pattern.
+
+**Fix:** Accept a handleError callback (like useGraphUpdate/useInlineEdit do) and call it in the catch, or rethrow and let the caller surface it; drop the dead `error` ref.
+
+### `src/composables/useGraphSelection.js:85` — useGraphSelection() composable is never instantiated; GraphView re-implements its logic inline
+
+_Category: dead-code · group: composables-B_
+
+Grep across src/ and electron/ shows `useGraphSelection(` is never called in production or tests (useGraphEvents.test.js only vi.mocks the module). Only the standalone exports `updateHtmlLabelSelectionFromIds`, `updateHtmlLabelsFromCySelection`, `centerOnNode`, `isNodeVisible` are used (GraphView.vue, useGraphEvents.js). Meanwhile GraphView.vue:675-707 re-implements `syncSelectionToCy` and `syncSingleSelectionToCy` line-for-line inline in its `props.selectedIds`/`props.selectedId` watchers (same isSelected data sync, same set-equality check, same unselect/select loop). This is exactly the duplicated-parallel-path situation the codebase aims to avoid.
+
+**Fix:** Have GraphView call `useGraphSelection({ getCy })` and use `syncSelectionToCy`/`syncSingleSelectionToCy` in its watchers, or delete the composable wrapper and keep only the standalone functions.
+
+### `src/composables/useModalController.ts:97` — All useModalController methods are production-dead; toggleSnapshots/toggleLostFound duplicate useMaintenanceDialogs
+
+_Category: dead-code · group: composables-B_
+
+App.vue:92-93 is the only production consumer and takes only the refs: `const { addNodeModal, showShortcutsModal, showOnboarding, showSettings, showSnapshotList, showLostFound } = useModalController()`, then mutates them directly (`showShortcutsModal.value = true` at App.vue:726, `addNodeModal.visible = false` at :1025, `@close="showOnboarding = false"` at :1072). The methods `showAddNodeModal`, `closeAddNodeModal`, `openShortcutsModal`, `closeShortcutsModal`, `openOnboarding`, `closeOnboarding`, `openSettings`, `closeSettings`, `toggleSnapshots`, `toggleLostFound` and the options `loadSnapshots`/`loadOrphanedNodes` are called only from src/**tests**/useModalController.test.js. Worse, `toggleSnapshots`/`toggleLostFound` here duplicate useMaintenanceDialogs.js:63-71 (the versions actually bound in the template at App.vue:881/884) with divergent behavior: this version loads snapshots only when opening, the live version loads on every toggle. Note App.vue's actual `showAddNodeModal` comes from useNodeCreation, a third implementation.
+
+**Fix:** Either make App.vue use the controller methods (and delete the duplicates in useMaintenanceDialogs), or strip useModalController down to the plain refs it actually provides and delete the unused methods/options plus their test-only coverage.
+
+### `src/composables/useNodeActionsUI.ts:479` — deleteSelectedNodes duplicates deleteMultipleNodes but drops the confirm() and needs-navigation handling
+
+_Category: consistency · group: composables-B_
+
+`deleteSelectedNodes()` (keyboard Cmd/Ctrl+Delete path, wired in useKeyboardShortcuts) calls `nodeOps.deleteMultipleNodes` directly, bypassing the sibling `deleteMultipleNodes()` (line 226) which (a) asks `confirm(\`Delete N nodes?\`)` when more than one node is selected and (b) checks whether the current container or a breadcrumb ancestor is among the deleted ids and navigates back. So deleting 10 selected nodes via keyboard shows no confirmation, and if the current container is among the selection (possible in graph view where the container/root node is rendered and selectable via showRootNode), the view is left showing a deleted container. The two functions are otherwise near-identical duplicated logic.
+
+**Fix:** Make deleteSelectedNodes delegate: `await deleteMultipleNodes([...selectedIds.value])` then clear selectedIds, so confirm and navigation behavior stay in one place.
+
+### `src/composables/useNodeOperations.ts:338` — moveNode pushes undo command before the API call, so failed moves land on the undo stack
+
+_Category: correctness · group: composables-C_
+
+In moveNode: `if (oldParentId !== undefined && pushCommand) { pushCommand(new MoveCommand({ nodeId, oldParentId, newParentId })) } await api.moveNode(nodeId, newParentId)`. If api.moveNode throws, withProcessing catches the error and returns false, but the MoveCommand has already been pushed. Undo then targets a move that never happened, and redo would execute the previously failed move. Every other operation in this file (createNode, updateNode, deleteNode, toggleComplete, linkNodes, unlinkNodes) pushes its command only after the API call succeeds.
+
+**Fix:** Move the pushCommand call after `await api.moveNode(...)`, matching the pattern used by all sibling operations.
+
+### `src/composables/useOllama.js:105` — research() ignores the openaiSkipSslVerification setting that improveNotes() honors
+
+_Category: correctness · group: composables-C_
+
+getProviderConfig() for the OpenAI provider returns `{ provider, model, endpoint, apiKey }` and omits `skipSslVerification`, while improveNotes() explicitly passes `skipSslVerification: openaiSkipSslVerification.value` to api.openaiGenerate. So a user on a self-signed-cert OpenAI-compatible endpoint can generate/improve notes but agent research fails with an SSL error. Note electron/ipc/llmProvider.js already forwards `skipSslVerification` if present in options, but electron/ipc/agent.js also destructures options without it, so both layers must pass it through.
+
+**Fix:** Add `skipSslVerification: openaiSkipSslVerification.value` to the OpenAI branch of getProviderConfig(), and forward it in electron/ipc/agent.js's AGENT_RESEARCH handler into the runAgentLoop/fallbackResearch options.
+
+### `src/composables/useSpreadsheetClipboard.js:135` — pasteSelection does not handle CRLF line endings or a trailing newline
+
+_Category: correctness · group: composables-C_
+
+`const lines = text.split('\n')` — clipboard text copied from Excel/Windows apps uses \r\n, so every pasted cell value ends with a stray `\r` (also mis-detected as non-formula content, and stored via emit('cell-change')). Additionally, Excel always appends a trailing newline, so the last element of `lines` is an empty string that writes `''` into the row below the paste target, silently clearing an existing cell.
+
+**Fix:** Normalize before splitting: `text.replace(/\r\n?/g, '\n').replace(/\n$/, '').split('\n')`.
+
+### `src/composables/useTableDrag.js:13` — Drag ghost injects unescaped node.title (and node.color) via innerHTML
+
+_Category: correctness · group: composables-D_
+
+createDragGhost builds the ghost with `ghost.innerHTML = `...<span class="ghost-type" style="background: ${node.color || '#0f4c75'}">...</span><span class="ghost-title">${node.title}</span>...``. node.title is user-controlled content interpolated into HTML without escaping, so a title like `<img src=x onerror=...>`executes script in the Electron renderer the moment the row is dragged. This is also inconsistent with the codebase's own convention: src/utils/html.js provides escapeHtml and useGraphInit.js:141 uses`escapeHtml(n.title)` when building node HTML. node.color in a style attribute is a secondary injection vector.
+
+**Fix:** Build the ghost with document.createElement/textContent (as the same file already does for .ghost-action via textContent), or wrap title with escapeHtml from ../utils/html.js and set color via ghost.style rather than string interpolation.
+
+### `src/composables/useTaskFiltering.js:53` — Container filtering discards the first fetch and re-fetches ancestors per task twice (N+1 twice)
+
+_Category: design · group: composables-D_
+
+When containerId is set, loadTasks fetches tasks with `params.parentId = containerId` (direct children only), then filterTasksByContainer immediately re-fetches ALL workspace tasks with identical completed/importance params (duplicated param-building code) and filters by subtree, so the first result is discarded except as an error fallback. Inside filterTasksByContainer, `descendantIds.has(task.id)` from api.getDescendants already fully determines subtree membership, yet the code then calls api.getAncestors once per preliminary task ('Also need to check full ancestry') — redundant N+1. buildTaskPaths then calls api.getAncestors _again_ for every task. Net effect: two task-list fetches plus up to 2 getAncestors IPC round-trips per task per load.
+
+**Fix:** Skip the parentId-constrained fetch when containerId is set, drop the redundant per-task ancestry check in filterTasksByContainer (the descendant-set test is sufficient), and reuse the ancestors fetched in buildTaskPaths for both path building and membership.
+
+### `src/composables/useWorkspace.ts:149` — deleteCurrentWorkspace calls api.getRoots outside the try/catch; a rejection escapes unhandled
+
+_Category: correctness · group: composables-D_
+
+`const roots = await api.getRoots(currentWorkspace.value as number)` runs before the try block, so if getRoots rejects (IPC failure, invalid workspace id) the promise rejection propagates to the caller instead of going through handleError like every other failure path in this file (loadWorkspaces, createWorkspace, renameWorkspace, and the deleteWorkspace call four lines below all wrap in try { } catch (e) { handleError(...) }). The function is typed `Promise<boolean>` and callers expect a boolean, not a throw.
+
+**Fix:** Move the getRoots call and the roots check inside the existing try block (returning false via the catch/handleError path).
+
+### `src/services/api.ts:38` — ElectronAPI interface omits 15 methods exposed by preload.js
+
+_Category: consistency · group: services-stores-utils_
+
+The `declare global` Window.electronAPI type (interface ElectronAPI) is missing methods that electron/preload.js exposes and that renderer code calls: `openExternal` (used in src/utils/markdown.js:92), `openDetachedWindow`/`closeDetachedWindow` (src/composables/useDetachedWindow.js:40), `onBeforeQuit` (src/composables/useAppLifecycle.js:83), plus `getSetting`, `getAllSettings`, `setSetting`, `setSettings`, `deleteSetting`, `getVersion`, `repairWorkspaces`, `onMenuUndo`, `onMenuRedo`, `onOpenSettings`, `onShowShortcuts`. These calls only type-check because their callers are .js files; any TS/vue-tsc consumer would fail, and the declared contract no longer reflects the actual IPC surface — exactly the layer drift the architecture is supposed to prevent.
+
+**Fix:** Add the missing method signatures to the ElectronAPI interface (or generate the interface from preload.js) so the declared Window.electronAPI matches what preload exposes.
+
+### `src/services/api.ts:76` — importJSON/importCSV types do not match the actual result shape or workspace id type
+
+_Category: typing · group: commands-and-small-components_
+
+The declarations `importJSON(data: object, targetParentId?: number | null, workspaceId?: number | null): Promise<{ imported: number }>` (and the same for importCSV) are wrong on two counts. (1) The electron handler (electron/database/export.js:292/391) actually returns `{ nodesImported, linksCreated }` / `{ nodesImported }`; the fields DataSettings.vue:61 reads (`result.nodesImported`, `result.linksCreated`) do not exist on the declared type — it only type-checks because DataSettings is a JS SFC. (2) workspaceId is typed `number | null` but workspace ids are TEXT primary keys ('work', 'private'); DataSettings passes props.currentWorkspace, a string.
+
+**Fix:** Declare the real return type `{ nodesImported: number; linksCreated?: number }` and type workspaceId as `string | null` (or the shared WorkspaceId type from useWorkspace.ts).
+
+### `src/services/api.ts:89` — Workspace IDs typed as number but are strings at runtime
+
+_Category: typing · group: services-stores-utils_
+
+The ElectronAPI interface and Api implementations type workspace IDs as `number | null` throughout (`getWorkspaces(): Promise<(Workspace|null)[]>`, `getWorkspace(id: number)`, `deleteWorkspace(id: number)`, every `workspaceId?: number | null` param). But workspace IDs are actually strings: electron/database/workspaces.js:36 generates slug IDs (`data.name.toLowerCase().replace(...)`), src/utils/demoData.json uses `"id": "demo"`, and useSettings persists `'work'` as the default workspace. Consumers already have to lie to the compiler — src/composables/useWorkspace.ts:149 does `api.getRoots(currentWorkspace.value as number)`. Root cause is `id: number` in src/types/workspace.ts:10, propagated through every signature in this file.
+
+**Fix:** Change the workspace ID type to `string` (or a `WorkspaceId = string` alias) in src/types/workspace.ts and all workspaceId parameters in api.ts, then remove the `as number` casts in useWorkspace.ts.
+
+### `src/services/api.ts:522` — webApi reimplements ollama/openai clients, duplicating and drifting from the service modules
+
+_Category: consistency · group: services-stores-utils_
+
+`webApi.ollamaGenerate`, `ollamaTestConnection`, `ollamaListModels`, `openaiGenerate`, `openaiTestConnection`, and `openaiListModels` are inline re-implementations of src/services/ollamaService.js and src/services/openaiService.js. They have already drifted: the api.ts copy sends `num_ctx` while ollamaService.generate does not; error handling differs (api.ts openaiGenerate special-cases 401, the service does not; the service's ECONNREFUSED mapping is absent in api.ts). Meanwhile webApi.agentResearch (line 643) does delegate to agentService, which itself calls those same service modules — so web mode runs two different Ollama/OpenAI client implementations depending on the code path.
+
+**Fix:** Have the webApi methods delegate to ollamaService/openaiService (e.g. `ollamaGenerate: options => ollamaService.generate(options)`), keeping one client implementation per provider in the renderer.
+
+### `src/services/ollamaService.js:46` — ollamaService.generate silently drops contextSize
+
+_Category: correctness · group: services-stores-utils_
+
+`generate({ prompt, content, model, endpoint })` does not accept or forward `contextSize`, so no `options: { num_ctx }` is sent. But agentService's `generateFinalSummary` (src/services/agentService.js:160-169) spreads `buildProviderOptions` which includes `contextSize` for ollama — it is silently discarded. So the agent loop honors the configured context window (generateWithTools sends `num_ctx: contextSize || 32768`) while the final-summary call falls back to Ollama's small default context, likely truncating the very conversation it is asked to summarize. The webApi copy in api.ts:522 does send `num_ctx`, confirming the intent.
+
+**Fix:** Add `contextSize` to `generate`'s destructured options and pass `options: { num_ctx: contextSize || 32768 }` in the request body, matching `generateWithTools`.
+
+### `src/types/components.ts` — Entire file unused — all 24 exported prop/emit types have zero consumers and have drifted from the real components
+
+_Category: dead-code · group: app-shell-themes-types_
+
+Grepped every export (DetailPanelProps ... DetailPanelExposed) across src/ and electron/: zero references outside src/types/ (only the barrel re-export). The components are plain-JS .vue files that define props inline, and the declared types have already drifted from reality — e.g. BreadcrumbsProps declares `path: Node[]` but App.vue passes `:breadcrumbs` (App.vue:899, Breadcrumbs takes a `breadcrumbs` prop); SpotlightSearchProps declares initialQuery/mode/filterType/workspaceId while the actual component receives search-mode, search-query, selected-result-index, search-results, recent-items, view-mode, has-more-results, is-loading-more (App.vue:1050-1059). These are aspirational documentation types that nothing checks, and they now misdocument the components.
+
+**Fix:** Delete src/types/components.ts and its barrel exports (relocating RadialSettings, which is the correct type for Node.graph_physics), or actually wire the types into the components with defineProps<...>() so vue-tsc keeps them honest.
+
+### `src/types/node.ts:59` — notes_sensitive typed as string | null but is a boolean flag
+
+_Category: typing · group: app-shell-themes-types_
+
+`notes_sensitive: string | null` with docstring "Sensitive notes (encrypted storage)". The field is actually a boolean visibility flag: the DB column is `INTEGER DEFAULT 0` (electron/database/migrations.js:22) and the row mapper coerces it with `notes_sensitive: Boolean(row.notes_sensitive)` (electron/database/index.js:268). Every consumer treats it as a boolean (DetailPanel.vue:373 `editedNode.value.notes_sensitive = !editedNode.value.notes_sensitive`, GraphEditModal.vue:107 `:checked="editedNode.notes_sensitive"`, App.vue:229 truthiness). Same wrong type on UpdateNodeData at line 144. Any TS consumer trusting this type would write string handling that is wrong at runtime; vue-tsc doesn't catch it only because the consumers are JS.
+
+**Fix:** Change both occurrences to `notes_sensitive: boolean` (and `notes_sensitive?: boolean` in UpdateNodeData) and fix the docstring to "Whether notes are marked sensitive (hidden when hide-sensitive is on)".
+
+### `src/types/node.ts:115` — graph_physics typed boolean but is a physics-settings object
+
+_Category: typing · group: app-shell-themes-types_
+
+`graph_physics: boolean` with docstring "Whether physics simulation is enabled". The column is `TEXT DEFAULT NULL` holding JSON (migrations.js:42), the DB mapper does `graph_physics = JSON.parse(row.graph_physics)` (electron/database/index.js:258), and GraphView spreads it as an object of radial settings: `{ ..._radialSettings, ...props.parent.graph_physics }` (GraphView.vue:179) and saves it via `JSON.stringify(v)` of a settings object (GraphView.vue:428). Same wrong type in UpdateNodeData (line 167). The correct shape already exists in this module as `RadialSettings` (components.ts:56).
+
+**Fix:** Type it as `RadialSettings | null` (moving RadialSettings next to it if components.ts is removed) and fix the docstring.
+
+### `src/types/settings.ts:10` — ViewMode contains phantom modes 'list' and 'table', and a second divergent ViewMode exists
+
+_Category: consistency · group: app-shell-themes-types_
+
+`export type ViewMode = 'graph' | 'cards' | 'list' | 'table' | 'timeline' | 'persons' | 'tasks' | 'trash' | 'tree'`. The actual modes are graph, cards, tree, tasks, timeline, persons, trash (src/utils/viewConfig.js ids; ViewRenderer.vue branches on exactly these seven). 'list' and 'table' are handled nowhere — the table UI is mode 'tree'. Additionally useViewStateController.ts:7 declares its own conflicting `ViewMode` ('graph' | 'list' | 'cards' | 'trash' | 'timeline' | 'tasks' — missing 'tree'/'persons') instead of importing this one, so the two typed definitions disagree with each other and both disagree with runtime.
+
+**Fix:** Derive one ViewMode union matching viewConfig.js ids ('graph' | 'cards' | 'tree' | 'tasks' | 'timeline' | 'persons' | 'trash'), export it from types, and make useViewStateController import it instead of redefining it.
+
+### `src/utils/uiConstants.js:27` — STORAGE_KEYS registry is bypassed by literals and contains a stale key value
+
+_Category: consistency · group: services-stores-utils_
+
+STORAGE_KEYS is documented as "centralized to prevent typos", but only useGraphSettings.ts and useSidebar.ts import it. useSettings.ts hardcodes the same strings as literals ('graphcore-viewMode', 'graphcore-workspace', 'graphcore-hideSensitive', 'graphcore-hideCompleted', 'graphcore-openDetailFullscreen', 'graphcore-hoverPreview', 'graphcore-sidebarPinned', ...), as do useWorkspace.ts:66 and App.vue:438 ('graphcore-containerId'). Worse, one registry entry is now wrong: STORAGE_KEYS.GRAPH_NOTES_PREVIEW_LENGTH = 'graph-notes-preview-length' while the actual persisted key is 'graphcore-graphNotesPreviewLength' (useSettings.ts:278) — anyone "fixing" a call site to use the constant would silently orphan users' saved setting. GRAPH_ROOT_MAX_DEPTH ('graphcore-graphRootMaxDepth') is referenced nowhere at all, neither via the constant nor as a literal.
+
+**Fix:** Make useSettings.ts/useWorkspace.ts/App.vue import STORAGE_KEYS instead of literals, correct GRAPH_NOTES_PREVIEW_LENGTH to 'graphcore-graphNotesPreviewLength', and delete GRAPH_ROOT_MAX_DEPTH.
+
+## Low severity (28)
+
+### `electron/preload.js:84` — repairWorkspaces is exposed but never called from the renderer
+
+_Category: dead-code · group: electron-core_
+
+`repairWorkspaces: () => ipcRenderer.invoke('db:repairWorkspaces')` (preload.js:84) is handled in electron/ipc/database.js:186 and implemented in electron/database/tree.js:181, but no file in src/ (including tests, and the raw string 'db:repairWorkspaces') ever calls it. It is reachable only by manually typing window.electronAPI.repairWorkspaces() in devtools. Exposed-but-never-called IPC surface per the review rules.
+
+**Fix:** Wire it to a maintenance action in the Settings/Data panel (it sits next to backup/restore which are used), or remove the preload exposure and channel; if devtools-only use is intentional, document that in a comment.
+
+### `electron/preload.js:135` — getVersion is defined, handled, and exposed but never called by the renderer
+
+_Category: dead-code · group: electron-core_
+
+The full chain exists — APP_GET_VERSION in ipcChannels.js:168, ipcMain.handle(APP_GET_VERSION, ...) in main.js:229, and `getVersion: () => ipcRenderer.invoke('app:getVersion')` in preload.js:135 — but grep across all of src/ (including src/**tests** and the raw string 'app:getVersion') finds zero consumers. Per the project's layer-sync rule, an exposed-but-never-called channel is dead IPC surface.
+
+**Fix:** Either use it (e.g. show the app version in the Settings/About UI) or remove the channel from preload.js, main.js, and ipcChannels.js.
+
+### `src/App.vue:200` — deleteTag bypasses the deleteNode wrapper and skips view/sidebar refresh
+
+_Category: consistency · group: app-shell-themes-types_
+
+`deleteTag` calls `api.deleteNode(tag.id)` directly and afterwards only runs `loadTags()`. Every other deletion path goes through `deleteNode` from useNodeActionsUI, which pushes an undo command and triggers refreshAfterDelete (children + sidebar tree + recent/favorites). Tag nodes are ordinary nodes living in the tree, so if the deleted tag is visible in the current container or the sidebar tree, it remains on screen until some other action reloads data; the deletion is also excluded from undo history unlike all sibling delete handlers.
+
+**Fix:** Route tag deletion through the shared `deleteNode` action (or at least call refreshAfterDelete) so tag deletes behave like every other node deletion.
+
+### `src/__tests__/useGraphEvents.test.js:5` — vi.mock path resolves to nonexistent module, mock is ineffective
+
+_Category: correctness · group: tests-B_
+
+`vi.mock('./useGraphSelection.js', () => ({ updateHtmlLabelsFromCySelection: vi.fn() }))` resolves the path relative to the test file, i.e. `src/__tests__/useGraphSelection.js`, which does not exist. The unit under test imports `./useGraphSelection.js` relative to `src/composables/` (verified: `src/composables/useGraphEvents.js` line 2 is `import { updateHtmlLabelsFromCySelection } from './useGraphSelection.js'`). Because the mocked path never matches the imported module, the factory is silently never used and the real `updateHtmlLabelsFromCySelection` runs in every test. The tests happen to pass anyway, so the dead mock hides that the real dependency is being exercised.
+
+**Fix:** Change the mock path to '../composables/useGraphSelection.js' (as the sibling useDetailController.test.js correctly does with '../composables/useDetailResize.js'), or delete the mock if exercising the real function is intended.
+
+### `src/__tests__/useMentions.test.js:17` — vi.mock('./useErrorHandler') resolves to wrong path, mock is ineffective
+
+_Category: correctness · group: tests-B_
+
+`vi.mock('./useErrorHandler', () => ({ useErrorHandler: () => ({ handleError: vi.fn() }) }))` resolves relative to the test file to `src/__tests__/useErrorHandler`, which does not exist. `src/composables/useMentions.js` imports `./useErrorHandler` relative to `src/composables/`, so the real error handler (which calls the real `showToast`) is used in all tests. The mock is silently dead; only the fact that no test exercises an error path keeps this invisible.
+
+**Fix:** Change the path to '../composables/useErrorHandler' so the mock actually applies (matching the correct pattern in useDataLoading.test.js, which mocks '../composables/useErrorHandler.js').
+
+### `src/__tests__/useTreeExpand.test.js:226` — saveExpandedState test never calls saveExpandedState
+
+_Category: correctness · group: tests-C_
+
+The 'saveExpandedState' describe block destructures `const { toggleExpand, saveExpandedState } = useTreeExpand({ workspace })` but only invokes `toggleExpand(1); toggleExpand(2)` before asserting localStorage contents. The assertion passes only because toggleExpand internally calls saveExpandedState (useTreeExpand.js lines 43/19), so the named unit is never exercised directly and the test is a near-duplicate of 'should persist state to localStorage' at line 75. If saveExpandedState were broken when called standalone (e.g. after setExpandedIds), this suite would not catch it.
+
+**Fix:** Mutate state without triggering the implicit save (or clear the mock store after toggling), then call saveExpandedState() explicitly and assert the stored payload; or delete the block as a duplicate.
+
+### `src/commands/CreateCommand.js:15` — Redo does not restore the linkedToId link that undo removes
+
+_Category: correctness · group: commands-and-small-components_
+
+undo() calls `api.unlinkNodes(this.nodeId, this.linkedToId)` before deleting, but execute() (used for redo) only recreates the node via `api.createNode(...)` and never re-links to linkedToId. After undo -> redo, the link is permanently lost, yet the command still holds linkedToId, so a second undo will call unlinkNodes for a link that no longer exists. Note the feature is currently latent: grep shows the only production construction site (src/composables/useNodeOperations.ts:205) never passes linkedToId — it is exercised only by tests (src/**tests**/commands/CreateCommand.test.js, commandFactory.test.js), so linkedToId is effectively a test-only code path.
+
+**Fix:** In execute(), after createNode, call `if (this.linkedToId) await api.linkNodes(this.nodeId, this.linkedToId)` to make execute/undo symmetric — or drop the linkedToId option entirely since no production caller uses it.
+
+### `src/components/GraphView.vue:268` — Collapse-button document listener is never removed and breaks collapse after remount
+
+_Category: correctness · group: components-A_
+
+`attachCollapseHandlers()` adds an anonymous capture-phase `mousedown` listener on `document`, guarded only by the per-instance flag `globalCollapseHandlerAttached`, and `onUnmounted` never removes it. When GraphView unmounts (e.g. switching graph → cards → graph), the stale listener stays registered: it still matches `.collapse-btn`, calls `e.preventDefault()/stopPropagation()/stopImmediatePropagation()`, but its closed-over `cy` was set to null on unmount so `toggleNodeCollapse` is a no-op. Because it was registered first, `stopImmediatePropagation()` prevents the new instance's listener from ever running — collapse buttons stop working after the first remount, and one listener leaks per mount. The comment at line 105 ('Named handlers so they can be removed on unmount') shows the file's own convention that this function violates.
+
+**Fix:** Store the handler in a named function/variable, add it in onMounted (or attachCollapseHandlers), and remove it in onUnmounted like the other document listeners; drop the misleading 'global' guard.
+
+### `src/components/GraphView.vue:550` — Type-filter wiring to GraphControls is dead: prop and events do not exist on the child
+
+_Category: dead-code · group: components-A_
+
+GraphView binds `:visible-types="visibleTypes"` and `@toggle-type`, `@select-all-types`, `@select-no-types` on <GraphControls> (template lines 777, 787-789), but GraphControls.vue declares neither a `visibleTypes` prop nor any of those emits — type filtering moved to TypeFilterDropdown.vue, which talks to the filters store directly. Consequently `toggleTypeFilter`, `selectAllTypes`, and `selectNoTypes` (lines 550-558) can never be invoked, and the prop lands as an unused fallthrough attribute.
+
+**Fix:** Delete the three handler functions and the four stale bindings on <GraphControls>.
+
+### `src/components/PersonsView.vue:96` — Sorting by the Organization column compares the deprecated, always-empty 'organization' field
+
+_Category: correctness · group: components-B_
+
+personsGridColumns.js marks column id 'organization' sortable, and sortedPersons sorts via `a[sortBy.value]`. But savePerson always writes `organization: ''` ("Deprecated - now using linked organizations") and the table cell displays getOrganizationsForPerson() from links instead. So clicking the Organization header sorts on an empty string for every row — a no-op that doesn't match what's displayed.
+
+**Fix:** Sort by the joined linked-organization titles for that column, or mark the column sortable: false.
+
+### `src/components/PersonsView.vue:372` — Ternary with identical branches breaks ArrowDown bound when an exact org match exists
+
+_Category: correctness · group: components-B_
+
+`const max = exactOrgMatch.value ? filteredOrganizations.value.length : filteredOrganizations.value.length` — both branches are the same. When an exact match exists, the '+ Create' option is not rendered (v-if="!exactOrgMatch"), yet ArrowDown can still move selectedOrgIndex to `length` (the nonexistent create-option slot); pressing Enter there does nothing (index < length is false and the create branch is guarded by !exactOrgMatch), so keyboard selection dead-ends past the last visible option.
+
+**Fix:** Use `const max = exactOrgMatch.value ? filteredOrganizations.value.length - 1 : filteredOrganizations.value.length`.
+
+### `src/components/TypeFilterDropdown.vue:24` — CSS variable --type-org-text is never defined; organization indicator renders unstyled
+
+_Category: correctness · group: components-C_
+
+The organization entry uses `color: 'var(--type-org-text)'`, but no stylesheet defines `--type-org-text` (grep over src/ finds no definition); the defined variable is `--type-organization-text` (src/style.css:66), which every other type entry's naming pattern matches. The organization type-indicator swatch in the dropdown therefore gets an empty background. The same undefined variable is also referenced in src/style.css:1291 and src/components/CardsView.css:892 (outside this module group).
+
+**Fix:** Change to var(--type-organization-text), or add a --type-org-text alias in style.css and fix the other two references.
+
+### `src/components/config/tableFormatters.js:13` — formatDate duplicated in four places with divergent empty-value behavior
+
+_Category: consistency · group: commands-and-small-components_
+
+tableFormatters.js formatDate returns '' for a missing date; src/composables/useTaskFiltering.js:308 has an identical split('T')[0] copy that returns '-'; src/utils/formatting.js:22 exports another formatDate; src/utils/tooltip.js:20 has a private fourth. TableView and TasksView therefore render missing dates differently ('' vs '-'), and any future format change must be made in four places.
+
+**Fix:** Consolidate on one exported formatDate (src/utils/formatting.js is the natural home) with an explicit emptyPlaceholder argument, and import it from tableFormatters, useTaskFiltering, and tooltip.
+
+### `src/composables/useAutocomplete.js` — Entire composable is unused and its docstring names non-existent consumers
+
+_Category: dead-code · group: composables-A_
+
+`useAutocomplete` has zero references anywhere in src/, electron/, or src/**tests** (grep confirmed; only the defining file matches). The header docstring claims 'Used by PersonDetailForm (organization linking) and OrganizationDetailForm (member linking)', but neither component exists in the tree (only PersonsView.vue). The whole file is a dead, untested code path.
+
+**Fix:** Delete src/composables/useAutocomplete.js, or if autocomplete is planned for PersonsView/DetailPanel, wire it in and add tests; at minimum fix the docstring.
+
+### `src/composables/useContextMenu.ts:37` — MoveToWorkspaceParams.workspaceId typed number but workspace ids are strings
+
+_Category: typing · group: commands-and-small-components_
+
+`workspaceId: number` in MoveToWorkspaceParams (line 37) and `onMoveToWorkspace?: (nodeId: number, workspaceId: number)` (line 71) contradict the rest of the codebase: workspaces.id is TEXT in SQLite, useWorkspace.ts defines `WorkspaceId = string | number`, and WorkspaceList.vue emits ws.id strings ('work', 'private'). The mismatch is invisible to vue-tsc only because NodeContextMenu.vue forwards the value through an untyped JS emit chain.
+
+**Fix:** Use the WorkspaceId type (string | number) from useWorkspace.ts in both the interface and the callback signature.
+
+### `src/composables/useDetachedWindow.js:44` — closeDetachedWindow never called; window:closeDetached IPC chain is renderer-unreachable
+
+_Category: dead-code · group: composables-A_
+
+`closeDetachedWindow` has no callers in any component or test (App.vue destructures only openDetachedWindow/broadcastNodeUpdate/broadcastNodeDelete/onMessage; DetachedView uses broadcast + onMessage). The full IPC chain exists — WINDOW_CLOSE_DETACHED defined in electron/ipcChannels.js:144, handled in electron/ipc/window.js:123, exposed in electron/preload.js:108 — but per the project's IPC-sync rule an exposed channel that is never invoked from the renderer is a real finding: the only renderer call site is this dead wrapper.
+
+**Fix:** Either wire a close action (e.g. closing a detached node from the main window) to closeDetachedWindow, or remove the wrapper together with the preload exposure, handler, and channel constant.
+
+### `src/composables/useDetachedWindow.js:83` — broadcastNavigation is never called and no receiver handles 'navigate' messages
+
+_Category: dead-code · group: composables-A_
+
+`broadcastNavigation` is exported from useDetachedWindow but grep over src/, electron/ and src/**tests** finds no caller ('navigate' hits elsewhere are unrelated Vue component events). Additionally, neither of the two onMessage consumers (useAppLifecycle.setupDetachedMessageHandler, which handles only 'node-updated' and 'node-deleted', nor DetachedView.vue) handles a message with `type: 'navigate'`, so even if it were called the broadcast would be ignored.
+
+**Fix:** Remove broadcastNavigation (and its return-object entry), or implement the 'navigate' message handling it was designed for.
+
+### `src/composables/useGraphLayout.js:2` — Unused constants and unreachable LAYOUTS.relax / LAYOUTS.continuous entries
+
+_Category: dead-code · group: composables-B_
+
+`EDGE_LENGTH` (line 2), `NODE_COUNT_THRESHOLDS` (line 11) and `NODE_SPACING` (line 17) are module-private and referenced nowhere else in the file. `LAYOUTS.relax` (line 289, an exact duplicate of LAYOUTS.tree) and `LAYOUTS.continuous` (line 304) are unreachable: layout modes are only ever set to tree/horizontal/radial/grid/circle (GraphControls.vue:36-85), and `relaxLayout()`/`startContinuousRelax()` build their own inline cola configs instead of using LAYOUTS.continuous. `MIN_NODE_WIDTH`/`MIN_NODE_HEIGHT` are used only inside the dead `continuous` entry. Only useGraphLayout.test.js:99-107 asserts these entries exist, which keeps them alive despite having no runtime path.
+
+**Fix:** Delete EDGE*LENGTH, NODE_COUNT_THRESHOLDS, NODE_SPACING, LAYOUTS.relax and LAYOUTS.continuous (with MIN_NODE*\* if then unused), and update the test that pins them; or make relaxLayout/startContinuousRelax actually consume the LAYOUTS entries.
+
+### `src/composables/useNodePositions.js:165` — The useNodePositions() composable wrapper is never used anywhere
+
+_Category: dead-code · group: composables-C_
+
+Grep across src/, electron/, and src/**tests** shows only two consumers of this module: GraphView.vue imports the standalone functions (getPositionsKey, loadNodePositions, saveNodePositions) directly, and useGraphUpdate.js imports findSmartPosition. The wrapper `export function useNodePositions(options = {})` (lines 165-194), including its getKey/load/save/findPosition closures, is never called by any file or test.
+
+**Fix:** Delete the useNodePositions() wrapper and keep the module as plain utility exports (or rename the file to utils/ accordingly).
+
+### `src/composables/useNodeTable.js` — cellsAsMatrix, saveCells, clearAllCells, addRows, addColumns, getColumnName have no production callers; getColumnName is a verbatim duplicate
+
+_Category: dead-code · group: composables-C_
+
+The only production consumer of useNodeTable() is DetailPanel.vue, which destructures table, cells, hasTable, loadTable, createTable, updateTable, deleteTable, saveCell, saveCellStyle. Grepping src/, electron/, and src/**tests** shows cellsAsMatrix, saveCells, clearAllCells, addRows, addColumns, and getColumnName are referenced only by useNodeTable.test.js. Moreover, getColumnName (lines 277-285) is character-for-character identical to getColumnName in src/utils/spreadsheetFormulas.js (which NodeSpreadsheet.vue uses), and TableMiniature.vue carries a third inline copy — three implementations of the same A..Z/AA.. helper.
+
+**Fix:** Remove the production-unused API surface (and its tests) or wire the spreadsheet UI to actually use it; either way, delete the duplicated getColumnName and import the one from utils/spreadsheetFormulas.js.
+
+### `src/composables/useSettings.ts:244` — initSettings unconditionally replaces an already-created settingsInstance, orphaning early callers' refs
+
+_Category: correctness · group: composables-C_
+
+useSettings() has a fallback that creates settingsInstance (from localStorage, since settingsCache is still null) when called before initSettings completes. initSettings then executes `settingsInstance = createSettingsRefs()` unconditionally, replacing that instance. Any component/composable that called useSettings() early keeps refs to the orphaned instance: its watchers still persist writes, but later callers read/write a different set of refs — two disconnected sources of truth for the same settings keys in one app run.
+
+**Fix:** In initSettings, only create the instance if one does not already exist (`if (!settingsInstance) settingsInstance = createSettingsRefs()`), or re-hydrate the existing instance's refs from the freshly loaded cache instead of replacing the object.
+
+### `src/composables/useTaskFiltering.js:16` — getHideSensitive option is accepted, documented, and passed by the consumer but never used
+
+_Category: dead-code · group: composables-D_
+
+`export function useTaskFiltering({ getWorkspaceId, getContainerId, getHideSensitive })` destructures getHideSensitive and the JSDoc documents it, but the function body never references it. TasksView.vue:19 passes `getHideSensitive: () => props.hideSensitive` expecting it to have an effect, and nothing downstream in TasksView applies sensitive handling either. The API name promises behavior that does not exist (naming honesty), and any future reliance on hide-sensitive in the tasks view will silently do nothing. Verified by grep: getHideSensitive appears in this file only at the signature/doc; the only functional use in the codebase is in useNodeTooltip.js.
+
+**Fix:** Either implement the intended behavior (e.g. skip sensitive note content in task rows) or remove the option from the signature, the JSDoc, and the TasksView.vue call site.
+
+### `src/services/nodeCache.js:262` — getNodeCache / resetNodeCache singleton API is completely unreferenced
+
+_Category: dead-code · group: services-stores-utils_
+
+`getNodeCache()` and `resetNodeCache()` (lines 262-275) have zero references in src/, electron/, or src/**tests** — even nodeCache.test.js only tests `createNodeCache`. The one real consumer (src/composables/useDataLoading.ts:80) builds its own instance via `createNodeCache`, so the "default singleton for app-wide use" is dead code, and the module-level `defaultCache` state with it.
+
+**Fix:** Remove getNodeCache, resetNodeCache, and the defaultCache variable; keep createNodeCache as the sole export.
+
+### `src/services/openaiService.js:22` — handleResponseError leaks JSON parse errors on non-JSON error bodies
+
+_Category: correctness · group: services-stores-utils_
+
+In `handleResponseError`, the catch clause is `if (e.message && !e.message.includes('API error')) throw e`. When the server returns a non-JSON error body (e.g. an HTML 502 page from a proxy), `response.json()` throws a SyntaxError like "Unexpected token '<'..."; that message does not contain 'API error', so the parse error is rethrown verbatim and the user sees "Unexpected token '<'" instead of "API error: 502 Bad Gateway". The sibling ollamaService.handleResponseError guards correctly by whitelisting only its own intentional error (`if (e.message.includes('Model not available')) throw e`). Additionally, `new Error(data.error.message || data.error)` yields "[object Object]" when data.error is an object without .message.
+
+**Fix:** Mirror the ollama pattern: mark the intentionally-thrown error (custom class or flag) and only rethrow that, letting parse failures fall through to the generic `API error: <status>` throw. Guard `data.error.message || JSON.stringify(data.error)` for object payloads.
+
+### `src/stores/filters.js` — Seven filters-store members are never used outside the store
+
+_Category: dead-code · group: services-stores-utils_
+
+Grepping all of src/, electron/, and src/**tests** for `filtersStore.<member>` and destructuring shows the only consumed members are visibleTypes, maxDepth, isDirty-setters aside, hasTypeFilter, hiddenTypesCount, syncedFromId, toggleType, setVisibleTypes, setMaxDepth, showAllTypes, syncFromNode. Never referenced anywhere: getters `isTypeVisible` (line 31), `allTypes` (36), `hasDepthFilter` (49), `hasActiveFilter` (54); actions `resetToDefaults` (97, identical effect to showAllTypes plus maxDepth reset) and `filterNodes` (147); and state `isDirty` (21) is written by every action but read by nothing. `filterNodes` also duplicates the type-filter logic that actually runs in src/composables/useNodeFiltering.js:207 (applyTypeFilterRecursive), so the live and dead implementations can drift.
+
+**Fix:** Delete isTypeVisible, allTypes, hasDepthFilter, hasActiveFilter, resetToDefaults, filterNodes, and isDirty (and the isDirty writes in each action), or wire them to real consumers if they were meant to be used.
+
+### `src/types/events.ts` — All 25 event payload types except Position are unused
+
+_Category: dead-code · group: app-shell-themes-types_
+
+Grepped every export (NodeEventPayload, SelectionEventPayload, DragStartEventPayload, ... AIEventPayload) across src/ and electron/: zero usages outside src/types/. Only `Position` is consumed (3 files). The event system in the app passes ad-hoc payloads through Vue emits in JS components; none of these interfaces constrain anything, and like components.ts they can silently drift from the real emit payloads.
+
+**Fix:** Reduce the file to `Position` (or move Position into node.ts/components) and delete the unused payload interfaces plus their barrel exports in index.ts.
+
+### `src/types/node.ts:93` — Node.deleted declares a column that does not exist; has_table is missing
+
+_Category: typing · group: app-shell-themes-types_
+
+`deleted: boolean` ("Soft delete flag") — the nodes table has no `deleted` column; soft delete is implemented purely via `deleted_at TEXT` (electron/database/schema.js:81, all queries filter on `deleted_at IS NULL`). The row mapper spreads raw columns plus explicit conversions and never produces a `deleted` property, so the field is always absent at runtime. Conversely, the mapper does emit `has_table: Boolean(row.has_table)` (electron/database/index.js:267), used by CardsView.vue:382, but Node omits it (as well as address/category_id/status_id from the schema).
+
+**Fix:** Remove `deleted`, keep `deleted_at`, and add `has_table: boolean` (plus the other real columns if the interface is meant to be complete).
+
+### `src/types/node.ts:109` — graph_type_filter typed as GraphTypeFilter enum but is an array of node-type strings
+
+_Category: typing · group: app-shell-themes-types_
+
+`graph_type_filter: GraphTypeFilter | null` where GraphTypeFilter = 'all' | 'tasks' | 'notes' | 'persons' (line 31). At runtime the field is a JSON-parsed array of visible node types: the mapper does `JSON.parse(row.graph_type_filter)` (electron/database/index.js:250), and consumers check `Array.isArray(node?.graph_type_filter)` and spread it into visibleTypes (src/stores/filters.js:118-119, GraphView.vue:437-438); GraphView saves it as `JSON.stringify(v)` of the visibleTypes array (GraphView.vue:409). The GraphTypeFilter union is used nowhere outside src/types/ and describes a shape that no longer exists.
+
+**Fix:** Change to `graph_type_filter: NodeType[] | null` (also in UpdateNodeData line 164) and delete the GraphTypeFilter type + its barrel export.
+
+## Appendix — unverified lower-confidence notes
+
+These 115 findings were reported by reviewers but not adversarially verified (low severity is not verified by default). Treat as leads, not confirmed defects.
+
+- **[low/consistency]** `electron/agentConfig.js:15` — Garbage-response detection exists only in the main-process agent loop, not the renderer twin
+- **[low/dead-code]** `electron/database/migrations.js:373` — migrations.js exports 10 internal migration functions that nothing imports
+- **[low/consistency]** `electron/database/search.js:211` — getTasks does not handle parentId: null, unlike getNodes' parent_id handling
+- **[low/dead-code]** `electron/database/settings.js:81` — clearSettings is defined and bound but never exposed over IPC, never called, never tested
+- **[low/consistency]** `electron/database/tags.js:60` — getOrCreateTagNode writes JS ISO timestamps while every other write path uses SQL CURRENT_TIMESTAMP/datetime('now')
+- **[low/consistency]** `electron/database/tree.js:51` — getRoots logs to console on every call, unlike all other query operations
+- **[low/dead-code]** `electron/database/tree.js:71` — getInbox, getProjects and repairWorkspaces are wired through the full IPC chain but never called by any renderer code or test
+- **[low/correctness]** `electron/database/workspaces.js:42` — createWorkspace turns an explicit sort_order of 0 into 99
+- **[low/consistency]** `electron/ipc/agent.js` — Main-process agent diverges from its renderer twin (no garbage-response fallback in web build)
+- **[low/dead-code]** `electron/ipc/agent.js:254` — Exports executeAgentTool, fallbackResearch, runAgentLoop are never imported
+- **[low/dead-code]** `electron/ipc/httpClient.js:225` — HttpClient class export is unused outside the module
+- **[low/docstring]** `electron/ipc/ollama.js:74` — Stale comment: ollamaRequest is consumed by llmProvider, not the agent module
+- **[low/dead-code]** `electron/ipc/window.js:142` — Exports createDetachedWindow and detachedWindows are never imported
+- **[low/docstring]** `electron/preload.js` — Undocumented forced duplication of every IPC channel string
+- **[low/docstring]** `electron/wikipedia.js:11` — JSDoc says httpRequest comes 'from main.js' but it lives in ipc/httpClient.js
+- **[low/dead-code]** `electron/wikipedia.js:57` — Exported constants WIKIPEDIA_ACTION_API and WIKIPEDIA_REST_API are never imported
+- **[low/consistency]** `shared/agentConfig.json` — TOOL_GROUPS mapping is duplicated in both processes instead of living in the shared config
+- **[low/dead-code]** `shared/agentConfig.json:40` — garbagePatterns entries '<|channel|>' and '<|constrain|>' are unreachable
+- **[low/design]** `src/App.vue` — File exceeds the ~1000 LOC guideline (1132 lines)
+- **[low/dead-code]** `src/App.vue:633` — Unused destructured bindings: createNodeAtPosition and resetNavigationState
+- **[low/dead-code]** `src/__tests__/GraphView.layout.test.js:27` — cytoscape and extension mocks are dead setup
+- **[low/naming]** `src/__tests__/api.test.js:5` — 'filterNulls helper' describe never tests filterNulls; first test name asserts the opposite of its expectation
+- **[low/design]** `src/__tests__/commandFactory.test.js:18` — fromJSON coverage omits the registered 'ollama-improve-notes' type
+- **[low/dead-code]** `src/__tests__/helpers/testDatabase.js:587` — createNodeFactory's `person` helper is never used
+- **[low/design]** `src/__tests__/keyboard-shortcuts.test.js:15` — 'Delete shortcut' block tests a local reimplementation instead of the composable
+- **[low/consistency]** `src/__tests__/nodeTable.test.js:248` — 'useNodeTable composable' block duplicates useNodeTable.test.js
+- **[low/consistency]** `src/__tests__/ollamaService.test.js:8` — global.fetch replaced by direct assignment and never restored
+- **[low/consistency]** `src/__tests__/undo-redo-workflows.test.js:435` — onError test creates a useUndoRedo instance with persistence enabled
+- **[low/correctness]** `src/__tests__/useDataLoading.test.js:60` — Vacuous assertion: expect(api.getDescendants).toBeUndefined() checks the mock, not the code
+- **[low/consistency]** `src/__tests__/useMentions.test.js:31` — getComputedStyle replaced globally without restore; saved original never used
+- **[low/dead-code]** `src/__tests__/useNodeActionsUI.test.js:2` — Unused imports: provide and inject
+- **[low/dead-code]** `src/__tests__/useNodeTooltip.test.js:2` — Unused import: ref
+- **[low/dead-code]** `src/__tests__/useRefresh.test.js:2` — Unused import: nextTick
+- **[low/naming]** `src/__tests__/useSearch.test.js:371` — Test name references non-existent option 'onFetchBreadcrumbs'
+- **[low/design]** `src/__tests__/useSelection.test.js:365` — Pin-protected selection tests exercise a local re-implementation, not App.vue
+- **[low/correctness]** `src/__tests__/useSnapshots.test.js:177` — Vacuous assertion: sync not.toThrow on an async function
+- **[low/consistency]** `src/__tests__/useToast.test.js:12` — Fake timers enabled but never restored in afterEach
+- **[low/dead-code]** `src/components/CardsView.vue:4` — Unused import decodeHtml
+- **[low/dead-code]** `src/components/CardsView.vue:164` — getDueDateStatus is never called
+- **[low/consistency]** `src/components/CardsView.vue:426` — nestedGridStyle called with a stray second argument
+- **[low/consistency]** `src/components/DetailPanel.vue:382` — changeWorkspace double-saves and emits the reactive proxy
+- **[low/dead-code]** `src/components/GraphEditModal.vue:43` — defineExpose({ editTitleInput, editModalEl }) is never consumed
+- **[low/dead-code]** `src/components/GraphPromptModal.vue:35` — defineExpose({ inputRef }) is never consumed
+- **[low/dead-code]** `src/components/GraphView.vue:6` — Unused import ALL_NODE_TYPES
+- **[low/dead-code]** `src/components/GraphView.vue:61` — Declared emits 'toggle-complete', 'toggle-favorite', 'open-link-search' are never emitted
+- **[low/correctness]** `src/components/MainToolbar.vue:37` — Theme tooltip content function is evaluated once by tippy, so the label goes stale after cycling
+- **[low/consistency]** `src/components/MainToolbar.vue:169` — Completed-visibility button: visual active state and aria-pressed are inverted relative to each other
+- **[low/dead-code]** `src/components/MarkdownRenderer.vue:147` — onMounted(renderContent) duplicates the immediate watch, rendering everything twice on mount
+- **[low/dead-code]** `src/components/NotesEditor.vue:180` — Exposed replaceSelection() is never called anywhere
+- **[low/dead-code]** `src/components/OllamaDiffPreview.vue:11` — 'edit' event is declared in defineEmits but never emitted
+- **[low/correctness]** `src/components/OnboardingModal.vue:65` — Onboarding tip documents a non-existent shortcut (modifier+/) for the shortcuts modal
+- **[low/dead-code]** `src/components/PersonsView.vue:22` — selectedId prop and 'update' emit are declared but never used
+- **[low/dead-code]** `src/components/PersonsView.vue:204` — \_orgIds Set is computed and never used
+- **[low/consistency]** `src/components/SettingsPanel.vue:3` — Mixed import specifiers for the api service ('../services/api.js' vs '../services/api')
+- **[low/correctness]** `src/components/SidebarTreeItem.vue:44` — Expand toggle still shown for nodes at maxLevel whose children can never render
+- **[low/consistency]** `src/components/SpotlightSearch.vue:8` — searchMode default 'navigate' is not a real mode value
+- **[low/consistency]** `src/components/SpotlightSearch.vue:153` — Recents list shows keyboard-style selection highlight that Enter/arrows cannot act on
+- **[low/dead-code]** `src/components/TableView.vue:27` — Prop currentParentId is declared but never used
+- **[low/dead-code]** `src/components/TableView.vue:40` — 'toggle-favorite' declared in defineEmits but never emitted
+- **[low/dead-code]** `src/components/TasksView.vue:13` — 'select' declared in defineEmits but never emitted
+- **[low/consistency]** `src/components/TasksView.vue:47` — getTaskRowStyle duplicates tableFormatters.getRowStyle with a re-hardcoded magic color
+- **[low/dead-code]** `src/components/TimelineView.vue:35` — \_getColorMap option passed to useTimelineLayout is never used
+- **[low/dead-code]** `src/components/TypeFilterDropdown.vue:37` — Unused variable `hidden` in buttonLabel; store getter hiddenTypesCount now has no consumer
+- **[low/naming]** `src/components/config/personsGridColumns.js` — Module name says grid columns but file holds misc persons-view config and helpers
+- **[low/dead-code]** `src/components/config/personsGridColumns.js:61` — personsViewModes is exported but never used
+- **[low/dead-code]** `src/components/config/tableFormatters.js:44` — getBadgeStyle is a vestigial no-op that always returns {}
+- **[low/dead-code]** `src/components/detail/ChildrenSection.vue:110` — Person-item branch is unreachable
+- **[low/correctness]** `src/components/detail/ColorPickerSection.vue:19` — Picker cannot set an initial color and vanishes when the default color is picked
+- **[low/dead-code]** `src/components/detail/MetadataGridSection.vue:231` — Redundant person special-case for link icons
+- **[low/consistency]** `src/components/detail/OrganizationDetailForm.vue:42` — loadLinkedMembers keeps vestigial async/try-catch around a synchronous filter
+- **[low/dead-code]** `src/components/detail/OrganizationDetailForm.vue:75` — Dead onTagsUpdate function and unused currentWorkspace prop
+- **[low/dead-code]** `src/components/detail/PersonDetailForm.vue:131` — Dead onTagsUpdate function and unused currentWorkspace prop
+- **[low/consistency]** `src/components/detail/PersonDetailForm.vue:294` — Section order diverges between the two sibling detail forms
+- **[low/dead-code]** `src/components/detail/index.js` — Barrel file is never imported
+- **[low/dead-code]** `src/components/settings/AISettings.vue:62` — Fallback in `props.aiEnabled ?? props.ollamaEnabled` is unreachable
+- **[low/consistency]** `src/components/settings/DataSettings.vue:40` — setTimeout(0) used where nextTick is the Vue idiom
+- **[low/correctness]** `src/composables/useAIProviderConnection.js:42` — Debounce timers are never cleared on unmount
+- **[low/typing]** `src/composables/useDataLoading.ts:140` — Repeated 'wsId as number' casts hide legitimate null workspace IDs
+- **[low/correctness]** `src/composables/useDataLoading.ts:164` — loadSidebarTree drops root.completed when building child trees
+- **[low/consistency]** `src/composables/useDataLoading.ts:233` — loadFavorites and loadTags swallow errors silently, unlike all sibling loaders
+- **[low/docstring]** `src/composables/useGraphEvents.js:65` — useGraphEvents JSDoc documents unused getParent and omits used toggleTooltipLock
+- **[low/dead-code]** `src/composables/useGraphSettings.ts:169` — radialSettings.gravityRange and nestingFactor are persisted but never consumed
+- **[low/docstring]** `src/composables/useInlineEdit.js:10` — onSaveNotes doc omits the third { autoSave } argument; local const shadows Vue's ref import
+- **[low/docstring]** `src/composables/useKeyboardShortcuts.js:142` — Cmd+Enter comment says 'cards/table view' but code checks cards/tree
+- **[low/correctness]** `src/composables/useKeyboardShortcuts.js:232` — 'n' shortcut lacks a modifier guard, so Ctrl/Cmd/Alt+N also opens the add-node modal
+- **[low/docstring]** `src/composables/useNavigation.ts:44` — onLeafNode doc says 'return true to prevent enter' but any non-false return prevents
+- **[low/consistency]** `src/composables/useNavigation.ts:391` — navigateToBreadcrumb hardcodes 150ms where enterContainer uses SIDEBAR_HIDE_DELAY_MS
+- **[low/dead-code]** `src/composables/useNodeFiltering.js:132` — useNodeFiltering() wrapper composable is never called
+- **[low/correctness]** `src/composables/useNodeOperations.ts:225` — updateNode mutates its input object and mis-detects completion transitions when trackUndo is false
+- **[low/dead-code]** `src/composables/useNodePositions.js:83` — findSmartPosition's nodeId parameter is never used
+- **[low/docstring]** `src/composables/useNodeTooltip.js:117` — Comment claims tooltip is destroyed only 'if different node', but it is destroyed unconditionally
+- **[low/naming]** `src/composables/useOllama.js:178` — Local variable named `ref` shadows Vue's imported ref in three functions
+- **[low/consistency]** `src/composables/useRefresh.js:50` — refreshAfterDelete duplicates refreshAfterChange({ favorites: true }) line for line
+- **[low/correctness]** `src/composables/useSearch.ts:159` — closeSearch does not cancel the pending debounce timer (and there is no unmount cleanup)
+- **[low/dead-code]** `src/composables/useSettings.ts:390` — Redundant `if (!settingsInstance)` check in useSettings()
+- **[low/consistency]** `src/composables/useSnapshots.js:127` — cleanup() is never invoked by production code and no onUnmounted is registered
+- **[low/consistency]** `src/composables/useSpreadsheetClipboard.js` — File in composables/ named use\* but exports no composable
+- **[low/dead-code]** `src/composables/useTaskFiltering.js:1` — Unused import: watch
+- **[low/dead-code]** `src/composables/useTheme.js:122` — \_initTheme export claims 'for testing' but no test or source imports it
+- **[low/docstring]** `src/composables/useTimelineDates.js:227` — calculateDueUrgency comment contradicts the code for 'due today'
+- **[low/dead-code]** `src/composables/useTimelineLayout.js:40` — \_getColorMap parameter is never used, but is documented and actively passed by TimelineView
+- **[low/design]** `src/composables/useTimelineLayout.js:353` — groupMarkers and projectBoxes duplicate identical nodeRowIndex/nodeData map construction
+- **[low/consistency]** `src/composables/useTreeExpand.js:57` — expandAncestors mutates expandedIds without persisting, unlike every other mutator
+- **[low/typing]** `src/services/api.ts:73` — exportMarkdown/exportCSV typed as Promise<string> but return objects
+- **[low/correctness]** `src/services/api.ts:135` — request() spreads options after headers, so caller-supplied headers drop Content-Type
+- **[low/dead-code]** `src/services/wikipediaService.js:49` — getSummary is never called
+- **[low/dead-code]** `src/themes/light.css:877` — Duplicate [data-theme='light'] .context-menu block is fully shadowed
+- **[low/dead-code]** `src/types/command.ts:10` — CommandType union is exported but never used
+- **[low/typing]** `src/types/node.ts:115` — Node.graph_physics typed as boolean but holds a physics-settings object
+- **[low/dead-code]** `src/types/settings.ts:30` — Nine settings interfaces are unused and AppSettings' docstring is stale
+- **[low/dead-code]** `src/utils/constants.js:130` — getTypeIconHtml duplicates getTypeIcon; getTypeCssClass and getTypeLabel are test-only
+- **[low/dead-code]** `src/utils/errorTypes.js` — ApiError, NotFoundError, ValidationError, DatabaseError are never instantiated
+- **[low/dead-code]** `src/utils/nodeInteractions.js:63` — handleKeydown is only referenced by its test
+- **[low/dead-code]** `src/utils/settingsConstants.ts` — Nine timing constants are unused
+- **[low/consistency]** `src/utils/tooltip.js:13` — tooltip.js re-implements renderMarkdown and formatDate that exist in sibling utils
+
+## Remediation review
+
+After the 91 findings were fixed, three independent read-only agents re-reviewed the entire diff (electron/DB/services, components, composables/types/tests). They confirmed 14 further issues, all since fixed. The two most important were **regressions introduced by the fixes themselves** — neither caught by the 1355 tests that were green at the time.
+
+### Regressions introduced by the remediation
+
+| Where                                 | What                                                                                                                                                                                                                                                                                        | Why tests missed it                                                   |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `src/components/MarkdownRenderer.vue` | Removing the global entity-decode pass (a correct fix) left `processHashtags` running a regex over marked's serialized HTML. marked escapes `'` as `&#39;`, which the hashtag regex matched — so **every apostrophe rendered as a blue `#39` pill** in notes, code spans and mention names. | No markdown test input contained an apostrophe or any numeric entity. |
+| `electron/database/tree.js`           | Enabling `PRAGMA foreign_keys` made `ON DELETE SET NULL` live, so `emptyTrash` silently NULLed the `parent_id` of **live** nodes whose parent was trashed, leaving stale `path`/`depth` and a node `getOrphanedNodes()` could not find.                                                     | No test covered `emptyTrash`; the helper had no such method.          |
+
+`processHashtags` was replaced with a DOM text-node walk (entities are already decoded inside text nodes, so no character reference can be misread, and tags/attributes are structurally unreachable). `emptyTrash` and hard `deleteNode` now capture affected rows before the delete and recompute their subtree paths inside a batch.
+
+### Fix that did not fix anything
+
+The two-phase quit handshake acked **before** the save IPC was ever sent: `DetailPanel.saveChanges()` is synchronous (it only emits), and the update handler does an `api.getNode` round trip before `api.updateNode`. Only the 3 s main-process timeout was saving the data. The new test mocked `saveChanges` as a bare stub, so it passed regardless. `DetailPanel` now exposes an awaitable `saveChangesNow()`; the ack waits on the real `db:updateNode` round trip, and the rewritten test was verified to fail against the old code. The handshake also never engaged on the normal Linux/Windows window-close path (window destroyed before `before-quit`); a `close` hook now covers it.
+
+### Other confirmed issues from the remediation review
+
+- `updateNode` was still an unguarded reparent path (`parent_id` is an accepted field) — now recomputes subtree paths.
+- SSL-verification bypass never applied to IPv6 loopback: `new URL('https://[::1]:…').hostname` keeps its brackets, while the error text advertised `::1` as supported.
+- Timeline `add-child` forwarding was wired up but the payload `{ parentId, title: '', prompt: true }` fell through to a branch that passed the whole object as the parent id; the detail panel's "add subtask" button hit the same class of bug and silently created an **untitled** task.
+- Onboarding modal's Enter both closed the modal and navigated into the selected node (document-bubble vs window listener ordering).
+- `NodeSpreadsheet`'s new per-cell debounce map dropped every pending save on unmount instead of flushing.
+- `@mention` person lists were scoped to a stale workspace, and detached windows always used `work`.
+- Unescaped `customBgTint`/`borderColor` in the regular graph-node template (the person branch had been hardened, its sibling had not).
+- Container filtering admitted the container into its own task list; radial layout could inject `undefined` settings; link-draw listeners were outside `teardownEvents`.
+
+### Test-suite honesty
+
+The remediation review found that the new DB "integration" tests asserted against a **mirror** of the production path/FK logic added to `src/__tests__/helpers/testDatabase.js` — the same replica anti-pattern this review had condemned and three deleted test files were removed for. The production modules turned out to import cleanly (nothing under `electron/database/` requires `electron`), so the helper's ~600-line mirror was deleted: `createTestDatabase()` now constructs the **real** `Database` against a temp file, and all pre-existing integration tests pass unchanged against production code.
+
+Every regression test added in this round was validated by temporarily reverting its fix and confirming the test fails.

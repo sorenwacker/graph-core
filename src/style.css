@@ -1288,7 +1288,7 @@ input[type='checkbox'] {
 }
 .grandchild-item.organization,
 .grandchild-item.org {
-  border-left-color: var(--type-org-text);
+  border-left-color: var(--type-organization-text);
 }
 .grandchild-item.area {
   border-left-color: var(--type-area-text);

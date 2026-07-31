@@ -4,17 +4,32 @@
  */
 import { ref } from 'vue'
 
+// Only accept simple hex colors for the ghost badge; anything else (including
+// user-supplied strings trying to smuggle CSS/markup) falls back to the default.
+const SAFE_HEX_COLOR = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i
+
 /**
  * Creates a drag ghost element for visual feedback during drag.
+ * Built with DOM APIs (textContent) so user-controlled node title/color are
+ * never interpolated into HTML.
  */
 function createDragGhost(node, x, y) {
   const ghost = document.createElement('div')
   ghost.className = 'drag-ghost'
-  ghost.innerHTML = `
-    <span class="ghost-type" style="background: ${node.color || '#0f4c75'}">${node.type[0].toUpperCase()}</span>
-    <span class="ghost-title">${node.title}</span>
-    <span class="ghost-action"></span>
-  `
+
+  const typeEl = document.createElement('span')
+  typeEl.className = 'ghost-type'
+  typeEl.style.background = SAFE_HEX_COLOR.test(node.color || '') ? node.color : '#0f4c75'
+  typeEl.textContent = node.type[0].toUpperCase()
+
+  const titleEl = document.createElement('span')
+  titleEl.className = 'ghost-title'
+  titleEl.textContent = node.title
+
+  const actionEl = document.createElement('span')
+  actionEl.className = 'ghost-action'
+
+  ghost.append(typeEl, titleEl, actionEl)
   ghost.style.cssText = `
     position: fixed;
     left: ${x + 10}px;

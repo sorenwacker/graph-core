@@ -259,6 +259,8 @@ defineExpose({
     @hide-tooltip="emit('hide-tooltip')"
     @context-menu="emit('context-menu', $event)"
     @update="emit('update', $event)"
+    @add-child="emit('add-child', $event)"
+    @delete="emit('delete', $event)"
   />
 
   <!-- Persons View -->
