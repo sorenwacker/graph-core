@@ -40,14 +40,6 @@ export function useDetachedWindow() {
     return await window.electronAPI.openDetachedWindow(nodeId, nodeTitle)
   }
 
-  // Close a detached window
-  async function closeDetachedWindow(nodeId) {
-    if (!isElectron || !window.electronAPI?.closeDetachedWindow) {
-      return { success: false }
-    }
-    return await window.electronAPI.closeDetachedWindow(nodeId)
-  }
-
   // Broadcast node update to other windows
   function broadcastNodeUpdate(node) {
     if (channel.value && node) {
@@ -75,21 +67,6 @@ export function useDetachedWindow() {
         })
       } catch (e) {
         console.warn('Failed to broadcast node delete:', e)
-      }
-    }
-  }
-
-  // Broadcast navigation change (for detached windows)
-  function broadcastNavigation(nodeId) {
-    if (channel.value) {
-      try {
-        const id = typeof nodeId === 'object' && nodeId !== null ? (nodeId.value ?? nodeId) : nodeId
-        channel.value.postMessage({
-          type: 'navigate',
-          nodeId: id,
-        })
-      } catch (e) {
-        console.warn('Failed to broadcast navigation:', e)
       }
     }
   }
@@ -125,10 +102,8 @@ export function useDetachedWindow() {
     detachedNodeId,
     isElectron,
     openDetachedWindow,
-    closeDetachedWindow,
     broadcastNodeUpdate,
     broadcastNodeDelete,
-    broadcastNavigation,
     onMessage,
     cleanup,
   }

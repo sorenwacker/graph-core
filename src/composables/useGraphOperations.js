@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { useErrorHandler } from './useErrorHandler.js'
 
 /**
  * Composable for graph-specific operations like inserting nodes between edges
@@ -12,7 +12,7 @@ export function useGraphOperations({
   getWorkspaceIdForNode,
   refreshAfterChange,
 }) {
-  const error = ref(null)
+  const { handleError } = useErrorHandler()
 
   /**
    * Save node position for graph view
@@ -87,12 +87,13 @@ export function useGraphOperations({
       }
       await refreshAfterChange()
     } catch (e) {
-      error.value = e.message
+      // Surface as a transient toast, consistent with the other node
+      // operations (the previous composable-local error ref was never read).
+      handleError(e, { context: 'Inserting node' })
     }
   }
 
   return {
-    error,
     saveNodePosition,
     insertBetween,
   }

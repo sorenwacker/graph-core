@@ -2,6 +2,8 @@
  * Node type definitions for graph-core.
  */
 
+import type { WorkspaceId } from './workspace'
+
 /**
  * Node type discriminator values.
  */
@@ -26,9 +28,19 @@ export type NodeType =
 export type GraphLayout = 'cose-bilkent' | 'cola' | 'dagre' | 'd3-force' | 'concentric' | 'breadthfirst' | 'grid'
 
 /**
- * Graph type filter options.
+ * Radial layout settings for the graph physics simulation.
+ * Stored as JSON in the nodes.graph_physics column.
  */
-export type GraphTypeFilter = 'all' | 'tasks' | 'notes' | 'persons'
+export interface RadialSettings {
+  /** Attraction strength between connected nodes */
+  attraction?: number
+  /** Repulsion strength between all nodes */
+  repulsion?: number
+  /** Damping factor for simulation */
+  damping?: number
+  /** Gravity pulling nodes toward center */
+  gravity?: number
+}
 
 /**
  * Importance level (1-5 scale).
@@ -47,16 +59,20 @@ export interface Node {
   type: NodeType
   /** Parent node ID (null for root nodes) */
   parent_id: number | null
-  /** Workspace ID this node belongs to */
-  workspace_id: number | null
+  /**
+   * Workspace slug id this node belongs to (TEXT column, e.g. 'work').
+   * Typed as WorkspaceId because legacy callers still compare/assign
+   * number-typed values; at runtime this is always a string or null.
+   */
+  workspace_id: WorkspaceId | null
   /** Whether the node is completed (tasks/projects) */
   completed: boolean
   /** Whether the node is marked as favorite */
   favorite: boolean
   /** Rich text notes content */
   notes: string | null
-  /** Sensitive notes (encrypted storage) */
-  notes_sensitive: string | null
+  /** Whether notes are marked sensitive (hidden when hide-sensitive is on) */
+  notes_sensitive: boolean
   /** Due date in ISO format (YYYY-MM-DD) */
   due_date: string | null
   /** Start date in ISO format */
@@ -89,10 +105,14 @@ export interface Node {
   created_at: string
   /** Last update timestamp */
   updated_at: string
-  /** Soft delete flag */
-  deleted: boolean
-  /** Deleted timestamp */
+  /** Deleted timestamp (soft delete: non-null means trashed) */
   deleted_at: string | null
+  /**
+   * Whether the node has an attached spreadsheet table.
+   * Only computed by some queries (EXISTS subquery); undefined when the
+   * query did not compute it.
+   */
+  has_table?: boolean
 
   // Container-specific graph settings
   /** Show linked nodes in graph view */
@@ -105,14 +125,14 @@ export interface Node {
   graph_layout: GraphLayout | null
   /** Maximum depth for graph rendering */
   graph_max_depth: number | null
-  /** Type filter for graph nodes */
-  graph_type_filter: GraphTypeFilter | null
+  /** Visible node types in graph view (JSON array column); null = all types */
+  graph_type_filter: NodeType[] | null
   /** Whether graph relaxation is locked */
   graph_relax_locked: boolean
   /** Whether graph fit is locked */
   graph_fit_locked: boolean
-  /** Whether physics simulation is enabled */
-  graph_physics: boolean
+  /** Physics/radial layout settings (JSON column); null when unset */
+  graph_physics: RadialSettings | null
   /** Whether the node's children are collapsed/hidden in graph view */
   collapsed: boolean
 }
@@ -124,7 +144,7 @@ export interface CreateNodeData {
   title: string
   type?: NodeType
   parent_id?: number | null
-  workspace_id?: number | null
+  workspace_id?: WorkspaceId | null
   notes?: string | null
   tags?: string[]
   due_date?: string | null
@@ -141,7 +161,7 @@ export interface UpdateNodeData {
   title?: string
   type?: NodeType
   notes?: string | null
-  notes_sensitive?: string | null
+  notes_sensitive?: boolean
   completed?: boolean
   favorite?: boolean
   due_date?: string | null
@@ -161,10 +181,10 @@ export interface UpdateNodeData {
   show_external_links?: boolean
   graph_layout?: GraphLayout | null
   graph_max_depth?: number | null
-  graph_type_filter?: GraphTypeFilter | null
+  graph_type_filter?: NodeType[] | null
   graph_relax_locked?: boolean
   graph_fit_locked?: boolean
-  graph_physics?: boolean
+  graph_physics?: RadialSettings | null
   collapsed?: boolean
 }
 

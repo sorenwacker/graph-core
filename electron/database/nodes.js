@@ -37,6 +37,7 @@ const { NODE_FIELDS } = require('./schema')
  * @property {Function} _get - Execute SQL query returning single row
  * @property {Function} _rowToNode - Convert database row to Node object
  * @property {Function} _applyWorkspaceFilter - Add workspace filter to SQL query
+ * @property {Function} _batch - Run a function in a single transaction with one disk write
  */
 
 /**
@@ -54,22 +55,62 @@ const { NODE_FIELDS } = require('./schema')
  */
 function createNodeOperations(ctx) {
   /**
+   * Fetches a node row regardless of its deleted_at state. Path maintenance has
+   * to see soft-deleted rows too: they are still real children in the table and
+   * their stale path/depth would resurface when they are restored.
+   * @param {number} id - Node ID
+   * @returns {Object|null} Raw node row or null
+   * @private
+   */
+  function getNodeRow(id) {
+    return ctx._get('SELECT id, parent_id, path, depth FROM nodes WHERE id = ?', [id])
+  }
+
+  /**
    * Recursively updates path and depth for all descendants of a node.
    * Called after moving or reparenting operations to maintain path consistency.
    * @param {number} nodeId - ID of the node whose descendants should be updated
    * @private
    */
   function updateDescendantPaths(nodeId) {
-    const node = ops.getNode(nodeId)
+    const node = getNodeRow(nodeId)
     if (!node) return
 
-    const children = ops.getChildren(nodeId)
+    const childPath = node.path ? `${node.path}/${node.id}` : `${node.id}`
+    const childDepth = (node.depth || 0) + 1
+    const children = ctx._query('SELECT id FROM nodes WHERE parent_id = ?', [nodeId])
     for (const child of children) {
-      const newPath = node.path ? `${node.path}/${node.id}` : `${node.id}`
-      const newDepth = node.depth + 1
-      ctx._run('UPDATE nodes SET path = ?, depth = ? WHERE id = ?', [newPath, newDepth, child.id])
+      ctx._run('UPDATE nodes SET path = ?, depth = ? WHERE id = ?', [childPath, childDepth, child.id])
       updateDescendantPaths(child.id)
     }
+  }
+
+  /**
+   * Recomputes a node's own path and depth from its current parent_id, then
+   * rewrites all descendant paths. Used after reparenting operations
+   * (delete-reparent, cross-parent reorder, updateNode, trash purge) where the
+   * node's stored path may still reference its old ancestry.
+   * @param {number} nodeId - ID of the reparented node
+   * @private
+   */
+  function updateSubtreePath(nodeId) {
+    const node = getNodeRow(nodeId)
+    if (!node) return
+
+    let depth = 0
+    let path = ''
+    if (node.parent_id) {
+      const parent = getNodeRow(node.parent_id)
+      if (parent) {
+        depth = (parent.depth || 0) + 1
+        path = parent.path ? `${parent.path}/${parent.id}` : `${parent.id}`
+      }
+    }
+
+    if (node.path !== path || node.depth !== depth) {
+      ctx._run('UPDATE nodes SET path = ?, depth = ? WHERE id = ?', [path, depth, nodeId])
+    }
+    updateDescendantPaths(nodeId)
   }
 
   const ops = {
@@ -169,6 +210,8 @@ function createNodeOperations(ctx) {
      * Updates an existing node with the provided fields.
      * Only fields present in data are updated; others remain unchanged.
      * Automatically updates the updated_at timestamp.
+     * parent_id is an updatable field, so an update can reparent the node; when
+     * it does, the node's own path/depth and its whole subtree are recomputed.
      * @param {number} id - ID of the node to update
      * @param {Object} data - Fields to update (partial node data)
      * @returns {Node} The updated node object
@@ -176,6 +219,10 @@ function createNodeOperations(ctx) {
     updateNode(id, data) {
       const updates = []
       const values = []
+
+      const current = getNodeRow(id)
+      const reparenting =
+        data.parent_id !== undefined && (data.parent_id ?? null) !== (current?.parent_id ?? null) && current !== null
 
       for (const field of NODE_FIELDS) {
         if (data[field] !== undefined) {
@@ -198,9 +245,17 @@ function createNodeOperations(ctx) {
       values.push(id)
 
       const sql = `UPDATE nodes SET ${updates.join(', ')} WHERE id = ?`
-      ctx._run(sql, values)
 
-      return ops.getNode(id)
+      if (!reparenting) {
+        ctx._run(sql, values)
+        return ops.getNode(id)
+      }
+
+      return ctx._batch(() => {
+        ctx._run(sql, values)
+        updateSubtreePath(id)
+        return ops.getNode(id)
+      })
     },
 
     /**
@@ -212,25 +267,35 @@ function createNodeOperations(ctx) {
      * @returns {{success: boolean}} Success status object
      */
     deleteNode(id, hard = false) {
-      const node = ops.getNode(id)
-      const newParentId = node?.parent_id || null
+      return ctx._batch(() => {
+        const node = ops.getNode(id)
+        const newParentId = node?.parent_id || null
 
-      ctx._run('UPDATE nodes SET parent_id = ? WHERE parent_id = ? AND deleted_at IS NULL', [newParentId, id])
+        // Capture the deleted node's children before reparenting so their
+        // path/depth (and their descendants') can be recomputed afterwards.
+        const reparentedChildren = ctx._query('SELECT id FROM nodes WHERE parent_id = ? AND deleted_at IS NULL', [id])
 
-      if (hard) {
-        ctx._run('DELETE FROM nodes WHERE id = ?', [id])
-      } else {
-        ctx._run('UPDATE nodes SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?', [id])
-      }
+        // A hard delete fires nodes.parent_id's ON DELETE SET NULL on whatever
+        // children the reparent below skips — the soft-deleted ones. They would
+        // otherwise keep a path/depth pointing at the removed parent.
+        const trashedChildren = hard
+          ? ctx._query('SELECT id FROM nodes WHERE parent_id = ? AND deleted_at IS NOT NULL', [id])
+          : []
 
-      const reassignedChildren = ctx._query('SELECT id FROM nodes WHERE parent_id = ? AND deleted_at IS NULL', [
-        newParentId,
-      ])
-      for (const child of reassignedChildren) {
-        updateDescendantPaths(child.id)
-      }
+        ctx._run('UPDATE nodes SET parent_id = ? WHERE parent_id = ? AND deleted_at IS NULL', [newParentId, id])
 
-      return { success: true }
+        if (hard) {
+          ctx._run('DELETE FROM nodes WHERE id = ?', [id])
+        } else {
+          ctx._run('UPDATE nodes SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?', [id])
+        }
+
+        for (const child of [...reparentedChildren, ...trashedChildren]) {
+          updateSubtreePath(child.id)
+        }
+
+        return { success: true }
+      })
     },
 
     /**
@@ -244,26 +309,28 @@ function createNodeOperations(ctx) {
       const node = ops.getNode(id)
       if (!node) return null
 
-      let depth = 0
-      let path = ''
-      if (newParentId) {
-        const parent = ops.getNode(newParentId)
-        if (parent) {
-          depth = (parent.depth || 0) + 1
-          path = parent.path ? `${parent.path}/${parent.id}` : `${parent.id}`
+      return ctx._batch(() => {
+        let depth = 0
+        let path = ''
+        if (newParentId) {
+          const parent = ops.getNode(newParentId)
+          if (parent) {
+            depth = (parent.depth || 0) + 1
+            path = parent.path ? `${parent.path}/${parent.id}` : `${parent.id}`
+          }
         }
-      }
 
-      ctx._run('UPDATE nodes SET parent_id = ?, depth = ?, path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [
-        newParentId,
-        depth,
-        path,
-        id,
-      ])
+        ctx._run('UPDATE nodes SET parent_id = ?, depth = ?, path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [
+          newParentId,
+          depth,
+          path,
+          id,
+        ])
 
-      updateDescendantPaths(id)
+        updateDescendantPaths(id)
 
-      return ops.getNode(id)
+        return ops.getNode(id)
+      })
     },
 
     /**
@@ -296,11 +363,19 @@ function createNodeOperations(ctx) {
       const insertIndex = position === 'before' ? targetIndex : targetIndex + 1
       siblings.splice(insertIndex, 0, node)
 
-      siblings.forEach((sibling, index) => {
-        ctx._run('UPDATE nodes SET sort_order = ?, parent_id = ? WHERE id = ?', [index, target.parent_id, sibling.id])
-      })
+      return ctx._batch(() => {
+        siblings.forEach((sibling, index) => {
+          ctx._run('UPDATE nodes SET sort_order = ?, parent_id = ? WHERE id = ?', [index, target.parent_id, sibling.id])
+        })
 
-      return ops.getNode(nodeId)
+        // Reordering onto a target under a different parent reparents the
+        // node; recompute its own path/depth (and its descendants') to match.
+        if ((node.parent_id ?? null) !== (target.parent_id ?? null)) {
+          updateSubtreePath(nodeId)
+        }
+
+        return ops.getNode(nodeId)
+      })
     },
 
     /**
@@ -437,6 +512,13 @@ function createNodeOperations(ctx) {
      * @private
      */
     _updateDescendantPaths: updateDescendantPaths,
+
+    /**
+     * Internal helper exposed for tree operations (trash purge).
+     * Recomputes a node's own path/depth from its parent, then its descendants'.
+     * @private
+     */
+    _updateSubtreePath: updateSubtreePath,
   }
 
   return ops

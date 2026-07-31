@@ -4,11 +4,15 @@ Organize your nodes into separate workspaces for different contexts.
 
 ## Overview
 
-Workspaces provide logical separation between different domains of work:
+Workspaces provide logical separation between different domains of work. Two are created on first run:
 
-- **Work**: Professional projects and tasks
-- **Personal**: Personal notes and todos
-- **People**: Contact management (special workspace)
+- **Work** (`work`): Professional projects and tasks
+- **Private** (`private`): Personal notes and todos
+
+Add as many more as you need. The [Demo workspace](demo-workspace.md) is created on request from the onboarding modal or Settings > About.
+
+!!! note
+    People is a *view*, not a workspace. Person and organization nodes live in a normal workspace like any other node.
 
 ## Creating Workspaces
 
@@ -52,35 +56,30 @@ Nodes belong to a single workspace. When viewing a workspace:
 - Search results are filtered to current workspace
 - Recent items show workspace-specific history
 
-### People Workspace
+### Persons and Organizations
 
-The People workspace is special:
+Person and organization nodes belong to a workspace like every other node:
 
-- Person nodes can be @mentioned from any workspace
-- Organization nodes provide grouping
-- Links between people and other nodes work across workspaces
+- The Persons view lists the persons of the current workspace
+- `@mention` autocomplete in notes offers the persons of the current workspace
+- Links between persons and other nodes are not restricted by workspace
 
 ### Node Type Assignment
 
-Some node types are automatically assigned to workspaces:
+New nodes are created in the workspace you are currently in, whatever their type. Upgrades from older versions moved unassigned nodes — persons and organizations included — into **Work**.
 
-| Type | Default Workspace |
-|------|-------------------|
-| person | People |
-| organization | People |
-| task | Current workspace |
-| project | Current workspace |
-| note | Current workspace |
+## Moving Nodes Between Workspaces
+
+Right-click a node and choose **Move to Workspace**. The list contains your real workspaces only; the current one is highlighted.
 
 ## Deleting Workspaces
 
-1. Select the workspace to delete
+1. Switch to the workspace to delete
 2. Click the workspace selector
 3. Click the delete icon
 4. Confirm deletion
 
-!!! warning
-    Deleting a workspace deletes all nodes within it. This cannot be undone.
+A workspace can only be deleted when it is empty and it is not your last workspace. If it still has root nodes you are told how many, and nothing is deleted — move or delete them first.
 
 ## See Also
 

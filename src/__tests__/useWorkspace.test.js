@@ -155,6 +155,15 @@ describe('useWorkspace composable', () => {
       expect(mockApi.deleteWorkspace).toHaveBeenCalledWith('work')
     })
 
+    it('should return false instead of throwing when the root-node check fails', async () => {
+      mockApi.getRoots.mockRejectedValue(new Error('IPC failure'))
+
+      const result = await workspace.deleteCurrentWorkspace()
+
+      expect(result).toBe(false)
+      expect(mockApi.deleteWorkspace).not.toHaveBeenCalled()
+    })
+
     it('should switch to first workspace after deletion', async () => {
       mockApi.getRoots.mockResolvedValue([])
       mockApi.getWorkspaces

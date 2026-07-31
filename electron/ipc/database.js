@@ -69,7 +69,6 @@ const {
   DB_LIST_BACKUPS,
   DB_RESTORE_BACKUP,
   DB_RELOAD,
-  DB_REPAIR_WORKSPACES,
   DB_GET_DATA_PATH,
   // Node Tables
   DB_GET_NODE_TABLE,
@@ -183,7 +182,6 @@ function registerDatabaseHandlers(ipcMain, db) {
   ipcMain.handle(DB_LIST_BACKUPS, () => db.listBackups())
   ipcMain.handle(DB_RESTORE_BACKUP, (_event, backupPath) => db.restoreBackup(backupPath))
   ipcMain.handle(DB_RELOAD, () => db.reload())
-  ipcMain.handle(DB_REPAIR_WORKSPACES, () => db.repairWorkspaces())
   ipcMain.handle(DB_GET_DATA_PATH, () => app.getPath('userData'))
 
   // Node Tables

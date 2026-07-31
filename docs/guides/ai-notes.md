@@ -28,7 +28,9 @@ Run AI models locally on your machine.
 |---------|-------------|---------|
 | Endpoint | Ollama server URL | `http://localhost:11434` |
 | Model | Any installed Ollama model | `llama3.2` |
-| Context Size | Token limit (4K-128K) | 32K |
+| Context Size | Context window (4K-128K) | 32K |
+
+Context Size is sent with every generation request as Ollama's `num_ctx` option, so raising it really does widen the model's context window (at the cost of RAM).
 
 ### OpenAI-Compatible APIs
 
@@ -49,6 +51,16 @@ Use OpenAI, Azure OpenAI, or any compatible endpoint.
 | Endpoint | API URL | `https://api.openai.com/v1` |
 | API Key | Your API key | Required |
 | Model | Model name | `gpt-4o-mini` |
+| Skip SSL verification | Accept self-signed certificates on local endpoints | Off |
+
+**Skip SSL verification:**
+
+The bypass is limited to local endpoints — `localhost`, `127.0.0.1`, `::1` and `*.local`. Certificates for any other host are always verified, even with the setting enabled, so pointing at a remote server with a bad certificate fails with an explicit error instead of silently sending your data over an unverified connection.
+
+The setting applies to note improvement and to research/agent runs alike.
+
+!!! warning
+    Skipping verification exposes data to interception. Only use it on trusted networks.
 
 ## Using AI Features
 
@@ -130,6 +142,15 @@ Error: Invalid API key
 ```
 
 **Solution:** Check your API key in Settings.
+
+### Certificate Error on a Remote Endpoint
+
+```
+SSL/TLS error: ... "Skip SSL verification" only applies to local endpoints
+(localhost, 127.0.0.1, ::1, *.local); certificates for remote hosts are always verified.
+```
+
+**Solution:** "Skip SSL verification" cannot bypass this. Install the endpoint's CA certificate in your system trust store, or use an endpoint with a valid certificate.
 
 ## See Also
 

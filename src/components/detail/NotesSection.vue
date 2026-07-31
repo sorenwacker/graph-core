@@ -7,13 +7,15 @@ import MarkdownRenderer from '../MarkdownRenderer.vue'
 defineProps({
   notes: { type: String, default: '' },
   nodeId: { type: [String, Number], required: true },
+  // Workspace used to scope @mention person auto-linking
+  workspaceId: { type: String, default: 'work' },
   activeTab: { type: String, default: 'edit' },
   showSensitive: { type: Boolean, default: false },
   notesSensitive: { type: Boolean, default: false },
   cssClass: { type: String, default: '' },
 })
 
-const emit = defineEmits(['update:notes', 'update:activeTab', 'blur', 'ai-improve'])
+const emit = defineEmits(['update:notes', 'update:activeTab', 'blur', 'ai-improve', 'mention-inserted'])
 
 const notesEditorRef = ref(null)
 const notesEditorSplitRef = ref(null)
@@ -65,8 +67,11 @@ defineExpose({ getSelection, notesEditorRef, notesEditorSplitRef })
     v-if="activeTab === 'edit'"
     ref="notesEditorRef"
     :model-value="notes"
+    :workspace-id="workspaceId"
+    :node-id="typeof nodeId === 'number' ? nodeId : null"
     @update:model-value="onNotesUpdate"
     @blur="onBlur"
+    @mention-inserted="emit('mention-inserted', $event)"
     :class="['notes-codemirror', cssClass]"
   />
 
@@ -83,8 +88,11 @@ defineExpose({ getSelection, notesEditorRef, notesEditorSplitRef })
     <NotesEditor
       ref="notesEditorSplitRef"
       :model-value="notes"
+      :workspace-id="workspaceId"
+      :node-id="typeof nodeId === 'number' ? nodeId : null"
       @update:model-value="onNotesUpdate"
       @blur="onBlur"
+      @mention-inserted="emit('mention-inserted', $event)"
       class="notes-codemirror split-editor"
     />
     <div class="notes-preview markdown-body split-preview">

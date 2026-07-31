@@ -368,26 +368,5 @@ describe('Node Table Feature', () => {
       table.value = { id: 1, node_id: 123 }
       expect(hasTable.value).toBe(true)
     })
-
-    it('cellsAsMatrix should convert cells array to 2D matrix', async () => {
-      const mockCells = [
-        { row_index: 0, col_index: 0, value: 'A1' },
-        { row_index: 0, col_index: 1, value: 'B1' },
-        { row_index: 1, col_index: 0, value: 'A2' },
-        { row_index: 1, col_index: 1, value: 'B2' },
-      ]
-
-      api.getNodeTable.mockResolvedValue({ id: 1, node_id: 123, row_count: 2 })
-      api.getTableCells.mockResolvedValue(mockCells)
-
-      const { cellsAsMatrix, loadTable } = useNodeTable()
-      await loadTable(123)
-
-      // Matrix should be organized by [row][col]
-      expect(cellsAsMatrix.value[0][0]).toBe('A1')
-      expect(cellsAsMatrix.value[0][1]).toBe('B1')
-      expect(cellsAsMatrix.value[1][0]).toBe('A2')
-      expect(cellsAsMatrix.value[1][1]).toBe('B2')
-    })
   })
 })

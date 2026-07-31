@@ -126,7 +126,7 @@ const primaryMenuItems = computed(() => [
     label: 'Add Child',
     icon: 'add',
     action: actions.addChild,
-    shortcut: `${modifierKey}+Click`,
+    shortcut: `${modifierKey.value}+Click`,
     visible: props.node?.type !== 'person',
   },
 ])
@@ -174,7 +174,7 @@ const dangerMenuItems = computed(() => [
     label: 'Delete',
     icon: 'trash',
     action: actions.deleteNode,
-    shortcut: `${optionKey}+${modifierKey}+Click`,
+    shortcut: `${optionKey.value}+${modifierKey.value}+Click`,
     danger: true,
     visible: true,
   },

@@ -1,30 +1,6 @@
-// Constants for edge length calculation based on graph density
-const EDGE_LENGTH = {
-  BASE_LARGE: 60, // >100 nodes
-  BASE_MEDIUM: 80, // >50 nodes
-  BASE_SMALL: 100, // >30 nodes
-  BASE_DEFAULT: 120, // <=30 nodes
-  PER_DEGREE_DENSE: 10, // >50 nodes
-  PER_DEGREE_SPARSE: 15, // <=50 nodes
-}
-
-const NODE_COUNT_THRESHOLDS = {
-  LARGE: 100,
-  MEDIUM: 50,
-  SMALL: 30,
-}
-
-const NODE_SPACING = {
-  LARGE: 30, // >100 nodes
-  MEDIUM: 40, // >50 nodes
-  DEFAULT: 50,
-}
-
 const GRAVITY_SCALE_DIVISOR = 10000
 
 const GRID_GAP = 15 // Gap between nodes in grid
-const MIN_NODE_WIDTH = 100
-const MIN_NODE_HEIGHT = 40
 
 /**
  * Sync cytoscape node dimensions with actual HTML label sizes.
@@ -284,55 +260,6 @@ export const LAYOUTS = {
     nodeDimensionsIncludeLabels: true,
     spacingFactor: 1.2,
   },
-
-  // Relax (single click): Dagre - clean up edge crossings
-  relax: {
-    name: 'dagre',
-    animate: true,
-    animationDuration: 300,
-    rankDir: 'TB',
-    nodeSep: 30,
-    rankSep: 60,
-    edgeSep: 20,
-    ranker: 'network-simplex',
-    fit: true,
-    padding: 50,
-    nodeDimensionsIncludeLabels: true,
-  },
-
-  // Continuous relax (double click): cola infinite
-  continuous: {
-    name: 'cola',
-    animate: true,
-    infinite: true,
-    fit: false,
-    nodeSpacing: node => {
-      // Use actual node dimensions - cola will use these for overlap avoidance
-      const width = node.width() || MIN_NODE_WIDTH
-      const height = node.height() || MIN_NODE_HEIGHT
-      // Return spacing that accounts for node size
-      return Math.max(width, height) / 2 + 15
-    },
-    edgeLength: edge => {
-      const source = edge.source()
-      const target = edge.target()
-      // Base edge length on actual node dimensions
-      const sourceWidth = source.width() || MIN_NODE_WIDTH
-      const targetWidth = target.width() || MIN_NODE_WIDTH
-      const sourceHeight = source.height() || MIN_NODE_HEIGHT
-      const targetHeight = target.height() || MIN_NODE_HEIGHT
-      // Edge length should be at least half the sum of node sizes plus some spacing
-      const minLength = (Math.max(sourceWidth, sourceHeight) + Math.max(targetWidth, targetHeight)) / 2 + 50
-      return Math.max(minLength, 100)
-    },
-    avoidOverlap: true,
-    nodeDimensionsIncludeLabels: true,
-    handleDisconnected: true,
-    convergenceThreshold: 0.001,
-    maxSimulationTime: 0,
-    ungrabifyWhileSimulating: false,
-    centerGraph: false,
-  },
 }
 
 /**
@@ -373,16 +300,18 @@ export function useGraphLayout(options = {}) {
   function getLayoutOptions(mode) {
     const layoutMode = mode || (getLayoutMode ? getLayoutMode() : 'tree')
     if (layoutMode === 'radial' && getRadialSettings) {
-      const radialSettings = getRadialSettings()
-      const scaledGravity = radialSettings.gravity / GRAVITY_SCALE_DIVISOR
+      // Fall back to the layout's own defaults for any setting the caller
+      // omits, so a partial settings object cannot inject undefined/NaN.
+      const radialSettings = getRadialSettings() || {}
+      const gravity =
+        radialSettings.gravity != null ? radialSettings.gravity / GRAVITY_SCALE_DIVISOR : LAYOUTS.radial.gravity
       return {
         ...LAYOUTS.radial,
-        nodeRepulsion: radialSettings.nodeRepulsion,
-        idealEdgeLength: radialSettings.edgeLength,
-        edgeElasticity: radialSettings.elasticity,
-        gravity: scaledGravity,
-        gravityRange: 10,
-        numIter: radialSettings.iterations,
+        nodeRepulsion: radialSettings.nodeRepulsion ?? LAYOUTS.radial.nodeRepulsion,
+        idealEdgeLength: radialSettings.edgeLength ?? LAYOUTS.radial.idealEdgeLength,
+        edgeElasticity: radialSettings.elasticity ?? LAYOUTS.radial.edgeElasticity,
+        gravity,
+        numIter: radialSettings.iterations ?? LAYOUTS.radial.numIter,
       }
     }
     // Circle layout: arrange nodes in concentric rings by depth
@@ -514,27 +443,17 @@ export function useGraphLayout(options = {}) {
     const cy = getCy ? getCy() : null
     if (!cy) return
 
-    const radialSettings = getRadialSettings ? getRadialSettings() : {}
-
     // Calculate center of current graph to use as gravity center
     const bb = cy.nodes().boundingBox()
     const centerX = (bb.x1 + bb.x2) / 2
     const centerY = (bb.y1 + bb.y2) / 2
 
+    // Share one source of truth with re-layout: same radial config (including
+    // the user's iterations setting), just without randomizing and anchored to
+    // the current graph center.
     const layoutOptions = {
-      name: 'cose-bilkent',
-      animate: 'end',
-      animationDuration: 300,
-      fit: true,
+      ...getLayoutOptions('radial'),
       randomize: false,
-      nodeRepulsion: radialSettings.nodeRepulsion || 4500,
-      idealEdgeLength: radialSettings.edgeLength || 100,
-      edgeElasticity: radialSettings.elasticity || 0.45,
-      gravity: (radialSettings.gravity || 10000) / 10000,
-      gravityRangeCompound: 1.5,
-      gravityRange: 3.8,
-      numIter: 2500,
-      tile: false,
       gravityCenter: { x: centerX, y: centerY },
     }
 

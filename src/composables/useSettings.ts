@@ -1,5 +1,6 @@
 import { ref, watch, shallowRef, type Ref, type ShallowRef } from 'vue'
 import type { ViewMode, AIProvider, AICustomPrompt, UseSettingsReturn } from '../types/settings'
+import { STORAGE_KEYS } from '../utils/uiConstants.js'
 
 /** Type options for parsing persisted values */
 type PersistedType = 'string' | 'boolean' | 'number' | 'nullable' | 'json'
@@ -240,8 +241,13 @@ export async function initSettings(): Promise<void> {
     if (hasElectronAPI()) {
       await loadSettingsFromDatabase()
     }
-    // Create singleton settings instance after cache is loaded
-    settingsInstance = createSettingsRefs()
+    // Create singleton settings instance after cache is loaded. If a caller
+    // already created one (useSettings() before initSettings resolved), keep
+    // it: replacing it would orphan the early callers' refs, leaving two
+    // disconnected sources of truth for the same settings keys.
+    if (!settingsInstance) {
+      settingsInstance = createSettingsRefs()
+    }
     settingsReady.value = true
   })()
 
@@ -254,36 +260,36 @@ export async function initSettings(): Promise<void> {
 function createSettingsRefs(): UseSettingsReturn & { settingsReady: ShallowRef<boolean> } {
   // Workspace is created first so per-workspace settings (e.g. graphMaxDepth) can
   // key off it.
-  const workspace = persistedRef<string>('graphcore-workspace', 'work')
+  const workspace = persistedRef<string>(STORAGE_KEYS.WORKSPACE, 'work')
 
   return {
     // Ready state
     settingsReady,
 
     // View mode: tree, graph, timeline, table, persons, tasks, trash
-    viewMode: persistedRef<ViewMode>('graphcore-viewMode', 'graph'),
+    viewMode: persistedRef<ViewMode>(STORAGE_KEYS.VIEW_MODE, 'graph'),
 
     // Current container ID (null for root level)
-    containerId: persistedRef<number | null>('graphcore-containerId', null, { type: 'nullable' }),
+    containerId: persistedRef<number | null>(STORAGE_KEYS.CONTAINER_ID, null, { type: 'nullable' }),
 
     // Visibility settings
-    hideCompleted: persistedRef<boolean>('graphcore-hideCompleted', true, { type: 'boolean' }),
-    hideSensitive: persistedRef<boolean>('graphcore-hideSensitive', false, { type: 'boolean' }),
+    hideCompleted: persistedRef<boolean>(STORAGE_KEYS.HIDE_COMPLETED, true, { type: 'boolean' }),
+    hideSensitive: persistedRef<boolean>(STORAGE_KEYS.HIDE_SENSITIVE, false, { type: 'boolean' }),
 
     // Graph settings
-    graphDetailThreshold: persistedRef<number>('graphcore-graphDetailThreshold', 50, { type: 'number' }),
+    graphDetailThreshold: persistedRef<number>(STORAGE_KEYS.GRAPH_DETAIL_THRESHOLD, 50, { type: 'number' }),
     // Per-workspace so each workspace keeps its own root depth; DB-backed so it
     // survives reinstalls (localStorage does not).
-    graphMaxDepth: workspacePersistedRef('graphcore-graphMaxDepth', 0, workspace),
-    graphNotesPreviewLength: persistedRef<number>('graphcore-graphNotesPreviewLength', 200, { type: 'number' }),
+    graphMaxDepth: workspacePersistedRef(STORAGE_KEYS.GRAPH_MAX_DEPTH, 0, workspace),
+    graphNotesPreviewLength: persistedRef<number>(STORAGE_KEYS.GRAPH_NOTES_PREVIEW_LENGTH, 200, { type: 'number' }),
 
     // Detail panel settings
-    openDetailFullscreen: persistedRef<boolean>('graphcore-openDetailFullscreen', false, { type: 'boolean' }),
-    hoverPreviewEnabled: persistedRef<boolean>('graphcore-hoverPreview', true, { type: 'boolean' }),
+    openDetailFullscreen: persistedRef<boolean>(STORAGE_KEYS.OPEN_DETAIL_FULLSCREEN, false, { type: 'boolean' }),
+    hoverPreviewEnabled: persistedRef<boolean>(STORAGE_KEYS.HOVER_PREVIEW, true, { type: 'boolean' }),
     inheritColors: persistedRef<boolean>('graphcore-inheritColors', true, { type: 'boolean' }),
 
     // Sidebar settings
-    sidebarPinned: persistedRef<boolean>('graphcore-sidebarPinned', true, { type: 'boolean' }),
+    sidebarPinned: persistedRef<boolean>(STORAGE_KEYS.SIDEBAR_PINNED, true, { type: 'boolean' }),
 
     // Workspace
     workspace,

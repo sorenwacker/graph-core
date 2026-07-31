@@ -14,33 +14,6 @@ export function useNodeTable() {
   const hasTable = computed(() => table.value !== null)
 
   /**
-   * Convert cells array to a 2D matrix for grid display
-   * @returns {Array<Array>} 2D array organized as [row][col]
-   */
-  const cellsAsMatrix = computed(() => {
-    if (!table.value || cells.value.length === 0) return []
-
-    const rowCount = table.value.row_count || 5
-    const colCount = table.value.column_definitions?.length || 4
-
-    // Initialize empty matrix
-    const matrix = []
-    for (let r = 0; r < rowCount; r++) {
-      matrix[r] = new Array(colCount).fill('')
-    }
-
-    // Fill in cell values
-    for (const cell of cells.value) {
-      if (cell.row_index < rowCount && cell.col_index < colCount) {
-        // Use formula display if present, otherwise value
-        matrix[cell.row_index][cell.col_index] = cell.formula || cell.value || ''
-      }
-    }
-
-    return matrix
-  })
-
-  /**
    * Load table and cells for a node
    * @param {number} nodeId - Node ID
    */
@@ -204,86 +177,6 @@ export function useNodeTable() {
     }
   }
 
-  /**
-   * Save multiple cells at once
-   * @param {number} nodeId - Node ID
-   * @param {Array} cellsToSave - Array of { row_index, col_index, value?, formula? }
-   */
-  async function saveCells(nodeId, cellsToSave) {
-    try {
-      await api.setCells(nodeId, cellsToSave)
-    } catch (err) {
-      handleError(err, { context: 'Saving cells', silent: true })
-      error.value = err.message
-    }
-  }
-
-  /**
-   * Clear all cells in the table
-   * @param {number} nodeId - Node ID
-   */
-  async function clearAllCells(nodeId) {
-    try {
-      await api.clearCells(nodeId)
-      cells.value = []
-    } catch (err) {
-      handleError(err, { context: 'Clearing cells' })
-      error.value = err.message
-    }
-  }
-
-  /**
-   * Add rows to the table
-   * @param {number} nodeId - Node ID
-   * @param {number} count - Number of rows to add
-   */
-  async function addRows(nodeId, count = 1) {
-    if (!table.value) return
-
-    const newRowCount = (table.value.row_count || 5) + count
-    await updateTable(nodeId, { row_count: newRowCount })
-  }
-
-  /**
-   * Add columns to the table
-   * @param {number} nodeId - Node ID
-   * @param {number} count - Number of columns to add
-   */
-  async function addColumns(nodeId, count = 1) {
-    if (!table.value) return
-
-    const currentCols = table.value.column_definitions || []
-    const newCols = [...currentCols]
-
-    for (let i = 0; i < count; i++) {
-      const colIndex = newCols.length
-      const colName = getColumnName(colIndex)
-      newCols.push({
-        id: `col${colIndex}`,
-        name: colName,
-        type: 'text',
-        width: 100,
-      })
-    }
-
-    await updateTable(nodeId, { column_definitions: newCols })
-  }
-
-  /**
-   * Get column letter name (A, B, ..., Z, AA, AB, ...)
-   * @param {number} index - Column index
-   * @returns {string} Column name
-   */
-  function getColumnName(index) {
-    let name = ''
-    let i = index
-    while (i >= 0) {
-      name = String.fromCharCode(65 + (i % 26)) + name
-      i = Math.floor(i / 26) - 1
-    }
-    return name
-  }
-
   return {
     // State
     table,
@@ -291,7 +184,6 @@ export function useNodeTable() {
     loading,
     error,
     hasTable,
-    cellsAsMatrix,
 
     // Actions
     loadTable,
@@ -300,10 +192,5 @@ export function useNodeTable() {
     deleteTable,
     saveCell,
     saveCellStyle,
-    saveCells,
-    clearAllCells,
-    addRows,
-    addColumns,
-    getColumnName,
   }
 }

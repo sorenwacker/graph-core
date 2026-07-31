@@ -41,9 +41,10 @@ export const ollamaService = {
    * @param {string} options.content - The content to improve
    * @param {string} [options.model] - Model name (default: llama3.2)
    * @param {string} [options.endpoint] - Ollama endpoint URL
+   * @param {number} [options.contextSize] - Context window size (num_ctx)
    * @returns {Promise<string>} Generated text
    */
-  async generate({ prompt, content, model = DEFAULT_MODEL, endpoint = DEFAULT_ENDPOINT }) {
+  async generate({ prompt, content, model = DEFAULT_MODEL, endpoint = DEFAULT_ENDPOINT, contextSize }) {
     const fullPrompt = `${prompt}\n\n---\n\n${content}`
 
     try {
@@ -54,6 +55,7 @@ export const ollamaService = {
           model,
           prompt: fullPrompt,
           stream: false,
+          options: { num_ctx: contextSize || 32768 },
         }),
       })
 

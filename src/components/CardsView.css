@@ -889,7 +889,7 @@ input.grandchild-check {
 }
 .child-card.organization,
 .child-card.org {
-  border-left: 3px solid var(--type-org-text);
+  border-left: 3px solid var(--type-organization-text);
 }
 .child-card.area {
   border-left: 3px solid var(--type-area-text);

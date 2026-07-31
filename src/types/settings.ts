@@ -6,8 +6,9 @@ import type { Ref } from 'vue'
 
 /**
  * Available view modes for displaying nodes.
+ * Must match the view ids in src/utils/viewConfig.js (ViewRenderer branches on exactly these).
  */
-export type ViewMode = 'graph' | 'cards' | 'list' | 'table' | 'timeline' | 'persons' | 'tasks' | 'trash' | 'tree'
+export type ViewMode = 'graph' | 'cards' | 'tree' | 'tasks' | 'timeline' | 'persons' | 'trash'
 
 /**
  * AI provider options.

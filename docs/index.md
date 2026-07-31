@@ -9,7 +9,7 @@ A hierarchical node management application built with Vue 3, Vite, and Electron.
 - **Hierarchical Organization**: Nest nodes within nodes for structured data
 - **Cross-Links**: Create relationships between nodes beyond the tree hierarchy
 - **Detachable Windows**: Open nodes in separate windows for focused editing
-- **Workspaces**: Organize nodes into separate workspaces (work, personal, custom)
+- **Workspaces**: Organize nodes into separate workspaces (Work and Private by default, plus your own)
 - **Search**: Spotlight-style search (Cmd+K) with type filtering and multiple modes
 - **Favorites & Recents**: Quick access to frequently used nodes
 - **Keyboard Shortcuts**: Efficient navigation and editing
@@ -31,6 +31,7 @@ A hierarchical node management application built with Vue 3, Vite, and Electron.
 - [Detail Panel](guides/detail-panel.md) - Editing nodes, notes, tables, and metadata
 - [Search](guides/search.md) - Finding and navigating nodes
 - [Workspaces](guides/workspaces.md) - Organizing by context
+- [Demo Workspace](guides/demo-workspace.md) - Sample data to explore the app
 - [AI Notes](guides/ai-notes.md) - LLM-powered note enhancement
 - [Import and Export](guides/import-export.md) - Data portability
 

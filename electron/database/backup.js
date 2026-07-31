@@ -22,6 +22,8 @@ function createBackupOperations(ctx) {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
       const backupPath = ctx.dbPath.replace('.db', `-backup-${timestamp}${suffix}.db`)
       const data = ctx.db.export()
+      // sql.js export() resets per-connection pragmas; re-enable FK enforcement.
+      ctx.db.run('PRAGMA foreign_keys = ON')
       fs.writeFileSync(backupPath, Buffer.from(data))
       console.log(`Database backed up to: ${backupPath}`)
       return backupPath
@@ -61,6 +63,7 @@ function createBackupOperations(ctx) {
       this.backup('-pre-restore')
       const buffer = fs.readFileSync(backupPath)
       ctx.db = new ctx.SQL.Database(buffer)
+      ctx.db.run('PRAGMA foreign_keys = ON')
       ctx._save()
       console.log(`Database restored from: ${backupPath}`)
       return { success: true, restoredFrom: backupPath }
@@ -76,6 +79,7 @@ function createBackupOperations(ctx) {
       }
       const buffer = fs.readFileSync(ctx.dbPath)
       ctx.db = new ctx.SQL.Database(buffer)
+      ctx.db.run('PRAGMA foreign_keys = ON')
       const count = ctx._query('SELECT COUNT(*) as cnt FROM nodes')[0]?.cnt || 0
       console.log(`Database reloaded with ${count} nodes`)
       return { success: true, nodeCount: count }

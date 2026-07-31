@@ -79,10 +79,28 @@ export function useAppLifecycle({
         })
       }
 
-      // Autosave before app quits
-      window.electronAPI.onBeforeQuit(() => {
-        saveInlineNotes()
-        detailPanelRef.value?.saveChanges()
+      // Autosave before app quits, then ack so the main process resumes the
+      // quit it is holding (it also has a short timeout as a fallback, so a
+      // hung renderer cannot block quit forever).
+      window.electronAPI.onBeforeQuit(async () => {
+        try {
+          // Both flushes must have completed - not merely started - before we
+          // ack, because the main process resumes the quit as soon as it hears
+          // back and anything still in flight is lost.
+          //
+          // saveChangesNow() (not saveChanges(), which only emits and returns
+          // undefined) resolves once its db:updateNode round-trip is done.
+          // saveInlineNotes() is a no-op unless an inline notes editor is open.
+          // They are run together so one failing still lets the other finish.
+          const results = await Promise.allSettled([detailPanelRef.value?.saveChangesNow?.(), saveInlineNotes()])
+          for (const result of results) {
+            if (result.status === 'rejected') {
+              console.error('Pre-quit save failed:', result.reason)
+            }
+          }
+        } finally {
+          window.electronAPI.quitSaveDone?.()
+        }
       })
     }
   }

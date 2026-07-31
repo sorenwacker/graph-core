@@ -61,7 +61,18 @@ export function useNodeCreation({
     }
   }
 
+  /**
+   * Handle the detail panel's `add-child`. Same payload shapes as
+   * {@link handleAddChild}: the subtask button sends `prompt: true` with no
+   * title, which must open the modal rather than create an untitled node.
+   */
   const addChildFromDetail = async payload => {
+    const isDescriptor = payload !== null && typeof payload === 'object'
+    if (isDescriptor && (payload.prompt || !payload.title)) {
+      hideTooltip()
+      showAddNodeModal(payload.parentId ?? null)
+      return
+    }
     await addChildNode(payload)
     detailPanelRef.value?.loadChildren()
   }
@@ -79,14 +90,25 @@ export function useNodeCreation({
     addNodeModal.value = { visible: true, parentId }
   }
 
+  /**
+   * Handle an `add-child` event. Two payload shapes reach this handler:
+   *  - a bare parent id (plus the DOM event) from the tree/cards views
+   *  - an object from the graph modal, timeline and table views:
+   *    `{ parentId, title, type?, x?, y?, prompt? }`
+   * `prompt: true` (or an empty title) means "ask for the details", i.e. open
+   * the add-node modal for that parent; a filled-in title is created directly.
+   * @param {Object|number|null} payload - Parent id or add-child descriptor
+   * @param {Event} [e] - Originating DOM event, if any
+   */
   function handleAddChild(payload, e) {
-    if (payload?.title) {
+    const isDescriptor = payload !== null && typeof payload === 'object'
+    if (isDescriptor && !payload.prompt && payload.title) {
       addChildNode(payload)
       return
     }
     e?.stopPropagation()
     hideTooltip()
-    showAddNodeModal(payload)
+    showAddNodeModal(isDescriptor ? (payload.parentId ?? null) : (payload ?? null))
   }
 
   function handleCreate(payload) {

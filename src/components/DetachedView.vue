@@ -67,11 +67,11 @@ async function handleUpdate(updatedNode) {
   }
 }
 
-// Handle node deletion
-async function handleDelete(node) {
+// Handle node deletion — DetailPanel emits the node id (a number)
+async function handleDelete(nodeId) {
   try {
-    await api.deleteNode(node.id)
-    broadcastNodeDelete(node.id)
+    await api.deleteNode(nodeId)
+    broadcastNodeDelete(nodeId)
     // Close the window after deleting
     window.close()
   } catch (e) {
@@ -125,24 +125,24 @@ function goBack() {
   }
 }
 
-// Handle wrap-with-parent (create parent node)
-async function wrapWithParent(node) {
+// Handle wrap-with-parent — DetailPanel emits { nodeId, parentTitle }
+async function wrapWithParent({ nodeId, parentTitle }) {
   try {
-    // Create new parent node
+    // Create new parent node in place of the current node
     const parentData = {
-      title: 'New Parent',
+      title: parentTitle,
       type: 'group',
-      parent_id: node.parent_id,
-      workspace_id: node.workspace_id,
+      parent_id: currentNode.value?.parent_id,
+      workspace_id: currentNode.value?.workspace_id,
     }
     const newParent = await api.createNode(parentData)
 
     // Move current node under new parent
-    await api.moveNode(node.id, newParent.id)
+    await api.moveNode(nodeId, newParent.id)
 
     // Reload node and broadcast both the new parent and the moved child's
     // updated record so other windows see the child's new parent_id.
-    await loadNode(node.id)
+    await loadNode(nodeId)
     broadcastNodeUpdate(newParent)
     broadcastNodeUpdate(currentNode.value)
   } catch (e) {
@@ -150,11 +150,11 @@ async function wrapWithParent(node) {
   }
 }
 
-// Handle move to root
-async function moveToRoot(node) {
+// Handle move to root — DetailPanel emits the node id (a number)
+async function moveToRoot(nodeId) {
   try {
-    await api.moveNode(node.id, null)
-    await loadNode(node.id)
+    await api.moveNode(nodeId, null)
+    await loadNode(nodeId)
     // Broadcast the reloaded record (parent_id now null), not the stale arg.
     broadcastNodeUpdate(currentNode.value)
   } catch (e) {
@@ -182,9 +182,16 @@ async function addChild(payload) {
   }
 }
 
-// Handle child updated
-function onChildUpdated(child) {
-  broadcastNodeUpdate(child)
+// Handle child updated — DetailPanel emits the child's id (a number)
+async function onChildUpdated(childId) {
+  try {
+    const child = await api.getNode(childId)
+    if (child) {
+      broadcastNodeUpdate(child)
+    }
+  } catch (e) {
+    handleError(e, { context: 'Broadcasting child update', silent: true })
+  }
 }
 
 // Handle close - just close the window
@@ -252,6 +259,7 @@ watch(
       :hide-completed="false"
       :pinned="false"
       :workspaces="workspaces"
+      :current-workspace="currentNode.workspace_id || 'work'"
       @update="handleUpdate"
       @delete="handleDelete"
       @wrap-with-parent="wrapWithParent"
