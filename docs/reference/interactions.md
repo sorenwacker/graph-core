@@ -56,6 +56,7 @@ When a tooltip is locked:
 | Action | Result |
 |--------|--------|
 | Drag node | Reposition node |
+| Double-click background | Open the add-node dialog at that position |
 | Option + Drag | Create link to another node |
 | Shift + Click | Multi-select toggle |
 | Shift + Drag | Lasso select multiple |
