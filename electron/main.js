@@ -5,7 +5,7 @@ const {
   OPEN_SETTINGS,
   SHOW_SHORTCUTS,
   APP_BEFORE_QUIT,
-  APP_GET_VERSION,
+  APP_QUIT_SAVE_DONE,
   MENU_UNDO,
   MENU_REDO,
 } = require('./ipcChannels')
@@ -20,6 +20,73 @@ const { httpRequest } = require('./ipc/httpClient')
 
 let mainWindow
 let db
+
+// =========================================
+// TWO-PHASE QUIT / CLOSE SAVE
+// =========================================
+
+// Hold the first quit (or window close) attempt, tell the renderer to flush its
+// unsaved edits (autosave), and resume once it acks via APP_QUIT_SAVE_DONE. The
+// wait is bounded by a timeout so a hung renderer can never block quit forever.
+const QUIT_SAVE_TIMEOUT_MS = 3000
+let quitSaveHandled = false
+let pendingQuitSaveDone = null
+// The single in-flight save request, if any: { callbacks, timeoutId, done }.
+let pendingSaveRequest = null
+
+/**
+ * Ask the renderer to flush unsaved edits, then run `onDone`.
+ *
+ * Only one request is ever in flight: a second caller (e.g. Cmd+Q while a
+ * window close is already waiting) joins the pending one instead of sending a
+ * second APP_BEFORE_QUIT, and its callback runs off the same ack/timeout.
+ * @param {Electron.BrowserWindow} win - Window whose renderer should save
+ * @param {Function} onDone - Called once, after the ack or the timeout
+ */
+function requestRendererSave(win, onDone) {
+  if (pendingSaveRequest) {
+    pendingSaveRequest.callbacks.push(onDone)
+    return
+  }
+
+  const request = { callbacks: [onDone], timeoutId: null, done: false }
+  const finish = () => {
+    if (request.done) return
+    request.done = true
+    clearTimeout(request.timeoutId)
+    pendingSaveRequest = null
+    pendingQuitSaveDone = null
+    for (const callback of request.callbacks) callback()
+  }
+
+  request.timeoutId = setTimeout(finish, QUIT_SAVE_TIMEOUT_MS)
+  pendingSaveRequest = request
+  pendingQuitSaveDone = finish
+  win.webContents.send(APP_BEFORE_QUIT)
+}
+
+/**
+ * Run the save handshake when the user closes the window.
+ *
+ * On Linux/Windows the close destroys the window before `window-all-closed`
+ * calls app.quit(), so by the time `before-quit` runs there is no renderer left
+ * to ask - without this hook the handshake would only ever cover menu/Cmd+Q.
+ * The close is deferred once, then re-issued after the renderer acks.
+ * @param {Electron.BrowserWindow} win - Window to guard
+ */
+function setupSaveOnClose(win) {
+  let saveDone = false
+  win.on('close', event => {
+    if (saveDone || quitSaveHandled) return
+    if (win.isDestroyed() || win.webContents.isDestroyed()) return
+
+    event.preventDefault()
+    requestRendererSave(win, () => {
+      saveDone = true
+      if (!win.isDestroyed()) win.close()
+    })
+  })
+}
 
 // =========================================
 // WINDOW CREATION
@@ -49,6 +116,7 @@ function createWindow() {
   })
 
   setupExternalLinkHandling(mainWindow)
+  setupSaveOnClose(mainWindow)
 
   // In development, load from Vite dev server
   if (process.env.NODE_ENV === 'development') {
@@ -225,8 +293,10 @@ app.whenReady().then(async () => {
   registerAgentHandlers(ipcMain, httpRequest)
   registerWindowHandlers(ipcMain)
 
-  // App info handler
-  ipcMain.handle(APP_GET_VERSION, () => app.getVersion())
+  // Renderer ack that pre-quit autosave finished (see the before-quit handler)
+  ipcMain.handle(APP_QUIT_SAVE_DONE, () => {
+    if (pendingQuitSaveDone) pendingQuitSaveDone()
+  })
 
   createMenu()
   createWindow()
@@ -244,9 +314,17 @@ app.on('window-all-closed', () => {
   }
 })
 
-// Notify renderer to save before quitting
-app.on('before-quit', () => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send(APP_BEFORE_QUIT)
+app.on('before-quit', event => {
+  if (quitSaveHandled) return
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    // No renderer to save; let the quit proceed normally.
+    quitSaveHandled = true
+    return
   }
+
+  event.preventDefault()
+  requestRendererSave(mainWindow, () => {
+    quitSaveHandled = true
+    app.quit()
+  })
 })

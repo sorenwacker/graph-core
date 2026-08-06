@@ -25,7 +25,7 @@ With 10 root nodes, this results in 11 database queries (1 for roots + 10 for de
 The `nodeCache` service provides an LRU (Least Recently Used) cache with TTL (Time To Live):
 
 ```javascript
-import { nodeCache } from '@/services/nodeCache'
+import { createNodeCache } from '@/services/nodeCache'
 
 // Cache configuration
 const cache = createNodeCache({
@@ -35,6 +35,8 @@ const cache = createNodeCache({
 })
 ```
 
+Options: `maxSize` (default 1000), `ttlMs` (default 300000), `onEvict`, `enabled`. `createNodeCache` is the only export — each caller owns its instance, there is no app-wide singleton.
+
 ### API
 
 | Method | Description |
@@ -42,20 +44,13 @@ const cache = createNodeCache({
 | `get(key)` | Retrieve cached value, returns `undefined` if expired/missing |
 | `set(key, value, ttl?)` | Store value with optional custom TTL |
 | `has(key)` | Check if key exists and is not expired |
+| `getOrSet(key, factory, ttl?)` | Return the cached value or await `factory()` and cache it |
 | `delete(key)` | Remove specific key |
 | `clear()` | Clear entire cache |
+| `size()` | Number of live entries |
 | `invalidatePrefix(prefix)` | Remove all keys matching prefix |
-
-### Cache Keys
-
-Cache keys follow a consistent naming convention:
-
-| Pattern | Example | Description |
-|---------|---------|-------------|
-| `node:{id}` | `node:123` | Single node data |
-| `children:{parentId}` | `children:123` | Children of a node |
-| `descendants:{rootId}` | `descendants:123` | All descendants of a node |
-| `roots:{workspaceId}` | `roots:work` | Root nodes for workspace |
+| `stats()` | `{ hits, misses, hitRate }` |
+| `resetStats()` | Reset hit/miss counters |
 
 ### Batch Loading
 
@@ -86,76 +81,44 @@ ORDER BY depth, sort_order
 
 ## Cache Invalidation
 
-### Write Operations
+Entries expire after their TTL and are evicted LRU-style at capacity. Beyond that, invalidation is explicit — the owner of a cache instance decides what a write invalidates.
 
-Cache is invalidated on write operations:
-
-| Operation | Invalidation |
-|-----------|-------------|
-| Create node | `children:{parentId}`, `descendants:{rootId}` |
-| Update node | `node:{id}`, parent caches if moved |
-| Delete node | `node:{id}`, `children:{parentId}`, descendant caches |
-| Move node | Old parent caches, new parent caches |
-
-### Manual Invalidation
+The sidebar cache invalidates by prefix, because one workspace's tree is one entry:
 
 ```javascript
-// Invalidate specific node
-nodeCache.delete(`node:${nodeId}`)
-
-// Invalidate all descendants caches
-nodeCache.invalidatePrefix('descendants:')
-
-// Clear everything
-nodeCache.clear()
+sidebarCache.invalidatePrefix('sidebar:')
 ```
+
+`loadSidebarTree(true)` bypasses the cache for a single load without dropping the other workspaces' entries.
 
 ## Integration Points
 
 ### useDataLoading
 
-The composable uses caching for sidebar loading:
+`useDataLoading` owns the app's one cache instance, `sidebarCache` (`maxSize: 100`, `ttlMs: 60000`), keyed `sidebar:{workspaceId}`:
 
 ```javascript
-async function loadSidebarTree() {
+async function loadSidebarTree(skipCache = false) {
   const cacheKey = `sidebar:${currentWorkspace.value}`
 
-  // Check cache first
-  const cached = nodeCache.get(cacheKey)
-  if (cached) {
-    sidebarTree.value = cached
-    return
+  if (!skipCache) {
+    const cached = sidebarCache.get(cacheKey)
+    if (cached) {
+      sidebarTree.value = cached
+      return
+    }
   }
 
-  // Fetch and cache
   const roots = await api.getRoots(currentWorkspace.value)
   const descendants = await api.getDescendantsBatch(roots.map(r => r.id))
   const tree = buildTreeFromBatch(roots, descendants)
 
-  nodeCache.set(cacheKey, tree)
+  sidebarCache.set(cacheKey, tree)
   sidebarTree.value = tree
 }
 ```
 
-### Write Operations
-
-Node operations invalidate relevant caches:
-
-```javascript
-async function createNode(data) {
-  const node = await api.createNode(data)
-
-  // Invalidate parent's children cache
-  if (data.parent_id) {
-    nodeCache.delete(`children:${data.parent_id}`)
-  }
-
-  // Invalidate workspace sidebar cache
-  nodeCache.delete(`sidebar:${data.workspace_id}`)
-
-  return node
-}
-```
+Operations that change the tree call `invalidateSidebarCache()` before reloading.
 
 ## Performance Characteristics
 
@@ -164,30 +127,6 @@ async function createNode(data) {
 | Sidebar load (10 roots) | 11 queries | 2 queries |
 | Repeated sidebar load | 11 queries | 0 queries (cached) |
 | Memory overhead | - | ~1MB for 1000 nodes |
-
-## Configuration
-
-Cache settings can be adjusted via environment or settings:
-
-```javascript
-// Default configuration
-{
-  enabled: true,
-  maxSize: 1000,
-  ttlMs: 300000,  // 5 minutes
-  debug: false
-}
-```
-
-## Debugging
-
-Enable cache debugging:
-
-```javascript
-nodeCache.setDebug(true)
-// Logs: [Cache] GET node:123 -> HIT
-// Logs: [Cache] SET children:456 (expires in 300000ms)
-```
 
 ## See Also
 

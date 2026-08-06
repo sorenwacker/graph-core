@@ -3,13 +3,13 @@
  */
 
 import type { Node, CreateNodeData, UpdateNodeData, TreeNode, NodeLink } from './node'
-import type { Workspace, CreateWorkspaceData, UpdateWorkspaceData } from './workspace'
+import type { Workspace, WorkspaceId, CreateWorkspaceData, UpdateWorkspaceData } from './workspace'
 
 /**
  * Parameters for fetching nodes.
  */
 export interface GetNodesParams {
-  workspace_id?: number | null
+  workspace_id?: WorkspaceId | null
   type?: string
   parent_id?: number | null
 }
@@ -18,7 +18,7 @@ export interface GetNodesParams {
  * Parameters for fetching tasks.
  */
 export interface GetTasksParams {
-  workspaceId?: number | null
+  workspaceId?: WorkspaceId | null
   completed?: boolean
   dueDateFrom?: string
   dueDateTo?: string
@@ -82,6 +82,7 @@ export interface AgentResearchOptions {
   endpoint: string
   apiKey?: string
   contextSize?: number
+  skipSslVerification?: boolean
   enabledTools?: string[]
 }
 
@@ -113,6 +114,48 @@ export interface ExportJSONOptions {
 }
 
 /**
+ * Result of a JSON import (electron/database/export.js importJSON).
+ */
+export interface ImportJSONResult {
+  /** New id of the imported root node */
+  rootId: number
+  /** Total number of nodes imported */
+  nodesImported: number
+  /** Number of links recreated */
+  linksCreated: number
+}
+
+/**
+ * Result of a CSV import (electron/database/export.js importCSV).
+ */
+export interface ImportCSVResult {
+  /** Total number of nodes imported */
+  nodesImported: number
+  /** Number of malformed or title-less rows skipped */
+  rowsSkipped: number
+}
+
+/**
+ * Markdown export result.
+ */
+export interface ExportMarkdownResult {
+  /** The rendered markdown document */
+  markdown: string
+}
+
+/**
+ * CSV export result.
+ */
+export interface ExportCSVResult {
+  /** The rendered CSV document (header row + data rows) */
+  csv: string
+  /** Column headers in output order */
+  headers: string[]
+  /** Number of exported data rows */
+  rowCount: number
+}
+
+/**
  * Backup info.
  */
 export interface BackupInfo {
@@ -135,11 +178,11 @@ export interface Api {
   deleteNode(id: number, hard?: boolean): Promise<void>
 
   // Tree operations
-  getRoots(workspaceId?: number | null): Promise<Node[]>
+  getRoots(workspaceId?: WorkspaceId | null): Promise<Node[]>
   getProjects(): Promise<Node[]>
   getInbox(): Promise<Node[]>
-  getRecent(limit?: number, workspaceId?: number | null): Promise<Node[]>
-  getFavorites(workspaceId?: number | null): Promise<Node[]>
+  getRecent(limit?: number, workspaceId?: WorkspaceId | null): Promise<Node[]>
+  getFavorites(workspaceId?: WorkspaceId | null): Promise<Node[]>
   getTasks(params?: GetTasksParams): Promise<Node[]>
   getChildren(id: number, type?: string | null): Promise<Node[]>
   getDescendants(id: number, maxDepth?: number | null): Promise<Node[]>
@@ -157,11 +200,16 @@ export interface Api {
   getTree(rootId?: number | null): Promise<TreeNode[]>
 
   // Search
-  search(query: string, type?: string | null, workspaceId?: number | null, options?: SearchOptions): Promise<Node[]>
+  search(
+    query: string,
+    type?: string | null,
+    workspaceId?: WorkspaceId | null,
+    options?: SearchOptions
+  ): Promise<Node[]>
   searchCount(
     query: string,
     type?: string | null,
-    workspaceId?: number | null,
+    workspaceId?: WorkspaceId | null,
     options?: SearchOptions
   ): Promise<{ count: number }>
 
@@ -169,29 +217,17 @@ export interface Api {
   reorderNode(nodeId: number, targetId: number, position: 'before' | 'after' | 'inside'): Promise<void>
 
   // Export
-  exportMarkdown(nodeId: number): Promise<{ markdown: string }>
-  exportJSON?(
-    nodeId: number,
-    options?: ExportJSONOptions
-  ): Promise<{
-    version: number
-    exportedAt: string
-    root: object | null
-    links?: Array<{ source_id: number; target_id: number }>
-  }>
-  exportCSV?(nodeId: number, workspaceId?: number | null): Promise<{ csv: string; headers: string[]; rowCount: number }>
+  exportMarkdown(nodeId: number): Promise<ExportMarkdownResult>
+  exportJSON?(nodeId: number, options?: ExportJSONOptions): Promise<object>
+  exportCSV?(nodeId: number, workspaceId?: WorkspaceId | null): Promise<ExportCSVResult>
 
   // Import
-  importJSON?(
-    data: object,
-    targetParentId?: number | null,
-    workspaceId?: number | null
-  ): Promise<{ rootId: number; nodesImported: number; linksCreated: number }>
+  importJSON?(data: object, targetParentId?: number | null, workspaceId?: WorkspaceId | null): Promise<ImportJSONResult>
   importCSV?(
     csvData: string,
     targetParentId?: number | null,
-    workspaceId?: number | null
-  ): Promise<{ nodesImported: number }>
+    workspaceId?: WorkspaceId | null
+  ): Promise<ImportCSVResult>
 
   // Trash
   getTrash(limit?: number): Promise<Node[]>
@@ -203,21 +239,21 @@ export interface Api {
   reparentToRoot(id: number): Promise<void>
 
   // Tags (string-based, legacy)
-  getAllTags(workspaceId?: number | null): Promise<string[]>
-  getNodesByTag(tag: string, workspaceId?: number | null, options?: GetNodesByTagOptions): Promise<Node[]>
+  getAllTags(workspaceId?: WorkspaceId | null): Promise<string[]>
+  getNodesByTag(tag: string, workspaceId?: WorkspaceId | null, options?: GetNodesByTagOptions): Promise<Node[]>
 
   // Tags (first-class nodes)
-  getTagNodes?(workspaceId?: number | null): Promise<Node[]>
-  getOrCreateTagNode?(name: string, workspaceId?: number | null): Promise<Node>
+  getTagNodes?(workspaceId?: WorkspaceId | null): Promise<Node[]>
+  getOrCreateTagNode?(name: string, workspaceId?: WorkspaceId | null): Promise<Node>
   getNodesLinkedToTag?(tagNodeId: number, options?: GetNodesByTagOptions): Promise<Node[]>
-  searchTagNodes?(query: string, workspaceId?: number | null, limit?: number): Promise<Node[]>
+  searchTagNodes?(query: string, workspaceId?: WorkspaceId | null, limit?: number): Promise<Node[]>
 
   // Workspaces
   getWorkspaces(): Promise<Workspace[]>
-  getWorkspace(id: number): Promise<Workspace | null>
+  getWorkspace(id: WorkspaceId): Promise<Workspace | null>
   createWorkspace(data: CreateWorkspaceData): Promise<Workspace>
-  updateWorkspace(id: number, data: UpdateWorkspaceData): Promise<Workspace>
-  deleteWorkspace(id: number): Promise<void>
+  updateWorkspace(id: WorkspaceId, data: UpdateWorkspaceData): Promise<Workspace>
+  deleteWorkspace(id: WorkspaceId): Promise<void>
 
   // Database (Electron only)
   backup?(suffix?: string): Promise<{ path: string } | { error: string }>

@@ -65,7 +65,7 @@ describe('useAppLifecycle', () => {
       clearSelectionAfterDelete: vi.fn(),
       selectedNode: ref(null),
       saveInlineNotes: vi.fn(),
-      detailPanelRef: ref({ saveChanges: vi.fn() }),
+      detailPanelRef: ref({ saveChanges: vi.fn(), saveChangesNow: vi.fn().mockResolvedValue(true) }),
       undo: vi.fn(),
       redo: vi.fn(),
       showSettings: ref(false),
@@ -172,6 +172,155 @@ describe('useAppLifecycle', () => {
       delete global.window.electronAPI
 
       expect(() => useAppLifecycle(mockDeps)).not.toThrow()
+    })
+
+    // The pre-quit handshake exists so no edit is lost when the main process
+    // resumes quitting on the ack. These tests therefore assert the ORDER of
+    // "save round-trip finished" vs "ack sent", not just that both happened:
+    // an implementation that starts the saves without awaiting them (the bug
+    // this replaced) acks first and fails on the order assertion.
+    function setupQuitHandshake() {
+      // The default vi.fn() ResizeObserver mock is not constructible, which
+      // aborts initialize() before the electron handlers are registered.
+      global.ResizeObserver = class {
+        observe() {}
+        disconnect() {}
+      }
+      const order = []
+      global.window.electronAPI.quitSaveDone = vi.fn(() => order.push('ack'))
+      return { order }
+    }
+
+    async function getBeforeQuitCallback() {
+      await vi.waitFor(() => {
+        expect(global.window.electronAPI.onBeforeQuit).toHaveBeenCalled()
+      })
+      return global.window.electronAPI.onBeforeQuit.mock.calls[0][0]
+    }
+
+    // Flush all pending microtasks: a handler that forgot to await would have
+    // acked by the time this resolves.
+    const flushMicrotasks = () => new Promise(resolve => setTimeout(resolve, 0))
+
+    function deferred(order, label) {
+      let resolve
+      let reject
+      const promise = new Promise((res, rej) => {
+        resolve = res
+        reject = rej
+      })
+      return {
+        promise,
+        settle: () => {
+          order.push(label)
+          resolve()
+        },
+        fail: err => {
+          order.push(label)
+          reject(err)
+        },
+      }
+    }
+
+    it('should ack quitSaveDone only after the detail-panel update round-trip completes', async () => {
+      const { order } = setupQuitHandshake()
+      // Stands in for the db:updateNode invoke: resolves when the main process
+      // has acknowledged the write.
+      const update = deferred(order, 'update')
+      mockDeps.detailPanelRef = ref({
+        saveChanges: vi.fn(),
+        saveChangesNow: vi.fn(() => update.promise),
+      })
+      mockDeps.saveInlineNotes = vi.fn().mockResolvedValue(undefined)
+
+      useAppLifecycle(mockDeps)
+      const beforeQuitCallback = await getBeforeQuitCallback()
+      const done = beforeQuitCallback()
+
+      expect(mockDeps.detailPanelRef.value.saveChangesNow).toHaveBeenCalled()
+      expect(mockDeps.saveInlineNotes).toHaveBeenCalled()
+
+      await flushMicrotasks()
+      expect(global.window.electronAPI.quitSaveDone).not.toHaveBeenCalled()
+
+      update.settle()
+      await done
+
+      expect(order).toEqual(['update', 'ack'])
+      expect(global.window.electronAPI.quitSaveDone).toHaveBeenCalledTimes(1)
+    })
+
+    it('should ack quitSaveDone only after inline notes finish saving', async () => {
+      const { order } = setupQuitHandshake()
+      const inlineSave = deferred(order, 'inline-notes')
+      mockDeps.detailPanelRef = ref({
+        saveChanges: vi.fn(),
+        saveChangesNow: vi.fn().mockResolvedValue(true),
+      })
+      mockDeps.saveInlineNotes = vi.fn(() => inlineSave.promise)
+
+      useAppLifecycle(mockDeps)
+      const beforeQuitCallback = await getBeforeQuitCallback()
+      const done = beforeQuitCallback()
+
+      await flushMicrotasks()
+      expect(global.window.electronAPI.quitSaveDone).not.toHaveBeenCalled()
+
+      inlineSave.settle()
+      await done
+
+      expect(order).toEqual(['inline-notes', 'ack'])
+    })
+
+    it('should still save inline notes when the detail-panel save fails, then ack', async () => {
+      const { order } = setupQuitHandshake()
+      const update = deferred(order, 'update-failed')
+      const inlineSave = deferred(order, 'inline-notes')
+      mockDeps.detailPanelRef = ref({
+        saveChanges: vi.fn(),
+        saveChangesNow: vi.fn(() => update.promise),
+      })
+      mockDeps.saveInlineNotes = vi.fn(() => inlineSave.promise)
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      useAppLifecycle(mockDeps)
+      const beforeQuitCallback = await getBeforeQuitCallback()
+      const done = beforeQuitCallback()
+
+      update.fail(new Error('update failed'))
+      await flushMicrotasks()
+      // A failed panel save must not short-circuit the inline-notes save.
+      expect(global.window.electronAPI.quitSaveDone).not.toHaveBeenCalled()
+
+      inlineSave.settle()
+      await done
+
+      expect(order).toEqual(['update-failed', 'inline-notes', 'ack'])
+      expect(global.window.electronAPI.quitSaveDone).toHaveBeenCalledTimes(1)
+    })
+
+    it('should still ack quitSaveDone when a pre-quit save fails', async () => {
+      setupQuitHandshake()
+      mockDeps.saveInlineNotes = vi.fn().mockRejectedValue(new Error('save failed'))
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      useAppLifecycle(mockDeps)
+      const beforeQuitCallback = await getBeforeQuitCallback()
+      await beforeQuitCallback().catch(() => {})
+
+      expect(global.window.electronAPI.quitSaveDone).toHaveBeenCalledTimes(1)
+    })
+
+    it('should ack quitSaveDone when no detail panel is mounted', async () => {
+      setupQuitHandshake()
+      mockDeps.detailPanelRef = ref(null)
+      mockDeps.saveInlineNotes = vi.fn().mockResolvedValue(undefined)
+
+      useAppLifecycle(mockDeps)
+      const beforeQuitCallback = await getBeforeQuitCallback()
+      await beforeQuitCallback()
+
+      expect(global.window.electronAPI.quitSaveDone).toHaveBeenCalledTimes(1)
     })
   })
 })

@@ -1,4 +1,3 @@
-import { api } from '../services/api.js'
 import { handleError } from './useErrorHandler.js'
 
 /**
@@ -10,20 +9,10 @@ import { handleError } from './useErrorHandler.js'
  * @param {import('vue').Ref<boolean>} deps.showSearch - Search panel visibility ref.
  * @param {Function} deps.onSearchInput - Trigger a search with the current query.
  * @param {Function} deps.enterContainer - Navigate into a node container.
- * @param {import('vue').Ref<number|null>} deps.currentContainerId - Current container id ref.
- * @param {Function} deps.navigateToBreadcrumb - Navigate to a breadcrumb index.
- * @param {Function} deps.loadTags - Reload the tag list.
+ * @param {Function} deps.deleteNode - Shared node-delete action (undo command, refreshes, navigation).
  * @returns {{selectTag: Function, navigateToTag: Function, deleteTag: Function}}
  */
-export function useTagActions({
-  searchQuery,
-  showSearch,
-  onSearchInput,
-  enterContainer,
-  currentContainerId,
-  navigateToBreadcrumb,
-  loadTags,
-}) {
+export function useTagActions({ searchQuery, showSearch, onSearchInput, enterContainer, deleteNode }) {
   // For legacy string tags, search by hashtag.
   const selectTag = tag => {
     const tagName = tag.title || tag
@@ -41,14 +30,14 @@ export function useTagActions({
 
   // Delete a tag everywhere (removes the tag node and all its links). Soft-delete,
   // so it lands in Trash and stays recoverable like any other node deletion.
+  // Routed through the shared deleteNode action so tag deletes behave like every
+  // other node deletion: undo command, view/sidebar/tags refresh, and navigation
+  // away when the deleted tag (or an ancestor) is the current container.
   const deleteTag = async tag => {
     if (!tag?.id) return
     if (!confirm(`Delete tag "${tag.title || tag}" everywhere? It will be moved to Trash.`)) return
     try {
-      await api.deleteNode(tag.id)
-      // If we were viewing the deleted tag, return to the root view.
-      if (currentContainerId.value === tag.id) navigateToBreadcrumb(-1)
-      await loadTags()
+      await deleteNode(tag.id)
     } catch (e) {
       handleError(e, { context: 'Deleting tag' })
     }

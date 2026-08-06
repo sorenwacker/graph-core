@@ -6,7 +6,7 @@
 
 const { BrowserWindow, shell } = require('electron')
 const path = require('path')
-const { WINDOW_OPEN_DETACHED, WINDOW_CLOSE_DETACHED, SHELL_OPEN_EXTERNAL } = require('../ipcChannels')
+const { WINDOW_OPEN_DETACHED, SHELL_OPEN_EXTERNAL } = require('../ipcChannels')
 
 // Track open detached windows by nodeId
 const detachedWindows = new Map()
@@ -118,18 +118,6 @@ function createDetachedWindow(nodeId, nodeTitle) {
 function registerWindowHandlers(ipcMain) {
   ipcMain.handle(WINDOW_OPEN_DETACHED, (_event, nodeId, nodeTitle) => {
     return createDetachedWindow(nodeId, nodeTitle)
-  })
-
-  ipcMain.handle(WINDOW_CLOSE_DETACHED, (_event, nodeId) => {
-    if (detachedWindows.has(nodeId)) {
-      const window = detachedWindows.get(nodeId)
-      if (!window.isDestroyed()) {
-        window.close()
-      }
-      detachedWindows.delete(nodeId)
-      return { success: true }
-    }
-    return { success: false }
   })
 
   ipcMain.handle(SHELL_OPEN_EXTERNAL, (_event, url) => {

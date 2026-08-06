@@ -1,6 +1,6 @@
 <script setup>
 import { ref, nextTick, watch } from 'vue'
-import { getTypeIcon } from '../utils/constants.js'
+import { getTypeIcon, getImportanceLabel } from '../utils/constants.js'
 import { decodeHtml } from '../utils/html.js'
 
 const props = defineProps({
@@ -52,11 +52,6 @@ watch(
     }
   }
 )
-
-function getImportanceLabel(importance) {
-  const labels = { 1: 'Low', 2: 'Medium', 3: 'High', 4: 'Critical' }
-  return labels[importance] || importance
-}
 
 function getSearchActionLabel(_result) {
   if (props.searchMode === 'link') return 'Link'

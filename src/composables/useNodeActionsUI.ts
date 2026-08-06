@@ -1,7 +1,7 @@
 import { OllamaImproveNotesCommand, ReorderCommand } from '../commands/index.js'
 import { useAppContext } from './useAppContext'
 import type { Ref } from 'vue'
-import type { Api, Node, Command, NodeType } from '../types'
+import type { Api, Node, Command, NodeType, WorkspaceId } from '../types'
 import type {
   NodeOperations,
   CreateNodeParams,
@@ -20,7 +20,7 @@ export interface UseNodeActionsUIOptions {
   /** Push undo/redo command (from useUndoRedo) */
   pushCommand: (command: Command) => void
   /** Get workspace ID for new nodes (current workspace) */
-  getWorkspaceIdForNode: (type: string) => number | null | undefined
+  getWorkspaceIdForNode: (type: string) => WorkspaceId | null | undefined
 }
 
 /**
@@ -233,6 +233,7 @@ export function useNodeActionsUI({
 
     const result = await nodeOps.deleteMultipleNodes(nodeIds)
     if (result.success) {
+      selectedIds.value = new Set()
       clearSelectionAfterDelete()
       if (needsNavigation) {
         navigateBack()
@@ -475,6 +476,8 @@ export function useNodeActionsUI({
 
   /**
    * Delete selected nodes (for keyboard shortcut).
+   * Delegates to deleteMultipleNodes so confirmation and container
+   * navigation behavior stay in one place.
    */
   async function deleteSelectedNodes(): Promise<void> {
     if (selectedIds.value.size === 0) return

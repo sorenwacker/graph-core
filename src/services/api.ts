@@ -11,6 +11,7 @@ import type {
   TreeNode,
   NodeLink,
   Workspace,
+  WorkspaceId,
   CreateWorkspaceData,
   UpdateWorkspaceData,
   GetNodesParams,
@@ -24,6 +25,10 @@ import type {
   NodeTable,
   TableCell,
   ExportJSONOptions,
+  ImportJSONResult,
+  ImportCSVResult,
+  ExportMarkdownResult,
+  ExportCSVResult,
   BackupInfo,
   Api,
 } from '../types'
@@ -41,11 +46,11 @@ interface ElectronAPI {
   createNode(data: CreateNodeData): Promise<Node>
   updateNode(id: number, data: UpdateNodeData): Promise<Node>
   deleteNode(id: number, hard?: boolean): Promise<void>
-  getRoots(workspaceId?: number | null): Promise<(Node | null)[]>
+  getRoots(workspaceId?: WorkspaceId | null): Promise<(Node | null)[]>
   getProjects(): Promise<(Node | null)[]>
   getInbox(): Promise<(Node | null)[]>
-  getRecent(limit?: number, workspaceId?: number | null): Promise<(Node | null)[]>
-  getFavorites(workspaceId?: number | null): Promise<(Node | null)[]>
+  getRecent(limit?: number, workspaceId?: WorkspaceId | null): Promise<(Node | null)[]>
+  getFavorites(workspaceId?: WorkspaceId | null): Promise<(Node | null)[]>
   getTasks(params?: GetTasksParams): Promise<(Node | null)[]>
   getChildren(id: number, type?: string | null): Promise<(Node | null)[]>
   getDescendants(id: number, maxDepth?: number | null): Promise<(Node | null)[]>
@@ -60,53 +65,37 @@ interface ElectronAPI {
   search(
     query: string,
     type?: string | null,
-    workspaceId?: number | null,
+    workspaceId?: WorkspaceId | null,
     options?: SearchOptions
   ): Promise<(Node | null)[]>
   searchCount(
     query: string,
     type?: string | null,
-    workspaceId?: number | null,
+    workspaceId?: WorkspaceId | null,
     options?: SearchOptions
   ): Promise<{ count: number }>
   reorderNode(nodeId: number, targetId: number, position: 'before' | 'after' | 'inside'): Promise<void>
-  exportMarkdown(nodeId: number): Promise<{ markdown: string }>
-  exportJSON(
-    nodeId: number,
-    options?: ExportJSONOptions
-  ): Promise<{
-    version: number
-    exportedAt: string
-    root: object | null
-    links?: Array<{ source_id: number; target_id: number }>
-  }>
-  exportCSV(nodeId: number, workspaceId?: number | null): Promise<{ csv: string; headers: string[]; rowCount: number }>
-  importJSON(
-    data: object,
-    targetParentId?: number | null,
-    workspaceId?: number | null
-  ): Promise<{ rootId: number; nodesImported: number; linksCreated: number }>
-  importCSV(
-    csvData: string,
-    targetParentId?: number | null,
-    workspaceId?: number | null
-  ): Promise<{ nodesImported: number }>
+  exportMarkdown(nodeId: number): Promise<ExportMarkdownResult>
+  exportJSON(nodeId: number, options?: ExportJSONOptions): Promise<object>
+  exportCSV(nodeId: number, workspaceId?: WorkspaceId | null): Promise<ExportCSVResult>
+  importJSON(data: object, targetParentId?: number | null, workspaceId?: WorkspaceId | null): Promise<ImportJSONResult>
+  importCSV(csvData: string, targetParentId?: number | null, workspaceId?: WorkspaceId | null): Promise<ImportCSVResult>
   getTrash(limit?: number): Promise<(Node | null)[]>
   restoreNode(id: number): Promise<void>
   emptyTrash(): Promise<void>
   getOrphanedNodes(): Promise<(Node | null)[]>
   reparentToRoot(id: number): Promise<void>
-  getAllTags(workspaceId?: number | null): Promise<(string | null)[]>
-  getNodesByTag(tag: string, workspaceId?: number | null, options?: GetNodesByTagOptions): Promise<(Node | null)[]>
-  getTagNodes(workspaceId?: number | null): Promise<(Node | null)[]>
-  getOrCreateTagNode(name: string, workspaceId?: number | null): Promise<Node>
+  getAllTags(workspaceId?: WorkspaceId | null): Promise<(string | null)[]>
+  getNodesByTag(tag: string, workspaceId?: WorkspaceId | null, options?: GetNodesByTagOptions): Promise<(Node | null)[]>
+  getTagNodes(workspaceId?: WorkspaceId | null): Promise<(Node | null)[]>
+  getOrCreateTagNode(name: string, workspaceId?: WorkspaceId | null): Promise<Node>
   getNodesLinkedToTag(tagNodeId: number, options?: GetNodesByTagOptions): Promise<(Node | null)[]>
-  searchTagNodes(query: string, workspaceId?: number | null, limit?: number): Promise<(Node | null)[]>
+  searchTagNodes(query: string, workspaceId?: WorkspaceId | null, limit?: number): Promise<(Node | null)[]>
   getWorkspaces(): Promise<(Workspace | null)[]>
-  getWorkspace(id: number): Promise<Workspace | null>
+  getWorkspace(id: WorkspaceId): Promise<Workspace | null>
   createWorkspace(data: CreateWorkspaceData): Promise<Workspace>
-  updateWorkspace(id: number, data: UpdateWorkspaceData): Promise<Workspace>
-  deleteWorkspace(id: number): Promise<void>
+  updateWorkspace(id: WorkspaceId, data: UpdateWorkspaceData): Promise<Workspace>
+  deleteWorkspace(id: WorkspaceId): Promise<void>
   backup(suffix?: string): Promise<{ path: string } | { error: string }>
   listBackups(): Promise<BackupInfo[]>
   restoreBackup(backupPath: string): Promise<{ success: boolean } | { error: string }>
@@ -126,6 +115,28 @@ interface ElectronAPI {
   openaiTestConnection(endpoint: string, apiKey: string, skipSslVerification?: boolean): Promise<ConnectionTestResult>
   openaiListModels(endpoint: string, apiKey: string, skipSslVerification?: boolean): Promise<string[]>
   agentResearch(options: AgentResearchOptions): Promise<string>
+
+  // Settings (DB-backed key/value store)
+  getSetting(key: string): Promise<string | null>
+  getAllSettings(): Promise<Record<string, string>>
+  setSetting(key: string, value: unknown): Promise<{ success: boolean; key: string; value: string }>
+  setSettings(settings: Record<string, unknown>): Promise<{ success: boolean; count: number }>
+  deleteSetting(key: string): Promise<{ success: boolean }>
+
+  // Shell
+  openExternal(url: string): Promise<void>
+
+  // Detached windows
+  openDetachedWindow(nodeId: number, nodeTitle?: string): Promise<{ success: boolean; focused?: boolean }>
+
+  // Menu / app lifecycle event subscriptions (ipcRenderer.on wrappers)
+  onMenuUndo(callback: (event: unknown, ...args: unknown[]) => void): void
+  onMenuRedo(callback: (event: unknown, ...args: unknown[]) => void): void
+  onOpenSettings(callback: (event: unknown, ...args: unknown[]) => void): void
+  onShowShortcuts(callback: (event: unknown, ...args: unknown[]) => void): void
+  onBeforeQuit(callback: (event: unknown, ...args: unknown[]) => void): void
+  /** Ack that pre-quit autosave finished; the main process holds quit until this (or a timeout). */
+  quitSaveDone(): Promise<void>
 }
 
 // Detect if running in Electron
@@ -148,12 +159,15 @@ interface RequestOptions extends RequestInit {
 
 async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   const url = `${API_BASE}${endpoint}`
+  const { headers, ...rest } = options
+  // Spread the caller's options first: spreading them last would replace the
+  // whole headers object and drop the default Content-Type.
   const config: RequestInit = {
+    ...rest,
     headers: {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...headers,
     },
-    ...options,
   }
 
   const response = await fetch(url, config)
@@ -196,7 +210,7 @@ const webApi: Api = {
   },
 
   // Tree operations
-  async getRoots(workspaceId?: number | null): Promise<Node[]> {
+  async getRoots(workspaceId?: WorkspaceId | null): Promise<Node[]> {
     const params = workspaceId !== undefined ? `?workspace_id=${workspaceId}` : ''
     return request<Node[]>(`/roots${params}`)
   },
@@ -209,7 +223,7 @@ const webApi: Api = {
     return request<Node[]>('/inbox')
   },
 
-  async getRecent(limit = 10, workspaceId?: number | null): Promise<Node[]> {
+  async getRecent(limit = 10, workspaceId?: WorkspaceId | null): Promise<Node[]> {
     let url = `/recent?limit=${limit}`
     if (workspaceId !== undefined) {
       url += `&workspace_id=${workspaceId === null ? 'null' : workspaceId}`
@@ -217,7 +231,7 @@ const webApi: Api = {
     return request<Node[]>(url)
   },
 
-  async getFavorites(workspaceId?: number | null): Promise<Node[]> {
+  async getFavorites(workspaceId?: WorkspaceId | null): Promise<Node[]> {
     let url = '/favorites'
     if (workspaceId !== undefined) {
       url += `?workspace_id=${workspaceId === null ? 'null' : workspaceId}`
@@ -315,7 +329,7 @@ const webApi: Api = {
   async search(
     query: string,
     type: string | null = null,
-    workspaceId?: number | null,
+    workspaceId?: WorkspaceId | null,
     options: SearchOptions = {}
   ): Promise<Node[]> {
     const params = new URLSearchParams({ q: query })
@@ -331,7 +345,7 @@ const webApi: Api = {
   async searchCount(
     query: string,
     type: string | null = null,
-    workspaceId?: number | null,
+    workspaceId?: WorkspaceId | null,
     options: SearchOptions = {}
   ): Promise<{ count: number }> {
     const params = new URLSearchParams({ q: query, count_only: 'true' })
@@ -349,8 +363,12 @@ const webApi: Api = {
   },
 
   // Export
-  async exportMarkdown(nodeId: number): Promise<{ markdown: string }> {
-    return { markdown: await request<string>(`/nodes/${nodeId}/export`) }
+  async exportMarkdown(nodeId: number): Promise<ExportMarkdownResult> {
+    // The HTTP endpoint may answer with a bare markdown string; normalise it to
+    // the same { markdown } shape the Electron IPC path returns so callers
+    // (DetailPanel) read result.markdown in both modes.
+    const result = await request<ExportMarkdownResult | string>(`/nodes/${nodeId}/export`)
+    return typeof result === 'string' ? { markdown: result } : result
   },
 
   // JSON/CSV export and import are file-system operations available only in the
@@ -365,15 +383,15 @@ const webApi: Api = {
     throw new Error('JSON export only available in desktop app')
   },
 
-  async exportCSV(): Promise<{ csv: string; headers: string[]; rowCount: number }> {
+  async exportCSV(): Promise<ExportCSVResult> {
     throw new Error('CSV export only available in desktop app')
   },
 
-  async importJSON(): Promise<{ rootId: number; nodesImported: number; linksCreated: number }> {
+  async importJSON(): Promise<ImportJSONResult> {
     throw new Error('JSON import only available in desktop app')
   },
 
-  async importCSV(): Promise<{ nodesImported: number }> {
+  async importCSV(): Promise<ImportCSVResult> {
     throw new Error('CSV import only available in desktop app')
   },
 
@@ -406,7 +424,7 @@ const webApi: Api = {
   },
 
   // Tags
-  async getAllTags(workspaceId?: number | null): Promise<string[]> {
+  async getAllTags(workspaceId?: WorkspaceId | null): Promise<string[]> {
     let url = '/tags'
     if (workspaceId !== undefined) {
       url += `?workspace_id=${workspaceId === null ? 'null' : workspaceId}`
@@ -414,7 +432,11 @@ const webApi: Api = {
     return request<string[]>(url)
   },
 
-  async getNodesByTag(tag: string, workspaceId?: number | null, options: GetNodesByTagOptions = {}): Promise<Node[]> {
+  async getNodesByTag(
+    tag: string,
+    workspaceId?: WorkspaceId | null,
+    options: GetNodesByTagOptions = {}
+  ): Promise<Node[]> {
     let url = `/tags/${encodeURIComponent(tag)}/nodes`
     const params = new URLSearchParams()
     if (workspaceId !== undefined) {
@@ -452,7 +474,7 @@ const webApi: Api = {
     return request<Workspace[]>('/workspaces')
   },
 
-  async getWorkspace(id: number): Promise<Workspace | null> {
+  async getWorkspace(id: WorkspaceId): Promise<Workspace | null> {
     return request<Workspace | null>(`/workspaces/${id}`)
   },
 
@@ -463,14 +485,14 @@ const webApi: Api = {
     })
   },
 
-  async updateWorkspace(id: number, data: UpdateWorkspaceData): Promise<Workspace> {
+  async updateWorkspace(id: WorkspaceId, data: UpdateWorkspaceData): Promise<Workspace> {
     return request<Workspace>(`/workspaces/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     })
   },
 
-  async deleteWorkspace(id: number): Promise<void> {
+  async deleteWorkspace(id: WorkspaceId): Promise<void> {
     return request<void>(`/workspaces/${id}`, {
       method: 'DELETE',
     })
@@ -539,125 +561,37 @@ const webApi: Api = {
     })
   },
 
-  // Ollama LLM - uses direct fetch in web mode
-  async ollamaGenerate({ prompt, content, model, endpoint, contextSize }: OllamaGenerateOptions): Promise<string> {
-    const fullPrompt = `${prompt}\n\n---\n\n${content}`
-    const response = await fetch(`${endpoint}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model,
-        prompt: fullPrompt,
-        stream: false,
-        options: {
-          num_ctx: contextSize || 32768,
-        },
-      }),
-    })
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        const data = (await response.json().catch(() => ({}))) as { error?: string }
-        if (data.error?.includes('not found')) {
-          throw new Error(`Model not available. Run: ollama pull ${model}`)
-        }
-      }
-      throw new Error(`Ollama API error: ${response.status} ${response.statusText}`)
-    }
-
-    const data = (await response.json()) as { response: string }
-    return data.response
+  // Ollama LLM - delegates to the shared renderer-side Ollama client
+  // (dynamic import to keep web-only code out of the initial bundle)
+  async ollamaGenerate(options: OllamaGenerateOptions): Promise<string> {
+    const { ollamaService } = await import('./ollamaService.js')
+    return ollamaService.generate(options)
   },
 
   async ollamaTestConnection(endpoint: string): Promise<ConnectionTestResult> {
-    try {
-      const response = await fetch(`${endpoint}/api/tags`)
-      if (!response.ok) {
-        return {
-          success: false,
-          error: `Ollama API error: ${response.status} ${response.statusText}`,
-        }
-      }
-      return { success: true }
-    } catch {
-      return {
-        success: false,
-        error: 'Ollama is not running. Start with: ollama serve',
-      }
-    }
+    const { ollamaService } = await import('./ollamaService.js')
+    return ollamaService.testConnection(endpoint)
   },
 
   async ollamaListModels(endpoint: string): Promise<string[]> {
-    const response = await fetch(`${endpoint}/api/tags`)
-    if (!response.ok) {
-      throw new Error(`Ollama API error: ${response.status} ${response.statusText}`)
-    }
-    const data = (await response.json()) as { models?: { name: string }[] }
-    return (data.models || []).map(m => m.name)
+    const { ollamaService } = await import('./ollamaService.js')
+    return ollamaService.listModels(endpoint)
   },
 
-  // OpenAI-compatible API
-  async openaiGenerate({ prompt, content, model, endpoint, apiKey }: OpenAIGenerateOptions): Promise<string> {
-    const response = await fetch(`${endpoint}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: prompt },
-          { role: 'user', content: content },
-        ],
-        stream: false,
-      }),
-    })
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error('Invalid API key')
-      }
-      const data = (await response.json().catch(() => ({}))) as { error?: { message?: string } }
-      throw new Error(data.error?.message || `API error: ${response.status} ${response.statusText}`)
-    }
-
-    const data = (await response.json()) as { choices?: { message?: { content?: string } }[] }
-    return data.choices?.[0]?.message?.content || ''
+  // OpenAI-compatible API - delegates to the shared renderer-side OpenAI client
+  async openaiGenerate(options: OpenAIGenerateOptions): Promise<string> {
+    const { openaiService } = await import('./openaiService.js')
+    return openaiService.generate(options)
   },
 
   async openaiTestConnection(endpoint: string, apiKey: string): Promise<ConnectionTestResult> {
-    if (!apiKey) {
-      return { success: false, error: 'API key is required' }
-    }
-    try {
-      const response = await fetch(`${endpoint}/models`, {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      })
-      if (!response.ok) {
-        if (response.status === 401) {
-          return { success: false, error: 'Invalid API key' }
-        }
-        return { success: false, error: `API error: ${response.status}` }
-      }
-      return { success: true }
-    } catch {
-      return { success: false, error: 'Cannot connect to API endpoint' }
-    }
+    const { openaiService } = await import('./openaiService.js')
+    return openaiService.testConnection(endpoint, apiKey)
   },
 
   async openaiListModels(endpoint: string, apiKey: string): Promise<string[]> {
-    if (!apiKey) {
-      throw new Error('API key is required')
-    }
-    const response = await fetch(`${endpoint}/models`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    })
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status} ${response.statusText}`)
-    }
-    const data = (await response.json()) as { data?: { id: string }[] }
-    return (data.data || []).map(m => m.id).sort()
+    const { openaiService } = await import('./openaiService.js')
+    return openaiService.listModels(endpoint, apiKey)
   },
 
   // Agent research - runs agent loop with tool calling
@@ -692,7 +626,7 @@ const electronApi: Api = {
   deleteNode: (id: number, hard?: boolean): Promise<void> => window.electronAPI!.deleteNode(id, hard),
 
   // Tree operations - all return arrays, so wrap with filterNulls
-  async getRoots(workspaceId?: number | null): Promise<Node[]> {
+  async getRoots(workspaceId?: WorkspaceId | null): Promise<Node[]> {
     return filterNulls(await window.electronAPI!.getRoots(workspaceId))
   },
 
@@ -704,11 +638,11 @@ const electronApi: Api = {
     return filterNulls(await window.electronAPI!.getInbox())
   },
 
-  async getRecent(limit?: number, workspaceId?: number | null): Promise<Node[]> {
+  async getRecent(limit?: number, workspaceId?: WorkspaceId | null): Promise<Node[]> {
     return filterNulls(await window.electronAPI!.getRecent(limit, workspaceId))
   },
 
-  async getFavorites(workspaceId?: number | null): Promise<Node[]> {
+  async getFavorites(workspaceId?: WorkspaceId | null): Promise<Node[]> {
     return filterNulls(await window.electronAPI!.getFavorites(workspaceId))
   },
 
@@ -761,7 +695,7 @@ const electronApi: Api = {
   async search(
     query: string,
     type?: string | null,
-    workspaceId?: number | null,
+    workspaceId?: WorkspaceId | null,
     options?: SearchOptions
   ): Promise<Node[]> {
     return filterNulls(await window.electronAPI!.search(query, type, workspaceId, options))
@@ -770,7 +704,7 @@ const electronApi: Api = {
   searchCount: (
     query: string,
     type?: string | null,
-    workspaceId?: number | null,
+    workspaceId?: WorkspaceId | null,
     options?: SearchOptions
   ): Promise<{ count: number }> => window.electronAPI!.searchCount(query, type, workspaceId, options),
 
@@ -778,19 +712,26 @@ const electronApi: Api = {
   reorderNode: (nodeId: number, targetId: number, position: 'before' | 'after' | 'inside'): Promise<void> =>
     window.electronAPI!.reorderNode(nodeId, targetId, position),
 
-  // Export (return shapes inferred from the typed electron bridge)
-  exportMarkdown: (nodeId: number) => window.electronAPI!.exportMarkdown(nodeId),
+  // Export
+  exportMarkdown: (nodeId: number): Promise<ExportMarkdownResult> => window.electronAPI!.exportMarkdown(nodeId),
 
   exportJSON: (nodeId: number, options?: ExportJSONOptions) => window.electronAPI!.exportJSON(nodeId, options),
 
-  exportCSV: (nodeId: number, workspaceId?: number | null) => window.electronAPI!.exportCSV(nodeId, workspaceId),
+  exportCSV: (nodeId: number, workspaceId?: WorkspaceId | null): Promise<ExportCSVResult> =>
+    window.electronAPI!.exportCSV(nodeId, workspaceId),
 
   // Import
-  importJSON: (data: object, targetParentId?: number | null, workspaceId?: number | null) =>
-    window.electronAPI!.importJSON(data, targetParentId, workspaceId),
+  importJSON: (
+    data: object,
+    targetParentId?: number | null,
+    workspaceId?: WorkspaceId | null
+  ): Promise<ImportJSONResult> => window.electronAPI!.importJSON(data, targetParentId, workspaceId),
 
-  importCSV: (csvData: string, targetParentId?: number | null, workspaceId?: number | null) =>
-    window.electronAPI!.importCSV(csvData, targetParentId, workspaceId),
+  importCSV: (
+    csvData: string,
+    targetParentId?: number | null,
+    workspaceId?: WorkspaceId | null
+  ): Promise<ImportCSVResult> => window.electronAPI!.importCSV(csvData, targetParentId, workspaceId),
 
   // Trash
   async getTrash(limit?: number): Promise<Node[]> {
@@ -809,27 +750,27 @@ const electronApi: Api = {
   reparentToRoot: (id: number): Promise<void> => window.electronAPI!.reparentToRoot(id),
 
   // Tags
-  async getAllTags(workspaceId?: number | null): Promise<string[]> {
+  async getAllTags(workspaceId?: WorkspaceId | null): Promise<string[]> {
     return filterNulls(await window.electronAPI!.getAllTags(workspaceId))
   },
 
-  async getNodesByTag(tag: string, workspaceId?: number | null, options?: GetNodesByTagOptions): Promise<Node[]> {
+  async getNodesByTag(tag: string, workspaceId?: WorkspaceId | null, options?: GetNodesByTagOptions): Promise<Node[]> {
     return filterNulls(await window.electronAPI!.getNodesByTag(tag, workspaceId, options))
   },
 
   // Tags (first-class nodes)
-  async getTagNodes(workspaceId?: number | null): Promise<Node[]> {
+  async getTagNodes(workspaceId?: WorkspaceId | null): Promise<Node[]> {
     return filterNulls(await window.electronAPI!.getTagNodes(workspaceId))
   },
 
-  getOrCreateTagNode: (name: string, workspaceId?: number | null): Promise<Node> =>
+  getOrCreateTagNode: (name: string, workspaceId?: WorkspaceId | null): Promise<Node> =>
     window.electronAPI!.getOrCreateTagNode(name, workspaceId),
 
   async getNodesLinkedToTag(tagNodeId: number, options?: GetNodesByTagOptions): Promise<Node[]> {
     return filterNulls(await window.electronAPI!.getNodesLinkedToTag(tagNodeId, options))
   },
 
-  async searchTagNodes(query: string, workspaceId?: number | null, limit?: number): Promise<Node[]> {
+  async searchTagNodes(query: string, workspaceId?: WorkspaceId | null, limit?: number): Promise<Node[]> {
     return filterNulls(await window.electronAPI!.searchTagNodes(query, workspaceId, limit))
   },
 
@@ -838,14 +779,14 @@ const electronApi: Api = {
     return filterNulls(await window.electronAPI!.getWorkspaces())
   },
 
-  getWorkspace: (id: number): Promise<Workspace | null> => window.electronAPI!.getWorkspace(id),
+  getWorkspace: (id: WorkspaceId): Promise<Workspace | null> => window.electronAPI!.getWorkspace(id),
 
   createWorkspace: (data: CreateWorkspaceData): Promise<Workspace> => window.electronAPI!.createWorkspace(data),
 
-  updateWorkspace: (id: number, data: UpdateWorkspaceData): Promise<Workspace> =>
+  updateWorkspace: (id: WorkspaceId, data: UpdateWorkspaceData): Promise<Workspace> =>
     window.electronAPI!.updateWorkspace(id, data),
 
-  deleteWorkspace: (id: number): Promise<void> => window.electronAPI!.deleteWorkspace(id),
+  deleteWorkspace: (id: WorkspaceId): Promise<void> => window.electronAPI!.deleteWorkspace(id),
 
   // Database Backups & Reload
   backup: (suffix?: string): Promise<{ path: string } | { error: string }> => window.electronAPI!.backup(suffix),

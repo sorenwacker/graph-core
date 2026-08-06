@@ -10,7 +10,7 @@ import {
   UnlinkCommand,
 } from '../commands/index.js'
 import { pickNodeFields, NODE_UPDATE_FIELDS } from '../utils/nodeFields.js'
-import type { Api, Node, NodeType, Command } from '../types'
+import type { Api, Node, NodeType, Command, WorkspaceId } from '../types'
 
 /**
  * Options for useNodeOperations composable.
@@ -21,7 +21,7 @@ export interface UseNodeOperationsOptions {
   /** Function to push undo commands */
   pushCommand?: (command: Command) => void
   /** Get workspace ID for new nodes (current workspace) */
-  getWorkspaceIdForNode?: (type: string) => number | null | undefined
+  getWorkspaceIdForNode?: (type: string) => WorkspaceId | null | undefined
   /** Callback after successful operation */
   onSuccess?: (result: OperationResult) => void | Promise<void>
   /** Callback on error */
@@ -339,10 +339,13 @@ export function useNodeOperations({
   async function moveNode({ nodeId, oldParentId, newParentId }: MoveNodeParams): Promise<boolean> {
     return withProcessing(
       async () => {
+        await api.moveNode(nodeId, newParentId)
+
+        // Record undo only after the API call succeeds (like every other
+        // operation here), so failed moves never land on the undo stack.
         if (oldParentId !== undefined && pushCommand) {
           pushCommand(new MoveCommand({ nodeId, oldParentId, newParentId }))
         }
-        await api.moveNode(nodeId, newParentId)
 
         if (onSuccess) await onSuccess({ type: 'move', nodeId, newParentId })
         return true

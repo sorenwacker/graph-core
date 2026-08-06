@@ -4,7 +4,7 @@ import { marked } from 'marked'
 import mermaid from 'mermaid'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
-import { decodeHtmlEntities, decodeHtml } from '../utils/html.js'
+import { decodeHtml, escapeHtml } from '../utils/html.js'
 import { sanitizeHtml } from '../utils/markdown.js'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
 
@@ -22,6 +22,34 @@ marked.setOptions({
   breaks: true,
   gfm: true,
 })
+
+// Render person mentions as styled chips.
+// Mentions are stored as @[Person Name](person:id) (see useMentions.js); a bare
+// [Person Name](person:id) link is supported too. A marked inline extension
+// tokenizes them BEFORE the default link tokenizer, so the result no longer
+// depends on the markup emitted by the shared link renderer (which regex
+// post-processing silently broke). The chip is a <span> carrying the id in
+// data-person-id — data-* attributes survive DOMPurify's defaults — so no
+// person: href ever reaches the sanitizer. This is deliberate: it means the
+// person: URI scheme does not have to be whitelisted in sanitizeHtml for
+// mentions to keep working, and DOMPurify keeps stripping unknown protocols.
+const personMentionExtension = {
+  name: 'personMention',
+  level: 'inline',
+  start(src) {
+    const match = src.match(/@?\[[^\]]*\]\(person:\d+\)/)
+    return match ? match.index : undefined
+  },
+  tokenizer(src) {
+    const match = /^@?\[([^\]]+)\]\(person:(\d+)\)/.exec(src)
+    if (!match) return undefined
+    return { type: 'personMention', raw: match[0], name: match[1], personId: match[2] }
+  },
+  renderer(token) {
+    return `<span class="person-mention" data-person-id="${token.personId}">@${escapeHtml(token.name)}</span>`
+  },
+}
+marked.use({ extensions: [personMentionExtension] })
 
 // Configure mermaid
 mermaid.initialize({
@@ -67,19 +95,64 @@ function processMathFormulas(text) {
   return text
 }
 
-// Convert person mention links to styled chips
-// Matches: <a href="person:123">@[Person Name]</a> or <a href="person:123">Person Name</a>
-function processPersonMentions(html) {
-  return html.replace(
-    /<a href="person:(\d+)">@?\[?([^\]<]+)\]?<\/a>/g,
-    '<span class="person-mention" data-person-id="$1">@$2</span>'
-  )
+// Style inline #hashtags.
+//
+// This walks text nodes instead of regexing the serialized HTML. A regex over
+// marked's output matches inside numeric character references — marked escapes
+// ' as &#39;, so "Bob's" produced "Bob&<span class="hashtag">#39</span>;s" and
+// the reader saw a literal &#39; with a #39 pill. Every numeric entity
+// (&#34;, &#96;, …) had the same problem. In a text node the entity is already
+// decoded, so the whole class of bug is gone, and tag names/attributes are
+// structurally unreachable rather than excluded by a lookahead.
+const HASHTAG_SKIP_TAGS = new Set(['CODE', 'PRE', 'A', 'SCRIPT', 'STYLE', 'TEXTAREA'])
+const HASHTAG_SKIP_CLASSES = ['hashtag', 'person-mention', 'katex', 'math-error']
+// #word / #multi-word-tag, not preceded by a word char (so foo#bar is not a
+// tag) and not by another # (so ##tag does not yield a stray #).
+const HASHTAG_RE = /(?<![\w#])#([\w-]+)/g
+
+function styleHashtagsIn(node) {
+  for (const child of Array.from(node.childNodes)) {
+    if (child.nodeType === Node.ELEMENT_NODE) {
+      if (HASHTAG_SKIP_TAGS.has(child.tagName)) continue
+      if (HASHTAG_SKIP_CLASSES.some(c => child.classList?.contains(c))) continue
+      styleHashtagsIn(child)
+      continue
+    }
+    if (child.nodeType !== Node.TEXT_NODE) continue
+
+    const text = child.nodeValue
+    HASHTAG_RE.lastIndex = 0
+    if (!HASHTAG_RE.test(text)) continue
+
+    const fragment = document.createDocumentFragment()
+    let lastIndex = 0
+    HASHTAG_RE.lastIndex = 0
+    let match
+    while ((match = HASHTAG_RE.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)))
+      }
+      const span = document.createElement('span')
+      span.className = 'hashtag'
+      span.textContent = match[0]
+      fragment.appendChild(span)
+      lastIndex = match.index + match[0].length
+    }
+    if (lastIndex < text.length) {
+      fragment.appendChild(document.createTextNode(text.slice(lastIndex)))
+    }
+    node.replaceChild(fragment, child)
+  }
 }
 
-// Style inline #hashtags (not already in a link)
-// Matches #word or #multi-word-tag but not already inside HTML tags
 function processHashtags(html) {
-  return html.replace(/(?<!["\w])#([\w-]+)(?![^<]*>)/g, '<span class="hashtag">#$1</span>')
+  // <template> content is inert: no scripts run and no resources are fetched
+  // while the (still unsanitized) markup is parsed. The serialized result is
+  // handed to DOMPurify by the caller, exactly as before.
+  const template = document.createElement('template')
+  template.innerHTML = html
+  styleHashtagsIn(template.content)
+  return template.innerHTML
 }
 
 // Extract mermaid code blocks and replace with placeholder containers
@@ -126,12 +199,12 @@ async function renderContent() {
   // Process math formulas before markdown parsing to preserve them
   let content = processMathFormulas(props.content)
 
-  // Parse markdown then decode HTML entities
+  // Parse markdown. Entities that marked escapes (e.g. <div> in a code fence
+  // becoming &lt;div&gt;) must stay escaped so code blocks render literally and
+  // sanitization stays sound; mermaid blocks decode their own content below.
   let html = marked.parse(content)
-  html = decodeHtmlEntities(html)
 
-  // Process person mentions and hashtags
-  html = processPersonMentions(html)
+  // Style hashtags (person mentions are handled by the marked extension above)
   html = processHashtags(html)
 
   // Extract mermaid blocks and update HTML with placeholders

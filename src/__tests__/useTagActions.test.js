@@ -2,12 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'
 import { useTagActions } from '../composables/useTagActions.js'
 
-vi.mock('../services/api.js', () => ({
-  api: { deleteNode: vi.fn().mockResolvedValue({ success: true }) },
-}))
 vi.mock('../composables/useErrorHandler.js', () => ({ handleError: vi.fn() }))
 
-import { api } from '../services/api.js'
+import { handleError } from '../composables/useErrorHandler.js'
 
 function setup(overrides = {}) {
   const deps = {
@@ -15,9 +12,7 @@ function setup(overrides = {}) {
     showSearch: ref(false),
     onSearchInput: vi.fn(),
     enterContainer: vi.fn(),
-    currentContainerId: ref(null),
-    navigateToBreadcrumb: vi.fn(),
-    loadTags: vi.fn().mockResolvedValue(undefined),
+    deleteNode: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   }
   return { deps, actions: useTagActions(deps) }
@@ -49,19 +44,25 @@ describe('useTagActions', () => {
     expect(deps.enterContainer).not.toHaveBeenCalled()
   })
 
-  it('deleteTag deletes, reloads tags, and redirects when viewing the deleted tag', async () => {
+  it('deleteTag routes through the shared deleteNode action', async () => {
     global.confirm = vi.fn().mockReturnValue(true)
-    const { deps, actions } = setup({ currentContainerId: ref(42) })
+    const { deps, actions } = setup()
     await actions.deleteTag({ id: 42, title: 'gone' })
-    expect(api.deleteNode).toHaveBeenCalledWith(42)
-    expect(deps.navigateToBreadcrumb).toHaveBeenCalledWith(-1)
-    expect(deps.loadTags).toHaveBeenCalled()
+    expect(deps.deleteNode).toHaveBeenCalledWith(42)
   })
 
   it('deleteTag does nothing when the user cancels', async () => {
     global.confirm = vi.fn().mockReturnValue(false)
-    const { actions } = setup()
+    const { deps, actions } = setup()
     await actions.deleteTag({ id: 1, title: 'keep' })
-    expect(api.deleteNode).not.toHaveBeenCalled()
+    expect(deps.deleteNode).not.toHaveBeenCalled()
+  })
+
+  it('deleteTag reports a failed delete instead of throwing', async () => {
+    global.confirm = vi.fn().mockReturnValue(true)
+    const { deps, actions } = setup({ deleteNode: vi.fn().mockRejectedValue(new Error('boom')) })
+    await actions.deleteTag({ id: 3, title: 'bad' })
+    expect(deps.deleteNode).toHaveBeenCalledWith(3)
+    expect(handleError).toHaveBeenCalled()
   })
 })

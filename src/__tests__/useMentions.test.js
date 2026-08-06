@@ -1,6 +1,16 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useMentions } from '../composables/useMentions.js'
 
+// The production consumer (NotesEditor) drives useMentions through checkMention;
+// this adapter keeps the textarea-shaped fixtures below while exercising that API.
+function inputFrom(checkMention, textarea) {
+  checkMention({
+    text: textarea.value,
+    cursorPos: textarea.selectionStart,
+    getCoords: () => textarea.getBoundingClientRect(),
+  })
+}
+
 // Mock the api service
 vi.mock('../services/api.js', () => ({
   api: {
@@ -14,7 +24,7 @@ vi.mock('../services/api.js', () => ({
 }))
 
 // Mock useErrorHandler
-vi.mock('./useErrorHandler', () => ({
+vi.mock('../composables/useErrorHandler', () => ({
   useErrorHandler: () => ({
     handleError: vi.fn(),
   }),
@@ -45,7 +55,6 @@ describe('useMentions', () => {
       expect(result).toHaveProperty('mentionPosition')
       expect(result).toHaveProperty('filteredPersons')
       expect(result).toHaveProperty('selectedMentionIndex')
-      expect(result).toHaveProperty('handleInput')
       expect(result).toHaveProperty('handleKeydown')
       expect(result).toHaveProperty('selectMention')
       expect(result).toHaveProperty('hideMentions')
@@ -63,9 +72,9 @@ describe('useMentions', () => {
     })
   })
 
-  describe('handleInput', () => {
+  describe('checkMention', () => {
     it('should show mentions when @ is typed at start', async () => {
-      const { showMentions, handleInput, refreshPersons } = useMentions()
+      const { showMentions, checkMention, refreshPersons } = useMentions()
       await refreshPersons()
 
       const mockTextarea = {
@@ -74,13 +83,13 @@ describe('useMentions', () => {
         getBoundingClientRect: () => ({ top: 100, left: 100 }),
       }
 
-      handleInput({ target: mockTextarea })
+      inputFrom(checkMention, mockTextarea)
 
       expect(showMentions.value).toBe(true)
     })
 
     it('should filter persons based on query', async () => {
-      const { filteredPersons, handleInput, refreshPersons } = useMentions()
+      const { filteredPersons, checkMention, refreshPersons } = useMentions()
       await refreshPersons()
 
       const mockTextarea = {
@@ -89,14 +98,14 @@ describe('useMentions', () => {
         getBoundingClientRect: () => ({ top: 100, left: 100 }),
       }
 
-      handleInput({ target: mockTextarea })
+      inputFrom(checkMention, mockTextarea)
 
       expect(filteredPersons.value.length).toBe(1)
       expect(filteredPersons.value[0].title).toBe('Alice Smith')
     })
 
     it('should hide mentions when @ is not found', async () => {
-      const { showMentions, handleInput, refreshPersons } = useMentions()
+      const { showMentions, checkMention, refreshPersons } = useMentions()
       await refreshPersons()
 
       const mockTextarea = {
@@ -105,13 +114,13 @@ describe('useMentions', () => {
         getBoundingClientRect: () => ({ top: 100, left: 100 }),
       }
 
-      handleInput({ target: mockTextarea })
+      inputFrom(checkMention, mockTextarea)
 
       expect(showMentions.value).toBe(false)
     })
 
     it('should not show mentions if @ is part of email', async () => {
-      const { showMentions, handleInput, refreshPersons } = useMentions()
+      const { showMentions, checkMention, refreshPersons } = useMentions()
       await refreshPersons()
 
       const mockTextarea = {
@@ -120,7 +129,42 @@ describe('useMentions', () => {
         getBoundingClientRect: () => ({ top: 100, left: 100 }),
       }
 
-      handleInput({ target: mockTextarea })
+      inputFrom(checkMention, mockTextarea)
+
+      expect(showMentions.value).toBe(false)
+    })
+  })
+
+  describe('checkMention (editor-agnostic detection)', () => {
+    it('should show mentions for @query given text and cursor position', async () => {
+      const { showMentions, filteredPersons, mentionPosition, checkMention, refreshPersons } = useMentions()
+      await refreshPersons()
+
+      checkMention({ text: 'hello @bob', cursorPos: 10, getCoords: () => ({ top: 42, left: 24 }) })
+
+      expect(showMentions.value).toBe(true)
+      expect(filteredPersons.value.length).toBe(1)
+      expect(filteredPersons.value[0].title).toBe('Bob Jones')
+      expect(mentionPosition.value).toEqual({ top: 42, left: 24 })
+    })
+
+    it('should hide mentions when cursor is not after an @query', async () => {
+      const { showMentions, checkMention, refreshPersons } = useMentions()
+      await refreshPersons()
+
+      checkMention({ text: '@bob', cursorPos: 4, getCoords: () => ({ top: 0, left: 0 }) })
+      expect(showMentions.value).toBe(true)
+
+      checkMention({ text: 'plain text', cursorPos: 10, getCoords: () => ({ top: 0, left: 0 }) })
+      expect(showMentions.value).toBe(false)
+    })
+
+    it('should not re-trigger over an already-inserted @[Name](person:id) mention', async () => {
+      const { showMentions, checkMention, refreshPersons } = useMentions()
+      await refreshPersons()
+
+      const text = '@[Alice Smith](person:1) '
+      checkMention({ text, cursorPos: text.length, getCoords: () => ({ top: 0, left: 0 }) })
 
       expect(showMentions.value).toBe(false)
     })
@@ -137,7 +181,7 @@ describe('useMentions', () => {
     })
 
     it('should navigate down with ArrowDown', async () => {
-      const { showMentions, selectedMentionIndex, handleKeydown, handleInput, refreshPersons } = useMentions()
+      const { showMentions, selectedMentionIndex, handleKeydown, checkMention, refreshPersons } = useMentions()
       await refreshPersons()
 
       // Trigger mention mode
@@ -146,7 +190,7 @@ describe('useMentions', () => {
         selectionStart: 1,
         getBoundingClientRect: () => ({ top: 100, left: 100 }),
       }
-      handleInput({ target: mockTextarea })
+      inputFrom(checkMention, mockTextarea)
 
       expect(showMentions.value).toBe(true)
       expect(selectedMentionIndex.value).toBe(0)
@@ -160,7 +204,7 @@ describe('useMentions', () => {
     })
 
     it('should navigate up with ArrowUp', async () => {
-      const { showMentions, selectedMentionIndex, handleKeydown, handleInput, refreshPersons } = useMentions()
+      const { showMentions, selectedMentionIndex, handleKeydown, checkMention, refreshPersons } = useMentions()
       await refreshPersons()
 
       const mockTextarea = {
@@ -168,7 +212,7 @@ describe('useMentions', () => {
         selectionStart: 1,
         getBoundingClientRect: () => ({ top: 100, left: 100 }),
       }
-      handleInput({ target: mockTextarea })
+      inputFrom(checkMention, mockTextarea)
 
       // First go down
       handleKeydown({ key: 'ArrowDown', preventDefault: vi.fn() }, '@', vi.fn())
@@ -181,8 +225,30 @@ describe('useMentions', () => {
       expect(selectedMentionIndex.value).toBe(0)
     })
 
+    it('should insert mention on Enter, passing new text and cursor position to updateValue', async () => {
+      const { showMentions, handleKeydown, checkMention, refreshPersons } = useMentions()
+      await refreshPersons()
+
+      const mockTextarea = {
+        value: 'hi @ali',
+        selectionStart: 7,
+        getBoundingClientRect: () => ({ top: 100, left: 100 }),
+        focus: vi.fn(),
+        setSelectionRange: vi.fn(),
+      }
+      inputFrom(checkMention, mockTextarea)
+      expect(showMentions.value).toBe(true)
+
+      const updateValue = vi.fn()
+      handleKeydown({ key: 'Enter', preventDefault: vi.fn() }, 'hi @ali', updateValue)
+
+      const expectedText = 'hi @[Alice Smith](person:1) '
+      expect(updateValue).toHaveBeenCalledWith(expectedText, expectedText.length)
+      expect(showMentions.value).toBe(false)
+    })
+
     it('should close mentions on Escape', async () => {
-      const { showMentions, handleKeydown, handleInput, refreshPersons } = useMentions()
+      const { showMentions, handleKeydown, checkMention, refreshPersons } = useMentions()
       await refreshPersons()
 
       const mockTextarea = {
@@ -190,7 +256,7 @@ describe('useMentions', () => {
         selectionStart: 1,
         getBoundingClientRect: () => ({ top: 100, left: 100 }),
       }
-      handleInput({ target: mockTextarea })
+      inputFrom(checkMention, mockTextarea)
       expect(showMentions.value).toBe(true)
 
       const mockEvent = { key: 'Escape', preventDefault: vi.fn() }
@@ -202,7 +268,7 @@ describe('useMentions', () => {
 
   describe('hideMentions', () => {
     it('should hide mentions', async () => {
-      const { showMentions, handleInput, hideMentions, refreshPersons } = useMentions()
+      const { showMentions, checkMention, hideMentions, refreshPersons } = useMentions()
       await refreshPersons()
 
       const mockTextarea = {
@@ -210,7 +276,7 @@ describe('useMentions', () => {
         selectionStart: 1,
         getBoundingClientRect: () => ({ top: 100, left: 100 }),
       }
-      handleInput({ target: mockTextarea })
+      inputFrom(checkMention, mockTextarea)
       expect(showMentions.value).toBe(true)
 
       hideMentions()

@@ -25,14 +25,15 @@ Click the expand icon or press `Escape` to toggle fullscreen. Provides maximum e
 Open the detail panel in a separate window:
 
 1. Click the "Open in Window" button in the panel header (or use context menu > "Open in Window")
-2. A new browser window opens with the node's detail view
+2. A separate window opens with the node's detail view
 3. Changes sync between windows via BroadcastChannel
 
 **Detached window features:**
 
 - Independent window that can be moved to another monitor
 - Real-time sync with the main window
-- Closing the main app closes detached windows
+- Detaching the same node again focuses the existing window instead of opening a second one
+- Quitting the app closes detached windows
 - URL format: `?detached={nodeId}`
 
 ## Sections
@@ -60,14 +61,16 @@ The notes section supports full Markdown editing.
 
 ### Mentions
 
-Type `@` in the notes editor to mention and link to person nodes:
+Type `@` in the notes editor (Edit or Split mode) to mention and link to person nodes:
 
 1. Type `@` followed by a name (e.g., `@John`)
 2. A dropdown appears with matching persons (up to 10 results)
-3. Use arrow keys to navigate, Enter or Tab to select
-4. The mention is inserted and a link is automatically created
+3. Use arrow keys to navigate, Enter or Tab to select — or click a suggestion
+4. The mention is inserted and a link to that person is created on the current node
 
 **Mention format:** `@[Person Name](person:123)`
+
+In Preview and Split mode the mention renders as a `@Name` chip rather than raw Markdown.
 
 **Keyboard navigation:**
 
@@ -78,7 +81,15 @@ Type `@` in the notes editor to mention and link to person nodes:
 | `Enter` / `Tab` | Insert selected mention |
 | `Escape` | Close dropdown |
 
-Mentions must follow a space, newline, or opening parenthesis. Maximum query length is 30 characters.
+While the dropdown is open these keys belong to it, so Enter inserts a mention instead of a newline. When it is closed they behave normally.
+
+**Details:**
+
+- The person list is scoped to the current workspace and re-loads when you switch workspaces
+- Mentions must follow a space, newline, or opening parenthesis; maximum query length is 30 characters
+- An already-inserted mention does not re-open the dropdown when the cursor passes over it
+- Moving the cursor out of the query, or leaving the editor, dismisses the dropdown
+- Linked persons appear in the Linked Items section immediately after insertion
 
 **Sensitive Notes:**
 

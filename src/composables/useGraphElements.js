@@ -2,6 +2,7 @@ import { api } from '../services/api'
 import { buildTooltipHTML } from '../utils/tooltip.js'
 import { getGraphColors } from '../utils/constants.js'
 import { decodeHtmlEntities } from '../utils/html.js'
+import { hasExplicitColor } from '../utils/nodeColor.js'
 import {
   flattenNodes,
   filterByDepth,
@@ -71,6 +72,8 @@ function buildDescendantCountMap(nodeList, countMap = {}) {
  * @param {boolean} options.showRootNode - Whether to show root node
  * @param {Array} options.selectedIds - Currently selected node IDs
  * @param {number|null} options.selectedId - Single selected node ID
+ * @param {string|null} options.ancestorColor - Inherited color from ancestors outside the current view
+ * @param {boolean} options.inheritColors - Whether parent colors flow down to children
  * @returns {Array} Cytoscape elements array
  */
 export function buildElements(options) {
@@ -135,17 +138,11 @@ export function buildElements(options) {
 
   // Build inherited color map - parent colors flow to children
   // Use parent's own color if set, otherwise use ancestor color from the app-level color map
-  const parentColor = inheritColors
-    ? parentNode?.color && parentNode.color !== '#0f4c75'
-      ? parentNode.color
-      : ancestorColor
-    : parentNode?.color && parentNode.color !== '#0f4c75'
-      ? parentNode.color
-      : null
+  const parentOwnColor = hasExplicitColor(parentNode) ? parentNode.color : null
+  const parentColor = parentOwnColor ?? (inheritColors ? ancestorColor : null)
   const inheritedColorMap = buildInheritedColorMap(filteredList, parentColor, {}, inheritColors)
   // Also add parent to the map if included
   if (includeParent && parentNode) {
-    const parentOwnColor = parentNode.color && parentNode.color !== '#0f4c75' ? parentNode.color : null
     inheritedColorMap[parentNode.id] = inheritColors ? parentColor : parentOwnColor
   }
 

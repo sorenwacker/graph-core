@@ -1,7 +1,7 @@
 import { ref, computed, nextTick, type Ref, type ComputedRef } from 'vue'
 import { MAX_HISTORY_SIZE, SIDEBAR_HIDE_DELAY_MS } from '../utils/uiConstants.js'
 import { useErrorHandler } from './useErrorHandler.js'
-import type { Api, Node, TreeNode } from '../types'
+import type { Api, Node, TreeNode, WorkspaceId } from '../types'
 
 /**
  * Debounce configuration.
@@ -23,7 +23,7 @@ export interface UseNavigationOptions {
   /** API service for data fetching */
   api: Api
   /** Current workspace ref */
-  workspace?: Ref<number | null>
+  workspace?: Ref<WorkspaceId | null>
   /** Debounce configuration */
   debounce?: DebounceConfig
   /** Called before navigation starts */
@@ -47,7 +47,7 @@ export interface UseNavigationOptions {
   /** Called to select a node after navigation */
   onSelectNode?: (node: Node) => void
   /** Custom filter function for workspace filtering */
-  filterByWorkspace?: (node: Node, workspaceId: number | null) => boolean
+  filterByWorkspace?: (node: Node, workspaceId: WorkspaceId | null) => boolean
   /** External buildChildTree function (from useDataLoading) */
   buildChildTree?: (flatNodes: Node[], parentId: number, parentCompleted?: boolean) => TreeNode[]
 }

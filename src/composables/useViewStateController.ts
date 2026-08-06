@@ -1,10 +1,9 @@
 import { ref, watch, type Ref } from 'vue'
-import type { Node } from '../types'
+import type { Node, ViewMode } from '../types'
 
-/**
- * View mode type.
- */
-export type ViewMode = 'graph' | 'list' | 'cards' | 'trash' | 'timeline' | 'tasks'
+// Re-export the canonical ViewMode (defined in types/settings.ts) for
+// existing consumers that import it from this module.
+export type { ViewMode }
 
 /**
  * Transition direction type.

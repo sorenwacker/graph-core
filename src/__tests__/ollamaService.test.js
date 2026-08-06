@@ -34,6 +34,7 @@ describe('ollamaService', () => {
           model: 'llama3.2',
           prompt: 'Improve this text\n\n---\n\nOriginal text',
           stream: false,
+          options: { num_ctx: 32768 },
         }),
       })
     })

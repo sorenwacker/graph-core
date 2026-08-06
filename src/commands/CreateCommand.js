@@ -19,6 +19,10 @@ export class CreateCommand extends Command {
     })
     // Update nodeId in case it changed (for subsequent undos)
     this.nodeId = created.id
+    // Restore the link that undo removes, so execute/undo stay symmetric on redo
+    if (this.linkedToId) {
+      await api.linkNodes(this.nodeId, this.linkedToId)
+    }
   }
 
   async undo(api) {
