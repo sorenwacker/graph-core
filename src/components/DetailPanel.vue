@@ -784,7 +784,10 @@ defineExpose({
               <div class="section-header" @click="tableCollapsed = !tableCollapsed">
                 <span class="section-title">Table</span>
               </div>
-              <div v-show="!tableCollapsed" class="section-content">
+              <!-- v-if, not v-show: AG Grid measures its container when it
+                   mounts, so mounting inside a display:none section locks the
+                   flex columns to their minimum widths. -->
+              <div v-if="!tableCollapsed" class="section-content">
                 <NodeSpreadsheet
                   :node-id="props.node?.id"
                   :table-data="nodeTable"
