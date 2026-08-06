@@ -51,11 +51,11 @@ Use OpenAI, Azure OpenAI, or any compatible endpoint.
 | Endpoint | API URL | `https://api.openai.com/v1` |
 | API Key | Your API key | Required |
 | Model | Model name | `gpt-4o-mini` |
-| Skip SSL verification | Accept self-signed certificates on local endpoints | Off |
+| Skip SSL verification | Accept self-signed certificates on the configured endpoint | Off |
 
 **Skip SSL verification:**
 
-The bypass is limited to local endpoints — `localhost`, `127.0.0.1`, `::1` and `*.local`. Certificates for any other host are always verified, even with the setting enabled, so pointing at a remote server with a bad certificate fails with an explicit error instead of silently sending your data over an unverified connection.
+While enabled, certificate verification is disabled for the configured endpoint — local or remote. Use it for endpoints you control that present a self-signed certificate (a local Ollama proxy, an internal OpenAI-compatible gateway). An unverified connection can be intercepted without detection, so prefer installing the endpoint's CA certificate in your system trust store when possible.
 
 The setting applies to note improvement and to research/agent runs alike.
 
@@ -143,14 +143,13 @@ Error: Invalid API key
 
 **Solution:** Check your API key in Settings.
 
-### Certificate Error on a Remote Endpoint
+### Certificate Error
 
 ```
-SSL/TLS error: ... "Skip SSL verification" only applies to local endpoints
-(localhost, 127.0.0.1, ::1, *.local); certificates for remote hosts are always verified.
+SSL/TLS error: <reason>. For self-signed certificates, enable "Skip SSL verification" in settings.
 ```
 
-**Solution:** "Skip SSL verification" cannot bypass this. Install the endpoint's CA certificate in your system trust store, or use an endpoint with a valid certificate.
+**Solution:** Install the endpoint's CA certificate in your system trust store, or — for an endpoint you control or trust — enable "Skip SSL verification" in Settings > AI.
 
 ## See Also
 
