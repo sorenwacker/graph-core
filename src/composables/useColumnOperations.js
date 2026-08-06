@@ -85,7 +85,6 @@ export function useColumnOperations(options = {}) {
         id: col.id,
         name: col.name,
         type: col.type || 'text',
-        width: col.width || 100,
       }))
 
     emit('structure-change', { type: 'column_definitions', value: updatedCols })
@@ -130,7 +129,6 @@ export function useColumnOperations(options = {}) {
       id: col.id,
       name: idx === editingColumn.value ? finalName : col.name,
       type: col.type || 'text',
-      width: col.width || 100,
     }))
 
     emit('structure-change', { type: 'column_definitions', value: updatedCols })
