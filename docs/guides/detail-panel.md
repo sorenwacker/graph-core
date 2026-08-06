@@ -119,7 +119,7 @@ Attach a spreadsheet to any node.
 - Cell color formatting (colorblind-friendly palette)
 - Copy, cut, and paste operations
 - Multi-cell selection: drag across cells to select a range; selected cells are highlighted
-- Columns share the available width equally, so the table always spans the panel
+- Columns share the available width equally, so the table always spans the panel; in fullscreen and detached mode the table section takes the full window width while Children and Metadata share a row
 
 **Formulas:**
 
