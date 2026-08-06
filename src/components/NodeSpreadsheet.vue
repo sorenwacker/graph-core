@@ -425,11 +425,11 @@ function addColumn() {
   const currentCols = props.tableData.column_definitions || []
   if (currentCols.length === 0) {
     const defaultCols = [
-      { id: 'col0', name: 'A', type: 'text', width: 100 },
-      { id: 'col1', name: 'B', type: 'text', width: 100 },
-      { id: 'col2', name: 'C', type: 'text', width: 100 },
-      { id: 'col3', name: 'D', type: 'text', width: 100 },
-      { id: 'col4', name: 'E', type: 'text', width: 100 },
+      { id: 'col0', name: 'A', type: 'text' },
+      { id: 'col1', name: 'B', type: 'text' },
+      { id: 'col2', name: 'C', type: 'text' },
+      { id: 'col3', name: 'D', type: 'text' },
+      { id: 'col4', name: 'E', type: 'text' },
     ]
     emit('structure-change', { type: 'column_definitions', value: defaultCols })
     return
@@ -439,10 +439,9 @@ function addColumn() {
     id: col.id,
     name: col.name,
     type: col.type || 'text',
-    width: col.width || 100,
   }))
   const newColName = getColumnName(plainCols.length)
-  const newCols = [...plainCols, { id: `col${plainCols.length}`, name: newColName, type: 'text', width: 100 }]
+  const newCols = [...plainCols, { id: `col${plainCols.length}`, name: newColName, type: 'text' }]
   emit('structure-change', { type: 'column_definitions', value: newCols })
 }
 
