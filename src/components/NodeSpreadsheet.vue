@@ -285,11 +285,12 @@ const rowIndexCol = {
 }
 
 const columnDefs = computed(() => {
+  // No fixed width: defaultColDef.flex distributes the panel width evenly so
+  // the table always spans the detail panel.
   const dataCols = columns.value.map((col, idx) => ({
     field: col.name,
     headerName: col.name,
     editable: true,
-    width: col.width || 100,
     context: { colIndex: idx },
     cellStyle: cellStyleCallback.value,
     cellClassRules: {
@@ -519,7 +520,6 @@ onUnmounted(() => {
           :enable-cell-text-selection="false"
           :ensure-dom-order="true"
           :suppress-clipboard-paste="true"
-          :row-selection="{ mode: 'multiRow', enableClickSelection: false, copySelectedRows: false }"
           @grid-ready="onGridReady"
           @cell-value-changed="onCellValueChanged"
           @cell-double-clicked="selection.clearSelection"
