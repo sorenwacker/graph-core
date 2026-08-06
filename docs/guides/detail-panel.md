@@ -118,7 +118,8 @@ Attach a spreadsheet to any node.
 - Edit cell values directly
 - Cell color formatting (colorblind-friendly palette)
 - Copy, cut, and paste operations
-- Multi-cell selection
+- Multi-cell selection: drag across cells to select a range; selected cells are highlighted
+- Columns share the available width equally, so the table always spans the panel
 
 **Formulas:**
 

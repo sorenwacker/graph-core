@@ -215,8 +215,12 @@
   outline: none;
 }
 
+/* AG Grid creates the cell and header DOM outside Vue's template, so those
+   elements never get this component's data-v scope attribute. Selectors that
+   target grid-internal DOM must be wrapped in :deep() or they never match. */
+
 /* Row index column styling */
-.row-index-cell {
+:deep(.row-index-cell) {
   background-color: var(--bg-secondary) !important;
   color: var(--text-tertiary) !important;
   text-align: center !important;
@@ -226,26 +230,26 @@
   cursor: default !important;
 }
 
-.row-index-header {
+:deep(.row-index-header) {
   background-color: var(--bg-secondary) !important;
 }
 
 /* Bold column headers */
-.ag-header-cell-text {
+:deep(.ag-header-cell-text) {
   font-weight: 600 !important;
   color: var(--text-secondary) !important;
 }
 
 /* Hide resize handle but keep functional */
-.ag-header-cell-resize {
+:deep(.ag-header-cell-resize) {
   opacity: 0;
 }
-.ag-header-cell-resize:hover {
+:deep(.ag-header-cell-resize:hover) {
   opacity: 0;
 }
 
 /* Selected cell highlighting */
-.cell-selected {
+:deep(.cell-selected) {
   background-color: var(--accent-subtle) !important;
 }
 
