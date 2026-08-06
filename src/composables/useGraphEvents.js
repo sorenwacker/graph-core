@@ -257,6 +257,16 @@ export function useGraphEvents(options = {}) {
         }
       }, 200)
     })
+
+    cy.on('dbltap', e => {
+      if (e.target !== cy) return
+      if (isClickOnHtmlLabel(e)) return
+
+      // The two single taps also queued a deselect; a double tap means the
+      // user wants a new node here, not a deselect.
+      backgroundClickPending = false
+      showAddNodeModal(null, { x: e.position.x, y: e.position.y })
+    })
   }
 
   /**

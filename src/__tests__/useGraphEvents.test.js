@@ -313,6 +313,59 @@ describe('useGraphEvents', () => {
 
       expect(mockShowAddNodeModal).toHaveBeenCalledWith(null, { x: 200, y: 300 })
     })
+
+    it('should open add node modal on background double tap', () => {
+      const { setupEvents } = createGraphEvents()
+      setupEvents()
+
+      const bgDblTapHandler = mockCy.on.mock.calls.find(
+        call => call[0] === 'dbltap' && typeof call[1] === 'function'
+      )[1]
+
+      bgDblTapHandler({
+        target: mockCy,
+        position: { x: 200, y: 300 },
+        originalEvent: {},
+      })
+
+      expect(mockShowAddNodeModal).toHaveBeenCalledWith(null, { x: 200, y: 300 })
+    })
+
+    it('should not open add node modal when double tapping a node', () => {
+      const { setupEvents } = createGraphEvents()
+      setupEvents()
+
+      const bgDblTapHandler = mockCy.on.mock.calls.find(
+        call => call[0] === 'dbltap' && typeof call[1] === 'function'
+      )[1]
+
+      bgDblTapHandler({
+        target: { data: vi.fn() }, // not the cy core, so a node was tapped
+        position: { x: 200, y: 300 },
+        originalEvent: {},
+      })
+
+      expect(mockShowAddNodeModal).not.toHaveBeenCalled()
+    })
+
+    it('should cancel the pending background deselect on background double tap', () => {
+      const { setupEvents } = createGraphEvents()
+      setupEvents()
+
+      const bgTapHandler = mockCy.on.mock.calls.find(call => call[0] === 'tap' && typeof call[1] === 'function')[1]
+      const bgDblTapHandler = mockCy.on.mock.calls.find(
+        call => call[0] === 'dbltap' && typeof call[1] === 'function'
+      )[1]
+
+      const tapEvent = { target: mockCy, originalEvent: { metaKey: false, ctrlKey: false } }
+      bgTapHandler(tapEvent)
+      bgTapHandler(tapEvent)
+      bgDblTapHandler({ target: mockCy, position: { x: 200, y: 300 }, originalEvent: {} })
+      vi.advanceTimersByTime(200)
+
+      expect(mockShowAddNodeModal).toHaveBeenCalledWith(null, { x: 200, y: 300 })
+      expect(mockEmit).not.toHaveBeenCalledWith('select', null)
+    })
   })
 
   describe('edge tap handler', () => {
