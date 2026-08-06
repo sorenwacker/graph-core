@@ -92,21 +92,16 @@ Configure AI providers for note enhancement.
 | Endpoint | API URL | `https://api.openai.com/v1` |
 | API Key | Authentication key | Required |
 | Model | Model name | `gpt-4o-mini` |
-| Skip SSL verification | Accept self-signed or untrusted certificates **on local endpoints only** | Off |
+| Skip SSL verification | Accept self-signed or untrusted certificates on the configured endpoint | Off |
 
 ### Skip SSL Verification
 
-The bypass applies only to local endpoints: `localhost`, `127.0.0.1`, `::1` (including the bracketed `[::1]` form) and any `*.local` host. Certificates for every other host are verified even while the setting is enabled — a remote endpoint with a bad certificate fails with:
-
-```
-SSL/TLS error: <reason>. "Skip SSL verification" only applies to local endpoints
-(localhost, 127.0.0.1, ::1, *.local); certificates for remote hosts are always verified.
-```
+While the setting is enabled, certificate verification is disabled for HTTPS requests to the configured endpoint — any host, including remote ones such as an internal proxy with a self-signed certificate. While the setting is off, every certificate is verified, including on local endpoints.
 
 The setting applies to note improvement as well as research and agent runs when the OpenAI-compatible provider is selected.
 
 !!! warning
-    Disabling verification exposes data to interception. Only use it on trusted networks.
+    An unverified connection can be intercepted without detection. Only enable this for endpoints you control or trust — for public endpoints, install the endpoint's CA certificate in your system trust store instead.
 
 ### Custom Prompts
 
