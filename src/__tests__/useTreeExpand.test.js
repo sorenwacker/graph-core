@@ -224,15 +224,19 @@ describe('useTreeExpand', () => {
   })
 
   describe('saveExpandedState', () => {
-    it('should save current state to localStorage', () => {
+    it('should save current state to localStorage when called directly', () => {
       const workspace = ref('test-workspace')
-      const { toggleExpand, saveExpandedState } = useTreeExpand({ workspace })
+      const { setExpandedIds, saveExpandedState } = useTreeExpand({ workspace })
 
-      toggleExpand(1)
-      toggleExpand(2)
+      // setExpandedIds does NOT persist, so localStorage must still be empty
+      setExpandedIds([1, 2])
+      expect(localStorage.getItem('graphcore-expanded-test-workspace')).toBeNull()
+
+      saveExpandedState()
 
       const stored = JSON.parse(localStorage.getItem('graphcore-expanded-test-workspace'))
       expect(stored).toEqual(expect.arrayContaining([1, 2]))
+      expect(stored).toHaveLength(2)
     })
   })
 

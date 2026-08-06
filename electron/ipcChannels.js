@@ -109,7 +109,6 @@ const DB_BACKUP = 'db:backup'
 const DB_LIST_BACKUPS = 'db:listBackups'
 const DB_RESTORE_BACKUP = 'db:restoreBackup'
 const DB_RELOAD = 'db:reload'
-const DB_REPAIR_WORKSPACES = 'db:repairWorkspaces'
 const DB_GET_DATA_PATH = 'db:getDataPath'
 
 // ===========================================
@@ -141,7 +140,6 @@ const SHELL_OPEN_EXTERNAL = 'shell:openExternal'
 // WINDOW
 // ===========================================
 const WINDOW_OPEN_DETACHED = 'window:openDetached'
-const WINDOW_CLOSE_DETACHED = 'window:closeDetached'
 
 // ===========================================
 // OLLAMA
@@ -165,7 +163,8 @@ const AGENT_RESEARCH = 'agent:research'
 // ===========================================
 // APP
 // ===========================================
-const APP_GET_VERSION = 'app:getVersion'
+// Renderer -> main ack that pre-quit autosave has finished (see APP_BEFORE_QUIT)
+const APP_QUIT_SAVE_DONE = 'app:quitSaveDone'
 
 // ===========================================
 // MENU EVENTS (main -> renderer)
@@ -257,7 +256,6 @@ module.exports = {
   DB_LIST_BACKUPS,
   DB_RESTORE_BACKUP,
   DB_RELOAD,
-  DB_REPAIR_WORKSPACES,
   DB_GET_DATA_PATH,
 
   // Database - Node Tables
@@ -281,7 +279,6 @@ module.exports = {
 
   // Window
   WINDOW_OPEN_DETACHED,
-  WINDOW_CLOSE_DETACHED,
 
   // Ollama
   OLLAMA_GENERATE,
@@ -297,7 +294,7 @@ module.exports = {
   AGENT_RESEARCH,
 
   // App
-  APP_GET_VERSION,
+  APP_QUIT_SAVE_DONE,
 
   // Menu Events
   MENU_UNDO,

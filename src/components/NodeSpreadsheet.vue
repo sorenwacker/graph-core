@@ -90,6 +90,7 @@ const emit = defineEmits(['create', 'delete', 'cell-change', 'structure-change',
 
 const gridApi = shallowRef(null)
 const gridWrapper = ref(null)
+const saveTimeouts = new Map()
 
 // Context menu state (cell formatting)
 const showContextMenu = ref(false)
@@ -355,21 +356,48 @@ function handleMouseUp() {
 }
 
 function onCellValueChanged(params) {
-  // AG Grid fires this once per committed cell value. Emit each change
-  // immediately: a shared debounce across cells would drop earlier edits when
-  // several cells are committed within the debounce window (e.g. fast tabbing).
   const rowIndex = params.node.rowIndex
   const colIndex = columnDefs.value.findIndex(c => c.field === params.colDef.field) - 1
   if (colIndex < 0) return
   const value = params.newValue ?? ''
   const valueStr = String(value)
 
-  emit('cell-change', {
-    row: rowIndex,
-    col: colIndex,
-    value: valueStr,
-    isFormula: isFormula(valueStr),
-  })
+  // Debounce per cell: a shared timer would drop an earlier cell's pending
+  // save when a second cell is edited within the debounce window.
+  const key = `${rowIndex}:${colIndex}`
+  const pending = saveTimeouts.get(key)
+  if (pending) clearTimeout(pending.timer)
+
+  // The save itself is kept alongside the timer so unmount can flush it
+  // instead of dropping the edit (see onUnmounted).
+  const save = () => {
+    saveTimeouts.delete(key)
+    emit('cell-change', {
+      row: rowIndex,
+      col: colIndex,
+      value: valueStr,
+      isFormula: isFormula(valueStr),
+    })
+  }
+
+  saveTimeouts.set(key, { timer: setTimeout(save, 300), save })
+}
+
+// Run every debounced cell save immediately. Called on unmount so closing the
+// panel within the debounce window does not silently discard edits.
+function flushPendingSaves() {
+  const pending = Array.from(saveTimeouts.values())
+  saveTimeouts.clear()
+  for (const { timer, save } of pending) {
+    clearTimeout(timer)
+    try {
+      save()
+    } catch (e) {
+      // The component may already be torn down; never let a failed flush
+      // break the rest of the unmount cleanup.
+      console.error('Failed to flush pending cell save', e)
+    }
+  }
 }
 
 function addRow() {
@@ -437,6 +465,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  flushPendingSaves()
   keyboard.cleanup()
   document.removeEventListener('keydown', keyboard.handleKeyDown, true)
   document.removeEventListener('mousemove', handleMouseMove)

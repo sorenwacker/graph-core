@@ -4,18 +4,20 @@ Graph Core supports multiple node types for organizing different kinds of inform
 
 ## Available Types
 
-| Type | Description | Default Workspace |
-|------|-------------|-------------------|
-| **Task** | Actionable items with completion tracking | Current |
-| **Project** | Container for organizing related work | Current |
-| **Note** | General-purpose text content | Current |
-| **Milestone** | Achievement markers and deadlines | Current |
-| **Topic** | Discussion or knowledge areas | Current |
-| **Group** | Organizational containers | Current |
-| **Event** | Time-based occurrences | Current |
-| **Person** | Contact information | People |
-| **Organization** | Company or group entities | People |
-| **Component** | Technical or modular elements | Current |
+| Type | Description |
+|------|-------------|
+| **Task** | Actionable items with completion tracking |
+| **Project** | Container for organizing related work |
+| **Note** | General-purpose text content |
+| **Milestone** | Achievement markers and deadlines |
+| **Topic** | Discussion or knowledge areas |
+| **Group** | Organizational containers |
+| **Event** | Time-based occurrences |
+| **Person** | Contact information |
+| **Organization** | Company or group entities |
+| **Component** | Technical or modular elements |
+
+Every type is created in the current workspace; see [Workspaces](../guides/workspaces.md).
 
 ## Type Details
 
@@ -94,8 +96,8 @@ Persons represent contacts and people.
 
 **Special Behaviors:**
 
-- Automatically assigned to People workspace
-- Can be @mentioned from any workspace via `@` key
+- Created in the current workspace, like any other node
+- Can be @mentioned in the notes of any node in the same workspace via the `@` key
 - Shows in Persons view with organization grouping
 - Unique color auto-assigned based on node ID
 - Color inheritance: own color > parent org color > linked org color
@@ -117,7 +119,7 @@ Organizations group related persons.
 
 **Special Behaviors:**
 
-- Automatically assigned to People workspace
+- Created in the current workspace, like any other node
 - Groups persons in Persons view
 - Shows members count and linked persons
 - Members section displays persons linked to organization

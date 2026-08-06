@@ -84,7 +84,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listBackups: () => ipcRenderer.invoke(C.DB_LIST_BACKUPS),
   restoreBackup: backupPath => ipcRenderer.invoke(C.DB_RESTORE_BACKUP, backupPath),
   reload: () => ipcRenderer.invoke(C.DB_RELOAD),
-  repairWorkspaces: () => ipcRenderer.invoke(C.DB_REPAIR_WORKSPACES),
   getDataPath: () => ipcRenderer.invoke(C.DB_GET_DATA_PATH),
 
   // Node Tables (Spreadsheet)
@@ -108,7 +107,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Detached Windows
   openDetachedWindow: (nodeId, nodeTitle) => ipcRenderer.invoke(C.WINDOW_OPEN_DETACHED, nodeId, nodeTitle),
-  closeDetachedWindow: nodeId => ipcRenderer.invoke(C.WINDOW_CLOSE_DETACHED, nodeId),
 
   // Ollama LLM
   ollamaGenerate: options => ipcRenderer.invoke(C.OLLAMA_GENERATE, options),
@@ -133,7 +131,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // App lifecycle
   onBeforeQuit: callback => ipcRenderer.on(C.APP_BEFORE_QUIT, callback),
-
-  // App info
-  getVersion: () => ipcRenderer.invoke(C.APP_GET_VERSION),
+  quitSaveDone: () => ipcRenderer.invoke(C.APP_QUIT_SAVE_DONE),
 })

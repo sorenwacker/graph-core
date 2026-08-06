@@ -5,14 +5,15 @@
 
 import { decodeHtmlEntities } from '../../utils/html.js'
 import { legacyDefaultColor } from './personsGridColumns.js'
+import { formatDate as formatDateShared, isOverdue as isOverdueShared } from '../../utils/formatting.js'
 
 /**
  * Format a date string for display.
- * Extracts just the date portion from ISO format.
+ * Extracts just the date portion from ISO format; '-' for missing dates.
+ * Delegates to the shared formatDate in src/utils/formatting.js.
  */
 export function formatDate(dateStr) {
-  if (!dateStr) return ''
-  return dateStr.split('T')[0]
+  return formatDateShared(dateStr, { style: 'iso', empty: '-' })
 }
 
 /**
@@ -28,13 +29,10 @@ export function truncateNotes(notes) {
 
 /**
  * Check if a due date is overdue.
+ * Date-based comparison in local time (shared implementation).
  */
 export function isOverdue(dateStr) {
-  if (!dateStr) return false
-  const due = new Date(dateStr)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return due < today
+  return isOverdueShared(dateStr)
 }
 
 /**

@@ -5,7 +5,7 @@
 export type {
   NodeType,
   GraphLayout,
-  GraphTypeFilter,
+  RadialSettings,
   Importance,
   Node,
   CreateNodeData,
@@ -14,7 +14,7 @@ export type {
   NodeLink,
 } from './node'
 
-export type { Workspace, CreateWorkspaceData, UpdateWorkspaceData } from './workspace'
+export type { WorkspaceId, Workspace, CreateWorkspaceData, UpdateWorkspaceData } from './workspace'
 
 export type {
   GetNodesParams,
@@ -28,6 +28,10 @@ export type {
   NodeTable,
   TableCell,
   ExportJSONOptions,
+  ImportJSONResult,
+  ImportCSVResult,
+  ExportMarkdownResult,
+  ExportCSVResult,
   BackupInfo,
   Api,
 } from './api'

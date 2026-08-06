@@ -3,7 +3,7 @@ import { ref, toRef, onMounted, onUnmounted, watch, nextTick, computed } from 'v
 import tippy from 'tippy.js'
 import { api } from '../services/api'
 import { useNodeTooltip } from '../composables/useNodeTooltip.js'
-import { useGraphSettings, ALL_NODE_TYPES } from '../composables/useGraphSettings'
+import { useGraphSettings } from '../composables/useGraphSettings'
 import { useFiltersStore } from '../stores/filters.js'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
 import { useGraphModals } from '../composables/useGraphModals.js'
@@ -263,27 +263,26 @@ function toggleNodeCollapse(nodeId) {
   emit('update', { id: nodeData.id, collapsed: !nodeData.collapsed })
 }
 
-// Attach click handlers directly to collapse buttons
-let globalCollapseHandlerAttached = false
+// Document-level capture handler for collapse-button clicks. Named so it can be
+// removed on unmount (a leaked listener would stopImmediatePropagation and break
+// collapse buttons for any later GraphView instance).
 function handleCollapseMousedown(e) {
   const btn = e.target.closest('.collapse-btn')
-  if (btn) {
-    e.preventDefault()
-    e.stopPropagation()
-    e.stopImmediatePropagation()
-    const nodeId = parseInt(btn.dataset.collapseNode)
-    if (!isNaN(nodeId)) {
-      toggleNodeCollapse(nodeId)
-    }
+  if (!btn) return
+  e.preventDefault()
+  e.stopPropagation()
+  e.stopImmediatePropagation()
+  const nodeId = parseInt(btn.dataset.collapseNode)
+  if (!isNaN(nodeId)) {
+    toggleNodeCollapse(nodeId)
   }
 }
+let collapseHandlerAttached = false
+let collapseAttachTimer = null
 function attachCollapseHandlers() {
-  // Document-level capture handler, attached once per component instance and
-  // removed on unmount (see onUnmounted) to avoid leaking a listener per mount.
-  if (!globalCollapseHandlerAttached) {
-    globalCollapseHandlerAttached = true
-    document.addEventListener('mousedown', handleCollapseMousedown, true)
-  }
+  if (collapseHandlerAttached) return
+  collapseHandlerAttached = true
+  document.addEventListener('mousedown', handleCollapseMousedown, true)
 }
 
 // Events composable
@@ -545,16 +544,6 @@ watch(
   }
 )
 
-const toggleTypeFilter = t => {
-  filtersStore.toggleType(t)
-}
-const selectAllTypes = () => {
-  filtersStore.showAllTypes()
-}
-const selectNoTypes = () => {
-  filtersStore.setVisibleTypes([])
-}
-
 function handleGlobalKeydown(e) {
   const inModal = isAnyModalVisible()
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !inModal) {
@@ -634,7 +623,8 @@ async function initGraph() {
   graphInit.applyInitialLayout(cy, hasPos, () => {
     isInitializing = false
   })
-  setTimeout(() => attachCollapseHandlers(), 300)
+  if (collapseAttachTimer) clearTimeout(collapseAttachTimer)
+  collapseAttachTimer = setTimeout(() => attachCollapseHandlers(), 300)
 }
 
 /**
@@ -752,8 +742,11 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleModifierKeydown)
   document.removeEventListener('keyup', handleModifierKeyup)
   document.removeEventListener('mousemove', handleModifierMousemove)
+  if (collapseAttachTimer) clearTimeout(collapseAttachTimer)
   document.removeEventListener('mousedown', handleCollapseMousedown, true)
+  collapseHandlerAttached = false
   if (updateDebounceTimer) clearTimeout(updateDebounceTimer)
+  events.teardownEvents()
   wheel.cleanup()
   layout.cleanup()
   if (cy) {
@@ -776,7 +769,6 @@ onUnmounted(() => {
         :show-external-links="showExternalLinks"
         :show-root-node="showRootNode"
         :max-depth="maxDepth"
-        :visible-types="visibleTypes"
         :radial-settings="radialSettings"
         :has-parent="!!parent"
         @set-layout="setLayout"
@@ -786,9 +778,6 @@ onUnmounted(() => {
         @update:show-external-links="showExternalLinks = $event"
         @update:show-root-node="showRootNode = $event"
         @update:max-depth="maxDepth = $event"
-        @toggle-type="toggleTypeFilter"
-        @select-all-types="selectAllTypes"
-        @select-no-types="selectNoTypes"
         @apply-radial-settings="layout.applyRadialSettings()"
         @update:radial-settings="radialSettings = $event"
         @show-hotkey-help="showShortcuts = true"

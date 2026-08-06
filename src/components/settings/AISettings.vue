@@ -288,7 +288,10 @@ initAIOnMount()
             />
             Skip SSL verification
           </label>
-          <span class="settings-hint">For endpoints with certificate issues (self-signed or untrusted CA)</span>
+          <span class="settings-hint"
+            >For local endpoints (localhost, 127.0.0.1, *.local) with certificate issues (self-signed or untrusted CA).
+            Certificates for remote hosts are always verified.</span
+          >
           <span v-if="openaiSkipSslVerification" class="ssl-warning">
             Warning: Disabling SSL verification exposes data to potential interception. Only use on trusted networks.
           </span>

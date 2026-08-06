@@ -12,7 +12,7 @@ The Demo workspace includes:
 - **Product Launch Q2** - A realistic project with milestones, tasks, and team assignments
 - **Website Redesign** - Another project showing different organizational patterns
 
-The demo data includes examples of all node types (tasks, projects, milestones, groups, organizations, people, notes, topics, components, and events) as well as links between related nodes.
+The demo data is 68 nodes covering every node type (task, project, milestone, group, organization, person, note, topic, component, event) plus a handful of cross-links between related nodes.
 
 ## Creating the Demo workspace
 
@@ -25,30 +25,29 @@ When you first open GraphCore, the onboarding modal includes a "Create Demo Work
 If you dismissed the onboarding modal:
 
 1. Open **Settings** (gear icon in the toolbar)
-2. Scroll to the **Demo Workspace** section
+2. Go to the **About** tab
 3. Click **Create Demo Workspace**
+
+Creating the workspace switches you into it. If it already exists, you are switched to it instead of getting a second copy.
 
 ## Resetting the Demo workspace
 
-To start fresh with the demo data:
+Once the Demo workspace exists, the same button becomes **Reset Demo Workspace**:
 
-1. Open **Settings**
-2. Scroll to the **Demo Workspace** section
-3. Click **Reset Demo Workspace**
+1. Open **Settings > About**
+2. Click **Reset Demo Workspace**
+3. Confirm
 
-This deletes all current demo data and recreates it from scratch.
+This deletes everything in the Demo workspace and recreates it from scratch.
 
 ## Recommended settings for exploration
 
-For the best experience exploring demo data, consider these settings:
+The defaults work well, but these help when exploring a larger demo hierarchy (**Settings > General > Graph**):
 
-| Setting | Recommended value | Why |
-|---------|-------------------|-----|
-| Graph Root Max Depth | 5 | See more of the hierarchy at root level |
-| Graph Detail Threshold | 50 | Show node details on smaller graphs |
-| Sidebar Pinned | On | Keep navigation visible while exploring |
-
-These are the defaults for new installations. Adjust them in **Settings > General** if needed.
+| Setting | Try | Why |
+|---------|-----|-----|
+| Max depth | 0 (All) | See the whole hierarchy at root level |
+| Detail threshold | 50 | Show node details while the graph is small |
 
 ## Tips for exploring
 

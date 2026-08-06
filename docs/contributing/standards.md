@@ -100,6 +100,24 @@ npm run type-check
 - Coverage thresholds are configured in `vitest.config.js`
 - Use `vi.mock()` for mocking
 
+### Test the Production Module
+
+A test must import and exercise the module it claims to cover. Never re-implement production logic inside the test file and assert against the copy — such a test passes forever while the real code rots. Three test files were deleted for exactly this reason.
+
+```javascript
+// Wrong: asserts on a copy of the logic, not the logic
+function buildPath(parent, id) { return parent ? `${parent}/${id}` : `${id}` }
+expect(buildPath('1', 5)).toBe('1/5')
+
+// Right: import what ships
+import { createNodeOperations } from '../../electron/database/nodes.js'
+```
+
+The same rule applies to helpers: `src/__tests__/helpers/testDatabase.js` builds the **real** `Database` on a temp file rather than mirroring the schema. See [Development Guide](development.md#integration-tests).
+
+!!! warning "vi.mock paths must resolve"
+    `vi.mock('./useErrorHandler')` from a file in `src/__tests__/` points at `src/__tests__/useErrorHandler`, not the composable. A path that resolves to nothing mocks nothing — silently, with no error — and the test then runs against the real module. Check the relative path from the *test* file.
+
 ### Test Structure
 
 ```javascript

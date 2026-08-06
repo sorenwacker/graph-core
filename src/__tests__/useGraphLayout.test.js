@@ -103,8 +103,6 @@ describe('useGraphLayout', () => {
       expect(LAYOUTS).toHaveProperty('radial')
       expect(LAYOUTS).toHaveProperty('grid')
       expect(LAYOUTS).toHaveProperty('circle')
-      expect(LAYOUTS).toHaveProperty('relax')
-      expect(LAYOUTS).toHaveProperty('continuous')
     })
 
     it('should have correct dagre config for tree layout', () => {
@@ -584,58 +582,6 @@ describe('useGraphLayout', () => {
       mockCy.animate.mockClear()
       vi.advanceTimersByTime(600)
       expect(mockCy.animate).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('continuous layout edge length function', () => {
-    it('should calculate edge length based on node count and dimensions', () => {
-      const edgeLengthFn = LAYOUTS.continuous.edgeLength
-
-      const mockEdge = {
-        cy: () => ({ nodes: () => ({ length: 60 }) }),
-        source: () => ({ degree: () => 3, width: () => 100, height: () => 50 }),
-        target: () => ({ degree: () => 5, width: () => 100, height: () => 50 }),
-      }
-
-      const length = edgeLengthFn(mockEdge)
-
-      // Edge length now considers node dimensions
-      // Should be greater than base (accounts for node sizes)
-      expect(length).toBeGreaterThan(50)
-    })
-
-    it('should use different base for large graphs', () => {
-      const edgeLengthFn = LAYOUTS.continuous.edgeLength
-
-      const mockEdge = {
-        cy: () => ({ nodes: () => ({ length: 150 }) }),
-        source: () => ({ degree: () => 2, width: () => 100, height: () => 50 }),
-        target: () => ({ degree: () => 2, width: () => 100, height: () => 50 }),
-      }
-
-      const length = edgeLengthFn(mockEdge)
-
-      // Edge length now considers node dimensions
-      // base 60 + degree contribution + dimension contribution
-      expect(length).toBeGreaterThan(60)
-    })
-  })
-
-  describe('continuous layout node spacing function', () => {
-    it('should return correct spacing based on node dimensions', () => {
-      const nodeSpacingFn = LAYOUTS.continuous.nodeSpacing
-
-      // Node spacing now based on actual node dimensions
-      const mockNode = {
-        cy: () => ({ nodes: () => ({ length: 50 }) }),
-        width: () => 100,
-        height: () => 50,
-      }
-
-      const spacing = nodeSpacingFn(mockNode)
-
-      // Should return spacing based on node size (max dimension / 2 + base)
-      expect(spacing).toBeGreaterThan(0)
     })
   })
 })

@@ -27,7 +27,7 @@ graph TB
     APP --> VIEWS
     APP --> COMPOSABLES
     COMPOSABLES --> STORE
-    STORE --> IPC
+    COMPOSABLES --> IPC
     IPC --> MAIN
     MAIN --> DB
     MAIN --> OLLAMA
@@ -46,19 +46,20 @@ src/
 │   ├── TimelineView.vue # Timeline visualization
 │   └── ...
 ├── composables/         # Vue composition functions
-│   ├── useNodeOperations.js
-│   ├── useUndoRedo.js
-│   ├── useSettings.js
+│   ├── useNodeOperations.ts
+│   ├── useUndoRedo.ts
+│   ├── useSettings.ts
 │   └── ...
 ├── stores/              # Pinia stores
-│   └── nodes.js         # Node state management
+│   └── filters.js       # Shared view filter state
 ├── commands/            # Command pattern implementations
 │   ├── Command.js       # Base command
 │   ├── CreateCommand.js
 │   ├── EditCommand.js
 │   └── ...
 ├── services/            # API services
-│   └── api.js           # Backend communication
+│   ├── api.ts           # Backend communication (IPC / REST)
+│   └── nodeCache.js     # LRU cache with TTL
 ├── utils/               # Utility functions
 │   ├── constants.js     # Type definitions
 │   └── nodeFields.js    # Field configuration
@@ -82,10 +83,12 @@ Nodes are the fundamental data unit:
 | title | string | Node name |
 | type | string | Node type |
 | parent_id | integer | Parent node ID (null for roots) |
-| workspace_id | integer | Workspace assignment |
+| workspace_id | string | Workspace slug (e.g. `work`), not a number |
+| path | string | Slash-joined ancestor ids (`''` for roots) |
+| depth | integer | Number of ancestors |
 | notes | text | Markdown content |
-| position | integer | Sort order within parent |
-| status | string | Task status |
+| sort_order | integer | Position within parent |
+| completed | boolean | Completion flag |
 | start_date | date | Start date |
 | end_date | date | End date |
 | due_date | date | Due date |
@@ -138,18 +141,14 @@ Vue 3 composition functions encapsulate reusable logic:
 
 | Service | Purpose |
 |---------|---------|
-| `api.js` | Backend communication (IPC/REST) |
+| `api.ts` | Backend communication (IPC in Electron, REST in the browser) |
 | `nodeCache.js` | LRU cache with TTL for node data |
+| `ollamaService.js` / `openaiService.js` | AI provider clients |
+| `agentService.js` / `wikipediaService.js` | Research agent and its Wikipedia tool |
 
 ### State Management
 
-Pinia store (`stores/nodes.js`) manages:
-
-- Node tree structure
-- Current selection
-- Container (current view root)
-- Recent items
-- Favorites
+Node data is not held in a global store: components load it through `services/api.ts` and the composables above. The single Pinia store, `stores/filters.js`, holds the filter state shared across views (visible node types, max depth) and is synced from the current container's settings.
 
 ### IPC Communication
 
@@ -176,7 +175,6 @@ sequenceDiagram
     participant U as User
     participant V as Vue Component
     participant C as Composable
-    participant S as Store
     participant I as IPC
     participant M as Main Process
     participant D as SQLite
@@ -184,14 +182,13 @@ sequenceDiagram
     U->>V: Click action
     V->>C: useNodeOperations
     C->>C: Create Command
-    C->>S: Execute
-    S->>I: api.createNode()
+    C->>I: api.createNode()
     I->>M: ipcRenderer.invoke
     M->>D: SQL INSERT
     D-->>M: Result
     M-->>I: Node data
-    I-->>S: Update state
-    S-->>V: Reactive update
+    I-->>C: Node data
+    C-->>V: Reactive update
 ```
 
 ## Views Architecture

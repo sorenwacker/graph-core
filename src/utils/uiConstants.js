@@ -32,7 +32,6 @@ export const STORAGE_KEYS = {
   HIDE_COMPLETED: 'graphcore-hideCompleted',
   GRAPH_DETAIL_THRESHOLD: 'graphcore-graphDetailThreshold',
   GRAPH_MAX_DEPTH: 'graphcore-graphMaxDepth',
-  GRAPH_ROOT_MAX_DEPTH: 'graphcore-graphRootMaxDepth',
   OPEN_DETAIL_FULLSCREEN: 'graphcore-openDetailFullscreen',
   HOVER_PREVIEW: 'graphcore-hoverPreview',
   SIDEBAR_PINNED: 'graphcore-sidebarPinned',
@@ -50,6 +49,8 @@ export const STORAGE_KEYS = {
   GRAPH_RADIAL_GRAVITY_RANGE: 'graph-radial-gravity-range',
   GRAPH_RADIAL_NESTING: 'graph-radial-nesting',
   GRAPH_RADIAL_ITERATIONS: 'graph-radial-iterations',
-  GRAPH_NOTES_PREVIEW_LENGTH: 'graph-notes-preview-length',
+  // Matches the key useSettings.ts has always persisted; changing it would
+  // orphan users' saved setting.
+  GRAPH_NOTES_PREVIEW_LENGTH: 'graphcore-graphNotesPreviewLength',
   GRAPH_TRACKPAD_ZOOM_MODE: 'graph-trackpad-zoom-mode',
 }

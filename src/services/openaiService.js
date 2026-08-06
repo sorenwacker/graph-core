@@ -20,13 +20,18 @@ function handleConnectionError(error) {
  * Handle API response errors
  */
 async function handleResponseError(response) {
+  let apiMessage = null
   try {
     const data = await response.json()
     if (data.error) {
-      throw new Error(data.error.message || data.error)
+      apiMessage = typeof data.error === 'string' ? data.error : data.error.message || JSON.stringify(data.error)
     }
-  } catch (e) {
-    if (e.message && !e.message.includes('API error')) throw e
+  } catch {
+    // Non-JSON error body (e.g. an HTML page from a proxy) — fall through to
+    // the generic status-based error instead of leaking the parse error.
+  }
+  if (apiMessage) {
+    throw new Error(apiMessage)
   }
   throw new Error(`API error: ${response.status} ${response.statusText}`)
 }
