@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onUnmounted, onMounted, shallowRef } from 'vue'
+import { ref, computed, onUnmounted, onMounted, shallowRef, watch } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
 import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community'
 import {
@@ -316,6 +316,18 @@ const defaultColDef = {
 
 function onGridReady(params) {
   gridApi.value = params.api
+  // The grid often mounts into DOM the browser has not laid out yet (the table
+  // section renders only after the async table load), so AG Grid measures a
+  // 0-width viewport, leaves every flex column at its default width, and its
+  // own resize detection never corrects it. Re-fit once layout has happened.
+  requestAnimationFrame(() => fitColumns())
+}
+
+function fitColumns() {
+  const api = gridApi.value
+  if (!api || api.isDestroyed?.()) return
+  if (!gridWrapper.value || gridWrapper.value.clientWidth === 0) return
+  api.sizeColumnsToFit()
 }
 
 function handleMouseDown(event) {
@@ -458,6 +470,33 @@ function handleDocumentMouseDown(event) {
   }
 }
 
+// AG Grid's built-in resize detection does not fire in this environment
+// (verified against a bare grid: growing the container never re-flexes the
+// columns), so observe the wrapper ourselves and re-fit the columns to the
+// panel. Watching the ref (not onMounted/onGridReady) because the wrapper only
+// renders once a table exists and is replaced when the :key remounts the grid.
+// ResizeObserver fires once on observe, which also covers the initial fit.
+// Debounced: resize fires continuously while dragging the panel resize handle.
+let wrapperResizeObserver = null
+let fitDebounceTimer = null
+
+watch(
+  gridWrapper,
+  el => {
+    if (wrapperResizeObserver) {
+      wrapperResizeObserver.disconnect()
+      wrapperResizeObserver = null
+    }
+    if (!el || typeof ResizeObserver === 'undefined') return
+    wrapperResizeObserver = new ResizeObserver(() => {
+      if (fitDebounceTimer) clearTimeout(fitDebounceTimer)
+      fitDebounceTimer = setTimeout(() => fitColumns(), 100)
+    })
+    wrapperResizeObserver.observe(el)
+  },
+  { immediate: true }
+)
+
 onMounted(() => {
   document.addEventListener('keydown', keyboard.handleKeyDown, true)
   document.addEventListener('mousemove', handleMouseMove)
@@ -466,6 +505,11 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  if (wrapperResizeObserver) {
+    wrapperResizeObserver.disconnect()
+    wrapperResizeObserver = null
+  }
+  if (fitDebounceTimer) clearTimeout(fitDebounceTimer)
   flushPendingSaves()
   keyboard.cleanup()
   document.removeEventListener('keydown', keyboard.handleKeyDown, true)
