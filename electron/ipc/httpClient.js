@@ -25,6 +25,20 @@ class HttpClient {
   }
 
   /**
+   * Check if a hostname is a local endpoint (localhost, loopback, or *.local
+   * mDNS host) — the only hosts for which SSL verification bypass is allowed.
+   * @param {string} hostname - The hostname to check (may be a bracketed IPv6 literal)
+   * @returns {boolean} True if the host is local
+   */
+  static isLocalhost(hostname) {
+    if (!hostname) return false
+    // URL.hostname keeps the brackets around IPv6 literals ('[::1]'), so strip
+    // them before comparing or the IPv6 loopback would never match.
+    const host = hostname.toLowerCase().replace(/^\[|\]$/g, '')
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host.endsWith('.local')
+  }
+
+  /**
    * Check if an error looks like an SSL/certificate error.
    * @param {Error} error - The error to inspect
    * @returns {boolean} True if the error is certificate-related
@@ -89,10 +103,27 @@ class HttpClient {
   }
 
   /**
-   * Make an HTTP request using Node's http/https modules with certificate
-   * verification disabled. Only reached when the user explicitly enabled
-   * "Skip SSL verification", so the bypass applies to the configured endpoint
-   * regardless of host — e.g. an internal proxy with a self-signed certificate.
+   * Handle errors on the SSL-bypass (Node) path. This path only runs when the
+   * user enabled "Skip SSL verification", so be truthful about why a cert
+   * error can still occur on remote hosts.
+   * @param {Error} error - Original error
+   * @param {boolean} isLocal - Whether the request host is a local endpoint
+   * @param {string} connectionError - Custom connection error message
+   * @returns {Error} Processed error
+   */
+  static handleBypassRequestError(error, isLocal, connectionError) {
+    if (!isLocal && HttpClient.isCertError(error)) {
+      return new Error(
+        `SSL/TLS error: ${error.message}. "Skip SSL verification" only applies to local endpoints ` +
+          `(localhost, 127.0.0.1, ::1, *.local); certificates for remote hosts are always verified.`
+      )
+    }
+    return HttpClient.handleRequestError(error, connectionError, false)
+  }
+
+  /**
+   * Make an HTTP request using Node's http/https modules.
+   * Allows SSL verification bypass for localhost.
    * @param {string} url - Full URL to request
    * @param {Object} options - Request options
    * @returns {Promise<Object|string>} Response data
@@ -104,6 +135,9 @@ class HttpClient {
       const urlObj = new URL(url)
       const isHttps = urlObj.protocol === 'https:'
       const transport = isHttps ? https : http
+      // SSL bypass is deliberately restricted to local endpoints; remote
+      // certificates are always verified even when the setting is enabled.
+      const isLocal = HttpClient.isLocalhost(urlObj.hostname)
 
       const requestOptions = {
         hostname: urlObj.hostname,
@@ -111,7 +145,7 @@ class HttpClient {
         path: urlObj.pathname + urlObj.search,
         method,
         headers: { ...headers },
-        rejectUnauthorized: false,
+        rejectUnauthorized: !isLocal,
       }
 
       if (body) {
@@ -137,7 +171,7 @@ class HttpClient {
       })
 
       request.on('error', error => {
-        reject(HttpClient.handleRequestError(error, this.connectionError, false))
+        reject(HttpClient.handleBypassRequestError(error, isLocal, this.connectionError))
       })
 
       if (body) {
