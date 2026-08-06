@@ -35,15 +35,18 @@
   align-items: flex-start;
 }
 
-/* All sections flex equally when expanded */
-.detail-panel.fullscreen .table-section:not(.collapsed),
+/* Children and metadata share a row when expanded */
 .detail-panel.fullscreen .children-section:not(.collapsed),
 .detail-panel.fullscreen .meta-section:not(.collapsed) {
   flex: 1 1 30%;
   min-width: 280px;
 }
 
+/* The table is the one section that needs horizontal space: give it the full
+   row in fullscreen and detached mode, same as in the side panel */
 .detail-panel.fullscreen .table-section:not(.collapsed) {
+  flex: 1 1 100%;
+  min-width: 100%;
   min-height: 300px;
 }
 
