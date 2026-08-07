@@ -2,7 +2,13 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
-## [1.11.1] - 2026-08-07
+## [1.11.2] - 2026-08-07
+
+### Fixed
+
+- CI-packaged releases shipped without the bundled preload: `preload.build.js` is a gitignored build artifact and the release workflow ran `electron-builder` without `bundle:preload`, so packaged apps started with no IPC bridge, silently fell back to the web HTTP API, and showed errors and an empty graph despite intact local data. The workflow now bundles the preload before packaging and fails the release if any packaged `app.asar` lacks it. All earlier CI-built artifacts (v1.11.1 and the rc pre-releases) are affected and have been removed.
+
+## [1.11.1] - 2026-08-07 (pulled: broken CI artifact)
 
 Consolidated release covering all changes since v1.10.5 (versions 1.10.6-1.10.20 and 1.11.0 were internal bumps that never shipped as final releases; 1.11.0 shipped only as v1.11.0-rc.1).
 
