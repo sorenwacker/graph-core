@@ -165,8 +165,16 @@ the main process and the preload script, so a rename cannot silently drift.
 The window runs with `sandbox: true`. A sandboxed preload's `require` only
 resolves a fixed whitelist (electron, events, timers, url) and cannot load
 relative modules, so `electron/preload.js` is bundled into `preload.build.js`
-(via `npm run bundle:preload`, run automatically before dev and packaging). This
-inlines `ipcChannels.js` while keeping the OS sandbox enabled.
+(via `npm run bundle:preload`, run by every dev and packaging script and by the
+release workflow before `electron-builder`). This inlines `ipcChannels.js`
+while keeping the OS sandbox enabled.
+
+`preload.build.js` is a gitignored build artifact, so a packaging path that
+skips the bundling step ships an app without a preload: `window.electronAPI`
+is undefined, the renderer silently falls back to the web HTTP API, and every
+data call fails. The release workflow therefore verifies each packaged
+`app.asar` contains `electron/preload.build.js` before uploading artifacts;
+a build without it fails the release.
 
 ## Data Flow
 
