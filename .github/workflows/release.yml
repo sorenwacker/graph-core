@@ -203,15 +203,15 @@ jobs:
         shell: bash
         run: |
           found=0
-          for asar in $(find release -name app.asar); do
+          while IFS= read -r -d '' asar; do
             found=1
-            if node -e "require('@electron/asar').listPackage('$asar').includes(require('path').sep + 'electron' + require('path').sep + 'preload.build.js') ? process.exit(0) : process.exit(1)"; then
+            if node -e "const sep = require('path').sep; process.exit(require('@electron/asar').listPackage(process.argv[1]).includes(sep + 'electron' + sep + 'preload.build.js') ? 0 : 1)" "$asar"; then
               echo "OK: $asar contains electron/preload.build.js"
             else
               echo "::error::$asar is missing electron/preload.build.js"
               exit 1
             fi
-          done
+          done < <(find release -name app.asar -print0)
           if [ "$found" -eq 0 ]; then
             echo "::error::No app.asar found under release/"
             exit 1
