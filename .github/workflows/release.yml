@@ -177,6 +177,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Bundle preload
+        run: npm run bundle:preload
+
       - name: Build app
         run: npm run build
 
@@ -193,6 +196,26 @@ jobs:
       - name: Build Electron (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: npx electron-builder --linux --publish never
+
+      # A packaged app without the bundled preload starts with no working IPC
+      # bridge and silently renders no data, so gate every artifact on it.
+      - name: Verify packaged preload
+        shell: bash
+        run: |
+          found=0
+          for asar in $(find release -name app.asar); do
+            found=1
+            if node -e "require('@electron/asar').listPackage('$asar').includes(require('path').sep + 'electron' + require('path').sep + 'preload.build.js') ? process.exit(0) : process.exit(1)"; then
+              echo "OK: $asar contains electron/preload.build.js"
+            else
+              echo "::error::$asar is missing electron/preload.build.js"
+              exit 1
+            fi
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "::error::No app.asar found under release/"
+            exit 1
+          fi
 
       - name: Upload artifacts to release
         shell: bash
