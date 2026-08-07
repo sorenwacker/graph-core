@@ -2,9 +2,9 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
-## [1.11.0] - 2026-08-06
+## [1.11.1] - 2026-08-07
 
-Consolidated release covering all changes since v1.10.5 (versions 1.10.6-1.10.20 were internal bumps that never shipped).
+Consolidated release covering all changes since v1.10.5 (versions 1.10.6-1.10.20 and 1.11.0 were internal bumps that never shipped as final releases; 1.11.0 shipped only as v1.11.0-rc.1).
 
 ### Added
 
