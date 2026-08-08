@@ -51,7 +51,7 @@
     "cytoscape-node-html-label": "^1.2.2",
     "dompurify": "^3.4.1",
     "katex": "^0.16.45",
-    "marked": "^17.0.1",
+    "marked": "^18.0.9",
     "mermaid": "^11.12.2",
     "pinia": "^3.0.4",
     "sql.js": "^1.13.0",
