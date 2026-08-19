@@ -64,6 +64,32 @@ describe('NodeSpreadsheet grid configuration', () => {
     wrapper = mountSheet()
     expect(captured.attrs['row-selection']).toBeUndefined()
   })
+
+  it('gives rows a stable identity so a save landing mid-edit does not recreate them', () => {
+    // Saving a cell pushes into the shared cell list, which recomputes rowData
+    // into a fresh array. Without a row id AG Grid treats that as entirely new
+    // data and rebuilds every row, destroying the editor the user is typing in
+    // and discarding the text. With one it updates the matched rows in place.
+    wrapper = mountSheet()
+    const getRowId = captured.attrs['get-row-id']
+    expect(typeof getRowId).toBe('function')
+    expect(getRowId({ data: { _rowIndex: 4 } })).toBe('4')
+  })
+})
+
+describe('NodeSpreadsheet cell refresh', () => {
+  it('refreshes cells rather than redrawing rows, which would destroy an open editor', () => {
+    wrapper = mountSheet()
+    const api = { refreshCells: vi.fn(), redrawRows: vi.fn(), sizeColumnsToFit: vi.fn(), isDestroyed: () => false }
+    captured.attrs.onGridReady({ api })
+
+    // Clearing the selection repaints the highlight; AG Grid's redrawRows tears
+    // down and rebuilds row DOM, taking any open cell editor with it.
+    captured.attrs.onCellDoubleClicked()
+
+    expect(api.redrawRows).not.toHaveBeenCalled()
+    expect(api.refreshCells).toHaveBeenCalled()
+  })
 })
 
 describe('NodeSpreadsheet.css AG Grid selectors', () => {

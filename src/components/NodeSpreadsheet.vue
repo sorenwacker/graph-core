@@ -126,10 +126,21 @@ const rowData = computed(() => {
 // Composables Setup
 // ============================================================================
 
+// Repaint the selection highlight. Deliberately not redrawRows(): that rebuilds
+// the row DOM and takes any open cell editor with it, discarding what the user
+// has typed. refreshCells re-evaluates cellStyle and cellClassRules and leaves
+// cells that are being edited alone.
 function refreshCells() {
   if (gridApi.value) {
-    gridApi.value.redrawRows()
+    gridApi.value.refreshCells({ force: true })
   }
+}
+
+// Rows are identified by their index so that recomputing rowData (which happens
+// on every cell save, because saving appends to the shared cell list) updates
+// the existing rows in place instead of rebuilding all of them.
+function getRowId(params) {
+  return String(params.data._rowIndex)
 }
 
 // Selection composable
@@ -555,6 +566,7 @@ onUnmounted(() => {
           :column-defs="columnDefs"
           :row-data="rowData"
           :default-col-def="defaultColDef"
+          :get-row-id="getRowId"
           dom-layout="autoHeight"
           :stop-editing-when-cells-lose-focus="true"
           :single-click-edit="true"
