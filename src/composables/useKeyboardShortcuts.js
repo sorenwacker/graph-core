@@ -100,6 +100,22 @@ export function useKeyboardShortcuts({ actions, state }) {
     )
   }
 
+  /**
+   * Report whether the event happened inside a surface that owns its own keys.
+   *
+   * The spreadsheet binds the plain keys this handler also claims, and AG Grid
+   * leaves focus on a cell element rather than an input once an edit is
+   * committed. Without this opt-out, Enter on a focused cell navigated the app
+   * into the selected node and the detail panel reloaded a different node's
+   * table, which reads as the table having lost every cell.
+   *
+   * @param {EventTarget} target - The key event's target.
+   * @returns {boolean} True when the target sits inside such a surface.
+   */
+  function isSelfManagedKeySurface(target) {
+    return target?.closest?.('.node-spreadsheet') != null
+  }
+
   function isTextInput(target) {
     if (target.tagName === 'TEXTAREA' || target.isContentEditable) return true
     if (target.tagName === 'INPUT') {
@@ -120,6 +136,11 @@ export function useKeyboardShortcuts({ actions, state }) {
       openSearch()
       return
     }
+
+    // Everything below is application navigation and editing. Spotlight search
+    // above stays reachable; the rest must not fire while the user is working
+    // inside a surface that binds these keys itself.
+    if (isSelfManagedKeySurface(e.target)) return
 
     // Cmd/Ctrl+Z - Undo (works globally except in inputs)
     if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {

@@ -1,5 +1,11 @@
-import { describe, it, expect, afterEach } from 'vitest'
-import { resolveNotesPreview, activeNotesPreview, selectElementText } from '../composables/useKeyboardShortcuts.js'
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
+import { ref } from 'vue'
+import {
+  resolveNotesPreview,
+  activeNotesPreview,
+  selectElementText,
+  useKeyboardShortcuts,
+} from '../composables/useKeyboardShortcuts.js'
 
 /**
  * Keyboard Shortcuts Tests
@@ -105,6 +111,100 @@ describe('Keyboard Shortcuts', () => {
       selectElementText(pv)
       const sel = window.getSelection()
       expect(sel.toString()).toContain('alpha beta')
+    })
+  })
+
+  /**
+   * The node spreadsheet handles its own keys. AG Grid leaves focus on a cell
+   * div (not an input) after an edit is committed, so without an explicit
+   * opt-out the global Enter handler navigated the app into another node and
+   * the detail panel reloaded a different node's table - the table appeared to
+   * have lost every cell.
+   */
+  describe('shortcuts inside the node spreadsheet', () => {
+    let actions
+    let handleKeydown
+
+    beforeEach(() => {
+      document.body.innerHTML = `
+        <div class="node-spreadsheet">
+          <div class="grid-wrapper" tabindex="0">
+            <div id="cell" class="ag-cell" tabindex="-1"></div>
+          </div>
+        </div>
+        <div id="outside" tabindex="0"></div>
+      `
+      actions = {
+        openSearch: vi.fn(),
+        undo: vi.fn(),
+        redo: vi.fn(),
+        showAddNodeModal: vi.fn(),
+        deleteSelectedNodes: vi.fn(),
+        deleteNode: vi.fn(),
+        goToParent: vi.fn(),
+        goToFirstChild: vi.fn(),
+        goToPrevSibling: vi.fn(),
+        goToNextSibling: vi.fn(),
+        toggleDetailPanel: vi.fn(),
+        clearSelection: vi.fn(),
+        selectAll: vi.fn(),
+        enterContainer: vi.fn(),
+        openDetachedWindow: vi.fn(),
+        showShortcuts: vi.fn(),
+        selectNode: vi.fn(),
+      }
+      const state = {
+        viewMode: ref('cards'),
+        selectedNode: ref({ id: 7 }),
+        selectedIds: ref(new Set()),
+        currentContainerId: ref(1),
+        fullscreenDetail: ref(false),
+        detailPinned: ref(false),
+        showDetail: ref(true),
+        flatChildren: ref([]),
+        filteredChildren: ref([]),
+        gridColumns: ref(1),
+      }
+      handleKeydown = useKeyboardShortcuts({ actions, state }).handleKeydown
+    })
+
+    afterEach(() => {
+      document.body.innerHTML = ''
+    })
+
+    function press(key, target) {
+      const event = new KeyboardEvent('keydown', { key, cancelable: true, bubbles: true })
+      Object.defineProperty(event, 'target', { value: target })
+      handleKeydown(event)
+      return event
+    }
+
+    it('does not navigate into the selected node when Enter is pressed on a grid cell', () => {
+      press('Enter', document.getElementById('cell'))
+      expect(actions.enterContainer).not.toHaveBeenCalled()
+      expect(actions.goToParent).not.toHaveBeenCalled()
+    })
+
+    it('does not toggle the detail panel when Space is pressed on a grid cell', () => {
+      press(' ', document.getElementById('cell'))
+      expect(actions.toggleDetailPanel).not.toHaveBeenCalled()
+    })
+
+    it('does not open the new node dialog when n is typed on a grid cell', () => {
+      press('n', document.getElementById('cell'))
+      expect(actions.showAddNodeModal).not.toHaveBeenCalled()
+    })
+
+    it('still navigates into the selected node when Enter is pressed outside the spreadsheet', () => {
+      press('Enter', document.getElementById('outside'))
+      expect(actions.enterContainer).toHaveBeenCalledWith({ id: 7 })
+    })
+
+    it('still opens spotlight search from inside the spreadsheet', () => {
+      const event = new KeyboardEvent('keydown', { key: 'k', metaKey: true, cancelable: true })
+      Object.defineProperty(event, 'target', { value: document.getElementById('cell') })
+      handleKeydown(event)
+      expect(actions.openSearch).toHaveBeenCalledTimes(1)
     })
   })
 })

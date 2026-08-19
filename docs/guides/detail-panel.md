@@ -129,14 +129,27 @@ Cells support formulas for computed values. Enter a formula by starting with `=`
 - The cell shows the computed result while displaying the formula when editing
 - Formula syntax follows standard spreadsheet conventions
 
-**Keyboard Shortcuts:**
+**Editing a cell:**
+
+Clicking a cell opens its editor. While the editor is open every keystroke belongs to the editor: characters are typed, `Backspace` and `Delete` remove characters, and `Cmd/Ctrl + C/V/X` operate on the text inside the cell. `Enter` commits the value and moves to the cell below. None of the table-level shortcuts below, and none of the application-wide shortcuts, fire while a cell editor is open.
+
+The table also keeps the application-wide shortcuts from firing whenever the grid has focus, including after an edit is committed and focus returns to a cell. `Enter`, `Space` and `n` would otherwise navigate into the selected node, toggle the detail panel, or open the new-node dialog while the user is working in the table.
+
+**Table-level shortcuts** (no cell editor open — select a range by dragging across cells or by clicking a column header):
 
 | Key | Action |
 |-----|--------|
-| `Enter` | Edit selected cell |
-| `Arrow keys` | Navigate cells |
+| `Delete` / `Backspace` | Clear the selected cells |
+| Any character | Type the same value into every selected cell |
 | `Cmd/Ctrl + C` | Copy selection |
 | `Cmd/Ctrl + V` | Paste |
+| `Cmd/Ctrl + X` | Cut selection |
+| `Cmd/Ctrl + B` / `Cmd/Ctrl + I` | Bold / italic the selection |
+| `Escape` | Close the open menu, or clear the selection |
+
+**Editor stability:**
+
+Saving a cell writes to the database asynchronously and updates the local cell list, which re-renders the grid. Rows carry a stable identity so those re-renders update the existing rows in place instead of recreating them, and selection highlighting refreshes cells rather than redrawing rows. Both are required so that a save landing while the user is typing in another cell does not destroy that open editor and discard the text.
 
 ### Metadata Section
 

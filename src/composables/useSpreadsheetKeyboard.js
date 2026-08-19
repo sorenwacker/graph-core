@@ -29,6 +29,24 @@ import { ref } from 'vue'
 export function useSpreadsheetKeyboard(options = {}) {
   const { getGridWrapper, getSelectionBounds, actions = {}, isColumnMenuOpen, isContextMenuOpen } = options
 
+  /**
+   * Report whether a cell editor currently owns keyboard input.
+   *
+   * AG Grid focuses the editor's input element while a cell is being edited,
+   * so a focused text-entry element is the authoritative signal. This is read
+   * from the DOM on every key rather than tracked from AG Grid's editing
+   * events because the grid is remounted whenever the table's shape changes:
+   * a missed `cellEditingStopped` would leave a cached flag stuck on and
+   * disable the table shortcuts for the rest of the session.
+   *
+   * @returns {boolean} True when a text-entry element has focus.
+   */
+  function isCellEditorFocused() {
+    const el = typeof document === 'undefined' ? null : document.activeElement
+    if (!el) return false
+    return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable === true
+  }
+
   // Typing buffer for multi-cell input
   const typingBuffer = ref('')
   let typingTimeout = null
@@ -72,6 +90,15 @@ export function useSpreadsheetKeyboard(options = {}) {
     const gridWrapper = getGridWrapper ? getGridWrapper() : null
 
     if (!gridWrapper?.contains(document.activeElement) && document.activeElement !== document.body) {
+      return
+    }
+
+    // This handler runs on document in the capture phase, so it sees every key
+    // before the cell editor does. While an editor is open every key belongs to
+    // it: without this guard Backspace and Delete were swallowed here (so
+    // characters could not be deleted) and blanked the whole selected range
+    // instead, discarding the text still open in the editor.
+    if (isCellEditorFocused()) {
       return
     }
 
