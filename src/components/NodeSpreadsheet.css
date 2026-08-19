@@ -248,9 +248,27 @@
   opacity: 0;
 }
 
-/* Selected cell highlighting */
+/* Selected cell highlighting.
+   The fill alone is not visible: the grid is painted on pure black, where
+   --accent-subtle at 15% opacity resolves to roughly rgb(9, 20, 35) - the same
+   as the theme's own row hover colour. The solid border is what makes the
+   selection readable. Borders are drawn only on the outer sides of the range so
+   it reads as one region rather than a box per cell, and AG Grid elements are
+   border-box, so they replace the existing cell border without shifting layout. */
 :deep(.cell-selected) {
   background-color: var(--accent-subtle) !important;
+}
+:deep(.cell-selected-top) {
+  border-top: 1px solid var(--accent-color) !important;
+}
+:deep(.cell-selected-right) {
+  border-right: 1px solid var(--accent-color) !important;
+}
+:deep(.cell-selected-bottom) {
+  border-bottom: 1px solid var(--accent-color) !important;
+}
+:deep(.cell-selected-left) {
+  border-left: 1px solid var(--accent-color) !important;
 }
 
 /* Prevent text selection while dragging */

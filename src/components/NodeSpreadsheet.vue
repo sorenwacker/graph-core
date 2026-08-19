@@ -306,6 +306,10 @@ const columnDefs = computed(() => {
     cellStyle: cellStyleCallback.value,
     cellClassRules: {
       'cell-selected': params => selection.isCellSelected(params.node.rowIndex, idx),
+      'cell-selected-top': params => selection.isSelectionEdge(params.node.rowIndex, idx, 'top'),
+      'cell-selected-right': params => selection.isSelectionEdge(params.node.rowIndex, idx, 'right'),
+      'cell-selected-bottom': params => selection.isSelectionEdge(params.node.rowIndex, idx, 'bottom'),
+      'cell-selected-left': params => selection.isSelectionEdge(params.node.rowIndex, idx, 'left'),
     },
   }))
 

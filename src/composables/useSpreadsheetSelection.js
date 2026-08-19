@@ -52,6 +52,35 @@ export function useSpreadsheetSelection(options = {}) {
   }
 
   /**
+   * Check whether a cell lies on a given outer edge of the current selection.
+   *
+   * Lets the border be drawn around the perimeter of the selected range rather
+   * than around every cell inside it.
+   *
+   * @param {number} row - Row index
+   * @param {number} col - Column index
+   * @param {string} edge - One of 'top', 'right', 'bottom', 'left'
+   * @returns {boolean}
+   */
+  function isSelectionEdge(row, col, edge) {
+    const bounds = selectionBounds.value
+    if (!bounds || !isCellSelected(row, col)) return false
+
+    switch (edge) {
+      case 'top':
+        return row === bounds.minRow
+      case 'bottom':
+        return row === bounds.maxRow
+      case 'left':
+        return col === bounds.minCol
+      case 'right':
+        return col === bounds.maxCol
+      default:
+        return false
+    }
+  }
+
+  /**
    * Clear the current selection.
    */
   function clearSelection() {
@@ -257,6 +286,7 @@ export function useSpreadsheetSelection(options = {}) {
 
     // Methods
     isCellSelected,
+    isSelectionEdge,
     clearSelection,
     getCellFromPoint,
     getColumnIndexFromHeader,
