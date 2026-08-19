@@ -77,6 +77,33 @@ describe('NodeSpreadsheet grid configuration', () => {
   })
 })
 
+describe('NodeSpreadsheet selection indicator', () => {
+  it('applies a class per selected range edge so the border can wrap the range', () => {
+    wrapper = mountSheet()
+    const dataCol = captured.attrs['column-defs'].find(d => d.field === 'A')
+    const rules = Object.keys(dataCol.cellClassRules)
+    expect(rules).toContain('cell-selected')
+    for (const edge of ['top', 'right', 'bottom', 'left']) {
+      expect(rules).toContain(`cell-selected-${edge}`)
+    }
+  })
+
+  it('draws a solid accent border on the selection, not only the accent fill', () => {
+    // The grid is painted on pure black, where --accent-subtle at 15% opacity
+    // renders almost identically to the theme's own row hover colour. Without a
+    // solid border there is no indicator the user can actually see.
+    const cssPath = join(dirname(fileURLToPath(import.meta.url)), '../components/NodeSpreadsheet.css')
+    const css = readFileSync(cssPath, 'utf-8')
+    for (const edge of ['top', 'right', 'bottom', 'left']) {
+      const rule = new RegExp(
+        `\\.cell-selected-${edge}\\)?\\s*\\{[^}]*border-${edge}:[^}]*var\\(--accent-color\\)`,
+        's'
+      )
+      expect(css).toMatch(rule)
+    }
+  })
+})
+
 describe('NodeSpreadsheet cell refresh', () => {
   it('refreshes cells rather than redrawing rows, which would destroy an open editor', () => {
     wrapper = mountSheet()

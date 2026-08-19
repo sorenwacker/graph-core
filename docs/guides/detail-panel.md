@@ -118,7 +118,7 @@ Attach a spreadsheet to any node.
 - Edit cell values directly
 - Cell color formatting (colorblind-friendly palette)
 - Copy, cut, and paste operations
-- Multi-cell selection: drag across cells to select a range; selected cells are highlighted
+- Multi-cell selection: drag across cells, or click a column header to take the whole column
 - Columns share the available width equally, so the table always spans the panel; in fullscreen and detached mode the table section takes the full window width while Children and Metadata share a row
 
 **Formulas:**
@@ -128,6 +128,12 @@ Cells support formulas for computed values. Enter a formula by starting with `=`
 - Formulas are stored separately from display values
 - The cell shows the computed result while displaying the formula when editing
 - Formula syntax follows standard spreadsheet conventions
+
+**Selection indicator:**
+
+A selected range is filled with the accent tint and outlined with a solid accent border drawn around the perimeter of the range, not around each cell in it. The fill alone is not a sufficient indicator: the grid is painted on a pure black background where the accent tint at its normal opacity is indistinguishable from the row hover colour.
+
+Clicking a single cell opens its editor rather than marking a selection, so the editor's own focus ring is the indicator in that case.
 
 **Editing a cell:**
 
