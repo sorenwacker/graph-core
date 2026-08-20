@@ -239,6 +239,24 @@ See [Standards](standards.md#commit-conventions).
 4. Ensure all tests pass
 5. Submit PR with clear description
 
+## Releases
+
+Releases are tag-driven: pushing a semver tag runs `.github/workflows/release.yml`, pushing to `main` does not. A full release requires an existing pre-release for the same base version, so the order is `v1.12.0-rc.1` first, then `v1.12.0`.
+
+The workflow creates the GitHub release as a draft, builds artifacts on each platform and uploads them to that draft, then flips it to published only once the artifacts are in place.
+
+### Release creation is idempotent
+
+The step that creates the release reuses an existing release for the tag rather than creating a new one. This matters because a draft release is not bound to its tag: `gh release create` will happily create a *second* draft for a tag that already has a release, so a re-run or a retried job silently produces duplicates. Four such duplicate pairs accumulated on the repository before this was enforced (v1.10.1, v1.10.1-rc.1, v1.10.3, v1.10.3-beta.1), each an empty draft shadowing the real published release.
+
+`src/__tests__/releaseWorkflow.test.js` executes the step's script against a stubbed `gh` and fails if a second release is created when one already exists.
+
+### Release notes
+
+Notes combine a fixed Installation section with GitHub's `--generate-notes` output. The generated "What's Changed" list is derived from merged pull requests, so work committed directly to `main` produces an empty changelog. When a release covers direct commits, write its notes from `CHANGELOG.md` instead.
+
+The generated "Full Changelog" link compares against the previous tag. Deleting a tag after release, as happened with the pulled v1.11.1, leaves that link pointing at a tag that no longer exists and it 404s; repoint it at the last surviving tag.
+
 ## See Also
 
 - [Architecture Overview](../architecture/overview.md)
