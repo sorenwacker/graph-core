@@ -147,10 +147,19 @@ jobs:
           **Linux:** Make the AppImage executable: \`chmod +x Graph-Core-*.AppImage\`"
 
           if [ "$IS_PRERELEASE" = "true" ]; then
-            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --prerelease --generate-notes --notes "$NOTES"
-            echo "Created draft prerelease: $TAG"
+            PRE_FLAG="--prerelease=true"
           else
-            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --generate-notes --notes "$NOTES"
+            PRE_FLAG="--prerelease=false"
+          fi
+
+          # A draft release is not bound to its tag, so `gh release create` will
+          # create a SECOND draft for a tag that already has a release. Re-runs
+          # and retried jobs did exactly that. Reuse whatever is already there.
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=true "$PRE_FLAG" --notes "$NOTES"
+            echo "Reused existing release: $TAG"
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft "$PRE_FLAG" --generate-notes --notes "$NOTES"
             echo "Created draft release: $TAG"
           fi
 
