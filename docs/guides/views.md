@@ -2,20 +2,6 @@
 
 Graph Core provides multiple ways to visualize and interact with your data.
 
-## Tree View
-
-Displays nodes in a traditional hierarchical tree structure.
-
-**Features:**
-
-- Expand/collapse nodes with arrow icons
-- Drag to reorder within parent
-- Inline title editing (double-click)
-- Multi-select with Ctrl/Cmd+Click
-- Completion checkboxes for tasks and projects
-
-**Best for:** Browsing hierarchies, organizing projects
-
 ## Cards View
 
 Shows nodes as nested cards with visual hierarchy.
@@ -177,7 +163,7 @@ The new parent is positioned near the child in the graph.
 
 ## Table View
 
-Spreadsheet-like view with sortable columns.
+The hierarchical table: a spreadsheet-like view with sortable columns that also carries the tree structure, drawn with the prefixes described below. It is the view switcher's "Table" entry and is identified as `tree` in code and in view settings.
 
 **Columns:**
 
@@ -191,8 +177,11 @@ Spreadsheet-like view with sortable columns.
 **Features:**
 
 - Click headers to sort
-- Expand/collapse tree rows
-- Bulk selection with checkboxes
+- Expand/collapse nodes to walk the hierarchy
+- Drag to reorder within a parent
+- Inline title editing (double-click)
+- Multi-select with Ctrl/Cmd+Click, and bulk selection with checkboxes
+- Completion checkboxes for tasks and projects
 - Direct cell editing
 
 ### Tree Prefix Visualization
@@ -231,7 +220,7 @@ Drag column borders to resize. Widths are persisted to browser storage:
 | Due Date | 90px |
 | Type | 60px |
 
-**Best for:** Data management, bulk operations
+**Best for:** Browsing hierarchies, organizing projects, data management, bulk operations
 
 ## Timeline View
 
@@ -290,7 +279,7 @@ Filtered view showing task-type nodes from the current container and its descend
 
 **Best for:** Daily task management, GTD workflows
 
-## Persons View
+## People View
 
 Contact management for the person-type nodes of the current workspace; the list reloads when you switch workspaces.
 

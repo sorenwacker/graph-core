@@ -2,10 +2,12 @@
 
 A hierarchical node management application built with Vue 3, Vite, and Electron. Organize tasks, notes, and information in a tree structure with multiple visualization modes.
 
+This documentation was generated with Claude Code.
+
 ## Features
 
-- **Multiple Views**: Tree, Cards, Graph, Table, Timeline, Calendar, Tasks, Persons, and Trash views
-- **Node Types**: Tasks, projects, notes, milestones, topics, events, persons, organizations, groups, and components
+- **Multiple Views**: Graph, Cards, Table, Tasks, Timeline, People, and Trash
+- **Node Types**: Tasks, projects, notes, milestones, topics, events, persons, organizations, groups, components, and tags
 - **Hierarchical Organization**: Nest nodes within nodes for structured data
 - **Cross-Links**: Create relationships between nodes beyond the tree hierarchy
 - **Detachable Windows**: Open nodes in separate windows for focused editing
@@ -29,6 +31,8 @@ A hierarchical node management application built with Vue 3, Vite, and Electron.
 
 - [Views](guides/views.md) - All visualization modes explained
 - [Detail Panel](guides/detail-panel.md) - Editing nodes, notes, tables, and metadata
+- [Linking Nodes](guides/linking.md) - Relationships beyond the tree hierarchy
+- [Drag and Drop](guides/drag-drop.md) - Reordering and reparenting
 - [Search](guides/search.md) - Finding and navigating nodes
 - [Workspaces](guides/workspaces.md) - Organizing by context
 - [Demo Workspace](guides/demo-workspace.md) - Sample data to explore the app
@@ -46,7 +50,10 @@ A hierarchical node management application built with Vue 3, Vite, and Electron.
 **Architecture**
 
 - [Overview](architecture/overview.md) - System design and components
+- [Database](architecture/database.md) - Schema and persistence
+- [Caching](architecture/caching.md) - Node cache behaviour
 
 **Contributing**
 
-- [Development](contributing/development.md) - Developer setup and guidelines
+- [Development](contributing/development.md) - Developer setup, testing, and releases
+- [Standards](contributing/standards.md) - Code style and conventions

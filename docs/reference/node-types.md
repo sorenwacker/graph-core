@@ -16,6 +16,7 @@ Graph Core supports multiple node types for organizing different kinds of inform
 | **Person** | Contact information |
 | **Organization** | Company or group entities |
 | **Component** | Technical or modular elements |
+| **Tag** | Label nodes backing the tag system |
 
 Every type is created in the current workspace; see [Workspaces](../guides/workspaces.md).
 
@@ -98,7 +99,7 @@ Persons represent contacts and people.
 
 - Created in the current workspace, like any other node
 - Can be @mentioned in the notes of any node in the same workspace via the `@` key
-- Shows in Persons view with organization grouping
+- Shows in People view with organization grouping
 - Unique color auto-assigned based on node ID
 - Color inheritance: own color > parent org color > linked org color
 - Graph view renders as circular badge with initials (not rectangular card)
@@ -120,7 +121,7 @@ Organizations group related persons.
 **Special Behaviors:**
 
 - Created in the current workspace, like any other node
-- Groups persons in Persons view
+- Groups persons in People view
 - Shows members count and linked persons
 - Members section displays persons linked to organization
 - Can be created on-demand when linking persons
@@ -212,6 +213,23 @@ Components represent technical or modular elements.
 
 ---
 
+### Tag
+
+Tag nodes are the label nodes behind the tag system. They are ordinary nodes with `type: 'tag'`, which is what lets a tag be renamed, linked and deleted through the same machinery as any other node.
+
+**Fields:**
+
+- Title, Notes
+
+**Special Behaviors:**
+
+- Hidden from node lists whenever a type filter is active, so tags do not appear alongside content nodes
+- Reached through the sidebar rather than by browsing the hierarchy
+- Selectable in every type picker, so an existing node can be converted to a tag
+- Deleting one goes through the standard node deletion: it is undoable and lands in Trash
+
+---
+
 ## Common Fields
 
 All node types support these fields:
@@ -247,15 +265,18 @@ Each type has a distinct color scheme:
 | Type | Color | Hex |
 |------|-------|-----|
 | Project | Deep blue | `#1e3a5f` |
-| Task | Amber | `#78350f` |
-| Note | Green | `#14532d` |
-| Milestone | Violet | `#4c1d95` |
-| Group | Slate | `#334155` |
-| Person | Dynamic | Based on ID |
-| Event | Rose | `#881337` |
-| Topic | Teal | `#134e4a` |
-| Organization | Indigo | `#312e81` |
-| Component | Cyan | `#164e63` |
+| Task | Amber | `#4a3f1a` |
+| Note | Green | `#1a4025` |
+| Milestone | Violet | `#3d1a5a` |
+| Group | Slate | `#2d3748` |
+| Person | Warm orange | `#4a2c1a` |
+| Event | Rose | `#4a1a2e` |
+| Topic | Teal | `#1a4a4a` |
+| Organization | Indigo | `#2a2a5a` |
+| Component | Cyan | `#1a3a3a` |
+| Tag | Blue-teal | `#1a3a4a` |
+
+These are the type default backgrounds defined in `src/utils/constants.js`. A person is normally shown in a colour derived from its node ID instead, and any node can carry a custom colour that overrides its type default.
 
 ## View-Specific Rendering
 

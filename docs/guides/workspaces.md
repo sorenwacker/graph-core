@@ -60,7 +60,7 @@ Nodes belong to a single workspace. When viewing a workspace:
 
 Person and organization nodes belong to a workspace like every other node:
 
-- The Persons view lists the persons of the current workspace
+- The People view lists the persons of the current workspace
 - `@mention` autocomplete in notes offers the persons of the current workspace
 - Links between persons and other nodes are not restricted by workspace
 

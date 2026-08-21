@@ -2,6 +2,9 @@ site_name: Graph Core
 site_description: Hierarchical node management with Vue 3 and Electron
 site_author: Graph Core Team
 
+# Rendered in the page footer by Material, so every page carries the attribution.
+copyright: Documentation generated with Claude Code.
+
 theme:
   name: material
   palette:
