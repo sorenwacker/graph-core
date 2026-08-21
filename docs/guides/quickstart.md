@@ -49,15 +49,15 @@ Use the view switcher in the toolbar:
 
 | View | Description |
 |------|-------------|
-| Tree | Hierarchical tree structure |
-| Cards | Nested card layout |
 | Graph | Force-directed graph visualization |
-| Table | Spreadsheet-like view |
-| Timeline | Date-based timeline |
-| Calendar | Monthly calendar view |
+| Cards | Nested card layout |
+| Table | Spreadsheet-like view carrying the tree hierarchy |
 | Tasks | Filtered task list |
-| Persons | Contact management |
+| Timeline | Date-based timeline |
+| People | Contact management |
 | Trash | Deleted items (restore or delete permanently) |
+
+They are listed here in the order the switcher shows them.
 
 ## Using Search
 

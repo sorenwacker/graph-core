@@ -35,14 +35,6 @@ When a tooltip is locked:
 
 ## View-Specific Interactions
 
-### Tree View
-
-| Action | Result |
-|--------|--------|
-| Click arrow | Expand/collapse children |
-| Cmd/Ctrl + Click | Add child node |
-| Double-click title | Edit title inline |
-
 ### Cards View
 
 | Action | Result |
@@ -84,16 +76,10 @@ When a tooltip is locked:
 |--------|--------|
 | Click header | Sort by column |
 | Click row | Select node |
-| Click expand | Show/hide children |
-| Arrow keys | Navigate cells |
-
-### Calendar View
-
-| Action | Result |
-|--------|--------|
-| Click date | Show nodes for that date |
-| Click node | Select and show detail |
-| Click arrows | Navigate months |
+| Click arrow | Expand/collapse children |
+| Cmd/Ctrl + Click | Add child node |
+| Double-click title | Edit title inline |
+| Arrow keys | Move up/down the rows |
 
 ## Context Menu
 

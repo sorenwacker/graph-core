@@ -40,17 +40,6 @@ See [Linking Nodes](linking.md) for more on links.
 
 ## View-Specific Behavior
 
-### Tree View
-
-| Action | Result |
-|--------|--------|
-| Drag node | Shows ghost preview at cursor |
-| Drop on node | Move as child |
-| Drop between nodes | Reorder within parent |
-| Shift+drag | Reorder only (no nesting) |
-
-Tree view shows expand/collapse indicators. Dragging over a collapsed node expands it after a short delay.
-
 ### Cards View
 
 | Action | Result |
@@ -81,12 +70,12 @@ Node positions are persisted per-workspace and per-parent context.
 
 | Action | Result |
 |--------|--------|
-| Drag row | Shows ghost at cursor |
+| Drag row | Shows ghost preview at cursor |
 | Drop on row | Move as child |
 | Drop between rows | Reorder within parent |
-| Shift+drag | Reorder only |
+| Shift+drag | Reorder only (no nesting) |
 
-Table rows show insertion lines between rows during drag.
+Rows show insertion lines during drag, and expand/collapse indicators for rows with children. Dragging over a collapsed row expands it after a short delay.
 
 ### Timeline View
 
@@ -106,14 +95,6 @@ Date changes are applied when the drag ends. A preview shows the new dates durin
 - Nodes with `start_date`: updates both start and end dates
 - Nodes with only `due_date`: updates the due date
 - Minimum bar width: 20 pixels
-
-### Calendar View
-
-| Action | Result |
-|--------|--------|
-| Drag node to date | Updates due date to target date |
-
-Dragging a node from the sidebar or another date cell onto a calendar date updates that node's due date.
 
 ## Cross-View Dragging
 

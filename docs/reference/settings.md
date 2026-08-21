@@ -24,7 +24,7 @@ Settings > General > Display.
 | Show hint bar | Show keyboard shortcut hints at the bottom of the screen | On |
 
 !!! note "Toolbar toggles"
-    **Sort alphabetically** and **Hide completed** are toolbar buttons, not settings-panel entries. The Persons view has its own **Reveal / Hide** button for masking contact details, which starts in the masked state.
+    **Sort alphabetically** and **Hide completed** are toolbar buttons, not settings-panel entries. The People view has its own **Reveal / Hide** button for masking contact details, which starts in the masked state.
 
 ## Graph Settings
 
