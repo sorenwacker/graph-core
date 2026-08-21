@@ -30,7 +30,7 @@ Shows nodes as nested cards with visual hierarchy.
 **Features:**
 
 - Nested card display up to 4 levels deep
-- Inline notes editing
+- Inline notes editing: click a card's notes to edit them in place. A card with no notes yet shows a muted "Add notes..." placeholder in the same spot, so there is always something to click - without it an empty card offers no target and its notes cannot be started at all. The placeholder is not shown on `card-xs`, where notes are hidden entirely, or on nodes whose notes are marked sensitive.
 - Color inheritance from parent nodes
 - Hover tooltips for quick preview
 - Progress bars showing child completion percentage
