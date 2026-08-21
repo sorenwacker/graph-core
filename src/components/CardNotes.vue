@@ -13,15 +13,18 @@
     @dragstart.prevent.stop
     placeholder="Add notes..."
   ></textarea>
+  <!-- Rendered even with no notes: without a placeholder an empty card has no
+       click target, so its notes can never be started. -->
   <div
-    v-else-if="hasNotes || sensitive"
+    v-else
     class="card-notes-display"
-    :class="[sizeClass, { sensitive }]"
+    :class="[sizeClass, { sensitive, empty: !hasNotes && !sensitive }]"
     @click.stop="!sensitive && $emit('startEdit')"
     @dblclick.stop
   >
     <span v-if="sensitive" class="lock-icon-display">&#128274;</span>
-    <div v-else class="markdown-content" v-html="renderedNotes"></div>
+    <div v-else-if="hasNotes" class="markdown-content" v-html="renderedNotes"></div>
+    <span v-else class="notes-placeholder">Add notes...</span>
   </div>
 </template>
 
@@ -125,11 +128,6 @@ watch(
   color: var(--text-secondary);
 }
 
-.card-notes-display.empty {
-  opacity: 0.5;
-  font-style: italic;
-}
-
 .card-notes-display.sensitive {
   cursor: default;
 }
@@ -155,6 +153,19 @@ watch(
 .card-notes-display.size-grandchild {
   font-size: 9px;
   line-height: 1.3;
+}
+
+/*
+ * The empty placeholder is a click target, not content. It must come after the
+ * size rules to override their flex values: a real note grows to fill the card
+ * (flex: 1), but letting an empty one do the same would steal the space a
+ * note-less card gives to its children.
+ */
+.card-notes-display.empty {
+  opacity: 0.5;
+  font-style: italic;
+  flex: 0 0 auto;
+  overflow: hidden;
 }
 
 .lock-icon-display {
