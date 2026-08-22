@@ -239,6 +239,17 @@ See [Standards](standards.md#commit-conventions).
 4. Ensure all tests pass
 5. Submit PR with clear description
 
+## Dependencies
+
+Dependabot opens PRs weekly, with minor and patch updates grouped into one PR. Merging is automated only for the safe subset:
+
+- `.github/workflows/dependabot-automerge.yml` enables GitHub auto-merge (squash) on Dependabot PRs whose update type is semver-patch or semver-minor. Auto-merge waits for the required `test` status check, so nothing merges red.
+- Major updates are never merged automatically. CI here is weak evidence for majors: the AG Grid tests mock the grid and CI does not package the Electron app, so a green check on an Electron or AG Grid major proves little. They wait for a person.
+- `main` is protected: the `test` check is required, pull request reviews are not, and admins are exempt (`enforce_admins` off), so the owner's direct pushes to `main` still work.
+- The auto-merge is performed with the workflow's `GITHUB_TOKEN`, and pushes made with that token do not trigger other workflows: the resulting merge commit on `main` gets no CI run of its own. The PR itself was gated on the same `test` check, which is why this is acceptable.
+
+`src/__tests__/dependabotAutomerge.test.js` gates the workflow: it fails if the merge step stops requiring the patch/minor guard, drops `--auto`, or loses the Dependabot actor check.
+
 ## Releases
 
 Releases are tag-driven: pushing a semver tag runs `.github/workflows/release.yml`, pushing to `main` does not. A full release requires an existing pre-release for the same base version, so the order is `v1.12.0-rc.1` first, then `v1.12.0`.
