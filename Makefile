@@ -1,8 +1,9 @@
 .PHONY: dev install clean clean-release stop build dist install-mac reset-db docs docs-build lint format check test
 
-# Documentation toolchain: uv resolves these into a cached ephemeral env, so
-# there is no virtualenv to create or keep in sync.
-MKDOCS := uv run --with mkdocs --with mkdocs-material --with pymdown-extensions mkdocs
+# Documentation toolchain: Zensical, run through uvx so there is no virtualenv
+# to create or keep in sync. This is a Node project with no pyproject.toml, so
+# the docs tool is not declared as a Python dependency.
+ZENSICAL := uvx zensical
 
 # Start Electron app in dev mode
 dev:
@@ -74,11 +75,11 @@ reset-db:
 
 # Serve documentation preview
 docs:
-	$(MKDOCS) serve
+	$(ZENSICAL) serve
 
 # Build the docs, failing on broken links and nav problems
 docs-build:
-	$(MKDOCS) build --strict
+	$(ZENSICAL) build --strict
 
 # Lint code with auto-fix
 lint:

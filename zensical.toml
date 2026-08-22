@@ -1,0 +1,89 @@
+[project]
+site_name = "Graph Core"
+site_description = "Hierarchical node management with Vue 3 and Electron"
+site_author = "Graph Core Team"
+site_url = "https://sorenwacker.github.io/graph-core/"
+
+repo_url = "https://github.com/sorenwacker/graph-core"
+repo_name = "sorenwacker/graph-core"
+
+# Rendered in the page footer, so every page carries the attribution.
+copyright = "Documentation generated with Claude Code."
+
+nav = [
+  { "Home" = "index.md" },
+  { "Getting Started" = [
+    { "Installation" = "getting-started/installation.md" },
+    { "Quickstart" = "guides/quickstart.md" },
+  ] },
+  { "Guides" = [
+    { "Views" = "guides/views.md" },
+    { "Detail Panel" = "guides/detail-panel.md" },
+    { "Linking Nodes" = "guides/linking.md" },
+    { "Drag and Drop" = "guides/drag-drop.md" },
+    { "Search" = "guides/search.md" },
+    { "Workspaces" = "guides/workspaces.md" },
+    { "Demo Workspace" = "guides/demo-workspace.md" },
+    { "AI Notes" = "guides/ai-notes.md" },
+    { "Import and Export" = "guides/import-export.md" },
+  ] },
+  { "Reference" = [
+    { "Node Types" = "reference/node-types.md" },
+    { "Keyboard Shortcuts" = "reference/keyboard-shortcuts.md" },
+    { "Interactions" = "reference/interactions.md" },
+    { "Settings" = "reference/settings.md" },
+    { "Accessibility" = "reference/accessibility.md" },
+  ] },
+  { "Architecture" = [
+    { "Overview" = "architecture/overview.md" },
+    { "Database" = "architecture/database.md" },
+    { "Caching" = "architecture/caching.md" },
+  ] },
+  { "Contributing" = [
+    { "Development" = "contributing/development.md" },
+    { "Standards" = "contributing/standards.md" },
+  ] },
+]
+
+[project.theme]
+language = "en"
+features = [
+  "content.code.copy",
+  "navigation.footer",
+  "navigation.indexes",
+  "navigation.sections",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "indigo"
+accent = "indigo"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "indigo"
+accent = "indigo"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+def_list = {}
+tables = {}
+toc.permalink = true
+pymdownx.details = {}
+pymdownx.highlight.anchor_linenums = true
+pymdownx.inlinehilite = {}
+pymdownx.superfences.custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
+pymdownx.tabbed.alternate_style = true
+pymdownx.tasklist.custom_checkbox = true

@@ -3,14 +3,29 @@
 [![CI](https://github.com/sorenwacker/graph-core/actions/workflows/ci.yml/badge.svg)](https://github.com/sorenwacker/graph-core/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://sorenwacker.github.io/graph-core/)
 ![Node](https://img.shields.io/badge/node-20%2B-green)
-![Electron](https://img.shields.io/badge/electron-35-blue)
+![Electron](https://img.shields.io/badge/electron-41-blue)
 ![Vue](https://img.shields.io/badge/vue-3-brightgreen)
 
 A hierarchical node management application built with Vue 3, Vite, and Electron. Organize tasks, notes, and information in a tree structure with multiple visualization modes.
 
+## Documentation
+
+Full documentation is published at **<https://sorenwacker.github.io/graph-core/>**.
+
+| Section | Contents |
+|---------|----------|
+| [Installation](https://sorenwacker.github.io/graph-core/getting-started/installation/) | Prerequisites and setup |
+| [Quickstart](https://sorenwacker.github.io/graph-core/guides/quickstart/) | First steps in the app |
+| [Views](https://sorenwacker.github.io/graph-core/guides/views/) | Graph, Cards, Table, Tasks, Timeline, People, Trash |
+| [Keyboard Shortcuts](https://sorenwacker.github.io/graph-core/reference/keyboard-shortcuts/) | Complete shortcut reference |
+| [Architecture](https://sorenwacker.github.io/graph-core/architecture/overview/) | System design and data model |
+| [Contributing](https://sorenwacker.github.io/graph-core/contributing/development/) | Developer setup, testing, releases |
+
+The sources live in [`docs/`](docs/) and are built with [Zensical](https://zensical.org/); run `make docs` to serve them locally.
+
 ## Features
 
-- **Multiple Views**: Tree, Cards, Graph, Table, Timeline, Calendar, Tasks, and Persons views
+- **Multiple Views**: Graph, Cards, Table, Tasks, Timeline, People, and Trash
 - **Node Types**: Tasks, notes, topics, events, contacts, and more with distinct colors
 - **Hierarchical Organization**: Nest nodes within nodes for structured data
 - **Detachable Windows**: Open nodes in separate windows for focused editing
@@ -112,9 +127,9 @@ npm run electron:build
 - **Frontend**: Vue 3 with Composition API
 - **Build Tool**: Vite
 - **Desktop**: Electron
-- **Database**: SQLite (via better-sqlite3)
+- **Database**: SQLite (via sql.js)
 - **Testing**: Vitest + Vue Test Utils
-- **Visualization**: D3.js for graph view
+- **Visualization**: Cytoscape.js for graph view
 
 ## Build Notes
 

@@ -37,7 +37,7 @@ graph-core/
 ├── electron/            # Electron main process
 │   ├── database/        # SQLite (sql.js) operations
 │   └── ipc/             # IPC handlers
-└── docs/                # Documentation (MkDocs)
+└── docs/                # Documentation (Zensical)
 ```
 
 ## Development Workflow
@@ -193,7 +193,7 @@ Because the helper is the production class, a regression in `electron/database/*
 
 ## Documentation
 
-Documentation uses MkDocs with Material theme.
+Documentation is built with [Zensical](https://zensical.org/), the successor to Material for MkDocs.
 
 ### Serving Docs Locally
 
@@ -201,7 +201,7 @@ Documentation uses MkDocs with Material theme.
 make docs
 ```
 
-The target runs MkDocs through [uv](https://docs.astral.sh/uv/), which resolves `mkdocs`, `mkdocs-material` and `pymdown-extensions` into a cached environment — there is no virtualenv to create or keep in sync, and no Python setup beyond installing uv itself. To check for broken links and nav problems before pushing:
+The target runs `uvx zensical serve`, so [uv](https://docs.astral.sh/uv/) resolves the tool into a cached environment - there is no virtualenv to create or keep in sync, and no Python setup beyond installing uv itself. This is a Node project with no `pyproject.toml`, so the docs tool is deliberately not declared as a Python dependency. To check for broken links and nav problems before pushing:
 
 ```bash
 make docs-build
@@ -211,8 +211,8 @@ make docs-build
 
 - Place guides in `docs/guides/`
 - Place reference docs in `docs/reference/`
-- Add the page to `nav` in `mkdocs.yml` — MkDocs publishes every file under `docs/`, so a page missing from the nav is live but unreachable
-- Keep internal engineering documents out of the build with `exclude_docs`
+- Add the page to `nav` in `zensical.toml` - every file under `docs/` is published, so a page missing from the nav is live but unreachable
+- Keep internal engineering documents outside `docs/` entirely. Zensical ignores MkDocs' `exclude_docs` key without warning, so an exclusion list is not a reliable way to hold a page back; `CODEBASE-REVIEW.md` sits at the repository root for this reason
 - Mermaid diagrams use ` ```mermaid ` fences (rendered by `pymdownx.superfences`, no extra plugin)
 - Use admonitions sparingly
 - Include code examples
