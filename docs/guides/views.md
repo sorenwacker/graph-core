@@ -6,6 +6,8 @@ Graph Core provides multiple ways to visualize and interact with your data.
 
 Shows nodes as nested cards with visual hierarchy.
 
+![Cards view showing the Demo workspace](../assets/screenshots/view-cards.png)
+
 **Layout Rules:**
 
 - Cards use all available space
@@ -51,6 +53,8 @@ Cards show up to two levels of descendants:
 ## Graph View
 
 Force-directed graph visualization using Cytoscape.js.
+
+![Graph view showing the Demo workspace](../assets/screenshots/view-graph.png)
 
 ### Layout Modes
 
@@ -165,6 +169,8 @@ The new parent is positioned near the child in the graph.
 
 The hierarchical table: a spreadsheet-like view with sortable columns that also carries the tree structure, drawn with the prefixes described below. It is the view switcher's "Table" entry and is identified as `tree` in code and in view settings.
 
+![Table view showing the Demo workspace](../assets/screenshots/view-table.png)
+
 **Columns:**
 
 - Title
@@ -226,6 +232,8 @@ Drag column borders to resize. Widths are persisted to browser storage:
 
 Displays nodes with dates on a horizontal timeline.
 
+![Timeline view showing the Demo workspace](../assets/screenshots/view-timeline.png)
+
 **Features:**
 
 - Zoom in/out with Ctrl/Cmd+scroll (centered on cursor)
@@ -249,6 +257,8 @@ Displays nodes with dates on a horizontal timeline.
 ## Tasks View
 
 Filtered view showing task-type nodes from the current container and its descendants.
+
+![Tasks view showing the Demo workspace](../assets/screenshots/view-tasks.png)
 
 **Grouping:**
 
@@ -282,6 +292,8 @@ Filtered view showing task-type nodes from the current container and its descend
 ## People View
 
 Contact management for the person-type nodes of the current workspace; the list reloads when you switch workspaces.
+
+![People view showing the Demo workspace](../assets/screenshots/view-people.png)
 
 **Features:**
 

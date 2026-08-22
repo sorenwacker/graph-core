@@ -12,6 +12,8 @@ A hierarchical node management application built with Vue 3, Vite, and Electron.
 
 Full documentation is published at **<https://sorenwacker.github.io/graph-core/>**.
 
+![Graph Core cards view with the Demo workspace](docs/assets/screenshots/view-cards.png)
+
 | Section | Contents |
 |---------|----------|
 | [Installation](https://sorenwacker.github.io/graph-core/getting-started/installation/) | Prerequisites and setup |
