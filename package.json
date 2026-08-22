@@ -66,7 +66,7 @@
     "@vitest/coverage-v8": "^4.0.17",
     "@vue/test-utils": "^2.4.6",
     "concurrently": "^10.0.5",
-    "electron": "^41.2.0",
+    "electron": "^43.4.1",
     "electron-builder": "^26.8.1",
     "esbuild": "^0.28.1",
     "eslint": "^10.9.0",
