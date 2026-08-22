@@ -2,6 +2,28 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
+## [1.12.0] - 2026-08-22
+
+### Added
+
+- `Cmd/Ctrl` plus a digit switches the main view, following the order of the view switcher (1 Graph, 2 Cards, 3 Table, 4 Tasks, 5 Timeline, 6 People, 7 Trash). The mapping is indexed off the same list the switcher renders, so the two cannot drift apart. The modifier is required because a bare digit would fire while typing into surfaces the application does not treat as text inputs.
+
+### Fixed
+
+- Detail-panel table: a cell editor now keeps its own keystrokes. A document-level capture handler was swallowing Backspace and Delete, so characters could not be deleted and the whole selected range was blanked instead, discarding text still open in the editor.
+- Detail-panel table: pressing Enter no longer navigates the application into another node. After AG Grid commits an edit it leaves focus on a cell element rather than an input, so the global Enter shortcut fired and the detail panel reloaded a different node's table, which read as the table having lost every cell. Space and `n` had the same fault.
+- Detail-panel table: edits are no longer lost when a save lands while another cell is being edited. Rows now carry a stable identity so a re-render updates them in place, and selection repaints refresh cells rather than redrawing rows.
+- Detail-panel table: a selected range is visible again. The accent fill alone resolves to almost exactly the grid's own row hover colour against the black background, so the range is now outlined with a solid accent border drawn around its perimeter.
+- Cards: a card with no notes yet shows an "Add notes..." placeholder. The notes element previously rendered only when notes already existed, leaving an empty card with no click target, so its first note could not be started from the card at all.
+- Release workflow: re-runs no longer leave duplicate draft releases behind. A draft is not bound to its tag, so `gh release create` would create a second draft for a tag that already had a release.
+- Dependency audit passes again: the lockfile pinned `nanoid` at a version with a high-severity advisory even though the dependent range already allowed the patched one.
+
+### Changed
+
+- Documentation is built with Zensical instead of MkDocs with Material, and the README links to the published site.
+- Documentation corrected against the code: a Calendar view that was removed in May and a separate Tree view that has been the Table view since February were both still documented, the `tag` node type was missing from the reference, and 8 of 10 type colour values were stale. A test now gates the node type reference against `constants.js`.
+- Documentation carries screenshots of each view, taken against the Demo workspace.
+
 ## [1.11.2] - 2026-08-07
 
 ### Fixed
