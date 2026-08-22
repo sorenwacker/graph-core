@@ -122,7 +122,7 @@ export async function pasteSelection({ selectionBounds, columns, rowData, gridAp
   const startRow = selectionBounds?.minRow ?? 0
   const startCol = selectionBounds?.minCol ?? 0
 
-  let text = ''
+  let text
   try {
     text = await navigator.clipboard.readText()
   } catch (err) {

@@ -305,7 +305,7 @@ function migrateStringTagsToTagNodes(ctx) {
   let linksMade = 0
 
   for (const node of nodesWithTags) {
-    let tags = []
+    let tags
     try {
       tags = JSON.parse(node.tags || '[]')
     } catch {

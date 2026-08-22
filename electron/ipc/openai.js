@@ -51,10 +51,10 @@ function registerOpenaiHandlers(ipcMain, httpRequest) {
       return response.choices?.[0]?.message?.content || ''
     } catch (error) {
       if (error.statusCode === 401) {
-        throw new Error('Invalid API key')
+        throw new Error('Invalid API key', { cause: error })
       }
       if (error.data?.error?.message) {
-        throw new Error(error.data.error.message)
+        throw new Error(error.data.error.message, { cause: error })
       }
       throw error
     }

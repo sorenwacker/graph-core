@@ -47,7 +47,7 @@ function registerOllamaHandlers(ipcMain, httpRequest) {
       return response.response
     } catch (error) {
       if (error.statusCode === 404 && error.data?.error?.includes('not found')) {
-        throw new Error(`Model not available. Run: ollama pull ${model}`)
+        throw new Error(`Model not available. Run: ollama pull ${model}`, { cause: error })
       }
       throw error
     }
