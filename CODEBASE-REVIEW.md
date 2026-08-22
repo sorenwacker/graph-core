@@ -6,12 +6,12 @@ _Full multi-agent review of 2026-07-30 (v1.10.19, commit 9bb5c29): 279 files / ~
 
 ## Baseline gates
 
-| Gate                  | Result                                          |
-| --------------------- | ----------------------------------------------- |
-| `eslint src electron` | ✅ 0 errors (363 warn-only complexity warnings) |
-| `prettier --check`    | ✅ clean                                        |
-| `vue-tsc --noEmit`    | ✅ clean                                        |
-| `vitest run`          | ✅ 1383/1383 tests, 71 files                    |
+| Gate                  | Result                                             |
+| --------------------- | -------------------------------------------------- |
+| `eslint src electron` | Pass - 0 errors (363 warn-only complexity warnings) |
+| `prettier --check`    | Pass - clean                                        |
+| `vue-tsc --noEmit`    | Pass - clean                                        |
+| `vitest run`          | Pass - 1383/1383 tests, 71 files                    |
 
 Only `src/App.vue` (1132 LOC) exceeds the ~1000-line size guideline. No TODO/FIXME markers.
 
