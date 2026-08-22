@@ -1,3 +1,5 @@
+import { viewModes } from '../utils/viewConfig.js'
+
 /**
  * Resolve the rendered notes preview element that contains a DOM node, if any.
  *
@@ -156,6 +158,19 @@ export function useKeyboardShortcuts({ actions, state }) {
       if (!isEditableElement(e.target)) {
         e.preventDefault()
         redo()
+        return
+      }
+    }
+
+    // Cmd/Ctrl + digit - switch the main view. Indexed off viewModes so the
+    // Nth digit always matches the Nth button in the switcher. The modifier is
+    // required: a bare digit would fire while the user types into any surface
+    // isEditableElement does not recognise as a text input.
+    if ((e.metaKey || e.ctrlKey) && /^[0-9]$/.test(e.key) && !isEditableElement(e.target)) {
+      const view = viewModes[Number(e.key) - 1]
+      if (view) {
+        e.preventDefault()
+        viewMode.value = view.id
         return
       }
     }
