@@ -17,6 +17,22 @@ Complete keyboard shortcut reference for Graph Core.
 | `Double-click` | Enter node (view subgraph) |
 | `Escape` | Close detail panel / Clear selection |
 
+## Switching Views
+
+`Cmd/Ctrl` plus a digit switches the main view. The digits follow the order the view switcher shows in the toolbar, so the Nth button is always `Cmd/Ctrl + N`.
+
+| Shortcut | View |
+|----------|------|
+| `Cmd/Ctrl + 1` | Graph |
+| `Cmd/Ctrl + 2` | Cards |
+| `Cmd/Ctrl + 3` | Table |
+| `Cmd/Ctrl + 4` | Tasks |
+| `Cmd/Ctrl + 5` | Timeline |
+| `Cmd/Ctrl + 6` | People |
+| `Cmd/Ctrl + 7` | Trash |
+
+The modifier is required rather than using bare digits, because a bare digit would be captured while the user is typing into a surface the application does not treat as a text input. Like every other application shortcut, these do not fire while focus is inside the node spreadsheet.
+
 ## Node Operations
 
 | Shortcut | Action |
