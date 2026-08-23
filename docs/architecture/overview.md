@@ -133,11 +133,13 @@ Vue 3 composition functions encapsulate reusable logic:
 | `useNavigation` | Node navigation |
 | `useSelection` | Multi-select state |
 | `useKeyboardShortcuts` | Global hotkeys |
-| `useAiNotes` | AI note actions across providers (Ollama, OpenAI-compatible) |
+| `useAiNotes` | AI note actions; selects a provider adapter, no per-provider branching |
 | `useToast` | Notifications |
 | `useErrorHandler` | Centralized error handling with toast notifications |
 
 ### Services
+
+AI providers are wrapped in adapters (`services/aiProviders.js`): every provider exposes the same interface - `isConfigured`, `config`, `generate`, `testConnection`, `listModels` - built from the reactive settings. `useAiNotes` selects the active adapter and delegates; it contains no `if (provider === ...)` branches. Adding a provider means writing one adapter and registering it, not editing every call site.
 
 | Service | Purpose |
 |---------|---------|
