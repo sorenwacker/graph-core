@@ -19,9 +19,34 @@ jobs:
 
       # Majors never auto-merge: CI here is weak evidence for them (the AG Grid
       # tests mock the grid and CI does not package the Electron app), so they
-      # wait for a person. --auto defers the merge until the required `test`
-      # status check passes on the PR.
-      - name: Enable auto-merge for patch and minor updates
+      # wait for a person.
+      #
+      # Poll the CI `test` check by name until it completes, and refuse to merge
+      # unless it succeeded. This keeps the merge gated on green CI even when
+      # the branch has no required-checks protection. Polling one named check
+      # (rather than `gh pr checks --watch`) is deliberate: this job is itself a
+      # check on the PR, so watching all checks would deadlock on itself.
+      - name: Wait for the test check to pass
+        if: steps.metadata.outputs.update-type == 'version-update:semver-patch' || steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        run: |
+          for i in $(seq 1 60); do
+            read -r status conclusion < <(gh api "repos/$REPO/commits/$HEAD_SHA/check-runs" \
+              --jq '[.check_runs[] | select(.name == "test")] | first | "\(.status) \(.conclusion)"' || echo "unknown unknown")
+            echo "test check: status=$status conclusion=$conclusion"
+            if [ "$status" = "completed" ]; then
+              [ "$conclusion" = "success" ] || { echo "test check concluded $conclusion; not merging"; exit 1; }
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "test check did not complete in time; not merging"
+          exit 1
+        env:
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Merge patch and minor updates
         if: steps.metadata.outputs.update-type == 'version-update:semver-patch' || steps.metadata.outputs.update-type == 'version-update:semver-minor'
         run: gh pr merge --auto --squash "$PR_URL"
         env:

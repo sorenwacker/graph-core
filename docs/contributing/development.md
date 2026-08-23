@@ -243,9 +243,9 @@ See [Standards](standards.md#commit-conventions).
 
 Dependabot opens PRs weekly, with minor and patch updates grouped into one PR. Merging is automated only for the safe subset:
 
-- `.github/workflows/dependabot-automerge.yml` enables GitHub auto-merge (squash) on Dependabot PRs whose update type is semver-patch or semver-minor. Auto-merge waits for the required `test` status check, so nothing merges red.
+- `.github/workflows/dependabot-automerge.yml` merges Dependabot PRs whose update type is semver-patch or semver-minor. The workflow polls the CI `test` check by name and refuses to merge unless it succeeded, so red CI blocks the merge even if `main` carries no required-checks protection; it polls that one named check rather than watching all checks because the workflow is itself a check on the PR and would otherwise wait on itself. The merge uses GitHub auto-merge (squash), so if required-checks protection exists as well, GitHub enforces it a second time.
 - Major updates are never merged automatically. CI here is weak evidence for majors: the AG Grid tests mock the grid and CI does not package the Electron app, so a green check on an Electron or AG Grid major proves little. They wait for a person.
-- `main` is protected: the `test` check is required, pull request reviews are not, and admins are exempt (`enforce_admins` off), so the owner's direct pushes to `main` still work.
+- Branch protection requiring the `test` check is recommended on `main` as a second, platform-enforced layer (no reviews, admins exempt so direct pushes keep working), but the workflow does not depend on it.
 - The auto-merge is performed with the workflow's `GITHUB_TOKEN`, and pushes made with that token do not trigger other workflows: the resulting merge commit on `main` gets no CI run of its own. The PR itself was gated on the same `test` check, which is why this is acceptable.
 
 `src/__tests__/dependabotAutomerge.test.js` gates the workflow: it fails if the merge step stops requiring the patch/minor guard, drops `--auto`, or loses the Dependabot actor check.
