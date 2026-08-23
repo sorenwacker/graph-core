@@ -2,14 +2,9 @@ import { ref, computed } from 'vue'
 import { api } from '../services/api.js'
 import { useSettings } from './useSettings'
 import { handleError } from './useErrorHandler.js'
+import { createAiProvider, AI_PROVIDERS } from '../services/aiProviders.js'
 
-/**
- * Supported AI providers
- */
-export const AI_PROVIDERS = {
-  OLLAMA: 'ollama',
-  OPENAI: 'openai',
-}
+export { AI_PROVIDERS }
 
 /**
  * Default prompts for common note improvement actions
@@ -93,44 +88,34 @@ export function useAiNotes() {
   const customPrompts = computed(() => aiCustomPrompts?.value ?? ollamaCustomPrompts.value)
   const provider = computed(() => aiProvider?.value ?? AI_PROVIDERS.OLLAMA)
 
+  // The active provider adapter carries every provider-specific detail;
+  // everything below delegates instead of branching on the provider id.
+  const providerSettings = {
+    ollamaEndpoint,
+    ollamaModel,
+    ollamaContextSize,
+    openaiEndpoint,
+    openaiApiKey,
+    openaiModel,
+    openaiSkipSslVerification,
+  }
+  const activeProvider = computed(() => createAiProvider(provider.value, providerSettings))
+
   const isGenerating = ref(false)
   const error = ref(null)
   const generatedContent = ref('')
 
   /**
-   * Get provider-specific configuration
-   * @returns {{provider: string, model: string, endpoint: string, apiKey?: string, contextSize?: number, skipSslVerification?: boolean}}
+   * Provider configuration for the research agent call.
    */
   function getProviderConfig() {
-    if (provider.value === AI_PROVIDERS.OPENAI) {
-      return {
-        provider: provider.value,
-        model: openaiModel.value,
-        endpoint: openaiEndpoint.value,
-        apiKey: openaiApiKey.value,
-        skipSslVerification: openaiSkipSslVerification.value,
-      }
-    }
-    return {
-      provider: provider.value,
-      model: ollamaModel.value,
-      endpoint: ollamaEndpoint.value,
-      contextSize: ollamaContextSize.value,
-    }
+    return activeProvider.value.config()
   }
 
   /**
    * Check if AI is properly configured
    */
-  const isConfigured = computed(() => {
-    if (!isEnabled.value) return false
-
-    if (provider.value === AI_PROVIDERS.OPENAI) {
-      return openaiEndpoint.value && openaiApiKey.value && openaiModel.value
-    }
-    // Default: Ollama
-    return ollamaEndpoint.value && ollamaModel.value
-  })
+  const isConfigured = computed(() => isEnabled.value && activeProvider.value.isConfigured())
 
   /**
    * Merged prompts: defaults + custom, with custom overriding defaults by id
@@ -288,26 +273,7 @@ export function useAiNotes() {
     generatedContent.value = ''
 
     try {
-      let result
-      if (provider.value === AI_PROVIDERS.OPENAI) {
-        result = await api.openaiGenerate({
-          prompt,
-          content: originalContent,
-          model: openaiModel.value,
-          endpoint: openaiEndpoint.value,
-          apiKey: openaiApiKey.value,
-          skipSslVerification: openaiSkipSslVerification.value,
-        })
-      } else {
-        // Default: Ollama
-        result = await api.ollamaGenerate({
-          prompt,
-          content: originalContent,
-          model: ollamaModel.value,
-          endpoint: ollamaEndpoint.value,
-          contextSize: ollamaContextSize.value,
-        })
-      }
+      const result = await activeProvider.value.generate({ prompt, content: originalContent })
 
       generatedContent.value = result
       return result
@@ -355,10 +321,7 @@ export function useAiNotes() {
    * @returns {Promise<{success: boolean, error?: string}>}
    */
   async function testConnection() {
-    if (provider.value === AI_PROVIDERS.OPENAI) {
-      return api.openaiTestConnection(openaiEndpoint.value, openaiApiKey.value, openaiSkipSslVerification.value)
-    }
-    return api.ollamaTestConnection(ollamaEndpoint.value)
+    return activeProvider.value.testConnection()
   }
 
   /**
@@ -366,10 +329,7 @@ export function useAiNotes() {
    * @returns {Promise<string[]>}
    */
   async function listModels() {
-    if (provider.value === AI_PROVIDERS.OPENAI) {
-      return api.openaiListModels(openaiEndpoint.value, openaiApiKey.value, openaiSkipSslVerification.value)
-    }
-    return api.ollamaListModels(ollamaEndpoint.value)
+    return activeProvider.value.listModels()
   }
 
   return {
