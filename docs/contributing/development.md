@@ -191,6 +191,20 @@ describe('database operations', () => {
 
 Because the helper is the production class, a regression in `electron/database/*` fails these tests. Do not add schema or path logic to the helper — that turns it back into a mirror that can silently drift from the code it is supposed to protect.
 
+## End-to-end smoke tests
+
+The unit suite never boots the real app: AG Grid is mocked, Cytoscape never renders, and nothing exercises the Electron boot path. The smoke pack in `e2e/` closes that gap. It launches the packaged renderer (`dist/`) in real Electron with an isolated `--user-data-dir`, so your own database is never touched, and walks the core flows: startup, node creation, view switching, table cell editing, delete and undo, and persistence across a relaunch.
+
+To run the pack locally:
+
+```bash
+make e2e
+```
+
+The target builds the renderer, bundles the preload, and runs Playwright against the result. The pack is a release gate: the release workflow runs it before building artifacts, and it stays out of the per-push CI job to keep CI minutes for the checks that change most often.
+
+When you add a feature that changes startup, navigation, or data persistence, extend the smoke pack in the same change. A flow that only unit tests cover is a flow the packaged app can break silently - that is how the v1.11.1 artifacts shipped broken.
+
 ## Documentation
 
 Documentation is built with [Zensical](https://zensical.org/), the successor to Material for MkDocs.
