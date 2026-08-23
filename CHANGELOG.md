@@ -2,6 +2,20 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
+## [1.13.0] - 2026-08-23
+
+### Changed
+
+- The unpinned sidebar opens from a visible handle vertically centered on the left edge instead of the full window edge. In a non-fullscreen window the full-height trigger opened the sidebar on every incidental mouse pass; the handle makes opening it an intentional act.
+- All major dependency updates applied and validated: Electron 43 (verified by booting and packaging the real app), AG Grid 36 (verified against the live grid), Pinia 4, cytoscape-dagre 4 (verified headless with the app's layout options), marked 18, ESLint 10 (its new rules surfaced five real errors, fixed rather than suppressed), jsdom 30, lint-staged 17, concurrently 10.
+- Node 22 is now required (`engines` declared): jsdom 30 does not support Node 20, which npm installs silently; CI and the release workflow build on Node 22, matching Electron 43's runtime.
+- AI providers sit behind adapters with one shared interface; `useAiNotes` selects an adapter instead of branching per provider, and a test gate keeps provider equality checks out of the composable.
+- The Ollama-named AI family is renamed to what it does: `useAiNotes`, `ApplyNotesEditCommand`, `AiDiffPreview`, `AiPromptModal`. None of them were Ollama-specific since OpenAI-compatible support arrived; old serialized undo entries still deserialize via a legacy type alias.
+
+### CI
+
+- Dependabot patch and minor updates merge automatically once the CI test check passes; the workflow verifies the check itself, so red CI blocks the merge even without branch protection. Majors always wait for a person.
+
 ## [1.12.0] - 2026-08-22
 
 ### Added
