@@ -24,7 +24,9 @@ function createBackupOperations(ctx) {
       const data = ctx.db.export()
       // sql.js export() resets per-connection pragmas; re-enable FK enforcement.
       ctx.db.run('PRAGMA foreign_keys = ON')
-      fs.writeFileSync(backupPath, Buffer.from(data))
+      // Through the same serialize choke point as _save: an encrypted database
+      // with plaintext backups would defeat the encryption.
+      fs.writeFileSync(backupPath, ctx._serialize(Buffer.from(data)))
       console.log(`Database backed up to: ${backupPath}`)
       return backupPath
     },
@@ -61,7 +63,7 @@ function createBackupOperations(ctx) {
         throw new Error(`Backup file not found: ${backupPath}`)
       }
       this.backup('-pre-restore')
-      const buffer = fs.readFileSync(backupPath)
+      const buffer = ctx._deserialize(fs.readFileSync(backupPath))
       ctx.db = new ctx.SQL.Database(buffer)
       ctx.db.run('PRAGMA foreign_keys = ON')
       ctx._save()

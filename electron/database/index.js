@@ -18,14 +18,21 @@ const { createExportOperations } = require('./export')
 const { createBackupOperations } = require('./backup')
 const { createTableOperations } = require('./tables')
 const { createSettingsOperations } = require('./settings')
+const { isEncrypted, encryptDatabase, decryptDatabase } = require('./encryption')
 
 let SQL = null
 
 class Database {
-  constructor(dbPath) {
+  constructor(dbPath, options = {}) {
     this.dbPath = dbPath
     this.db = null
     this.SQL = null
+    // At-rest encryption (docs/architecture/encryption.md). When a key is set,
+    // every byte written through _serialize is ciphertext - the main file,
+    // backups, and snapshots alike. Slots are the wrapped copies of the key
+    // that travel in the file header.
+    this.encryptionKey = options.encryptionKey || null
+    this.encryptionSlots = options.encryptionSlots || []
     // Batch state: defer per-statement disk writes while inside _batch().
     this._batchDepth = 0
     this._pendingSave = false
@@ -39,9 +46,16 @@ class Database {
     this.SQL = SQL
 
     if (fs.existsSync(this.dbPath)) {
+      const rawBuffer = fs.readFileSync(this.dbPath)
+      // An encrypted file without the right key is locked, not corrupt: fail
+      // loudly here so the corrupt-file fallback can never preserve the file
+      // and boot an empty database over it.
+      if (isEncrypted(rawBuffer) && !this.encryptionKey) {
+        throw new Error('Database is encrypted; an unlock key is required')
+      }
       try {
-        const buffer = fs.readFileSync(this.dbPath)
-        console.log(`Loading database from ${this.dbPath} (${buffer.length} bytes)`)
+        const buffer = this._deserialize(rawBuffer)
+        console.log(`Loading database from ${this.dbPath} (${rawBuffer.length} bytes)`)
         this.db = new SQL.Database(buffer)
         const count = this._query('SELECT COUNT(*) as cnt FROM nodes')[0]?.cnt || 0
         console.log(`Database loaded with ${count} nodes`)
@@ -197,8 +211,22 @@ class Database {
     // sql.js export() closes and reopens the underlying connection, which
     // resets per-connection pragmas; re-enable foreign-key enforcement.
     this.db.run('PRAGMA foreign_keys = ON')
-    const buffer = Buffer.from(data)
-    fs.writeFileSync(this.dbPath, buffer)
+    fs.writeFileSync(this.dbPath, this._serialize(Buffer.from(data)))
+  }
+
+  /** Turn export bytes into file bytes: ciphertext when a key is set. */
+  _serialize(plainBuffer) {
+    if (!this.encryptionKey) return plainBuffer
+    return encryptDatabase(plainBuffer, this.encryptionKey, this.encryptionSlots)
+  }
+
+  /** Turn file bytes into export bytes: decrypts when the file is encrypted. */
+  _deserialize(fileBuffer) {
+    if (!isEncrypted(fileBuffer)) return fileBuffer
+    if (!this.encryptionKey) {
+      throw new Error('Database is encrypted; an unlock key is required')
+    }
+    return decryptDatabase(fileBuffer, this.encryptionKey)
   }
 
   /**

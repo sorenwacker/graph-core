@@ -38,6 +38,7 @@ nav = [
     { "Overview" = "architecture/overview.md" },
     { "Database" = "architecture/database.md" },
     { "Caching" = "architecture/caching.md" },
+    { "Encryption" = "architecture/encryption.md" },
   ] },
   { "Contributing" = [
     { "Development" = "contributing/development.md" },

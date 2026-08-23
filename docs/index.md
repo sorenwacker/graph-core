@@ -52,6 +52,7 @@ This documentation was generated with Claude Code.
 - [Overview](architecture/overview.md) - System design and components
 - [Database](architecture/database.md) - Schema and persistence
 - [Caching](architecture/caching.md) - Node cache behaviour
+- [Encryption](architecture/encryption.md) - At-rest encryption design and limits
 
 **Contributing**
 
