@@ -4,7 +4,7 @@ Setup and guidelines for contributing to Graph Core.
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 22+
 - npm
 - Git
 
