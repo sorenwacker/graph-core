@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { OllamaImproveNotesCommand } from '../../commands/OllamaImproveNotesCommand.js'
+import { ApplyNotesEditCommand } from '../../commands/ApplyNotesEditCommand.js'
 
-describe('OllamaImproveNotesCommand', () => {
+describe('ApplyNotesEditCommand', () => {
   let mockApi
 
   beforeEach(() => {
@@ -18,12 +18,12 @@ describe('OllamaImproveNotesCommand', () => {
   }
 
   it('should have type "ollama-improve-notes"', () => {
-    const cmd = new OllamaImproveNotesCommand(options)
-    expect(cmd.type).toBe('ollama-improve-notes')
+    const cmd = new ApplyNotesEditCommand(options)
+    expect(cmd.type).toBe('apply-notes-edit')
   })
 
   it('should store nodeId, oldNotes, newNotes, prompt', () => {
-    const cmd = new OllamaImproveNotesCommand(options)
+    const cmd = new ApplyNotesEditCommand(options)
     expect(cmd.nodeId).toBe(1)
     expect(cmd.oldNotes).toBe('Original notes content')
     expect(cmd.newNotes).toBe('Improved notes content')
@@ -32,7 +32,7 @@ describe('OllamaImproveNotesCommand', () => {
 
   describe('execute()', () => {
     it('should call api.updateNode with newNotes', async () => {
-      const cmd = new OllamaImproveNotesCommand(options)
+      const cmd = new ApplyNotesEditCommand(options)
       await cmd.execute(mockApi)
       expect(mockApi.updateNode).toHaveBeenCalledWith(1, { notes: 'Improved notes content' })
     })
@@ -40,7 +40,7 @@ describe('OllamaImproveNotesCommand', () => {
 
   describe('undo()', () => {
     it('should call api.updateNode with oldNotes', async () => {
-      const cmd = new OllamaImproveNotesCommand(options)
+      const cmd = new ApplyNotesEditCommand(options)
       await cmd.undo(mockApi)
       expect(mockApi.updateNode).toHaveBeenCalledWith(1, { notes: 'Original notes content' })
     })
@@ -48,9 +48,9 @@ describe('OllamaImproveNotesCommand', () => {
 
   describe('toJSON()', () => {
     it('should serialize all fields', () => {
-      const cmd = new OllamaImproveNotesCommand(options)
+      const cmd = new ApplyNotesEditCommand(options)
       expect(cmd.toJSON()).toEqual({
-        type: 'ollama-improve-notes',
+        type: 'apply-notes-edit',
         nodeId: 1,
         oldNotes: 'Original notes content',
         newNotes: 'Improved notes content',
@@ -59,14 +59,14 @@ describe('OllamaImproveNotesCommand', () => {
     })
 
     it('should handle empty notes', () => {
-      const cmd = new OllamaImproveNotesCommand({
+      const cmd = new ApplyNotesEditCommand({
         nodeId: 2,
         oldNotes: '',
         newNotes: 'New content',
         prompt: 'Generate',
       })
       expect(cmd.toJSON()).toEqual({
-        type: 'ollama-improve-notes',
+        type: 'apply-notes-edit',
         nodeId: 2,
         oldNotes: '',
         newNotes: 'New content',
@@ -77,12 +77,12 @@ describe('OllamaImproveNotesCommand', () => {
 
   describe('getDescription()', () => {
     it('should return description with prompt name', () => {
-      const cmd = new OllamaImproveNotesCommand(options)
+      const cmd = new ApplyNotesEditCommand(options)
       expect(cmd.getDescription()).toBe('AI Improve notes')
     })
 
     it('should handle short custom prompt', () => {
-      const cmd = new OllamaImproveNotesCommand({
+      const cmd = new ApplyNotesEditCommand({
         ...options,
         prompt: 'Short',
       })
@@ -90,7 +90,7 @@ describe('OllamaImproveNotesCommand', () => {
     })
 
     it('should truncate long prompts', () => {
-      const cmd = new OllamaImproveNotesCommand({
+      const cmd = new ApplyNotesEditCommand({
         ...options,
         prompt: 'This is a very long prompt that should be truncated',
       })
@@ -100,7 +100,7 @@ describe('OllamaImproveNotesCommand', () => {
     })
 
     it('should not throw when prompt is undefined (e.g. reconstructed without one)', () => {
-      const cmd = new OllamaImproveNotesCommand({ nodeId: 1, oldNotes: '', newNotes: 'x' })
+      const cmd = new ApplyNotesEditCommand({ nodeId: 1, oldNotes: '', newNotes: 'x' })
       expect(() => cmd.getDescription()).not.toThrow()
       expect(cmd.getDescription()).toBe('AI  notes')
     })
@@ -108,12 +108,12 @@ describe('OllamaImproveNotesCommand', () => {
 
   describe('deserialization', () => {
     it('should be reconstructable from JSON', () => {
-      const cmd = new OllamaImproveNotesCommand(options)
+      const cmd = new ApplyNotesEditCommand(options)
       const json = cmd.toJSON()
 
       // Simulate deserialization
       const { type: _type, ...params } = json
-      const reconstructed = new OllamaImproveNotesCommand(params)
+      const reconstructed = new ApplyNotesEditCommand(params)
 
       expect(reconstructed.nodeId).toBe(cmd.nodeId)
       expect(reconstructed.oldNotes).toBe(cmd.oldNotes)

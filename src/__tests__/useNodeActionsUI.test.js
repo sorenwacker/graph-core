@@ -5,7 +5,7 @@ import { APP_CONTEXT_KEY } from '../composables/useAppContext'
 
 // Mock the commands module
 vi.mock('../commands/index.js', () => ({
-  OllamaImproveNotesCommand: class MockOllamaImproveNotesCommand {
+  ApplyNotesEditCommand: class MockApplyNotesEditCommand {
     constructor(opts) {
       Object.assign(this, opts)
     }

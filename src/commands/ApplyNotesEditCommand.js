@@ -1,12 +1,13 @@
 import { Command } from './Command.js'
 
 /**
- * Command for applying AI-generated improvements to node notes.
- * Supports undo/redo to restore original notes.
+ * Command that replaces a node's notes with new text, keeping the old text for
+ * undo. Used to apply AI-generated edits from any provider; the command itself
+ * neither calls a model nor knows which one produced the text.
  */
-export class OllamaImproveNotesCommand extends Command {
+export class ApplyNotesEditCommand extends Command {
   constructor({ nodeId, oldNotes, newNotes, prompt }) {
-    super('ollama-improve-notes')
+    super('apply-notes-edit')
     this.nodeId = nodeId
     this.oldNotes = oldNotes
     this.newNotes = newNotes

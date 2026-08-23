@@ -1,4 +1,4 @@
-import { OllamaImproveNotesCommand, ReorderCommand } from '../commands/index.js'
+import { ApplyNotesEditCommand, ReorderCommand } from '../commands/index.js'
 import { useAppContext } from './useAppContext'
 import type { Ref } from 'vue'
 import type { Api, Node, Command, NodeType, WorkspaceId } from '../types'
@@ -381,7 +381,7 @@ export function useNodeActionsUI({
       finalNewNotes = newNotes
     }
 
-    const command = new OllamaImproveNotesCommand({
+    const command = new ApplyNotesEditCommand({
       nodeId,
       oldNotes: finalOldNotes,
       newNotes: finalNewNotes,
