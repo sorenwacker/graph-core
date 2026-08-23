@@ -12,6 +12,8 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    // e2e/ is Playwright's; running its specs under Vitest fails on import.
+    exclude: ['**/node_modules/**', 'e2e/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'json-summary'],
