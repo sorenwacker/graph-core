@@ -50,6 +50,24 @@ describe('dependabot auto-merge workflow', () => {
     expect(mergeStep.run).toContain('--squash')
   })
 
+  it('waits for the test check itself, so red CI blocks the merge even without branch protection', () => {
+    const job = Object.values(workflow().jobs)[0]
+    const steps = job.steps
+    const waitIndex = steps.findIndex(s => typeof s.run === 'string' && s.run.includes('check-runs'))
+    const mergeIndex = steps.findIndex(s => typeof s.run === 'string' && s.run.includes('gh pr merge'))
+
+    expect(waitIndex, 'no step polls the check-runs API').toBeGreaterThan(-1)
+    expect(waitIndex, 'the wait must come before the merge').toBeLessThan(mergeIndex)
+
+    const wait = steps[waitIndex]
+    // It must poll the named test check (watching all checks would deadlock on
+    // this job itself), be gated to patch/minor like the merge, and hard-fail
+    // on anything but success.
+    expect(wait.run).toContain('select(.name == "test")')
+    expect(wait.if).toContain('version-update:semver-patch')
+    expect(wait.run).toMatch(/exit 1/)
+  })
+
   it('derives the update type from dependabot metadata, not the PR title', () => {
     const job = Object.values(workflow().jobs)[0]
     const metaStep = job.steps.find(s => s.uses?.startsWith('dependabot/fetch-metadata'))
