@@ -188,16 +188,43 @@ a:hover {
   left: 0;
 }
 
+/* Hover target for revealing the unpinned sidebar. Deliberately a centered
+   handle, not the full window edge: in a non-fullscreen window the left edge
+   borders other windows, and a full-height trigger opened the sidebar on every
+   incidental mouse pass. */
 .sidebar-trigger {
   position: fixed;
   left: 0;
-  top: 0;
-  bottom: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: clamp(120px, 25vh, 280px);
   width: 20px;
   z-index: 99;
   background: transparent;
   -webkit-app-region: no-drag;
   pointer-events: auto;
+}
+
+/* Visible affordance: a slim vertical bar marking where to hover. */
+.sidebar-trigger::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 48px;
+  border-radius: 2px;
+  background: var(--border-color);
+  opacity: 0.7;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease;
+}
+
+.sidebar-trigger:hover::after {
+  background: var(--accent-color);
+  opacity: 1;
 }
 
 .sidebar-header {

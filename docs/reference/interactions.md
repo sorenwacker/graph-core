@@ -13,6 +13,14 @@ These interactions work across all views:
 | Right click | Open context menu |
 | Drag | Reorder nodes |
 
+## Sidebar Reveal
+
+When the sidebar is unpinned it stays hidden and slides in on demand. The hover target is a handle vertically centered on the left edge - a narrow zone about a quarter of the window tall, marked by a subtle vertical bar that brightens on hover. Only that handle opens the sidebar; the rest of the left edge is inert.
+
+The handle is deliberately not the full window edge. In a non-fullscreen window the left edge borders other windows and the desktop, so a full-height trigger opened the sidebar on every incidental mouse pass. Centering the target and marking it visibly means opening the sidebar is always an intentional act.
+
+Once open, the whole sidebar area keeps it open; it closes shortly after the pointer leaves the sidebar, and the pin button keeps it open permanently. Pinning removes the handle entirely.
+
 ## Node Tooltip
 
 Hovering over a node displays a preview tooltip with the node's title, metadata, and notes excerpt.
