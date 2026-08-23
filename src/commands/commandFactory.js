@@ -7,7 +7,7 @@ import { CompleteCommand } from './CompleteCommand.js'
 import { LinkCommand } from './LinkCommand.js'
 import { UnlinkCommand } from './UnlinkCommand.js'
 import { ReorderCommand } from './ReorderCommand.js'
-import { OllamaImproveNotesCommand } from './OllamaImproveNotesCommand.js'
+import { ApplyNotesEditCommand } from './ApplyNotesEditCommand.js'
 
 /**
  * Registry of command types to their constructors.
@@ -22,7 +22,10 @@ const commandRegistry = {
   link: LinkCommand,
   unlink: UnlinkCommand,
   reorder: ReorderCommand,
-  'ollama-improve-notes': OllamaImproveNotesCommand,
+  'apply-notes-edit': ApplyNotesEditCommand,
+  // Legacy type string from before the command was renamed; undo stacks in
+  // sessionStorage survive reloads, so old entries must still deserialize.
+  'ollama-improve-notes': ApplyNotesEditCommand,
 }
 
 /**

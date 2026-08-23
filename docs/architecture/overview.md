@@ -118,7 +118,7 @@ graph LR
 - `MoveCommand` - Change parent
 - `ReorderCommand` - Change position
 - `LinkCommand` - Create/remove links
-- `OllamaImproveNotesCommand` - AI text modifications
+- `ApplyNotesEditCommand` - applies AI-generated notes text with undo (provider-agnostic)
 
 ### Composables
 
@@ -133,7 +133,7 @@ Vue 3 composition functions encapsulate reusable logic:
 | `useNavigation` | Node navigation |
 | `useSelection` | Multi-select state |
 | `useKeyboardShortcuts` | Global hotkeys |
-| `useOllama` | AI integration |
+| `useAiNotes` | AI note actions across providers (Ollama, OpenAI-compatible) |
 | `useToast` | Notifications |
 | `useErrorHandler` | Centralized error handling with toast notifications |
 

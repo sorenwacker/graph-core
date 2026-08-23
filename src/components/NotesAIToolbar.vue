@@ -1,9 +1,9 @@
 <script setup>
 import { ref, nextTick } from 'vue'
-import { useOllama } from '../composables/useOllama.js'
+import { useAiNotes } from '../composables/useAiNotes.js'
 import { useSettings } from '../composables/useSettings'
-import OllamaPromptModal from './OllamaPromptModal.vue'
-import OllamaDiffPreview from './OllamaDiffPreview.vue'
+import AiPromptModal from './AiPromptModal.vue'
+import AiDiffPreview from './AiDiffPreview.vue'
 
 const props = defineProps({
   notes: { type: String, default: '' },
@@ -14,7 +14,7 @@ const props = defineProps({
 const emit = defineEmits(['apply-improvement'])
 
 const { aiEnabled } = useSettings()
-const { isGenerating, error, presetPrompts, improveNotes, research } = useOllama()
+const { isGenerating, error, presetPrompts, improveNotes, research } = useAiNotes()
 
 const showDropdown = ref(false)
 const showCustomPromptModal = ref(false)
@@ -190,14 +190,14 @@ function handleRejectImprovement() {
 
     <span v-if="error" class="error-message">{{ error }}</span>
 
-    <OllamaPromptModal
+    <AiPromptModal
       v-if="showCustomPromptModal"
       :is-loading="isGenerating"
       @submit="handleCustomPromptSubmit"
       @close="showCustomPromptModal = false"
     />
 
-    <OllamaPromptModal
+    <AiPromptModal
       v-if="showResearchModal"
       :is-loading="isGenerating"
       title="Research Topic"
@@ -207,7 +207,7 @@ function handleRejectImprovement() {
       @close="showResearchModal = false"
     />
 
-    <OllamaDiffPreview
+    <AiDiffPreview
       v-if="showDiffPreview"
       :original-content="originalContent"
       :improved-content="improvedContent"

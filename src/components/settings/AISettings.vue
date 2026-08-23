@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, toRef } from 'vue'
-import { useOllama } from '../../composables/useOllama.js'
+import { useAiNotes } from '../../composables/useAiNotes.js'
 import { useAIProviderConnection } from '../../composables/useAIProviderConnection.js'
 import { useSettings } from '../../composables/useSettings'
 
@@ -13,7 +13,7 @@ const {
   isDefaultPrompt,
   movePromptUp,
   movePromptDown,
-} = useOllama()
+} = useAiNotes()
 const { aiEnabledTools } = useSettings()
 
 // Available agent tools

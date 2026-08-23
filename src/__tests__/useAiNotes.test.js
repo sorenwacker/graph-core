@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { nextTick } from 'vue'
-import { useOllama } from '../composables/useOllama.js'
+import { useAiNotes } from '../composables/useAiNotes.js'
 
 // Mock the api service
 vi.mock('../services/api.js', () => ({
@@ -38,7 +38,7 @@ vi.mock('../composables/useSettings.js', () => ({
 
 import { api } from '../services/api.js'
 
-describe('useOllama', () => {
+describe('useAiNotes', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -49,31 +49,31 @@ describe('useOllama', () => {
 
   describe('initial state', () => {
     it('should have isGenerating false initially', () => {
-      const { isGenerating } = useOllama()
+      const { isGenerating } = useAiNotes()
       expect(isGenerating.value).toBe(false)
     })
 
     it('should have error null initially', () => {
-      const { error } = useOllama()
+      const { error } = useAiNotes()
       expect(error.value).toBe(null)
     })
 
     it('should have generatedContent empty initially', () => {
-      const { generatedContent } = useOllama()
+      const { generatedContent } = useAiNotes()
       expect(generatedContent.value).toBe('')
     })
   })
 
   describe('isConfigured', () => {
     it('should return truthy when Ollama is enabled with endpoint and model', () => {
-      const { isConfigured } = useOllama()
+      const { isConfigured } = useAiNotes()
       expect(isConfigured.value).toBeTruthy()
     })
   })
 
   describe('presetPrompts', () => {
     it('should provide preset prompt options', () => {
-      const { presetPrompts } = useOllama()
+      const { presetPrompts } = useAiNotes()
 
       expect(presetPrompts.value).toBeInstanceOf(Array)
       expect(presetPrompts.value.length).toBeGreaterThan(0)
@@ -87,7 +87,7 @@ describe('useOllama', () => {
     })
 
     it('should include Improve preset', () => {
-      const { presetPrompts } = useOllama()
+      const { presetPrompts } = useAiNotes()
       const improve = presetPrompts.value.find(p => p.id === 'improve')
 
       expect(improve).toBeDefined()
@@ -96,7 +96,7 @@ describe('useOllama', () => {
     })
 
     it('should include Summarize preset', () => {
-      const { presetPrompts } = useOllama()
+      const { presetPrompts } = useAiNotes()
       const summarize = presetPrompts.value.find(p => p.id === 'summarize')
 
       expect(summarize).toBeDefined()
@@ -105,7 +105,7 @@ describe('useOllama', () => {
     })
 
     it('should include Expand preset', () => {
-      const { presetPrompts } = useOllama()
+      const { presetPrompts } = useAiNotes()
       const expand = presetPrompts.value.find(p => p.id === 'expand')
 
       expect(expand).toBeDefined()
@@ -114,7 +114,7 @@ describe('useOllama', () => {
     })
 
     it('should include Fix Grammar preset', () => {
-      const { presetPrompts } = useOllama()
+      const { presetPrompts } = useAiNotes()
       const fixGrammar = presetPrompts.value.find(p => p.id === 'fix-grammar')
 
       expect(fixGrammar).toBeDefined()
@@ -123,7 +123,7 @@ describe('useOllama', () => {
     })
 
     it('should include Simplify preset', () => {
-      const { presetPrompts } = useOllama()
+      const { presetPrompts } = useAiNotes()
       const simplify = presetPrompts.value.find(p => p.id === 'simplify')
 
       expect(simplify).toBeDefined()
@@ -131,7 +131,7 @@ describe('useOllama', () => {
     })
 
     it('should include Bullet Points preset', () => {
-      const { presetPrompts } = useOllama()
+      const { presetPrompts } = useAiNotes()
       const bulletPoints = presetPrompts.value.find(p => p.id === 'bullet-points')
 
       expect(bulletPoints).toBeDefined()
@@ -139,7 +139,7 @@ describe('useOllama', () => {
     })
 
     it('should include Action Items preset', () => {
-      const { presetPrompts } = useOllama()
+      const { presetPrompts } = useAiNotes()
       const actionItems = presetPrompts.value.find(p => p.id === 'action-items')
 
       expect(actionItems).toBeDefined()
@@ -147,7 +147,7 @@ describe('useOllama', () => {
     })
 
     it('should include Continue preset', () => {
-      const { presetPrompts } = useOllama()
+      const { presetPrompts } = useAiNotes()
       const continuePreset = presetPrompts.value.find(p => p.id === 'continue')
 
       expect(continuePreset).toBeDefined()
@@ -165,7 +165,7 @@ describe('useOllama', () => {
           })
       )
 
-      const { isGenerating, improveNotes } = useOllama()
+      const { isGenerating, improveNotes } = useAiNotes()
 
       const promise = improveNotes('Original content', 'Improve this')
       await nextTick()
@@ -181,7 +181,7 @@ describe('useOllama', () => {
     it('should set generatedContent on success', async () => {
       api.ollamaGenerate.mockResolvedValueOnce('Improved content')
 
-      const { generatedContent, improveNotes } = useOllama()
+      const { generatedContent, improveNotes } = useAiNotes()
 
       await improveNotes('Original content', 'Improve this')
 
@@ -191,7 +191,7 @@ describe('useOllama', () => {
     it('should call api with correct parameters', async () => {
       api.ollamaGenerate.mockResolvedValueOnce('Result')
 
-      const { improveNotes } = useOllama()
+      const { improveNotes } = useAiNotes()
 
       await improveNotes('Original content', 'Improve this')
 
@@ -207,7 +207,7 @@ describe('useOllama', () => {
     it('should set error on failure', async () => {
       api.ollamaGenerate.mockRejectedValueOnce(new Error('Connection failed'))
 
-      const { error, improveNotes } = useOllama()
+      const { error, improveNotes } = useAiNotes()
 
       await improveNotes('Original content', 'Improve this')
 
@@ -217,7 +217,7 @@ describe('useOllama', () => {
     it('should clear error before new request', async () => {
       api.ollamaGenerate.mockRejectedValueOnce(new Error('First error'))
 
-      const { error, improveNotes } = useOllama()
+      const { error, improveNotes } = useAiNotes()
 
       await improveNotes('Content', 'Prompt')
       expect(error.value).toBe('First error')
@@ -231,7 +231,7 @@ describe('useOllama', () => {
     it('should return generated content on success', async () => {
       api.ollamaGenerate.mockResolvedValueOnce('Improved content')
 
-      const { improveNotes } = useOllama()
+      const { improveNotes } = useAiNotes()
 
       const result = await improveNotes('Original', 'Improve')
 
@@ -241,7 +241,7 @@ describe('useOllama', () => {
     it('should return null on failure', async () => {
       api.ollamaGenerate.mockRejectedValueOnce(new Error('Failed'))
 
-      const { improveNotes } = useOllama()
+      const { improveNotes } = useAiNotes()
 
       const result = await improveNotes('Original', 'Improve')
 
@@ -253,7 +253,7 @@ describe('useOllama', () => {
     it('should return success result from api', async () => {
       api.ollamaTestConnection.mockResolvedValueOnce({ success: true })
 
-      const { testConnection } = useOllama()
+      const { testConnection } = useAiNotes()
 
       const result = await testConnection()
 
@@ -267,7 +267,7 @@ describe('useOllama', () => {
         error: 'Connection refused',
       })
 
-      const { testConnection } = useOllama()
+      const { testConnection } = useAiNotes()
 
       const result = await testConnection()
 
@@ -280,7 +280,7 @@ describe('useOllama', () => {
 
   describe('AI_PROVIDERS', () => {
     it('should export AI provider constants', () => {
-      const { AI_PROVIDERS } = useOllama()
+      const { AI_PROVIDERS } = useAiNotes()
       expect(AI_PROVIDERS).toBeDefined()
       expect(AI_PROVIDERS.OLLAMA).toBe('ollama')
       expect(AI_PROVIDERS.OPENAI).toBe('openai')
@@ -289,12 +289,12 @@ describe('useOllama', () => {
 
   describe('provider state', () => {
     it('should expose provider ref', () => {
-      const { provider } = useOllama()
+      const { provider } = useAiNotes()
       expect(provider.value).toBe('ollama')
     })
 
     it('should expose isEnabled ref', () => {
-      const { isEnabled } = useOllama()
+      const { isEnabled } = useAiNotes()
       expect(isEnabled.value).toBe(true)
     })
   })

@@ -69,7 +69,7 @@ const defaultPrompts = [
  *
  * @returns {Object} AI state and methods
  */
-export function useOllama() {
+export function useAiNotes() {
   const {
     aiProvider,
     aiEnabled,

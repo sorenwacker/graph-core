@@ -12,6 +12,7 @@ import {
   LinkCommand,
   UnlinkCommand,
   ReorderCommand,
+  ApplyNotesEditCommand,
 } from '../commands/index.js'
 
 describe('commandFactory', () => {
@@ -234,5 +235,19 @@ describe('commandFactory', () => {
       expect(deserialized[2].oldCompleted).toBe(false)
       expect(deserialized[2].newCompleted).toBe(true)
     })
+  })
+})
+
+describe('legacy command types', () => {
+  it("deserializes 'ollama-improve-notes' stacks saved before the rename", () => {
+    const cmd = fromJSON({
+      type: 'ollama-improve-notes',
+      nodeId: 1,
+      oldNotes: 'a',
+      newNotes: 'b',
+      prompt: 'p',
+    })
+    expect(cmd).toBeInstanceOf(ApplyNotesEditCommand)
+    expect(cmd.newNotes).toBe('b')
   })
 })
