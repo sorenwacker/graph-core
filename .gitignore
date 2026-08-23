@@ -30,3 +30,5 @@ electron/preload.build.js
 
 .venv/
 site/
+test-results/
+playwright-report/

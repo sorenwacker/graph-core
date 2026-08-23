@@ -1,4 +1,4 @@
-.PHONY: dev install clean clean-release stop build dist install-mac reset-db docs docs-build lint format check test
+.PHONY: dev install clean clean-release stop build dist install-mac reset-db docs docs-build lint format check test e2e
 
 # Documentation toolchain: Zensical, run through uvx so there is no virtualenv
 # to create or keep in sync. This is a Node project with no pyproject.toml, so
@@ -80,6 +80,12 @@ docs:
 # Build the docs, failing on broken links and nav problems
 docs-build:
 	$(ZENSICAL) build --strict
+
+# End-to-end smoke pack against the built app (isolated profile, own data untouched)
+e2e:
+	npm run build
+	npm run bundle:preload
+	npm run test:e2e
 
 # Lint code with auto-fix
 lint:
