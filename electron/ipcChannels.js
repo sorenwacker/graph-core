@@ -173,6 +173,14 @@ const SECURITY_ENABLE = 'security:enable'
 const SECURITY_DISABLE = 'security:disable'
 const SECURITY_SET_TOUCH_ID = 'security:setTouchId'
 
+// Sensitive notes (second encryption layer)
+const SENSITIVE_STATUS = 'sensitive:status'
+const SENSITIVE_ENABLE = 'sensitive:enable'
+const SENSITIVE_UNLOCK = 'sensitive:unlock'
+const SENSITIVE_LOCK = 'sensitive:lock'
+const SENSITIVE_DISABLE = 'sensitive:disable'
+const SENSITIVE_LOCKED_EVENT = 'sensitive:locked'
+
 const APP_QUIT_SAVE_DONE = 'app:quitSaveDone'
 
 // ===========================================
@@ -308,6 +316,12 @@ module.exports = {
   SECURITY_ENABLE,
   SECURITY_DISABLE,
   SECURITY_SET_TOUCH_ID,
+  SENSITIVE_STATUS,
+  SENSITIVE_ENABLE,
+  SENSITIVE_UNLOCK,
+  SENSITIVE_LOCK,
+  SENSITIVE_DISABLE,
+  SENSITIVE_LOCKED_EVENT,
 
   // App
   APP_QUIT_SAVE_DONE,

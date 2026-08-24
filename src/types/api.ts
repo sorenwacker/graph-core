@@ -267,6 +267,12 @@ export interface Api {
   securityEnable(password: string): Promise<{ success: boolean; error?: string }>
   securityDisable(password: string): Promise<{ success: boolean; error?: string }>
   securitySetTouchId(enabled: boolean): Promise<{ success: boolean; error?: string }>
+  sensitiveStatus(): Promise<{ available: boolean; enabled: boolean; unlocked: boolean }>
+  sensitiveEnable(password: string): Promise<{ success: boolean; error?: string }>
+  sensitiveUnlock(password: string): Promise<{ success: boolean; error?: string }>
+  sensitiveLock(): Promise<{ success: boolean; error?: string }>
+  sensitiveDisable(password: string): Promise<{ success: boolean; error?: string }>
+  onSensitiveLocked(callback: () => void): () => void
 
   backup?(suffix?: string): Promise<{ path: string } | { error: string }>
   listBackups?(): Promise<BackupInfo[]>

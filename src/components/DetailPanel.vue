@@ -12,6 +12,7 @@ import { api } from '../services/api'
 import { useNodeTable } from '../composables/useNodeTable.js'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
 import { selectElementText } from '../composables/useKeyboardShortcuts.js'
+import { useSensitiveNotes } from '../composables/useSensitiveNotes.js'
 import { pickNodeFields } from '../utils/nodeFields.js'
 import { AUTOSAVE_DELAY_MS } from '../utils/settingsConstants'
 
@@ -55,6 +56,28 @@ const linkedNodes = ref([])
 // Tab state for notes
 const activeTab = ref('edit')
 const showSensitivePreview = ref(false)
+
+// Sensitive-notes reveal (docs/architecture/sensitive-notes.md). When a note's
+// content is stored ciphertext, revealing it takes the recovery password;
+// unlocking reloads the node so its notes come back decrypted.
+const { unlock: unlockSensitive, isLockedNote } = useSensitiveNotes()
+const sensitiveUnlockPassword = ref('')
+const sensitiveUnlockError = ref('')
+const notesLocked = computed(() => isLockedNote(editedNode.value?.notes))
+
+async function revealSensitive() {
+  sensitiveUnlockError.value = ''
+  const result = await unlockSensitive(sensitiveUnlockPassword.value)
+  if (result.success) {
+    sensitiveUnlockPassword.value = ''
+    if (props.node?.id) {
+      const fresh = await api.getNode(props.node.id)
+      if (fresh) editedNode.value = { ...fresh }
+    }
+  } else {
+    sensitiveUnlockError.value = result.error || 'Unlock failed'
+  }
+}
 
 // Collapsible sections
 const notesCollapsed = ref(false)
@@ -733,7 +756,22 @@ defineExpose({
                 tabindex="0"
                 @keydown="onPreviewKeydown"
               >
-                <div v-if="editedNode.notes_sensitive && !showSensitivePreview" class="sensitive-hidden">
+                <div v-if="notesLocked" class="sensitive-hidden">
+                  <p>Sensitive notes locked</p>
+                  <form class="sensitive-unlock-form" @submit.prevent="revealSensitive">
+                    <input
+                      v-model="sensitiveUnlockPassword"
+                      type="password"
+                      placeholder="Recovery password"
+                      data-testid="notes-unlock-password"
+                    />
+                    <button class="unlock-btn" type="submit" :disabled="!sensitiveUnlockPassword">Unlock</button>
+                  </form>
+                  <p v-if="sensitiveUnlockError" class="sensitive-unlock-error" role="alert">
+                    {{ sensitiveUnlockError }}
+                  </p>
+                </div>
+                <div v-else-if="editedNode.notes_sensitive && !showSensitivePreview" class="sensitive-hidden">
                   <p>Sensitive notes hidden</p>
                   <button class="unlock-btn" @click="showSensitivePreview = true" title="Show sensitive notes">
                     Unlock
@@ -761,7 +799,17 @@ defineExpose({
                   @keydown="onPreviewKeydown"
                   @scroll="syncPreviewToEditor"
                 >
-                  <div v-if="editedNode.notes_sensitive && !showSensitivePreview" class="sensitive-hidden">
+                  <div v-if="notesLocked" class="sensitive-hidden">
+                    <p>Sensitive notes locked</p>
+                    <form class="sensitive-unlock-form" @submit.prevent="revealSensitive">
+                      <input v-model="sensitiveUnlockPassword" type="password" placeholder="Recovery password" />
+                      <button class="unlock-btn" type="submit" :disabled="!sensitiveUnlockPassword">Unlock</button>
+                    </form>
+                    <p v-if="sensitiveUnlockError" class="sensitive-unlock-error" role="alert">
+                      {{ sensitiveUnlockError }}
+                    </p>
+                  </div>
+                  <div v-else-if="editedNode.notes_sensitive && !showSensitivePreview" class="sensitive-hidden">
                     <p>Sensitive notes hidden</p>
                     <button class="unlock-btn" @click="showSensitivePreview = true" title="Show sensitive notes">
                       Unlock
