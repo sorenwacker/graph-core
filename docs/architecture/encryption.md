@@ -55,4 +55,4 @@ Enabling encryption happens in **Settings > Security**: set the recovery passwor
 
 ## Sensitive notes (second layer)
 
-Planned as a separate layer on top: notes marked `notes_sensitive` get their own passphrase-derived encryption, revealed per session and relocked on a timer, so they are protected even from someone at the unlocked app. Not yet implemented; the flag is display masking only.
+Notes marked `notes_sensitive` can be encrypted on top of database encryption, so they are protected even from a person at the unlocked app. See [Sensitive notes](sensitive-notes.md).
