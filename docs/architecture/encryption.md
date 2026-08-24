@@ -24,7 +24,7 @@ A file that does not start with the magic bytes is a legacy plaintext database; 
 
 One random 256-bit database key encrypts the payload with AES-256-GCM. The key itself is never stored; it is wrapped into key slots (envelope encryption, the LUKS pattern):
 
-- **Keychain slot** (type 1): the key wrapped by Electron `safeStorage`, which uses the OS keychain. This is the daily unlock - the app opens without prompting. The blob is machine-bound; it is useless on another machine.
+- **Keychain slot** (type 1): the key wrapped by Electron `safeStorage`, which uses the OS keychain. This is the daily unlock - the app opens without prompting. The blob is machine-bound; it is useless on another machine. The slot is written only when `safeStorage` reports a secure backend. On Linux with no keyring service, `safeStorage` falls back to a backend that "encrypts" with a public, hardcoded key; that backend is detected through `getSelectedStorageBackend()` and treated as no keychain, so no slot is written. Without the slot the file is protected by the password slot alone, and every start asks for the recovery password.
 - **Password slot** (type 2): the key wrapped with AES-256-GCM under a key derived from the recovery password by scrypt (N=2^15, r=8, p=1, 32-byte salt stored in the slot). This slot is the answer to keychain loss: a new machine, an OS reinstall, or a reset keychain. Unlocking with the password re-wraps the key into the new machine's keychain.
 
 Both slots wrap the same database key, so either one opens the file. Enabling encryption requires setting the recovery password; there is no keychain-only mode, because keychain loss would then mean data loss.

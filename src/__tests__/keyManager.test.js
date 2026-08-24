@@ -17,10 +17,11 @@ import {
  * enablement with and without an available keychain.
  */
 
-function fakeSafeStorage({ available = true } = {}) {
+function fakeSafeStorage({ available = true, backend = 'kwallet5' } = {}) {
   // Reversible stand-in for the OS keychain: prefix marks the wrapped blob.
   return {
     isEncryptionAvailable: () => available,
+    getSelectedStorageBackend: () => backend,
     encryptString: vi.fn(s => Buffer.concat([Buffer.from('WRAPPED:'), Buffer.from(s, 'base64')])),
     decryptString: vi.fn(b => b.subarray('WRAPPED:'.length).toString('base64')),
   }
@@ -50,6 +51,21 @@ describe('enable', () => {
   it('refuses an empty recovery password', () => {
     const km = createKeyManager({ safeStorage: fakeSafeStorage() })
     expect(() => km.enable('')).toThrow(/password/i)
+  })
+
+  it('writes no keychain slot when the backend is the insecure basic_text fallback', () => {
+    // isEncryptionAvailable() returns true on basic_text, but it "encrypts"
+    // with a public hardcoded key. Embedding a slot there would put a
+    // plaintext-equivalent key in the portable file, so it must be skipped.
+    const km = createKeyManager({ safeStorage: fakeSafeStorage({ backend: 'basic_text' }) })
+    const { slots } = km.enable('recovery-pw')
+
+    expect(slots.map(s => s.type)).toEqual([SLOT_TYPE_PASSWORD])
+  })
+
+  it('reports the keychain as unavailable on the insecure backend', () => {
+    const km = createKeyManager({ safeStorage: fakeSafeStorage({ backend: 'basic_text' }) })
+    expect(km.keychainAvailable()).toBe(false)
   })
 })
 
@@ -124,6 +140,16 @@ describe('unlock with password', () => {
     const file = encryptDatabase(plaintext, key, slots)
 
     const km = createKeyManager({ safeStorage: fakeSafeStorage({ available: false }) })
+    const { slots: newSlots } = km.unlockWithPassword(file, 'pw')
+
+    expect(newSlots.map(s => s.type)).toEqual([SLOT_TYPE_PASSWORD])
+  })
+
+  it('does not re-wrap into an insecure keychain backend on password unlock', () => {
+    const { key, slots } = createKeyManager({ safeStorage: fakeSafeStorage() }).enable('pw')
+    const file = encryptDatabase(plaintext, key, slots)
+
+    const km = createKeyManager({ safeStorage: fakeSafeStorage({ backend: 'basic_text' }) })
     const { slots: newSlots } = km.unlockWithPassword(file, 'pw')
 
     expect(newSlots.map(s => s.type)).toEqual([SLOT_TYPE_PASSWORD])

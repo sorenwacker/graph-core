@@ -187,6 +187,6 @@ For the complete keyboard shortcut reference, see [Keyboard Shortcuts](keyboard-
 
 Available in the desktop app only; in web mode the data lives behind the HTTP API and this section is hidden.
 
-- **Encrypt database**: encrypts the database file, backups, and snapshots at rest ([design](../architecture/encryption.md)). Enabling requires setting a recovery password; the warning shown there is literal - losing both the recovery password and this machine's keychain loses the data.
+- **Encrypt database**: encrypts the database file, backups, and snapshots at rest ([design](../architecture/encryption.md)). Enabling requires setting a recovery password; the warning shown there is literal - losing both the recovery password and this machine's keychain loses the data. On a system with no secure keychain (Linux without a keyring service), the settings panel says so before you enable, and the app asks for the recovery password at every start instead of unlocking through the keychain.
 - **Require Touch ID at startup** (macOS): puts a fingerprint prompt between the keychain and the key, so an open macOS session is not enough to open the app.
 - **Disable encryption**: requires the recovery password and rewrites the database as plaintext.

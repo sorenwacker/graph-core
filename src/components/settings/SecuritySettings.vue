@@ -82,6 +82,10 @@ async function toggleTouchId(event) {
         Encrypts the database file, backups, and snapshots. The recovery password is the only way to open the data if
         this machine's keychain is lost - there is no other recovery.
       </p>
+      <p v-if="!status.keychainAvailable" class="setting-hint no-keychain" data-testid="no-keychain-notice">
+        This machine has no secure keychain, so the app asks for the recovery password at every start instead of
+        unlocking automatically.
+      </p>
       <div class="setting-row">
         <input v-model="password" type="password" placeholder="Recovery password" data-testid="enable-password" />
         <input
