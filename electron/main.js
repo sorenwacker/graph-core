@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session, shell, Menu } = require('electron')
+const { app, BrowserWindow, ipcMain, session, shell, Menu, safeStorage, systemPreferences } = require('electron')
 const path = require('path')
 const Database = require('./database')
 const {
@@ -17,6 +17,9 @@ const { registerOpenaiHandlers } = require('./ipc/openai')
 const { registerAgentHandlers } = require('./ipc/agent')
 const { registerWindowHandlers, createWindowConfig, setupExternalLinkHandling } = require('./ipc/window')
 const { httpRequest } = require('./ipc/httpClient')
+const { registerSecurityHandlers, readSecurityConfig } = require('./ipc/security')
+const { createKeyManager } = require('./database/keyManager')
+const { isEncrypted } = require('./database/encryption')
 
 let mainWindow
 let db
@@ -281,13 +284,61 @@ function createMenu() {
 // =========================================
 
 app.whenReady().then(async () => {
-  // Initialize database
   const dbPath = path.join(app.getPath('userData'), 'graph.db')
-  db = new Database(dbPath)
-  await db.ready // Wait for async initialization
+  const securityConfigPath = path.join(app.getPath('userData'), 'security.json')
+  const keyManager = createKeyManager({ safeStorage })
 
-  // Register all IPC handlers
-  registerDatabaseHandlers(ipcMain, db)
+  // Construct the database and register the handlers that need it. Runs at
+  // boot for a plaintext or keychain-unlockable file, and from the unlock
+  // handler otherwise (docs/architecture/encryption.md, "Unlock flow").
+  async function finishUnlock(encryptionKey, encryptionSlots) {
+    db = new Database(dbPath, { encryptionKey, encryptionSlots })
+    await db.ready
+    registerDatabaseHandlers(ipcMain, db)
+    return db
+  }
+
+  // Silent unlock attempt: keychain slot, optionally gated by Touch ID.
+  let bootKey = null
+  let bootSlots = []
+  let locked = false
+  const fsSync = require('fs')
+  if (fsSync.existsSync(dbPath)) {
+    const head = fsSync.readFileSync(dbPath)
+    if (isEncrypted(head)) {
+      let key = keyManager.unlockWithKeychain(head)
+      const config = readSecurityConfig(securityConfigPath)
+      if (key && config.touchIdGate && process.platform === 'darwin') {
+        try {
+          await systemPreferences.promptTouchID('unlock your Graph Core database')
+        } catch {
+          // Declined or failed: fall through to the password unlock screen.
+          key = null
+        }
+      }
+      if (key) {
+        bootKey = key
+        const { readSlots } = require('./database/encryption')
+        bootSlots = readSlots(head)
+      } else {
+        locked = true
+      }
+    }
+  }
+
+  if (!locked) {
+    await finishUnlock(bootKey, bootSlots)
+  }
+
+  // Handlers that work without the database.
+  registerSecurityHandlers(ipcMain, {
+    getDb: () => db,
+    finishUnlock,
+    dbPath,
+    configPath: securityConfigPath,
+    keyManager,
+    systemPreferences,
+  })
   registerOllamaHandlers(ipcMain, httpRequest)
   registerOpenaiHandlers(ipcMain, httpRequest)
   registerAgentHandlers(ipcMain, httpRequest)

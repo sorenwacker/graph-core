@@ -9,12 +9,23 @@ import './themes/dark.css'
 import './themes/light.css'
 import App from './App.vue'
 import DetachedView from './components/DetachedView.vue'
+import UnlockScreen from './components/UnlockScreen.vue'
+import { api } from './services/api'
 import { initSettings, migrateSettingsToDatabase } from './composables/useSettings'
 
 const pinia = createPinia()
 
 // Initialize settings from database before mounting app
 async function bootstrap() {
+  // An encrypted database this machine cannot open silently blocks everything
+  // else: mount only the unlock screen, which reloads the window on success
+  // (docs/architecture/encryption.md, "Unlock flow").
+  const security = await api.securityStatus()
+  if (security.state === 'locked') {
+    createApp(UnlockScreen).use(pinia).mount('#app')
+    return
+  }
+
   // Initialize settings cache from database
   await initSettings()
 

@@ -256,6 +256,18 @@ export interface Api {
   deleteWorkspace(id: WorkspaceId): Promise<void>
 
   // Database (Electron only)
+  // Security - at-rest encryption (desktop only; web returns 'unavailable')
+  securityStatus(): Promise<{
+    state: 'plaintext' | 'encrypted' | 'locked' | 'unavailable'
+    keychainAvailable: boolean
+    touchIdAvailable: boolean
+    touchIdEnabled: boolean
+  }>
+  securityUnlock(password: string): Promise<{ success: boolean; error?: string }>
+  securityEnable(password: string): Promise<{ success: boolean; error?: string }>
+  securityDisable(password: string): Promise<{ success: boolean; error?: string }>
+  securitySetTouchId(enabled: boolean): Promise<{ success: boolean; error?: string }>
+
   backup?(suffix?: string): Promise<{ path: string } | { error: string }>
   listBackups?(): Promise<BackupInfo[]>
   restoreBackup?(backupPath: string): Promise<{ success: boolean } | { error: string }>

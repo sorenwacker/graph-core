@@ -164,6 +164,15 @@ const AGENT_RESEARCH = 'agent:research'
 // APP
 // ===========================================
 // Renderer -> main ack that pre-quit autosave has finished (see APP_BEFORE_QUIT)
+// ===========================================
+// SECURITY - At-rest encryption
+// ===========================================
+const SECURITY_STATUS = 'security:status'
+const SECURITY_UNLOCK = 'security:unlock'
+const SECURITY_ENABLE = 'security:enable'
+const SECURITY_DISABLE = 'security:disable'
+const SECURITY_SET_TOUCH_ID = 'security:setTouchId'
+
 const APP_QUIT_SAVE_DONE = 'app:quitSaveDone'
 
 // ===========================================
@@ -292,6 +301,13 @@ module.exports = {
 
   // Agent
   AGENT_RESEARCH,
+
+  // Security
+  SECURITY_STATUS,
+  SECURITY_UNLOCK,
+  SECURITY_ENABLE,
+  SECURITY_DISABLE,
+  SECURITY_SET_TOUCH_ID,
 
   // App
   APP_QUIT_SAVE_DONE,

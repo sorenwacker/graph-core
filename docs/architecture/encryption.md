@@ -35,6 +35,18 @@ GCM authenticates as well as encrypts: a tampered or corrupted file, and a wrong
 
 All database bytes pass through one serialize/deserialize choke point in `electron/database/index.js`. `_save`, `backup`, and `restoreBackup` use it, so snapshots and backups are encrypted with the same key as the main file - an encrypted database with plaintext backups would be theater. The corrupt-file preservation path copies the file bytes as they are, which for an encrypted file preserves ciphertext.
 
+## Unlock flow
+
+At boot the main process inspects the database file before opening it:
+
+1. A plaintext file opens as before.
+2. An encrypted file is first tried against the keychain slot: `safeStorage` unwraps the machine-bound blob without any prompt. When the Touch ID gate is enabled (macOS), the fingerprint prompt stands between the keychain and the key.
+3. When the keychain cannot unwrap - new machine, reset keychain, Linux without a secret service - the app shows the unlock screen. The recovery password unwraps the password slot, and the key is re-wrapped into this machine's keychain so the next boot is silent again.
+
+The Touch ID gate setting lives in `security.json` next to the database, not inside it: settings stored in the database are unreachable while the database is locked.
+
+Enabling encryption happens in **Settings > Security**: set the recovery password, and the file is rewritten encrypted on the next save. Disabling requires the recovery password and rewrites the file as plaintext.
+
 ## Honest limits
 
 - Memory is plaintext while the app runs.

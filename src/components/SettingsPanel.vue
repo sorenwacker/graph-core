@@ -6,6 +6,7 @@ import { demoWorkspaceExists } from '../utils/demoData.js'
 import GeneralSettings from './settings/GeneralSettings.vue'
 import AISettings from './settings/AISettings.vue'
 import DataSettings from './settings/DataSettings.vue'
+import SecuritySettings from './settings/SecuritySettings.vue'
 import AboutSettings from './settings/AboutSettings.vue'
 
 const { handleError } = useErrorHandler()
@@ -116,6 +117,9 @@ onMounted(async () => {
         </button>
         <button class="settings-tab" :class="{ active: activeTab === 'ai' }" @click="activeTab = 'ai'">AI</button>
         <button class="settings-tab" :class="{ active: activeTab === 'data' }" @click="activeTab = 'data'">Data</button>
+        <button class="settings-tab" :class="{ active: activeTab === 'security' }" @click="activeTab = 'security'">
+          Security
+        </button>
         <button class="settings-tab" :class="{ active: activeTab === 'about' }" @click="activeTab = 'about'">
           About
         </button>
@@ -164,6 +168,10 @@ onMounted(async () => {
           @update:openai-skip-ssl-verification="emit('update:openaiSkipSslVerification', $event)"
           @update:ollama-enabled="emit('update:ollamaEnabled', $event)"
         />
+      </div>
+
+      <div v-if="activeTab === 'security'" class="settings-grid">
+        <SecuritySettings />
       </div>
 
       <div v-if="activeTab === 'data'" class="settings-grid">

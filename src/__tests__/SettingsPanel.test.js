@@ -100,7 +100,7 @@ describe('SettingsPanel', () => {
       await flushPromises()
 
       const tabs = wrapper.findAll('.settings-tab')
-      expect(tabs).toHaveLength(4)
+      expect(tabs.map(t => t.text())).toEqual(['General', 'AI', 'Data', 'Security', 'About'])
 
       const generalTab = tabs[0]
       expect(generalTab.classes()).toContain('active')
