@@ -16,17 +16,26 @@ const {
   SLOT_TYPE_PASSWORD,
 } = require('./encryption')
 
+// safeStorage backends that "encrypt" with a public, hardcoded key. On Linux
+// with no keyring service, Chromium falls back to one of these, yet
+// isEncryptionAvailable() still returns true - so a keychain slot written here
+// would be a plaintext-equivalent copy of the database key inside the portable
+// file. Treat these backends as no keychain.
+const INSECURE_BACKENDS = new Set(['basic_text'])
+
 /**
  * Create a key manager bound to a safeStorage implementation.
  *
  * @param {Object} deps
  * @param {Object} deps.safeStorage - Electron safeStorage or a test double.
- * @returns {Object} { enable, unlockWithKeychain, unlockWithPassword }
+ * @returns {Object} { enable, unlockWithKeychain, unlockWithPassword, keychainAvailable }
  */
 function createKeyManager({ safeStorage }) {
   function keychainAvailable() {
     try {
-      return safeStorage.isEncryptionAvailable()
+      if (!safeStorage.isEncryptionAvailable()) return false
+      const backend = safeStorage.getSelectedStorageBackend?.()
+      return !INSECURE_BACKENDS.has(backend)
     } catch {
       return false
     }

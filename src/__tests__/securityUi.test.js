@@ -121,3 +121,19 @@ describe('SecuritySettings status indication', () => {
     expect(wrapper.find('[data-testid="encryption-status"]').text()).toContain('OFF')
   })
 })
+
+describe('SecuritySettings no-keychain notice', () => {
+  it('warns about password-at-every-start when no secure keychain exists', async () => {
+    api.securityStatus.mockResolvedValue({ state: 'plaintext', keychainAvailable: false, touchIdAvailable: false })
+    const wrapper = mount(SecuritySettings)
+    await flushPromises()
+    expect(wrapper.find('[data-testid="no-keychain-notice"]').exists()).toBe(true)
+  })
+
+  it('omits the notice when a secure keychain is present', async () => {
+    api.securityStatus.mockResolvedValue({ state: 'plaintext', keychainAvailable: true, touchIdAvailable: false })
+    const wrapper = mount(SecuritySettings)
+    await flushPromises()
+    expect(wrapper.find('[data-testid="no-keychain-notice"]').exists()).toBe(false)
+  })
+})
