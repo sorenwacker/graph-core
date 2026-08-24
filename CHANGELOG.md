@@ -2,6 +2,17 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
+## [1.14.0] - 2026-08-24
+
+### Added
+
+- Database encryption at rest (docs/architecture/encryption.md). Settings > Security encrypts the database file, backups, and snapshots with AES-256-GCM. One random database key is wrapped twice: into the OS keychain for silent startup, and under a scrypt-derived recovery password whose slot travels in the file header - the file plus the password is a complete recovery path on another machine. An optional Touch ID gate (macOS) stands between the keychain and the key at startup. When the keychain cannot open the file, an unlock screen accepts the recovery password and re-wraps the key into the local keychain. A wrong key, wrong password, or tampered file fails loudly; an encrypted file is never treated as corrupt and never replaced with an empty database.
+- End-to-end smoke pack (e2e/, `make e2e`): boots the built app in real Electron with an isolated profile and walks startup, node creation, view switching, delete and undo, relaunch persistence, and the full encryption enable-relaunch-unlock cycle. Runs as a release gate.
+
+### Fixed
+
+- Node hover tooltips no longer paint over the open settings panel: tooltips stack below the overlay, do not open while settings is open, and an already-visible tooltip hides when settings opens.
+
 ## [1.13.0] - 2026-08-23
 
 ### Changed
