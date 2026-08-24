@@ -8,6 +8,7 @@ import { api } from '../../services/api'
  * directly, like the AI settings section.
  */
 
+const emit = defineEmits(['changed'])
 const status = ref(null)
 const password = ref('')
 const passwordConfirm = ref('')
@@ -41,6 +42,7 @@ async function enable() {
     password.value = ''
     passwordConfirm.value = ''
     await refresh()
+    emit('changed')
   } else {
     error.value = result.error || 'Enabling failed'
   }
@@ -56,6 +58,7 @@ async function disable() {
     message.value = 'Encryption disabled; the database is stored as plaintext again.'
     disablePassword.value = ''
     await refresh()
+    emit('changed')
   } else {
     error.value = result.error || 'Disabling failed'
   }

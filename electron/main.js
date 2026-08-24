@@ -19,6 +19,9 @@ const { registerWindowHandlers, createWindowConfig, setupExternalLinkHandling } 
 const { httpRequest } = require('./ipc/httpClient')
 const { registerSecurityHandlers, readSecurityConfig } = require('./ipc/security')
 const { createKeyManager } = require('./database/keyManager')
+const { registerSensitiveNotesHandlers, SENSITIVE_SETTINGS_KEY } = require('./ipc/sensitiveNotes')
+const { createSensitiveSession } = require('./database/sensitiveSession')
+const { SENSITIVE_LOCKED_EVENT } = require('./ipcChannels')
 const { isEncrypted } = require('./database/encryption')
 
 let mainWindow
@@ -291,9 +294,27 @@ app.whenReady().then(async () => {
   // Construct the database and register the handlers that need it. Runs at
   // boot for a plaintext or keychain-unlockable file, and from the unlock
   // handler otherwise (docs/architecture/encryption.md, "Unlock flow").
+  // The sensitive session is held here so its idle relock and the disable flow
+  // can reach it (docs/architecture/sensitive-notes.md).
+  let sensitiveSession = null
+  function makeSensitiveSession(wrappedKey) {
+    return createSensitiveSession({
+      wrappedKey,
+      onLock: () => {
+        for (const w of BrowserWindow.getAllWindows()) w.webContents.send(SENSITIVE_LOCKED_EVENT)
+      },
+    })
+  }
+
   async function finishUnlock(encryptionKey, encryptionSlots) {
     db = new Database(dbPath, { encryptionKey, encryptionSlots })
     await db.ready
+    // Restore the sensitive-notes session (locked) if the feature was enabled.
+    const wrappedB64 = db.getSetting(SENSITIVE_SETTINGS_KEY)
+    if (wrappedB64) {
+      sensitiveSession = makeSensitiveSession(Buffer.from(wrappedB64, 'base64'))
+      db.sensitiveSession = sensitiveSession
+    }
     registerDatabaseHandlers(ipcMain, db)
     return db
   }
@@ -338,6 +359,16 @@ app.whenReady().then(async () => {
     configPath: securityConfigPath,
     keyManager,
     systemPreferences,
+  })
+  registerSensitiveNotesHandlers(ipcMain, {
+    getDb: () => db,
+    getSession: () => sensitiveSession,
+    setSession: session => {
+      sensitiveSession = session
+      if (db) db.sensitiveSession = session
+    },
+    createSession: makeSensitiveSession,
+    isDatabaseEncrypted: () => Boolean(db && db.encryptionKey),
   })
   registerOllamaHandlers(ipcMain, httpRequest)
   registerOpenaiHandlers(ipcMain, httpRequest)

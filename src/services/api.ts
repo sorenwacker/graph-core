@@ -52,6 +52,12 @@ export interface SecurityResult {
   error?: string
 }
 
+export interface SensitiveStatus {
+  available: boolean
+  enabled: boolean
+  unlocked: boolean
+}
+
 interface ElectronAPI {
   getNodes(params?: GetNodesParams): Promise<(Node | null)[]>
   getNode(id: number): Promise<Node | null>
@@ -113,6 +119,12 @@ interface ElectronAPI {
   securityEnable(password: string): Promise<SecurityResult>
   securityDisable(password: string): Promise<SecurityResult>
   securitySetTouchId(enabled: boolean): Promise<SecurityResult>
+  sensitiveStatus(): Promise<SensitiveStatus>
+  sensitiveEnable(password: string): Promise<SecurityResult>
+  sensitiveUnlock(password: string): Promise<SecurityResult>
+  sensitiveLock(): Promise<SecurityResult>
+  sensitiveDisable(password: string): Promise<SecurityResult>
+  onSensitiveLocked(callback: () => void): () => void
   backup(suffix?: string): Promise<{ path: string } | { error: string }>
   listBackups(): Promise<BackupInfo[]>
   restoreBackup(backupPath: string): Promise<{ success: boolean } | { error: string }>
@@ -531,6 +543,24 @@ const webApi: Api = {
   async securitySetTouchId(): Promise<SecurityResult> {
     return { success: false, error: 'Encryption is only available in the desktop app' }
   },
+  async sensitiveStatus(): Promise<SensitiveStatus> {
+    return { available: false, enabled: false, unlocked: false }
+  },
+  async sensitiveEnable(): Promise<SecurityResult> {
+    return { success: false, error: 'Encryption is only available in the desktop app' }
+  },
+  async sensitiveUnlock(): Promise<SecurityResult> {
+    return { success: false, error: 'Encryption is only available in the desktop app' }
+  },
+  async sensitiveLock(): Promise<SecurityResult> {
+    return { success: true }
+  },
+  async sensitiveDisable(): Promise<SecurityResult> {
+    return { success: false, error: 'Encryption is only available in the desktop app' }
+  },
+  onSensitiveLocked(): () => void {
+    return () => {}
+  },
 
   // Database Backups & Reload (Electron only in web mode, these are stubs)
   async backup(): Promise<{ path: string } | { error: string }> {
@@ -828,6 +858,12 @@ const electronApi: Api = {
   securityEnable: (password: string): Promise<SecurityResult> => window.electronAPI!.securityEnable(password),
   securityDisable: (password: string): Promise<SecurityResult> => window.electronAPI!.securityDisable(password),
   securitySetTouchId: (enabled: boolean): Promise<SecurityResult> => window.electronAPI!.securitySetTouchId(enabled),
+  sensitiveStatus: (): Promise<SensitiveStatus> => window.electronAPI!.sensitiveStatus(),
+  sensitiveEnable: (password: string): Promise<SecurityResult> => window.electronAPI!.sensitiveEnable(password),
+  sensitiveUnlock: (password: string): Promise<SecurityResult> => window.electronAPI!.sensitiveUnlock(password),
+  sensitiveLock: (): Promise<SecurityResult> => window.electronAPI!.sensitiveLock(),
+  sensitiveDisable: (password: string): Promise<SecurityResult> => window.electronAPI!.sensitiveDisable(password),
+  onSensitiveLocked: (callback: () => void): (() => void) => window.electronAPI!.onSensitiveLocked(callback),
 
   // Database Backups & Reload
   backup: (suffix?: string): Promise<{ path: string } | { error: string }> => window.electronAPI!.backup(suffix),

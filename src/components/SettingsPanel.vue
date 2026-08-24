@@ -7,6 +7,7 @@ import GeneralSettings from './settings/GeneralSettings.vue'
 import AISettings from './settings/AISettings.vue'
 import DataSettings from './settings/DataSettings.vue'
 import SecuritySettings from './settings/SecuritySettings.vue'
+import SensitiveNotesSettings from './settings/SensitiveNotesSettings.vue'
 import AboutSettings from './settings/AboutSettings.vue'
 
 const { handleError } = useErrorHandler()
@@ -78,6 +79,9 @@ const emit = defineEmits([
 
 // Tab navigation
 const activeTab = ref('general')
+// Bumped when database encryption changes, to remount the security section so
+// the sensitive-notes controls reflect the new availability.
+const securityKey = ref(0)
 
 // App version (injected at build time by Vite)
 const appVersion = ref(__APP_VERSION__)
@@ -171,7 +175,8 @@ onMounted(async () => {
       </div>
 
       <div v-if="activeTab === 'security'" class="settings-grid">
-        <SecuritySettings />
+        <SecuritySettings @changed="securityKey++" />
+        <SensitiveNotesSettings :refresh-signal="securityKey" />
       </div>
 
       <div v-if="activeTab === 'data'" class="settings-grid">
