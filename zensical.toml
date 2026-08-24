@@ -39,6 +39,7 @@ nav = [
     { "Database" = "architecture/database.md" },
     { "Caching" = "architecture/caching.md" },
     { "Encryption" = "architecture/encryption.md" },
+    { "Sensitive notes" = "architecture/sensitive-notes.md" },
   ] },
   { "Contributing" = [
     { "Development" = "contributing/development.md" },
