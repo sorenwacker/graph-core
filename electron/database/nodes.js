@@ -174,6 +174,7 @@ function createNodeOperations(ctx) {
      * @returns {Node} The created node with generated id, depth, and path
      */
     createNode(data) {
+      data = ctx._encodeNotesForWrite(null, data)
       const presentFields = NODE_FIELDS.filter(f => data[f] !== undefined)
       const values = presentFields.map(f => {
         const val = data[f]
@@ -217,6 +218,7 @@ function createNodeOperations(ctx) {
      * @returns {Node} The updated node object
      */
     updateNode(id, data) {
+      data = ctx._encodeNotesForWrite(id, data)
       const updates = []
       const values = []
 
