@@ -2,6 +2,13 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
+## [1.14.1] - 2026-08-24
+
+### Fixed
+
+- Settings > Security states plainly whether encryption is on or off, with a status badge, instead of implying it through which form is shown.
+- The sidebar handle's visible bar spans its entire active zone. The bar previously marked 48 pixels of a zone up to 280 pixels tall, so hovering the unmarked rest of the zone worked while hovering near it did nothing, which read as a flaky control.
+
 ## [1.14.0] - 2026-08-24
 
 ### Added
