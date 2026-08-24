@@ -33,6 +33,10 @@ class Database {
     // that travel in the file header.
     this.encryptionKey = options.encryptionKey || null
     this.encryptionSlots = options.encryptionSlots || []
+    // Sensitive-notes session, set by the main process when the feature is on
+    // (docs/architecture/sensitive-notes.md). Null means the feature is off,
+    // and notes pass through unchanged.
+    this.sensitiveSession = options.sensitiveSession || null
     // Batch state: defer per-statement disk writes while inside _batch().
     this._batchDepth = 0
     this._pendingSave = false
@@ -201,6 +205,50 @@ class Database {
     this.clearSettings = settingsOps.clearSettings.bind(settingsOps)
   }
 
+  /**
+   * Encode a node's notes for writing when sensitive-notes encryption is on.
+   * Returns data unchanged when the feature is off or nothing relevant changes.
+   * Encrypting, editing a sensitive note, or toggling the flag all require an
+   * unlocked session (docs/architecture/sensitive-notes.md).
+   *
+   * @param {number|null} id - Existing node id, or null on create.
+   * @param {Object} data - Incoming node fields.
+   * @returns {Object} data, possibly with `notes` re-encoded.
+   */
+  _encodeNotesForWrite(id, data) {
+    const session = this.sensitiveSession
+    if (!session || !session.isEnabled()) return data
+
+    const existing = id != null ? this.getNode(id) : null
+    const wasSensitive = Boolean(existing?.notes_sensitive)
+    const willBeSensitive = 'notes_sensitive' in data ? Boolean(data.notes_sensitive) : wasSensitive
+    const toggling = willBeSensitive !== wasSensitive
+
+    // The plaintext to store: the new notes if provided, otherwise the existing
+    // notes (already decrypted by _rowToNode) when a toggle re-encodes them.
+    let notes
+    if ('notes' in data) {
+      notes = data.notes
+    } else if (toggling) {
+      notes = existing ? existing.notes : undefined
+    } else {
+      return data
+    }
+    if (notes == null) return data
+
+    if (willBeSensitive) {
+      // encrypt() throws when locked, covering edits and turning the flag on.
+      return { ...data, notes: session.encrypt(notes) }
+    }
+    // Turning the flag off (or a plaintext note): store plaintext. Turning off
+    // requires an unlocked session so `existing.notes` is real text, not the
+    // ciphertext marker.
+    if (toggling && !session.isUnlocked()) {
+      throw new Error('Sensitive notes are locked')
+    }
+    return { ...data, notes }
+  }
+
   _save() {
     // While batching, defer the (expensive) full-file write until the batch ends.
     if (this._batchDepth > 0) {
@@ -314,8 +362,13 @@ class Database {
         graph_physics = null
       }
     }
+    const notes =
+      this.sensitiveSession && typeof row.notes === 'string'
+        ? this.sensitiveSession.decryptForRead(row.notes)
+        : row.notes
     return {
       ...row,
+      notes,
       completed: Boolean(row.completed),
       favorite: Boolean(row.favorite),
       // Only some queries compute has_table (via an EXISTS subquery); preserve
