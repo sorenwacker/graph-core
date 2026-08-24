@@ -41,6 +41,14 @@ describe('sidebar trigger geometry', () => {
     expect(handle).toMatch(/background/)
   })
 
+  it('marks the full active zone, leaving no invisible hit area', () => {
+    // A bar smaller than the zone reads as the whole target; hovering the
+    // unmarked rest of the zone then works "sometimes", which is worse than
+    // marking it all.
+    const handle = rule('.sidebar-trigger::after')
+    expect(handle).toMatch(/height:\s*100%/)
+  })
+
   it('brightens the handle on hover as feedback', () => {
     expect(rule('.sidebar-trigger:hover::after')).not.toBeNull()
   })
