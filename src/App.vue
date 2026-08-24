@@ -214,8 +214,14 @@ const {
     if (hideSensitive.value && node?.notes_sensitive) {
       return false
     }
-    return hoverPreviewEnabled.value && !showDetail.value && !sidebarVisible.value
+    return hoverPreviewEnabled.value && !showDetail.value && !sidebarVisible.value && !showSettings.value
   },
+})
+
+// A tooltip that is already visible (or locked) must not stay up over the
+// settings panel.
+watch(showSettings, open => {
+  if (open) forceHideTooltip()
 })
 watch(showDetail, isOpen => {
   if (isOpen) forceHideTooltip()
