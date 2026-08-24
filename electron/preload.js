@@ -82,6 +82,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Database Backups & Reload
   backup: suffix => ipcRenderer.invoke(C.DB_BACKUP, suffix),
   listBackups: () => ipcRenderer.invoke(C.DB_LIST_BACKUPS),
+
+  // Security - at-rest encryption
+  securityStatus: () => ipcRenderer.invoke(C.SECURITY_STATUS),
+  securityUnlock: password => ipcRenderer.invoke(C.SECURITY_UNLOCK, password),
+  securityEnable: password => ipcRenderer.invoke(C.SECURITY_ENABLE, password),
+  securityDisable: password => ipcRenderer.invoke(C.SECURITY_DISABLE, password),
+  securitySetTouchId: enabled => ipcRenderer.invoke(C.SECURITY_SET_TOUCH_ID, enabled),
   restoreBackup: backupPath => ipcRenderer.invoke(C.DB_RESTORE_BACKUP, backupPath),
   reload: () => ipcRenderer.invoke(C.DB_RELOAD),
   getDataPath: () => ipcRenderer.invoke(C.DB_GET_DATA_PATH),

@@ -76,3 +76,30 @@ test('keeps data across a relaunch', async () => {
   await ctx.page.locator('body').press(`${MOD}+Digit3`)
   await expect(ctx.page.getByRole('cell', { name: 'Smoke test node' })).toBeVisible()
 })
+
+test('encrypts from settings and survives a relaunch', async () => {
+  // Enable encryption in Settings > Security.
+  await ctx.page.getByRole('button', { name: 'Open settings menu' }).click()
+  await ctx.page.getByRole('button', { name: 'Security' }).click()
+  await ctx.page.getByTestId('enable-password').fill('e2e-recovery-pw')
+  await ctx.page.getByTestId('enable-password-confirm').fill('e2e-recovery-pw')
+  await ctx.page.getByRole('button', { name: 'Encrypt database' }).click()
+  await expect(ctx.page.getByText('Encryption enabled', { exact: false })).toBeVisible()
+
+  ctx = await ctx.relaunch()
+
+  // With a keychain (macOS) the relaunch unlocks silently; without one (CI
+  // Linux) the unlock screen appears and the recovery password opens the file.
+  const unlock = ctx.page.getByTestId('unlock-password')
+  try {
+    await unlock.waitFor({ timeout: 5000 })
+    await unlock.fill('e2e-recovery-pw')
+    await ctx.page.getByRole('button', { name: 'Unlock' }).click()
+  } catch {
+    // No unlock screen: the keychain slot opened the database.
+  }
+
+  await dismissOnboarding(ctx.page)
+  await ctx.page.locator('body').press(`${MOD}+Digit3`)
+  await expect(ctx.page.getByRole('cell', { name: 'Smoke test node' })).toBeVisible()
+})

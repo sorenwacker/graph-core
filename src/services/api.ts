@@ -40,6 +40,18 @@ declare global {
   }
 }
 
+export interface SecurityStatus {
+  state: 'plaintext' | 'encrypted' | 'locked' | 'unavailable'
+  keychainAvailable: boolean
+  touchIdAvailable: boolean
+  touchIdEnabled: boolean
+}
+
+export interface SecurityResult {
+  success: boolean
+  error?: string
+}
+
 interface ElectronAPI {
   getNodes(params?: GetNodesParams): Promise<(Node | null)[]>
   getNode(id: number): Promise<Node | null>
@@ -96,6 +108,11 @@ interface ElectronAPI {
   createWorkspace(data: CreateWorkspaceData): Promise<Workspace>
   updateWorkspace(id: WorkspaceId, data: UpdateWorkspaceData): Promise<Workspace>
   deleteWorkspace(id: WorkspaceId): Promise<void>
+  securityStatus(): Promise<SecurityStatus>
+  securityUnlock(password: string): Promise<SecurityResult>
+  securityEnable(password: string): Promise<SecurityResult>
+  securityDisable(password: string): Promise<SecurityResult>
+  securitySetTouchId(enabled: boolean): Promise<SecurityResult>
   backup(suffix?: string): Promise<{ path: string } | { error: string }>
   listBackups(): Promise<BackupInfo[]>
   restoreBackup(backupPath: string): Promise<{ success: boolean } | { error: string }>
@@ -498,6 +515,23 @@ const webApi: Api = {
     })
   },
 
+  // Security (Electron only; web mode data lives behind the HTTP API)
+  async securityStatus(): Promise<SecurityStatus> {
+    return { state: 'unavailable', keychainAvailable: false, touchIdAvailable: false, touchIdEnabled: false }
+  },
+  async securityUnlock(): Promise<SecurityResult> {
+    return { success: false, error: 'Encryption is only available in the desktop app' }
+  },
+  async securityEnable(): Promise<SecurityResult> {
+    return { success: false, error: 'Encryption is only available in the desktop app' }
+  },
+  async securityDisable(): Promise<SecurityResult> {
+    return { success: false, error: 'Encryption is only available in the desktop app' }
+  },
+  async securitySetTouchId(): Promise<SecurityResult> {
+    return { success: false, error: 'Encryption is only available in the desktop app' }
+  },
+
   // Database Backups & Reload (Electron only in web mode, these are stubs)
   async backup(): Promise<{ path: string } | { error: string }> {
     return { error: 'Backups only available in desktop app' }
@@ -787,6 +821,13 @@ const electronApi: Api = {
     window.electronAPI!.updateWorkspace(id, data),
 
   deleteWorkspace: (id: WorkspaceId): Promise<void> => window.electronAPI!.deleteWorkspace(id),
+
+  // Security - at-rest encryption
+  securityStatus: (): Promise<SecurityStatus> => window.electronAPI!.securityStatus(),
+  securityUnlock: (password: string): Promise<SecurityResult> => window.electronAPI!.securityUnlock(password),
+  securityEnable: (password: string): Promise<SecurityResult> => window.electronAPI!.securityEnable(password),
+  securityDisable: (password: string): Promise<SecurityResult> => window.electronAPI!.securityDisable(password),
+  securitySetTouchId: (enabled: boolean): Promise<SecurityResult> => window.electronAPI!.securitySetTouchId(enabled),
 
   // Database Backups & Reload
   backup: (suffix?: string): Promise<{ path: string } | { error: string }> => window.electronAPI!.backup(suffix),
