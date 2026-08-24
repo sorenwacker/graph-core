@@ -205,15 +205,15 @@ a:hover {
   pointer-events: auto;
 }
 
-/* Visible affordance: a slim vertical bar marking where to hover. */
+/* Visible affordance. The bar spans the whole active zone: what is marked is
+   exactly where the hover works, so there is no invisible hit area to miss. */
 .sidebar-trigger::after {
   content: '';
   position: absolute;
   left: 4px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 0;
   width: 4px;
-  height: 48px;
+  height: 100%;
   border-radius: 2px;
   background: var(--border-color);
   opacity: 0.7;
