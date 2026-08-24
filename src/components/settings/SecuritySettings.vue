@@ -70,6 +70,12 @@ async function toggleTouchId(event) {
 <template>
   <div v-if="status && status.state !== 'unavailable'" class="security-settings">
     <h3>Encryption at rest</h3>
+    <p class="status-line" data-testid="encryption-status">
+      <span class="status-badge" :class="status.state === 'encrypted' ? 'on' : 'off'">
+        {{ status.state === 'encrypted' ? 'ON' : 'OFF' }}
+      </span>
+      {{ status.state === 'encrypted' ? 'The database is encrypted on disk.' : 'The database is stored as plaintext.' }}
+    </p>
 
     <template v-if="status.state === 'plaintext'">
       <p class="setting-hint">
@@ -89,7 +95,6 @@ async function toggleTouchId(event) {
     </template>
 
     <template v-else-if="status.state === 'encrypted'">
-      <p class="setting-hint">The database is encrypted at rest.</p>
       <label v-if="status.touchIdAvailable" class="setting-row">
         <input type="checkbox" :checked="status.touchIdEnabled" @change="toggleTouchId" />
         Require Touch ID at startup
@@ -111,6 +116,32 @@ async function toggleTouchId(event) {
 </template>
 
 <style scoped>
+.status-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.status-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.status-badge.on {
+  background: var(--success-color, #22c55e);
+  color: #000;
+}
+
+.status-badge.off {
+  background: var(--bg-tertiary, #333);
+  color: var(--text-secondary, #999);
+}
+
 .security-settings h3 {
   margin: 0 0 8px;
   font-size: 14px;
