@@ -7,6 +7,12 @@ import SettingsPanel from '../components/SettingsPanel.vue'
 vi.mock('../services/api.js', () => ({
   api: {
     getDataPath: vi.fn().mockResolvedValue('/test/path'),
+    securityStatus: vi.fn().mockResolvedValue({
+      state: 'unavailable',
+      keychainAvailable: false,
+      touchIdAvailable: false,
+      touchIdEnabled: false,
+    }),
   },
 }))
 
