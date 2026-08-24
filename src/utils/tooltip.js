@@ -123,6 +123,9 @@ export function getTooltipPlacement(event) {
  * Uses fixed position at top-right corner of viewport
  */
 export const tooltipOptions = {
+  // Below the settings overlay (z-index 1100 in SettingsPanel.css): a tooltip
+  // must never paint over an open panel.
+  zIndex: 1000,
   allowHTML: true,
   interactive: true,
   interactiveBorder: 20,

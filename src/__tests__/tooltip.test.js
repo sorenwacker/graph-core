@@ -136,3 +136,14 @@ describe('Tooltip Utils', () => {
     })
   })
 })
+
+describe('tooltip stacking', () => {
+  it('keeps tooltips under the settings overlay', () => {
+    const { readFileSync } = require('fs')
+    const css = readFileSync('src/components/SettingsPanel.css', 'utf-8')
+    const overlayZ = Number(css.match(/z-index:\s*(\d+)/)[1])
+
+    expect(tooltipOptions.zIndex).toBeDefined()
+    expect(tooltipOptions.zIndex).toBeLessThan(overlayZ)
+  })
+})
