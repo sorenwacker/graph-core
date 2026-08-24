@@ -105,3 +105,19 @@ describe('SecuritySettings', () => {
     expect(api.securitySetTouchId).toHaveBeenCalledWith(true)
   })
 })
+
+describe('SecuritySettings status indication', () => {
+  it('shows ON when encryption is enabled', async () => {
+    api.securityStatus.mockResolvedValue({ state: 'encrypted', touchIdAvailable: false, touchIdEnabled: false })
+    const wrapper = mount(SecuritySettings)
+    await flushPromises()
+    expect(wrapper.find('[data-testid="encryption-status"]').text()).toContain('ON')
+  })
+
+  it('shows OFF when the database is plaintext', async () => {
+    api.securityStatus.mockResolvedValue({ state: 'plaintext', touchIdAvailable: false })
+    const wrapper = mount(SecuritySettings)
+    await flushPromises()
+    expect(wrapper.find('[data-testid="encryption-status"]').text()).toContain('OFF')
+  })
+})
