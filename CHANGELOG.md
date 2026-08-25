@@ -18,6 +18,9 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 ### Fixed
 
 - The Settings > Security panel shows the sensitive-notes section as soon as database encryption is enabled, without reopening the panel.
+- Sensitive notes re-mask when the session relocks: an open note that was decrypted is re-locked to a password prompt on idle relock or a manual lock, instead of staying visible.
+- The Settings > Security tab no longer shows three password fields at once. Each section shows at most one; disabling from an unlocked sensitive session needs no separate password.
+- Double-clicking the notes preview switches to the editor.
 
 ## [1.14.1] - 2026-08-24
 
