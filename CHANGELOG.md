@@ -2,6 +2,16 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
+## [1.15.0] - 2026-08-25
+
+### Added
+
+- Sensitive-note encryption, a second layer on top of database encryption ([design](docs/architecture/sensitive-notes.md)). A note marked sensitive is stored as ciphertext, decrypted only after you enter the recovery password, and only for an unlocked session that relocks after five idle minutes. This protects notes from a person at the running, unlocked app, which whole-file encryption cannot do because the database is plaintext in memory while the app runs. Enable it in Settings > Security once database encryption is on. Locked content stays out of search; titles remain searchable.
+
+### Fixed
+
+- The Settings > Security panel shows the sensitive-notes section as soon as database encryption is enabled, without reopening the panel.
+
 ## [1.14.1] - 2026-08-24
 
 ### Fixed
