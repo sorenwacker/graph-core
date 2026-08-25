@@ -2,6 +2,13 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
+## [Unreleased]
+
+### Fixed
+
+- Notes split view renders both panes again. The editor is a multi-root component, so a class passed by the parent was dropped and the editor pane collapsed while the preview took the space.
+- The split view has a draggable divider between the editor and preview; drag it to change the ratio, double-click it to reset. The ratio is remembered. The default is an even split.
+
 ## [1.15.0] - 2026-08-25
 
 ### Added
