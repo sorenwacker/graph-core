@@ -1,3 +1,4 @@
+import { ownsTextInput, ownsAllKeys } from '../utils/inputOwnership.js'
 import { viewModes } from '../utils/viewConfig.js'
 
 /**
@@ -91,32 +92,12 @@ export function useKeyboardShortcuts({ actions, state }) {
     gridColumns,
   } = state
 
-  function isEditableElement(target) {
-    return (
-      target.tagName === 'INPUT' ||
-      target.tagName === 'TEXTAREA' ||
-      target.tagName === 'SELECT' ||
-      target.isContentEditable ||
-      // Check if inside CodeMirror editor
-      target.closest?.('.cm-editor') !== null
-    )
-  }
+  // Text-entry surfaces own the plain keys; see utils/inputOwnership.js.
+  const isEditableElement = ownsTextInput
 
-  /**
-   * Report whether the event happened inside a surface that owns its own keys.
-   *
-   * The spreadsheet binds the plain keys this handler also claims, and AG Grid
-   * leaves focus on a cell element rather than an input once an edit is
-   * committed. Without this opt-out, Enter on a focused cell navigated the app
-   * into the selected node and the detail panel reloaded a different node's
-   * table, which reads as the table having lost every cell.
-   *
-   * @param {EventTarget} target - The key event's target.
-   * @returns {boolean} True when the target sits inside such a surface.
-   */
-  function isSelfManagedKeySurface(target) {
-    return target?.closest?.('.node-spreadsheet') != null
-  }
+  // Surfaces that own every key mark themselves with data-owns-keys; see
+  // utils/inputOwnership.js. The node spreadsheet is one such surface.
+  const isSelfManagedKeySurface = ownsAllKeys
 
   function isTextInput(target) {
     if (target.tagName === 'TEXTAREA' || target.isContentEditable) return true

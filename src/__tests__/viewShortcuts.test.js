@@ -15,7 +15,7 @@ let handleKeydown
 beforeEach(() => {
   document.body.innerHTML = `
     <div id="outside" tabindex="0"></div>
-    <div class="node-spreadsheet"><div id="cell" class="ag-cell"></div></div>
+    <div class="node-spreadsheet" data-owns-keys><div id="cell" class="ag-cell"></div></div>
     <input id="field" />
   `
   actions = {
