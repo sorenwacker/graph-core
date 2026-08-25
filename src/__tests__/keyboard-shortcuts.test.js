@@ -127,7 +127,7 @@ describe('Keyboard Shortcuts', () => {
 
     beforeEach(() => {
       document.body.innerHTML = `
-        <div class="node-spreadsheet">
+        <div class="node-spreadsheet" data-owns-keys>
           <div class="grid-wrapper" tabindex="0">
             <div id="cell" class="ag-cell" tabindex="-1"></div>
           </div>

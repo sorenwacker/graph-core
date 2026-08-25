@@ -534,7 +534,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="node-spreadsheet" tabindex="0">
+  <div class="node-spreadsheet" data-owns-keys tabindex="0">
     <div v-if="!tableData" class="no-table">
       <button class="create-table-btn" @click="createTable">+ Add Table</button>
     </div>

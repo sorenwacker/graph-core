@@ -264,6 +264,15 @@ Dependabot opens PRs weekly, with minor and patch updates grouped into one PR. M
 
 `src/__tests__/dependabotAutomerge.test.js` gates the workflow: it fails if the merge step stops requiring the patch/minor guard, drops `--auto`, or loses the Dependabot actor check.
 
+## Keyboard input ownership
+
+Global keyboard shortcuts live in `useKeyboardShortcuts`. They must stand down when a focused surface owns keyboard input, or a shortcut fires while the user is typing. That decision lives in one place, `utils/inputOwnership.js`, not in the shortcut handler:
+
+- `ownsTextInput(target)` is true for form fields, contenteditable, and CodeMirror. Text-sensitive shortcuts skip these.
+- `ownsAllKeys(target)` is true inside an element marked `data-owns-keys`. A surface that binds even plain navigation keys - the node spreadsheet is the current example - marks its root with that attribute, and every global shortcut skips it.
+
+When you add an input surface, do not add a case to the shortcut handler. Use standard form elements (recognised automatically) or, for a surface that owns every key, put `data-owns-keys` on its root. `src/__tests__/inputOwnership.test.js` gates the model.
+
 ## Releases
 
 Releases are tag-driven: pushing a semver tag runs `.github/workflows/release.yml`, pushing to `main` does not. A full release requires an existing pre-release for the same base version, so the order is `v1.12.0-rc.1` first, then `v1.12.0`.
