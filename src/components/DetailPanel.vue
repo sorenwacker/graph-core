@@ -60,10 +60,31 @@ const showSensitivePreview = ref(false)
 // Sensitive-notes reveal (docs/architecture/sensitive-notes.md). When a note's
 // content is stored ciphertext, revealing it takes the recovery password;
 // unlocking reloads the node so its notes come back decrypted.
-const { unlock: unlockSensitive, isLockedNote } = useSensitiveNotes()
+const { unlock: unlockSensitive, isLockedNote, status: sensitiveStatus } = useSensitiveNotes()
 const sensitiveUnlockPassword = ref('')
 const sensitiveUnlockError = ref('')
 const notesLocked = computed(() => isLockedNote(editedNode.value?.notes))
+
+// Re-mask an open sensitive note when the session relocks (idle timer or a
+// manual lock). editedNode holds a decrypted copy, so without this a locked
+// note keeps showing until you navigate away (docs/architecture/sensitive-notes.md).
+watch(
+  () => sensitiveStatus.value.unlocked,
+  async unlocked => {
+    if (!unlocked && editedNode.value?.notes_sensitive && props.node?.id) {
+      const fresh = await api.getNode(props.node.id)
+      if (fresh) editedNode.value = { ...fresh }
+      showSensitivePreview.value = false
+    }
+  }
+)
+
+// Double-clicking the rendered preview jumps to the editor, unless the note is
+// locked sensitive content (then the reveal prompt stays put).
+function onPreviewDoubleClick() {
+  if (notesLocked.value) return
+  activeTab.value = 'edit'
+}
 
 async function revealSensitive() {
   sensitiveUnlockError.value = ''
@@ -755,6 +776,7 @@ defineExpose({
                 class="notes-preview markdown-body"
                 tabindex="0"
                 @keydown="onPreviewKeydown"
+                @dblclick="onPreviewDoubleClick"
               >
                 <div v-if="notesLocked" class="sensitive-hidden">
                   <p>Sensitive notes locked</p>

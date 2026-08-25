@@ -71,11 +71,13 @@ function registerSensitiveNotesHandlers(ipcMain, ctx) {
     return { success: true }
   })
 
-  ipcMain.handle(SENSITIVE_DISABLE, (_event, password) => {
+  ipcMain.handle(SENSITIVE_DISABLE, () => {
     const db = getDb()
     const session = getSession()
     if (!session?.isEnabled()) return { success: false, error: 'Sensitive notes are not enabled' }
-    if (!session.unlock(password)) return { success: false, error: 'Wrong password' }
+    // The session must already be unlocked, so its key can decrypt every note
+    // back to plaintext. The unlock is the authentication; no separate password.
+    if (!session.isUnlocked()) return { success: false, error: 'Unlock sensitive notes first' }
     try {
       // Decrypt every sensitive note back to plaintext through the tested
       // toggle-off path, then drop the key. The display-masking flag stays.
