@@ -530,7 +530,7 @@
 }
 
 .notes-split .split-preview {
-  flex: 1 1 0;
+  /* flex set inline from the split ratio */
   min-width: 0;
   min-height: 0;
   overflow-y: auto;

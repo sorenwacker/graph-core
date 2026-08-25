@@ -838,7 +838,7 @@ defineExpose({
               </div>
 
               <div v-else ref="notesSplitEl" class="notes-split">
-                <div class="split-editor" :style="{ flex: '0 0 ' + splitRatio * 100 + '%' }">
+                <div class="split-editor" :style="{ flex: splitRatio + ' 1 0' }">
                   <NotesEditor
                     ref="notesEditorSplitRef"
                     :model-value="editedNode.notes"
@@ -859,6 +859,7 @@ defineExpose({
                 <div
                   ref="splitPreview"
                   class="notes-preview markdown-body split-preview"
+                  :style="{ flex: 1 - splitRatio + ' 1 0' }"
                   tabindex="0"
                   @keydown="onPreviewKeydown"
                   @scroll="syncPreviewToEditor"
