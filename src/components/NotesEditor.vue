@@ -1,4 +1,8 @@
 <script setup>
+// Multi-root component (editor container plus the mention dropdown). Without
+// this, a class passed by the parent (e.g. split-editor) is dropped, which
+// breaks the split-view flex layout. Route fallthrough attrs to the container.
+defineOptions({ inheritAttrs: false })
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { EditorState, EditorSelection, Prec } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from '@codemirror/view'
@@ -296,7 +300,7 @@ defineExpose({ getSelection, replaceSelection, getScrollElement, getScrollInfo, 
 </script>
 
 <template>
-  <div ref="container" class="cm-container"></div>
+  <div ref="container" class="cm-container" v-bind="$attrs"></div>
   <!-- @person mention autocomplete (teleports itself to body) -->
   <MentionDropdown
     v-if="showMentions"
