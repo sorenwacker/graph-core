@@ -67,18 +67,22 @@ describe('SensitiveNotesSettings', () => {
     expect(api.sensitiveLock).toHaveBeenCalled()
   })
 
-  it('requires the password to disable', async () => {
+  it('disables from the unlocked session without a separate password', async () => {
     api.sensitiveStatus.mockResolvedValue({ available: true, enabled: true, unlocked: true })
     api.sensitiveDisable.mockResolvedValue({ success: true })
     const wrapper = mount(SensitiveNotesSettings)
     await flushPromises()
 
-    await wrapper.find('[data-testid="sensitive-disable-password"]').setValue('recovery-pw')
-    await wrapper
-      .findAll('button')
-      .find(b => b.text() === 'Disable')
-      .trigger('click')
+    expect(wrapper.find('[data-testid="sensitive-disable-password"]').exists()).toBe(false)
+    await wrapper.find('[data-testid="sensitive-disable"]').trigger('click')
     await flushPromises()
-    expect(api.sensitiveDisable).toHaveBeenCalledWith('recovery-pw')
+    expect(api.sensitiveDisable).toHaveBeenCalled()
+  })
+
+  it('shows at most one password field, never three', async () => {
+    api.sensitiveStatus.mockResolvedValue({ available: true, enabled: true, unlocked: false })
+    const wrapper = mount(SensitiveNotesSettings)
+    await flushPromises()
+    expect(wrapper.findAll('input[type="password"]').length).toBe(1)
   })
 })

@@ -63,8 +63,9 @@ async function run(fn, okMessage) {
       </div>
     </template>
 
-    <template v-else>
-      <div v-if="!status.unlocked" class="setting-row">
+    <template v-else-if="!status.unlocked">
+      <p class="setting-hint">Enter the recovery password to reveal sensitive notes for this session.</p>
+      <div class="setting-row">
         <input
           v-model="password"
           type="password"
@@ -75,18 +76,18 @@ async function run(fn, okMessage) {
           Unlock
         </button>
       </div>
-      <div v-else class="setting-row">
-        <button :disabled="busy" @click="lock" data-testid="sensitive-lock">Lock now</button>
-      </div>
+    </template>
+
+    <template v-else>
+      <p class="setting-hint">Sensitive notes are readable for this session. Lock them or turn the feature off.</p>
       <div class="setting-row">
-        <input
-          v-model="password"
-          type="password"
-          placeholder="Recovery password"
-          data-testid="sensitive-disable-password"
-        />
-        <button :disabled="busy || !password" @click="run(disable, 'Sensitive-note encryption disabled.')">
-          Disable
+        <button :disabled="busy" @click="lock" data-testid="sensitive-lock">Lock now</button>
+        <button
+          :disabled="busy"
+          @click="run(disable, 'Sensitive-note encryption disabled.')"
+          data-testid="sensitive-disable"
+        >
+          Disable encryption
         </button>
       </div>
     </template>
