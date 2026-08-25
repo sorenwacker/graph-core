@@ -10,6 +10,7 @@ import './themes/light.css'
 import App from './App.vue'
 import DetachedView from './components/DetachedView.vue'
 import UnlockScreen from './components/UnlockScreen.vue'
+import CaptureView from './components/CaptureView.vue'
 import { api } from './services/api'
 import { initSettings, migrateSettingsToDatabase } from './composables/useSettings'
 
@@ -17,6 +18,13 @@ const pinia = createPinia()
 
 // Initialize settings from database before mounting app
 async function bootstrap() {
+  // The quick-capture window is a lightweight input; mount it directly without
+  // the full app bootstrap (docs/guides/quick-capture.md).
+  if (new URLSearchParams(window.location.search).get('capture')) {
+    createApp(CaptureView).use(pinia).mount('#app')
+    return
+  }
+
   // An encrypted database this machine cannot open silently blocks everything
   // else: mount only the unlock screen, which reloads the window on success
   // (docs/architecture/encryption.md, "Unlock flow").

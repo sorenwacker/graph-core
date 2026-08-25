@@ -58,6 +58,11 @@ export interface SensitiveStatus {
   unlocked: boolean
 }
 
+export interface CaptureConfig {
+  enabled: boolean
+  accelerator: string
+}
+
 interface ElectronAPI {
   getNodes(params?: GetNodesParams): Promise<(Node | null)[]>
   getNode(id: number): Promise<Node | null>
@@ -125,6 +130,10 @@ interface ElectronAPI {
   sensitiveLock(): Promise<SecurityResult>
   sensitiveDisable(password: string): Promise<SecurityResult>
   onSensitiveLocked(callback: () => void): () => void
+  hideCapture(): Promise<void>
+  captureGetConfig(): Promise<CaptureConfig>
+  captureSetConfig(config: CaptureConfig): Promise<SecurityResult>
+  onCaptureSaved(callback: () => void): () => void
   backup(suffix?: string): Promise<{ path: string } | { error: string }>
   listBackups(): Promise<BackupInfo[]>
   restoreBackup(backupPath: string): Promise<{ success: boolean } | { error: string }>
@@ -561,6 +570,16 @@ const webApi: Api = {
   onSensitiveLocked(): () => void {
     return () => {}
   },
+  async hideCapture(): Promise<void> {},
+  async captureGetConfig(): Promise<CaptureConfig> {
+    return { enabled: false, accelerator: '' }
+  },
+  async captureSetConfig(): Promise<SecurityResult> {
+    return { success: false, error: 'Quick capture is only available in the desktop app' }
+  },
+  onCaptureSaved(): () => void {
+    return () => {}
+  },
 
   // Database Backups & Reload (Electron only in web mode, these are stubs)
   async backup(): Promise<{ path: string } | { error: string }> {
@@ -864,6 +883,10 @@ const electronApi: Api = {
   sensitiveLock: (): Promise<SecurityResult> => window.electronAPI!.sensitiveLock(),
   sensitiveDisable: (password: string): Promise<SecurityResult> => window.electronAPI!.sensitiveDisable(password),
   onSensitiveLocked: (callback: () => void): (() => void) => window.electronAPI!.onSensitiveLocked(callback),
+  hideCapture: (): Promise<void> => window.electronAPI!.hideCapture(),
+  captureGetConfig: (): Promise<CaptureConfig> => window.electronAPI!.captureGetConfig(),
+  captureSetConfig: (config: CaptureConfig): Promise<SecurityResult> => window.electronAPI!.captureSetConfig(config),
+  onCaptureSaved: (callback: () => void): (() => void) => window.electronAPI!.onCaptureSaved(callback),
 
   // Database Backups & Reload
   backup: (suffix?: string): Promise<{ path: string } | { error: string }> => window.electronAPI!.backup(suffix),

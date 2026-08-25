@@ -8,6 +8,7 @@ import AISettings from './settings/AISettings.vue'
 import DataSettings from './settings/DataSettings.vue'
 import SecuritySettings from './settings/SecuritySettings.vue'
 import SensitiveNotesSettings from './settings/SensitiveNotesSettings.vue'
+import QuickCaptureSettings from './settings/QuickCaptureSettings.vue'
 import AboutSettings from './settings/AboutSettings.vue'
 
 const { handleError } = useErrorHandler()
@@ -147,6 +148,7 @@ onMounted(async () => {
           @update:inherit-colors="emit('update:inheritColors', $event)"
           @update:show-hint-bar="emit('update:showHintBar', $event)"
         />
+        <QuickCaptureSettings />
       </div>
 
       <div v-if="activeTab === 'ai'" class="settings-grid">

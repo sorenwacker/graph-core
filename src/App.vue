@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { api } from './services/api.js'
 import { handleExternalLinkClick } from './utils/markdown.js'
 import { STORAGE_KEYS } from './utils/uiConstants.js'
@@ -533,6 +533,16 @@ const {
     if (!autoSave) await loadChildren(currentContainerId.value)
   },
 })
+
+// Refresh the current view when the quick-capture window saves a note
+// (docs/guides/quick-capture.md), so the new root item appears.
+let unsubCaptureSaved = null
+onMounted(() => {
+  unsubCaptureSaved = window.electronAPI?.onCaptureSaved?.(() => {
+    refreshAfterChange()
+  })
+})
+onUnmounted(() => unsubCaptureSaved?.())
 
 // Refresh operations
 const {

@@ -21,7 +21,14 @@ const { registerSecurityHandlers, readSecurityConfig } = require('./ipc/security
 const { createKeyManager } = require('./database/keyManager')
 const { registerSensitiveNotesHandlers, SENSITIVE_SETTINGS_KEY } = require('./ipc/sensitiveNotes')
 const { createSensitiveSession } = require('./database/sensitiveSession')
-const { SENSITIVE_LOCKED_EVENT } = require('./ipcChannels')
+const {
+  SENSITIVE_LOCKED_EVENT,
+  CAPTURE_HIDE,
+  CAPTURE_SAVED_EVENT,
+  CAPTURE_GET_CONFIG,
+  CAPTURE_SET_CONFIG,
+} = require('./ipcChannels')
+const { createQuickCapture, DEFAULT_ACCELERATOR } = require('./quickCapture')
 const { isEncrypted } = require('./database/encryption')
 
 let mainWindow
@@ -316,7 +323,48 @@ app.whenReady().then(async () => {
       db.sensitiveSession = sensitiveSession
     }
     registerDatabaseHandlers(ipcMain, db)
+    setupQuickCapture()
     return db
+  }
+
+  // Quick capture (docs/guides/quick-capture.md): a global hotkey and reusable
+  // capture window. Registered after the database is available so the
+  // accelerator setting can be read on an unlocked database.
+  let quickCapture = null
+  function setupQuickCapture() {
+    if (quickCapture) {
+      quickCapture.register()
+      return
+    }
+    quickCapture = createQuickCapture({
+      getAccelerator: () => (db ? db.getSetting('quickCaptureAccelerator') : null),
+    })
+    applyCaptureRegistration()
+    ipcMain.handle(CAPTURE_HIDE, () => {
+      quickCapture.hide()
+      // Tell the main window to refresh so the captured note appears.
+      for (const w of BrowserWindow.getAllWindows()) w.webContents.send(CAPTURE_SAVED_EVENT)
+    })
+    ipcMain.handle(CAPTURE_GET_CONFIG, () => ({
+      enabled: db.getSetting('quickCaptureEnabled') !== 'false',
+      accelerator: db.getSetting('quickCaptureAccelerator') || DEFAULT_ACCELERATOR,
+    }))
+    ipcMain.handle(CAPTURE_SET_CONFIG, (_event, { enabled, accelerator }) => {
+      db.setSetting('quickCaptureEnabled', enabled ? 'true' : 'false')
+      if (accelerator) db.setSetting('quickCaptureAccelerator', accelerator)
+      const ok = applyCaptureRegistration()
+      return { success: ok || !enabled, registered: ok }
+    })
+  }
+
+  // Register the hotkey when enabled, else clear it. Returns whether a hotkey
+  // is now active.
+  function applyCaptureRegistration() {
+    if (db.getSetting('quickCaptureEnabled') === 'false') {
+      quickCapture.unregister()
+      return false
+    }
+    return quickCapture.register()
   }
 
   // Silent unlock attempt: keychain slot, optionally gated by Touch ID.
@@ -388,6 +436,11 @@ app.whenReady().then(async () => {
       createWindow()
     }
   })
+})
+
+app.on('will-quit', () => {
+  const { globalShortcut } = require('electron')
+  globalShortcut.unregisterAll()
 })
 
 app.on('window-all-closed', () => {

@@ -100,6 +100,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on(C.SENSITIVE_LOCKED_EVENT, callback)
     return () => ipcRenderer.removeListener(C.SENSITIVE_LOCKED_EVENT, callback)
   },
+
+  // Quick capture
+  hideCapture: () => ipcRenderer.invoke(C.CAPTURE_HIDE),
+  captureGetConfig: () => ipcRenderer.invoke(C.CAPTURE_GET_CONFIG),
+  captureSetConfig: config => ipcRenderer.invoke(C.CAPTURE_SET_CONFIG, config),
+  onCaptureSaved: callback => {
+    ipcRenderer.on(C.CAPTURE_SAVED_EVENT, callback)
+    return () => ipcRenderer.removeListener(C.CAPTURE_SAVED_EVENT, callback)
+  },
   restoreBackup: backupPath => ipcRenderer.invoke(C.DB_RESTORE_BACKUP, backupPath),
   reload: () => ipcRenderer.invoke(C.DB_RELOAD),
   getDataPath: () => ipcRenderer.invoke(C.DB_GET_DATA_PATH),
