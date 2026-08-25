@@ -181,6 +181,12 @@ const SENSITIVE_LOCK = 'sensitive:lock'
 const SENSITIVE_DISABLE = 'sensitive:disable'
 const SENSITIVE_LOCKED_EVENT = 'sensitive:locked'
 
+// Quick capture
+const CAPTURE_HIDE = 'capture:hide'
+const CAPTURE_SAVED_EVENT = 'capture:saved'
+const CAPTURE_GET_CONFIG = 'capture:getConfig'
+const CAPTURE_SET_CONFIG = 'capture:setConfig'
+
 const APP_QUIT_SAVE_DONE = 'app:quitSaveDone'
 
 // ===========================================
@@ -322,6 +328,10 @@ module.exports = {
   SENSITIVE_LOCK,
   SENSITIVE_DISABLE,
   SENSITIVE_LOCKED_EVENT,
+  CAPTURE_HIDE,
+  CAPTURE_SAVED_EVENT,
+  CAPTURE_GET_CONFIG,
+  CAPTURE_SET_CONFIG,
 
   // App
   APP_QUIT_SAVE_DONE,

@@ -14,6 +14,7 @@ vi.mock('../services/api.js', () => ({
       touchIdEnabled: false,
     }),
     sensitiveStatus: vi.fn().mockResolvedValue({ available: false, enabled: false, unlocked: false }),
+    captureGetConfig: vi.fn().mockResolvedValue({ enabled: false, accelerator: 'CommandOrControl+Shift+N' }),
     onSensitiveLocked: vi.fn(() => () => {}),
   },
 }))

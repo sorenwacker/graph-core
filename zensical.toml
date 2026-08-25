@@ -22,6 +22,7 @@ nav = [
     { "Linking Nodes" = "guides/linking.md" },
     { "Drag and Drop" = "guides/drag-drop.md" },
     { "Search" = "guides/search.md" },
+    { "Quick capture" = "guides/quick-capture.md" },
     { "Workspaces" = "guides/workspaces.md" },
     { "Demo Workspace" = "guides/demo-workspace.md" },
     { "AI Notes" = "guides/ai-notes.md" },

@@ -273,6 +273,10 @@ export interface Api {
   sensitiveLock(): Promise<{ success: boolean; error?: string }>
   sensitiveDisable(password: string): Promise<{ success: boolean; error?: string }>
   onSensitiveLocked(callback: () => void): () => void
+  hideCapture(): Promise<void>
+  captureGetConfig(): Promise<{ enabled: boolean; accelerator: string }>
+  captureSetConfig(config: { enabled: boolean; accelerator: string }): Promise<{ success: boolean; error?: string }>
+  onCaptureSaved(callback: () => void): () => void
 
   backup?(suffix?: string): Promise<{ path: string } | { error: string }>
   listBackups?(): Promise<BackupInfo[]>
