@@ -86,6 +86,39 @@ function onPreviewDoubleClick() {
   activeTab.value = 'edit'
 }
 
+// Resizable split view: the editor's width fraction, drag-adjustable and
+// persisted. Explicit sizing here replaces flexing both panes equally.
+const notesSplitEl = ref(null)
+const SPLIT_RATIO_KEY = 'detail-split-ratio'
+function loadSplitRatio() {
+  const v = parseFloat(localStorage.getItem(SPLIT_RATIO_KEY))
+  return v >= 0.2 && v <= 0.8 ? v : 0.5
+}
+const splitRatio = ref(loadSplitRatio())
+let splitDragging = false
+
+function onSplitDrag(e) {
+  if (!splitDragging || !notesSplitEl.value) return
+  const rect = notesSplitEl.value.getBoundingClientRect()
+  const r = (e.clientX - rect.left) / rect.width
+  splitRatio.value = Math.min(0.8, Math.max(0.2, r))
+}
+
+function endSplitDrag() {
+  if (!splitDragging) return
+  splitDragging = false
+  window.removeEventListener('pointermove', onSplitDrag)
+  window.removeEventListener('pointerup', endSplitDrag)
+  localStorage.setItem(SPLIT_RATIO_KEY, String(splitRatio.value))
+}
+
+function startSplitDrag(e) {
+  splitDragging = true
+  e.preventDefault()
+  window.addEventListener('pointermove', onSplitDrag)
+  window.addEventListener('pointerup', endSplitDrag)
+}
+
 async function revealSensitive() {
   sensitiveUnlockError.value = ''
   const result = await unlockSensitive(sensitiveUnlockPassword.value)
@@ -230,6 +263,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
+  endSplitDrag()
   // Clear autosave timeout
   if (notesAutosaveTimeout) {
     clearTimeout(notesAutosaveTimeout)
@@ -803,17 +837,25 @@ defineExpose({
                 <p v-else class="placeholder">No notes yet</p>
               </div>
 
-              <div v-else class="notes-split">
-                <NotesEditor
-                  ref="notesEditorSplitRef"
-                  :model-value="editedNode.notes"
-                  :workspace-id="currentWorkspace"
-                  :node-id="props.node?.id ?? null"
-                  @update:model-value="onCodeMirrorNotesUpdate"
-                  @blur="saveChanges"
-                  @mention-inserted="loadLinkedNodes"
-                  class="notes-codemirror split-editor"
-                />
+              <div v-else ref="notesSplitEl" class="notes-split">
+                <div class="split-editor" :style="{ flex: '0 0 ' + splitRatio * 100 + '%' }">
+                  <NotesEditor
+                    ref="notesEditorSplitRef"
+                    :model-value="editedNode.notes"
+                    :workspace-id="currentWorkspace"
+                    :node-id="props.node?.id ?? null"
+                    @update:model-value="onCodeMirrorNotesUpdate"
+                    @blur="saveChanges"
+                    @mention-inserted="loadLinkedNodes"
+                    class="notes-codemirror"
+                  />
+                </div>
+                <div
+                  class="split-divider"
+                  title="Drag to resize"
+                  @pointerdown="startSplitDrag"
+                  @dblclick="splitRatio = 0.5"
+                ></div>
                 <div
                   ref="splitPreview"
                   class="notes-preview markdown-body split-preview"

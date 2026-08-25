@@ -50,7 +50,7 @@ The notes section supports full Markdown editing.
 |------|-------------|
 | Edit | Raw Markdown editor with syntax highlighting |
 | Preview | Rendered Markdown output |
-| Split | Side-by-side edit and preview |
+| Split | Side-by-side edit and preview; drag the divider to change the ratio, double-click it to reset |
 
 **Features:**
 
