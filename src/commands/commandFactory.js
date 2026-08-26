@@ -4,6 +4,7 @@ import { DeleteMultipleCommand } from './DeleteMultipleCommand.js'
 import { EditCommand } from './EditCommand.js'
 import { MoveCommand } from './MoveCommand.js'
 import { CompleteCommand } from './CompleteCommand.js'
+import { MoveMultipleCommand } from './MoveMultipleCommand.js'
 import { LinkCommand } from './LinkCommand.js'
 import { UnlinkCommand } from './UnlinkCommand.js'
 import { ReorderCommand } from './ReorderCommand.js'
@@ -19,6 +20,7 @@ const commandRegistry = {
   edit: EditCommand,
   move: MoveCommand,
   complete: CompleteCommand,
+  'move-multiple': MoveMultipleCommand,
   link: LinkCommand,
   unlink: UnlinkCommand,
   reorder: ReorderCommand,

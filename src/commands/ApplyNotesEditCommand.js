@@ -32,6 +32,10 @@ export class ApplyNotesEditCommand extends Command {
     }
   }
 
+  remapNodeId(oldId, newId) {
+    if (this.nodeId === oldId) this.nodeId = newId
+  }
+
   getDescription() {
     // Guard against a missing prompt (e.g. reconstructed via fromJSON without one),
     // mirroring the optional-field handling in the sibling commands.
