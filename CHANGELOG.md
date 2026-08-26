@@ -2,6 +2,13 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
+## [Unreleased]
+
+### Changed
+
+- The rule deciding whether a focused surface owns the keyboard now lives only in `utils/inputOwnership.js`. The shortcut handler kept a second copy that had already drifted from it: the private one knew a checkbox is not a text field, the shared one knew about select elements, code editors and contenteditable ancestors, and which rule applied depended on which key was pressed. Both rules are merged, and a test keeps the decision in one place.
+- Removed nine timing constants that nothing referenced. A test now fails if an unused one is added back, so the file stays a record of values that actually govern behaviour.
+
 ## [1.16.0] - 2026-08-26
 
 ### Added
