@@ -6,6 +6,7 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Fixed
 
+- The detached window no longer shows controls that do nothing. Pin, fullscreen, detach and the link-search buttons acted on the main window, which a detached window does not have, so three of them were wired to empty handlers and detach was not handled at all.
 - Shift-clicking a card selects it. Cards View emitted the node on its own where the handler expects an options object, so the handler read undefined and selected nothing ([reference](docs/reference/interactions.md)).
 - Clicking the notes on a nested card opens them for editing. The notes swallowed the click and emitted an event nothing was listening for, so nothing happened at all.
 - The tooltip completion checkbox works in Table View. It emitted a node id where every consumer of that event expects a node.

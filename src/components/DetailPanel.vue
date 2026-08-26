@@ -20,6 +20,9 @@ const props = defineProps({
   node: Object,
   width: { type: Number, default: 400 },
   fullscreen: { type: Boolean, default: false },
+  // Rendered inside its own window. Pin, fullscreen, detach and link search
+  // have no host to act on there, so they are hidden rather than shown inert.
+  detached: { type: Boolean, default: false },
   hideCompleted: { type: Boolean, default: false },
   pinned: { type: Boolean, default: false },
   workspaces: { type: Array, default: () => [] },
@@ -660,6 +663,7 @@ defineExpose({
           <input type="checkbox" :checked="editedNode.completed" @change="onCompletedChange" />
         </label>
         <button
+          v-if="!detached"
           class="pin-btn"
           :class="{ active: pinned }"
           @click="$emit('toggle-pin')"
@@ -670,7 +674,7 @@ defineExpose({
           {{ pinned ? '&#128205;' : '&#128204;' }}
         </button>
         <button
-          v-if="isElectron"
+          v-if="isElectron && !detached"
           class="detach-btn"
           @click="$emit('detach', props.node)"
           title="Open in new window"
@@ -692,6 +696,7 @@ defineExpose({
           </svg>
         </button>
         <button
+          v-if="!detached"
           class="fullscreen-btn"
           @click="$emit('toggle-fullscreen')"
           :title="fullscreen ? 'Exit fullscreen' : 'Fullscreen'"
@@ -932,6 +937,7 @@ defineExpose({
 
             <!-- Metadata Section -->
             <MetadataGridSection
+              :detached="detached"
               :edited-node="editedNode"
               :linked-nodes="linkedNodes"
               :workspaces="workspaces"
