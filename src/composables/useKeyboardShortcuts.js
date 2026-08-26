@@ -99,15 +99,6 @@ export function useKeyboardShortcuts({ actions, state }) {
   // utils/inputOwnership.js. The node spreadsheet is one such surface.
   const isSelfManagedKeySurface = ownsAllKeys
 
-  function isTextInput(target) {
-    if (target.tagName === 'TEXTAREA' || target.isContentEditable) return true
-    if (target.tagName === 'INPUT') {
-      const type = target.type?.toLowerCase()
-      return !['checkbox', 'radio', 'button', 'submit', 'reset'].includes(type)
-    }
-    return false
-  }
-
   function hasNoModifiers(e) {
     return !e.metaKey && !e.ctrlKey && !e.altKey
   }
@@ -168,7 +159,7 @@ export function useKeyboardShortcuts({ actions, state }) {
 
     // Space - toggle detail panel (works in table view even when checkbox is focused)
     // Shift+Space opens in detached window (Electron only)
-    if (e.key === ' ' && !isTextInput(e.target)) {
+    if (e.key === ' ' && !isEditableElement(e.target)) {
       e.preventDefault()
       if (e.shiftKey && selectedNode.value && openDetachedWindow) {
         openDetachedWindow(selectedNode.value)
@@ -180,7 +171,7 @@ export function useKeyboardShortcuts({ actions, state }) {
 
     // Enter - navigate into selected node (view subgraph)
     // Shift+Enter - navigate to parent
-    if (e.key === 'Enter' && !isTextInput(e.target)) {
+    if (e.key === 'Enter' && !isEditableElement(e.target)) {
       e.preventDefault()
       if (e.shiftKey) {
         goToParent()
