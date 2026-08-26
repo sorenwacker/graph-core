@@ -123,6 +123,42 @@ function createTableOperations(ctx) {
     },
 
     /**
+     * Delete a column and the cells that belong to it, keeping the two in step.
+     *
+     * Cells are addressed by position, so removing a column definition without
+     * touching the cell store leaves every column to the right showing its
+     * neighbour's data and strands the last column's cells. Both changes happen
+     * in one batch.
+     *
+     * @param {number} nodeId - Node ID
+     * @param {number} colIndex - Zero-based index of the column to delete
+     * @returns {Object} Success status and the remaining column count
+     * @throws {Error} If the table is missing, the index is out of range, or it
+     *   is the last remaining column.
+     */
+    deleteTableColumn(nodeId, colIndex) {
+      const table = this.getNodeTable(nodeId)
+      if (!table) throw new Error('Table not found')
+
+      const columns = table.column_definitions || []
+      if (!Number.isInteger(colIndex) || colIndex < 0 || colIndex >= columns.length) {
+        throw new Error(`Column index ${colIndex} is out of range`)
+      }
+      if (columns.length <= 1) throw new Error('Cannot delete the last remaining column')
+
+      return ctx._batch(() => {
+        ctx._run('DELETE FROM node_table_cells WHERE table_id = ? AND col_index = ?', [table.id, colIndex])
+        ctx._run('UPDATE node_table_cells SET col_index = col_index - 1 WHERE table_id = ? AND col_index > ?', [
+          table.id,
+          colIndex,
+        ])
+        const remaining = columns.filter((_, i) => i !== colIndex)
+        ctx._run('UPDATE node_tables SET column_definitions = ? WHERE id = ?', [JSON.stringify(remaining), table.id])
+        return { success: true, columns: remaining.length }
+      })
+    },
+
+    /**
      * Set cells for a node's table (upsert).
      * @param {number} nodeId - Node ID
      * @param {Array} cells - Cell data array
@@ -136,7 +172,16 @@ function createTableOperations(ctx) {
 
       let updated = 0
       for (const cell of cells) {
-        const styleJson = cell.style ? JSON.stringify(cell.style) : null
+        // INSERT OR REPLACE rewrites the whole row, so a caller that sends only
+        // a value would blank the style and vice versa. Value and style arrive
+        // from separate UI events, so merge with what is stored and let the
+        // caller clear a field only by naming it explicitly.
+        const existing = ctx._get(
+          'SELECT value, formula, computed_value, style FROM node_table_cells WHERE table_id = ? AND row_index = ? AND col_index = ?',
+          [table.id, cell.row_index, cell.col_index]
+        )
+        const merge = (field, incoming) => (field in cell ? incoming : (existing?.[field] ?? null))
+        const styleJson = 'style' in cell ? (cell.style ? JSON.stringify(cell.style) : null) : (existing?.style ?? null)
 
         ctx.db.run(
           `INSERT OR REPLACE INTO node_table_cells (table_id, row_index, col_index, value, formula, computed_value, style)
@@ -145,9 +190,9 @@ function createTableOperations(ctx) {
             table.id,
             cell.row_index,
             cell.col_index,
-            cell.value || null,
-            cell.formula || null,
-            cell.computed_value || null,
+            merge('value', cell.value ?? null),
+            merge('formula', cell.formula ?? null),
+            merge('computed_value', cell.computed_value ?? null),
             styleJson,
           ]
         )

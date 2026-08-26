@@ -77,6 +77,26 @@ export function useNodeTable() {
   }
 
   /**
+   * Delete one column and the cells belonging to it.
+   *
+   * Goes through a dedicated operation rather than writing replacement
+   * column_definitions, because cells are addressed by position: removing a
+   * definition on its own shifts every column's data left.
+   *
+   * @param {number} nodeId - Node ID
+   * @param {number} colIndex - Zero-based index of the column to delete
+   */
+  async function deleteTableColumn(nodeId, colIndex) {
+    try {
+      await api.deleteTableColumn(nodeId, colIndex)
+      await loadTable(nodeId)
+    } catch (err) {
+      handleError(err, { context: 'Deleting column' })
+      error.value = err.message
+    }
+  }
+
+  /**
    * Delete the table for a node
    * @param {number} nodeId - Node ID
    */
@@ -192,5 +212,6 @@ export function useNodeTable() {
     deleteTable,
     saveCell,
     saveCellStyle,
+    deleteTableColumn,
   }
 }

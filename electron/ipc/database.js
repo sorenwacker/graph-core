@@ -77,6 +77,7 @@ const {
   DB_DELETE_NODE_TABLE,
   DB_GET_TABLE_CELLS,
   DB_SET_CELLS,
+  DB_DELETE_TABLE_COLUMN,
   DB_CLEAR_CELLS,
   // Settings
   DB_GET_SETTING,
@@ -191,6 +192,7 @@ function registerDatabaseHandlers(ipcMain, db) {
   ipcMain.handle(DB_DELETE_NODE_TABLE, (_event, nodeId) => db.deleteNodeTable(nodeId))
   ipcMain.handle(DB_GET_TABLE_CELLS, (_event, nodeId) => db.getTableCells(nodeId))
   ipcMain.handle(DB_SET_CELLS, (_event, nodeId, cells) => db.setCells(nodeId, cells))
+  ipcMain.handle(DB_DELETE_TABLE_COLUMN, (_event, nodeId, colIndex) => db.deleteTableColumn(nodeId, colIndex))
   ipcMain.handle(DB_CLEAR_CELLS, (_event, nodeId) => db.clearCells(nodeId))
 
   // Settings
