@@ -4,6 +4,10 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- Search ranks title matches above notes matches ([guide](docs/guides/search.md#ranking)), in four tiers: exact title, title prefix, title contains, then notes-only. Within a tier the most recently updated node still comes first. Searching for a person now returns that person before the meeting notes mentioning them; previously results were ordered by modification date alone, so a recently edited note outranked the node the query named.
+
 ### Fixed
 
 - Metadata uses the full width in fullscreen and detached mode. The bottom sections were laid out as a flex column there, so the width percentages resolved against the height and Table, Tasks and Metadata each shrank to their minimum width, leaving most of the window empty.
