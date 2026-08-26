@@ -5,6 +5,10 @@
  */
 
 const { app } = require('electron')
+const { SENSITIVE_SETTINGS_KEY } = require('./sensitiveNotes')
+
+/** Settings the renderer may neither read nor write; see the Settings section below. */
+const PROTECTED_SETTINGS = new Set([SENSITIVE_SETTINGS_KEY])
 const {
   // Node CRUD
   DB_GET_NODES,
@@ -194,11 +198,38 @@ function registerDatabaseHandlers(ipcMain, db) {
   ipcMain.handle(DB_CLEAR_CELLS, (_event, nodeId) => db.clearCells(nodeId))
 
   // Settings
-  ipcMain.handle(DB_GET_SETTING, (_event, key) => db.getSetting(key))
-  ipcMain.handle(DB_GET_ALL_SETTINGS, () => db.getAllSettings())
-  ipcMain.handle(DB_SET_SETTING, (_event, key, value) => db.setSetting(key, value))
-  ipcMain.handle(DB_SET_SETTINGS, (_event, settings) => db.setSettings(settings))
-  ipcMain.handle(DB_DELETE_SETTING, (_event, key) => db.deleteSetting(key))
+  //
+  // The wrapped sensitive-notes key is stored as a setting but is main-process
+  // material: reading it hands the renderer the wrapper around the note key,
+  // and writing or deleting it makes every sensitive note permanently
+  // unreadable. The generic settings channels therefore do not carry it.
+  // Enabling and disabling go through the sensitive-notes handlers instead.
+  const rejectProtected = key => {
+    if (PROTECTED_SETTINGS.has(key)) {
+      throw new Error(`Setting "${key}" is managed by the main process and cannot be changed from the renderer`)
+    }
+  }
+
+  ipcMain.handle(DB_GET_SETTING, (_event, key) => (PROTECTED_SETTINGS.has(key) ? null : db.getSetting(key)))
+  ipcMain.handle(DB_GET_ALL_SETTINGS, () => {
+    const settings = db.getAllSettings()
+    for (const key of PROTECTED_SETTINGS) delete settings[key]
+    return settings
+  })
+  ipcMain.handle(DB_SET_SETTING, (_event, key, value) => {
+    rejectProtected(key)
+    return db.setSetting(key, value)
+  })
+  ipcMain.handle(DB_SET_SETTINGS, (_event, settings) => {
+    // Reject the whole write rather than applying it in part, so a caller that
+    // includes a protected key learns about it instead of half-succeeding.
+    Object.keys(settings || {}).forEach(rejectProtected)
+    return db.setSettings(settings)
+  })
+  ipcMain.handle(DB_DELETE_SETTING, (_event, key) => {
+    rejectProtected(key)
+    return db.deleteSetting(key)
+  })
 }
 
 module.exports = { registerDatabaseHandlers }
