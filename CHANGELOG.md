@@ -2,6 +2,14 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
+## [Unreleased]
+
+### Fixed
+
+- Turning sensitive notes off no longer destroys trashed notes ([design](docs/architecture/sensitive-notes.md#turning-the-feature-off)). The sweep decrypted notes through a path that filters out soft-deleted rows, so a sensitive note in the trash kept its ciphertext while the only key that could read it was deleted. It now decrypts every note, including trashed ones, and the sweep plus the key deletion happen in one batch, so a note that fails to decrypt leaves the feature enabled instead of half-disabling it.
+- Enabling sensitive notes verifies the recovery password before wrapping the key under it. A typo previously produced notes that could only be opened with the mistyped password.
+- A sensitive note that cannot be decrypted no longer breaks every list it appears in. It now reads as a locked placeholder instead of throwing out of the row decoder.
+
 ## [1.16.0] - 2026-08-26
 
 ### Added
