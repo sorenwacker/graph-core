@@ -6,6 +6,9 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Fixed
 
+- Shift-clicking a card selects it. Cards View emitted the node on its own where the handler expects an options object, so the handler read undefined and selected nothing ([reference](docs/reference/interactions.md)).
+- Clicking the notes on a nested card opens them for editing. The notes swallowed the click and emitted an event nothing was listening for, so nothing happened at all.
+- The tooltip completion checkbox works in Table View. It emitted a node id where every consumer of that event expects a node.
 - Importing JSON or CSV writes into the workspace you are in. `MainToolbar` sits between the app and the settings panel and never declared `currentWorkspace`, so the panel fell back to its default and every import landed in `work`. The same gap made the "Skip SSL verification" toggle inert and kept the tree from reloading after an import. A test now compares the two components' declared contracts, so a settings prop or event added later cannot silently go unrelayed.
 
 ## [1.16.0] - 2026-08-26
