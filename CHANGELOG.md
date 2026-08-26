@@ -2,6 +2,15 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
+## [Unreleased]
+
+### Fixed
+
+- A table edit that fails now says so. Creating, renaming, deleting a table and saving a cell all reported failures with the toast suppressed, and stored the message where nothing displayed it, so a rejected write looked identical to a successful one. Background refreshes stay quiet, since nobody asked for them.
+- Cutting spreadsheet cells when the clipboard is unavailable no longer deletes them. The copy failed to a console warning and the cut deleted anyway, destroying the only copy of the content.
+- A failed quick capture keeps your text and shows the reason instead of closing the window. The capture window is the only place that text exists.
+- Changing an item's workspace puts the dropdown back if the change fails, rather than showing a move that did not happen.
+
 ## [1.16.0] - 2026-08-26
 
 ### Added
