@@ -193,6 +193,7 @@ class Database {
     this.updateNodeTable = tableOps.updateNodeTable.bind(tableOps)
     this.deleteNodeTable = tableOps.deleteNodeTable.bind(tableOps)
     this.getTableCells = tableOps.getTableCells.bind(tableOps)
+    this.deleteTableColumn = tableOps.deleteTableColumn.bind(tableOps)
     this.setCells = tableOps.setCells.bind(tableOps)
     this.clearCells = tableOps.clearCells.bind(tableOps)
 
