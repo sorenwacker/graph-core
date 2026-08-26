@@ -30,7 +30,17 @@ const EMOJI = new RegExp(
   'gu'
 )
 
-const SKIP_DIRS = new Set(['node_modules', '.git', 'site', 'dist', 'dist-electron', 'release'])
+const SKIP_DIRS = new Set([
+  'node_modules',
+  '.git',
+  'site',
+  'dist',
+  'dist-electron',
+  'release',
+  'test-results',
+  'playwright-report',
+  'coverage',
+])
 
 /**
  * Collect every markdown file in the repository worth checking.

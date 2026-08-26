@@ -2,7 +2,15 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
-## [Unreleased]
+## [1.16.0] - 2026-08-26
+
+### Added
+
+- Quick capture ([guide](docs/guides/quick-capture.md)): a system-wide hotkey (default `Ctrl/Cmd + Shift + N`) opens a small window to capture a note as a new top-level item in the current workspace, from any app. Enable it and change the hotkey in Settings > General. Desktop only; the hotkey registers after the database is unlocked.
+
+### Changed
+
+- Keyboard input ownership is decided in one place (`utils/inputOwnership.js`) rather than scattered through the shortcut handler. A surface that owns every key marks itself with `data-owns-keys`; text fields are recognised automatically. No behaviour change.
 
 ### Fixed
 
