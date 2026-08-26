@@ -28,7 +28,13 @@ export function useTaskFiltering({ getWorkspaceId, getContainerId }) {
    * Load tasks from API with current filters.
    * Handles container scoping and builds parent paths for each task.
    */
+  // Sequencing token: loads overlap when filters change quickly, and a slower
+  // earlier response would otherwise land last and win.
+  let loadTicket = 0
+
   async function loadTasks() {
+    const ticket = ++loadTicket
+    const isCurrent = () => ticket === loadTicket
     loading.value = true
     try {
       const workspaceId = getWorkspaceId()
@@ -52,12 +58,13 @@ export function useTaskFiltering({ getWorkspaceId, getContainerId }) {
       // Load parent paths for each task
       const tasksWithPaths = await buildTaskPaths(items || [], containerId)
 
+      if (!isCurrent()) return
       tasks.value = tasksWithPaths
     } catch (e) {
       handleError(e, { context: 'Loading tasks', silent: true })
-      tasks.value = []
+      if (isCurrent()) tasks.value = []
     } finally {
-      loading.value = false
+      if (isCurrent()) loading.value = false
     }
   }
 
