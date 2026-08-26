@@ -58,6 +58,7 @@ Enabling verifies the recovery password against the database file before wrappin
 ## Honest limits
 
 - Decrypted content is plaintext in memory during an unlocked session.
+- Undo and redo of a note edit are lost when the window reloads. The undo stack is persisted to sessionStorage, which is disk-backed, so commands carrying note text are excluded from it; only the commands made after the most recent such edit are restored. Within a session, undo and redo of note edits work normally.
 - Losing the recovery password loses the sensitive notes along with the rest of the encrypted database.
 - Turning the flag off, or editing a sensitive note, requires an unlocked session; the app cannot decrypt without the password.
 - A note that cannot be decrypted - written under a key that has since been replaced - reads as a locked placeholder rather than failing the query it appears in. It stays unreadable, and it blocks disabling the feature until it is deleted.
