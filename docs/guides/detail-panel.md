@@ -22,6 +22,8 @@ Click the expand icon or press `Escape` to toggle fullscreen. Provides maximum e
 
 ### Detached Window
 
+The detached window hides the pin, fullscreen, detach and link-search controls. Each of them acts on the main window's layout or opens the spotlight, neither of which the detached window has, so they are absent rather than present and inert.
+
 Open the detail panel in a separate window:
 
 1. Click the "Open in Window" button in the panel header (or use context menu > "Open in Window")
