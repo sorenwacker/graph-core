@@ -137,7 +137,10 @@ export function useNavigation({
   const error = ref<string | null>(null)
 
   // Debounce state
-  let isLoadingChildren = false
+  // Sequencing token rather than a re-entry lock. Refusing an overlapping call
+  // lost the navigation entirely; instead every call gets a ticket and only the
+  // newest one is allowed to publish its result.
+  let loadTicket = 0
   let lastLoadTime = 0
   let lastLoadedContainerId: number | null = null
 
@@ -200,18 +203,15 @@ export function useNavigation({
     const now = Date.now()
     const timeSinceLastLoad = now - lastLoadTime
 
-    // Strict guard against re-entry
-    if (isLoadingChildren) {
-      return
-    }
-
     // Debounce: skip if called within delay for same container
     if (debounce.enabled && timeSinceLastLoad < debounce.delay && lastLoadedContainerId === containerId) {
       return
     }
 
-    isLoadingChildren = true
+    const ticket = ++loadTicket
+    const isCurrent = () => ticket === loadTicket
     lastLoadedContainerId = containerId
+    let notFoundError: Error | null = null
 
     if (!silent) loading.value = true
     error.value = null
@@ -241,6 +241,10 @@ export function useNavigation({
         )
 
         const validRoots = rootsWithChildren.filter((r): r is TreeNode => r !== null)
+        // A newer navigation has started while this one was in flight; its
+        // result is what the user asked for, so drop this one rather than
+        // overwriting the view with a container they already left.
+        if (!isCurrent()) return
         children.value = validRoots
         currentContainer.value = null
         breadcrumbs.value = []
@@ -252,11 +256,13 @@ export function useNavigation({
       } else {
         // Get container first to check its type
         const container = await api.getNode(containerId)
+        if (!isCurrent()) return
         currentContainer.value = container
 
         // Tag nodes show linked nodes instead of children
         if (container?.type === 'tag') {
           const linkedNodes = await api.getLinkedNodes(containerId)
+          if (!isCurrent()) return
           // Convert linked nodes to tree nodes (flat, no nested children for tags)
           children.value = (linkedNodes || [])
             .filter(n => n && n.type !== 'tag') // Exclude other tags
@@ -266,11 +272,13 @@ export function useNavigation({
           const containerChildren = await api.getChildren(containerId)
           // Build children with nested structure for tree view
           const descendants = await api.getDescendants(containerId)
+          if (!isCurrent()) return
           children.value = buildTree(containerChildren, descendants)
         }
 
         // Build breadcrumbs
         const ancestors = await api.getAncestors(containerId)
+        if (!isCurrent()) return
         // Filter out any null entries and any ancestor that has same id as container
         breadcrumbs.value = (ancestors || []).filter(a => a && a.id !== container?.id)
         if (container) breadcrumbs.value.push(container)
@@ -288,20 +296,26 @@ export function useNavigation({
       // If node not found (404), call handler and potentially reset to root
       const errorMessage = (e as Error).message || ''
       if (errorMessage.includes('404') || errorMessage.includes('Not found')) {
-        if (onNotFound) {
-          await onNotFound(e as Error, containerId)
+        // Deliberately not handled here. onNotFound typically navigates
+        // somewhere else, and calling it inside the catch would run that load
+        // while this one still holds the newest ticket, so the recovery would
+        // discard its own result. It runs after this call has finished.
+        notFoundError = e as Error
+      } else {
+        error.value = errorMessage
+        if (onError) {
+          await onError(e as Error, containerId)
         }
-        return
-      }
-
-      error.value = errorMessage
-      if (onError) {
-        await onError(e as Error, containerId)
       }
     } finally {
-      if (!silent) loading.value = false
-      isLoadingChildren = false
-      lastLoadTime = Date.now()
+      if (isCurrent()) {
+        if (!silent) loading.value = false
+        lastLoadTime = Date.now()
+      }
+    }
+
+    if (notFoundError && onNotFound) {
+      await onNotFound(notFoundError, containerId)
     }
   }
 

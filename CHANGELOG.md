@@ -2,6 +2,16 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
+## [Unreleased]
+
+### Fixed
+
+- Navigating quickly no longer loses a step. A load already in progress made the next one return without doing anything, so a second click, or a refresh after an edit, was dropped. Loads now run in order and the newest one wins; a slower earlier response is discarded instead of overwriting the view with a container you have already left.
+- Opening an item that no longer exists falls back to the top level instead of leaving the previous contents on screen. The recovery ran while the failed load still held the lock, so it returned immediately and did nothing.
+- The task list, search results and a person's organizations all keep the newest result when an earlier request finishes late.
+- A failed "load more" in search retries the same page instead of skipping it.
+- Rebuilding the graph while a rebuild is already running no longer leaves the previous graph in memory with its event listeners attached.
+
 ## [1.16.0] - 2026-08-26
 
 ### Added
