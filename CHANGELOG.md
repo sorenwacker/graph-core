@@ -2,6 +2,12 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
+## [Unreleased]
+
+### Fixed
+
+- Importing JSON or CSV writes into the workspace you are in. `MainToolbar` sits between the app and the settings panel and never declared `currentWorkspace`, so the panel fell back to its default and every import landed in `work`. The same gap made the "Skip SSL verification" toggle inert and kept the tree from reloading after an import. A test now compares the two components' declared contracts, so a settings prop or event added later cannot silently go unrelayed.
+
 ## [1.16.0] - 2026-08-26
 
 ### Added
