@@ -110,3 +110,49 @@ describe('moving a node', () => {
     expect(db.getNode(child.id).parent_id).toBeNull()
   })
 })
+
+describe('linking two nodes', () => {
+  it('stores one row however the pair is ordered', () => {
+    const a = factory.note({ title: 'A' })
+    const b = factory.note({ title: 'B' })
+
+    db.linkNodes(a.id, b.id)
+    db.linkNodes(b.id, a.id)
+
+    // UNIQUE(source_id, target_id) stops the identical row but not the reverse,
+    // and reads treat a link as bidirectional, so B would appear twice.
+    const rows = db._query('SELECT COUNT(*) AS n FROM node_links')[0].n
+    expect(rows).toBe(1)
+    expect(db.getLinkedNodes(a.id).filter(n => n.id === b.id)).toHaveLength(1)
+    expect(db.getLinkedNodes(b.id).filter(n => n.id === a.id)).toHaveLength(1)
+  })
+
+  it('rejects the reverse link the same way it rejects a repeat of the same one', () => {
+    const a = factory.note({ title: 'A' })
+    const b = factory.note({ title: 'B' })
+
+    db.linkNodes(a.id, b.id)
+    // The stored direction is an implementation detail; both orders are the
+    // same link, so both are rejected rather than one succeeding silently.
+    expect(db.linkNodes(b.id, a.id).success).toBe(false)
+    expect(db.linkNodes(a.id, b.id).success).toBe(false)
+  })
+
+  it('unlinks the pair whichever way it was stored', () => {
+    const a = factory.note({ title: 'A' })
+    const b = factory.note({ title: 'B' })
+
+    db.linkNodes(a.id, b.id)
+    db.linkNodes(b.id, a.id)
+    db.unlinkNodes(a.id, b.id)
+
+    expect(db.getLinkedNodes(a.id)).toHaveLength(0)
+    expect(db.getLinkedNodes(b.id)).toHaveLength(0)
+  })
+
+  it('refuses to link a node to itself', () => {
+    const a = factory.note({ title: 'A' })
+    expect(db.linkNodes(a.id, a.id).success).toBe(false)
+    expect(db.getLinkedNodes(a.id)).toHaveLength(0)
+  })
+})
