@@ -34,7 +34,12 @@ Content is encrypted with AES-256-GCM under the sensitive-notes key. GCM authent
 
 Entering the recovery password unlocks all sensitive notes for the session. An idle timer relocks them after a period of no activity (default five minutes), clearing the sensitive-notes key from memory. Relocking also happens when the app locks or quits.
 
-While unlocked, sensitive notes render normally. While locked, the detail panel shows a locked placeholder with an unlock action, and cards and tooltips keep the existing masking.
+While unlocked, sensitive notes render normally. While locked, the stored value is still ciphertext and the app withholds it everywhere it would otherwise appear:
+
+- The notes editor shows a locked placeholder with an unlock action on all three tabs, not only the preview. An editor on a locked note would display the ciphertext marker and silently lose whatever was typed, because the main process rejects the write.
+- The sensitivity toggle is disabled while the note is locked, for the same reason.
+- The table's Notes column shows a lock icon instead of the text, and drops the hover title with it. Person and organization notes mask on the same terms as any other note.
+- Cards and tooltips keep the existing masking.
 
 ## Search
 
