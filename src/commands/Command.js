@@ -37,6 +37,18 @@ export class Command {
   }
 
   /**
+   * Replace every reference to `oldId` with `newId`.
+   *
+   * Redoing a creation cannot reuse the original row id, so the commands queued
+   * behind it would otherwise name a node that no longer exists. Commands that
+   * hold node ids override this; the base is a no-op for those that hold none.
+   *
+   * @param {number} _oldId - The id that is no longer valid
+   * @param {number} _newId - The id that replaced it
+   */
+  remapNodeId(_oldId, _newId) {}
+
+  /**
    * Get human-readable description of the command
    * @returns {string}
    */

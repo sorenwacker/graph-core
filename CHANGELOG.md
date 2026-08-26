@@ -2,6 +2,17 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
+## [Unreleased]
+
+### Fixed
+
+- Undo no longer reaches into the workspace you just left ([guide](docs/guides/drag-drop.md#undo-support)). The stacks survived a workspace switch, and commands record item ids that carry no workspace, so `Cmd/Ctrl + Z` could change an item you could not see. Switching now clears both stacks.
+- Redoing a creation keeps the actions that followed it working. The item comes back with a new id, and the actions still queued for redo went on naming the old one, so they silently applied to nothing.
+- Undoing a completion clears the completion date it set, instead of leaving an unfinished item dated as finished. A date that was already there is put back unchanged.
+- Moving an item to the top level can be undone. The move recorded no undo step at all because it never noted where the item came from.
+- Moving a multi-item selection is one undo step, matching every other action, instead of not being undoable.
+- Deleting several items at once deletes children before parents, so the shape of the selection survives undo. Deleting a parent first reparented its children and flattened the subtree that undo was meant to restore.
+
 ## [1.16.0] - 2026-08-26
 
 ### Added

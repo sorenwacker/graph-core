@@ -172,9 +172,21 @@ export function useUndoRedo({
 
     isProcessing.value = true
     const command = redoStack.value.pop()!
+    const idBeforeExecute = (command as { nodeId?: number }).nodeId
 
     try {
       await command.execute(api)
+
+      // Redoing a creation cannot reuse the original row id, because undo hard
+      // deleted it. Everything still queued for redo was recorded after this
+      // command, so those are exactly the commands that may name the old id.
+      const idAfterExecute = (command as { nodeId?: number }).nodeId
+      if (idBeforeExecute !== undefined && idAfterExecute !== undefined && idBeforeExecute !== idAfterExecute) {
+        for (const queued of redoStack.value) {
+          queued.remapNodeId?.(idBeforeExecute, idAfterExecute)
+        }
+      }
+
       undoStack.value.push(command)
       if (onSuccess) await onSuccess({ command, action: 'redo' })
       const description = command.getDescription?.() || command.type
