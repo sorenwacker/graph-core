@@ -11,14 +11,22 @@
 /**
  * Report whether the target is a text-entry surface: a form field,
  * contenteditable, or a CodeMirror editor. Plain keys typed here belong to the
- * field, not to the app.
+ * field, not to the app. Inputs that accept no text (checkbox, radio, buttons)
+ * are excluded: they hold focus without consuming typing.
  *
  * @param {EventTarget|null} target - The key event's target.
  * @returns {boolean}
  */
+// Input types that hold focus but accept no text. A checkbox does not consume
+// Space or Enter on the app's behalf, so shortcuts still apply there.
+const NON_TEXT_INPUT_TYPES = ['checkbox', 'radio', 'button', 'submit', 'reset', 'file', 'image', 'range', 'color']
+
 export function ownsTextInput(target) {
   if (!target || typeof target.tagName !== 'string') return false
-  if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') return true
+  if (target.tagName === 'INPUT') {
+    return !NON_TEXT_INPUT_TYPES.includes(target.type?.toLowerCase())
+  }
+  if (target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') return true
   if (target.isContentEditable) return true
   // isContentEditable is unset in jsdom; also match the attribute and an
   // editable ancestor so the check holds in tests and for nested nodes.
