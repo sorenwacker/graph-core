@@ -48,6 +48,13 @@ export class CreateCommand extends Command {
     return !this.nodeData?.notes
   }
 
+  remapNodeId(oldId, newId) {
+    if (this.nodeId === oldId) this.nodeId = newId
+    if (this.parentId === oldId) this.parentId = newId
+    if (this.linkedToId === oldId) this.linkedToId = newId
+    if (this.nodeData?.id === oldId) this.nodeData.id = newId
+  }
+
   getDescription() {
     const title = this.nodeData?.title || 'item'
     return `Create "${title}"`

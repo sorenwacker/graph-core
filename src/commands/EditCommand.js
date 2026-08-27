@@ -33,6 +33,10 @@ export class EditCommand extends Command {
     return !('notes' in (this.oldValues || {}) || 'notes' in (this.newValues || {}))
   }
 
+  remapNodeId(oldId, newId) {
+    if (this.nodeId === oldId) this.nodeId = newId
+  }
+
   getDescription() {
     const fields = Object.keys(this.newValues || {})
     if (fields.length === 1) {

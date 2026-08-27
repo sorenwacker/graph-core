@@ -28,6 +28,12 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 - Moving an item into its own descendant is refused instead of corrupting the tree ([design](docs/architecture/database.md#acyclicity)). The move created a cycle that the path rebuild then walked until the call stack overflowed.
 - Deleting a table column no longer shifts every other column's data left. Cells are addressed by position, and only the column definitions were rewritten, so the columns after the deleted one showed their neighbour's values and the last column's cells were stranded in the database. The column and its cells are now removed together in one operation.
 - Typing in a styled cell keeps its styling. Cell writes replaced the whole record, so a value written on its own blanked the style, and a style written on its own would have blanked the value. Writes now merge with what is stored, and a field is cleared only when the caller names it.
+- Undo no longer reaches into the workspace you just left ([guide](docs/guides/drag-drop.md#undo-support)). The stacks survived a workspace switch, and commands record item ids that carry no workspace, so `Cmd/Ctrl + Z` could change an item you could not see. Switching now clears both stacks.
+- Redoing a creation keeps the actions that followed it working. The item comes back with a new id, and the actions still queued for redo went on naming the old one, so they silently applied to nothing.
+- Undoing a completion clears the completion date it set, instead of leaving an unfinished item dated as finished. A date that was already there is put back unchanged.
+- Moving an item to the top level can be undone. The move recorded no undo step at all because it never noted where the item came from.
+- Moving a multi-item selection is one undo step, matching every other action, instead of not being undoable.
+- Deleting several items at once deletes children before parents, so the shape of the selection survives undo. Deleting a parent first reparented its children and flattened the subtree that undo was meant to restore.
 
 ## [1.16.0] - 2026-08-26
 

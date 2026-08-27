@@ -33,6 +33,12 @@ export interface Command {
    * Get human-readable description of the command.
    */
   getDescription?(): string
+
+  /**
+   * Replace every reference to `oldId` with `newId`. Redoing a creation mints a
+   * new row id, and the commands queued behind it may still name the old one.
+   */
+  remapNodeId?(oldId: number, newId: number): void
 }
 
 /**

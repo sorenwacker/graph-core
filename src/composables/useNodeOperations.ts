@@ -6,6 +6,7 @@ import {
   DeleteMultipleCommand,
   EditCommand,
   CompleteCommand,
+  MoveMultipleCommand,
   LinkCommand,
   UnlinkCommand,
 } from '../commands/index.js'
@@ -360,8 +361,20 @@ export function useNodeOperations({
   async function moveMultipleNodes({ nodeIds, newParentId }: MoveMultipleParams): Promise<boolean> {
     return withProcessing(
       async () => {
+        // Read each node's parent before moving it, so the move can be undone.
+        const moves = []
+        for (const nodeId of nodeIds) {
+          const node = await api.getNode(nodeId)
+          moves.push({ id: nodeId, oldParentId: node?.parent_id ?? null })
+        }
+
         for (const nodeId of nodeIds) {
           await api.moveNode(nodeId, newParentId)
+        }
+
+        // One user action, one undo step, as with every other operation here.
+        if (pushCommand) {
+          pushCommand(new MoveMultipleCommand({ moves, newParentId }))
         }
 
         if (onSuccess) await onSuccess({ type: 'moveMultiple', nodeIds, newParentId })
@@ -375,7 +388,10 @@ export function useNodeOperations({
    * Move a node to root level.
    */
   async function moveNodeToRoot(nodeId: number): Promise<boolean> {
-    return moveNode({ nodeId, newParentId: null })
+    // moveNode only records an undo step when it is told where the node came
+    // from, so look that up rather than leaving the move unundoable.
+    const node = await api.getNode(nodeId)
+    return moveNode({ nodeId, oldParentId: node?.parent_id ?? null, newParentId: null })
   }
 
   /**
@@ -387,14 +403,18 @@ export function useNodeOperations({
         const oldCompleted = node.completed
         const newCompleted = !oldCompleted
 
-        const updates: { completed: boolean; end_date?: string } = { completed: newCompleted }
+        const updates: { completed: boolean; end_date?: string | null } = { completed: newCompleted }
         if (newCompleted && !node.end_date) {
           updates.end_date = new Date().toISOString().split('T')[0]
         }
 
         await api.updateNode(node.id, updates)
         if (pushCommand) {
-          pushCommand(new CompleteCommand({ nodeId: node.id, oldCompleted, newCompleted }))
+          // Record the end date as it was: completing stamps one, and undo has
+          // to put back what was there rather than leaving the stamp behind.
+          pushCommand(
+            new CompleteCommand({ nodeId: node.id, oldCompleted, newCompleted, oldEndDate: node.end_date ?? null })
+          )
         }
 
         if (onSuccess) await onSuccess({ type: 'toggleComplete', node, newCompleted })
