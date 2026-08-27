@@ -199,7 +199,11 @@ describe('commandFactory', () => {
       const original = [
         new CreateCommand({
           nodeId: 1,
-          nodeData: { title: 'Task', type: 'task', notes: 'Details' },
+          // Deliberately no notes: a command carrying note text is excluded
+          // from the persisted stack (see undoStackPersistence.test.js), which
+          // would make this a test of that exclusion rather than of round-trip
+          // fidelity.
+          nodeData: { title: 'Task', type: 'task' },
           parentId: 5,
           linkedToId: 10,
         }),

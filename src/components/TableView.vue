@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useNodeTooltip } from '../composables/useNodeTooltip.js'
 import { useNodeInteractions } from '../composables/useNodeInteractions.js'
 import { useColumnResize } from '../composables/useColumnResize.js'
+import { useSensitiveNotes } from '../composables/useSensitiveNotes.js'
 import { useTableDrag } from '../composables/useTableDrag.js'
 import { getTypeIcon, personIconSvg } from '../utils/constants.js'
 import {
@@ -53,6 +54,15 @@ const emit = defineEmits([
 
 // Setup column resize
 const { colWidths, resizing, startResize } = useColumnResize()
+const { isLockedNote } = useSensitiveNotes()
+
+// A note is withheld from the table when it is flagged sensitive, or when it is
+// still ciphertext because the sensitive session is locked. The flag alone is
+// not enough: an unlocked session decrypts the text, and it is exactly then
+// that printing it in an always-visible column would leak it.
+function isSensitiveNote(node) {
+  return Boolean(node?.notes_sensitive) || isLockedNote(node?.notes)
+}
 
 // Setup tooltips
 const { showTooltip, hideTooltip } = useNodeTooltip({
@@ -286,7 +296,13 @@ function getNodeRowStyle(node) {
             <span v-if="row.node.notes" class="has-notes-icon" title="Has notes">&#9998;</span>
           </td>
           <td class="col-notes">
-            <span class="notes-preview" :title="row.node.notes">{{ truncateNotes(row.node.notes) }}</span>
+            <!-- Never print a sensitive note here: the column is dense and
+                 always visible, so it would leak content the detail panel
+                 masks. The title attribute is dropped too, not just the text. -->
+            <span v-if="isSensitiveNote(row.node)" class="notes-preview sensitive" title="Sensitive notes hidden"
+              >&#128274;</span
+            >
+            <span v-else class="notes-preview" :title="row.node.notes">{{ truncateNotes(row.node.notes) }}</span>
           </td>
           <td class="col-due">
             <span v-if="row.node.due_date" class="due-date" :class="{ overdue: isOverdue(row.node.due_date) }">
