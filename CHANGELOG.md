@@ -6,6 +6,10 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Changed
 
+- Search ranks title matches above notes matches ([guide](docs/guides/search.md#ranking)), in four tiers: exact title, title prefix, title contains, then notes-only. Within a tier the most recently updated node still comes first. Searching for a person now returns that person before the meeting notes mentioning them; previously results were ordered by modification date alone, so a recently edited note outranked the node the query named.
+- The rule deciding whether a focused surface owns the keyboard now lives only in `utils/inputOwnership.js`. The shortcut handler kept a second copy that had already drifted from it: the private one knew a checkbox is not a text field, the shared one knew about select elements, code editors and contenteditable ancestors, and which rule applied depended on which key was pressed. Both rules are merged, and a test keeps the decision in one place.
+- Removed nine timing constants that nothing referenced. A test now fails if an unused one is added back, so the file stays a record of values that actually govern behaviour.
+
 ### Fixed
 
 - The notes editor no longer adds a blank line between list items ([guide](docs/guides/detail-panel.md#notes-section)). Pressing Enter on an empty list item used to move that item down instead of ending the list, and once a list held a blank line the editor inserted another one ahead of every following marker. Enter now ends the list on an empty item and keeps lists tight.
