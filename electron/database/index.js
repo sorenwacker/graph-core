@@ -18,6 +18,7 @@ const { createExportOperations } = require('./export')
 const { createBackupOperations } = require('./backup')
 const { createTableOperations } = require('./tables')
 const { createSettingsOperations } = require('./settings')
+const { SENSITIVE_MARKER, isEncryptedNote } = require('./sensitiveNotes')
 const { isEncrypted, encryptDatabase, decryptDatabase } = require('./encryption')
 
 let SQL = null
@@ -248,6 +249,42 @@ class Database {
       throw new Error('Sensitive notes are locked')
     }
     return { ...data, notes }
+  }
+
+  /**
+   * Decrypt every sensitive note back to plaintext and clear its flag, so the
+   * sensitive-notes key can be dropped without stranding content.
+   *
+   * Writes rows directly rather than going through `updateNode`: that path
+   * reads the existing node with `getNode`, which filters out soft-deleted
+   * rows, so a trashed sensitive note would keep its ciphertext while the key
+   * that could read it was destroyed. The whole sweep runs in one batch, so a
+   * note that fails to decrypt rolls the rest back instead of leaving the
+   * database half-disabled.
+   *
+   * @returns {{success: boolean, decrypted: number}} How many notes were decrypted.
+   * @throws {Error} If the feature is off, or the session is locked.
+   */
+  disableSensitiveNotes() {
+    const session = this.sensitiveSession
+    if (!session || !session.isEnabled()) throw new Error('Sensitive notes are not enabled')
+    if (!session.isUnlocked()) throw new Error('Sensitive notes are locked')
+
+    return this._batch(() => {
+      const rows = this._query('SELECT id, notes FROM nodes WHERE notes LIKE ?', [`${SENSITIVE_MARKER}%`])
+      for (const row of rows) {
+        const plaintext = session.decryptForRead(row.notes)
+        // decryptForRead degrades an undecryptable note to its marker rather
+        // than throwing, so that one bad note cannot break list queries. Here
+        // that must be fatal: writing the marker back as "plaintext" would
+        // destroy the note as surely as dropping the key.
+        if (isEncryptedNote(plaintext)) {
+          throw new Error(`Cannot decrypt sensitive note ${row.id}; sensitive notes left enabled`)
+        }
+        this._run('UPDATE nodes SET notes = ?, notes_sensitive = 0 WHERE id = ?', [plaintext, row.id])
+      }
+      return { success: true, decrypted: rows.length }
+    })
   }
 
   _save() {
