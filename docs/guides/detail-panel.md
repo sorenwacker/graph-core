@@ -22,6 +22,8 @@ Click the expand icon or press `Escape` to toggle fullscreen. Provides maximum e
 
 ### Detached Window
 
+The detached window hides the pin, fullscreen, detach and link-search controls. Each of them acts on the main window's layout or opens the spotlight, neither of which the detached window has, so they are absent rather than present and inert.
+
 Open the detail panel in a separate window:
 
 1. Click the "Open in Window" button in the panel header (or use context menu > "Open in Window")
@@ -58,6 +60,10 @@ The notes section supports full Markdown editing.
 - External links open in browser
 - Code blocks with syntax highlighting
 - Tables and lists support
+
+**Lists and Enter:**
+
+Pressing `Enter` inside a list or blockquote continues it with the next marker, renumbering ordered lists as it goes. Lists are kept tight: `Enter` never inserts a blank line between items, whether or not the list already contains one. Pressing `Enter` on an empty list item ends the list and removes the marker.
 
 ### Mentions
 

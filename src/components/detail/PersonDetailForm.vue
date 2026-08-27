@@ -36,6 +36,8 @@ const linkedOrganizations = ref([])
 
 // Notes section ref
 const notesSectionRef = ref(null)
+// Revealing a flagged note is per-node and resets when the panel shows another.
+const showSensitiveNotes = ref(false)
 
 // Collapsible section state
 const notesCollapsed = ref(false)
@@ -162,6 +164,8 @@ function onTypeChange(event) {
 watch(
   () => props.editedNode?.id,
   async newId => {
+    // A reveal must not carry over to the next node shown in the panel.
+    showSensitiveNotes.value = false
     if (newId) {
       await loadLinkedOrganizations()
     }
@@ -197,6 +201,8 @@ defineExpose({ loadLinkedOrganizations, getNotesSelection })
         <NotesSection
           ref="notesSectionRef"
           :notes="editedNode.notes || ''"
+          :notes-sensitive="Boolean(editedNode.notes_sensitive)"
+          :show-sensitive="showSensitiveNotes"
           :node-id="editedNode.id"
           :workspace-id="currentWorkspace"
           :active-tab="activeTab"
@@ -206,7 +212,11 @@ defineExpose({ loadLinkedOrganizations, getNotesSelection })
           @blur="saveChanges"
           @ai-improve="$emit('ai-improve-notes', $event)"
           @mention-inserted="$emit('reload-links')"
-        />
+        >
+          <template #unlock-button>
+            <button class="unlock-btn" @click="showSensitiveNotes = true" title="Show sensitive notes">Show</button>
+          </template>
+        </NotesSection>
       </div>
     </div>
 

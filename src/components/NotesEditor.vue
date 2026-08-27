@@ -7,7 +7,8 @@ import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { EditorState, EditorSelection, Prec } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
-import { markdown, markdownKeymap } from '@codemirror/lang-markdown'
+import { markdown } from '@codemirror/lang-markdown'
+import { insertNewlineTightList } from '../utils/markdownEditing.js'
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
 import MentionDropdown from './MentionDropdown.vue'
 import { useMentions } from '../composables/useMentions.js'
@@ -211,7 +212,9 @@ function setupEditor() {
         highlightSelectionMatches(),
         history(),
         markdown(),
-        Prec.highest(keymap.of(markdownKeymap)),
+        // markdown() already binds Enter and Backspace at Prec.high; only Enter
+        // is overridden here, to keep lists tight.
+        Prec.highest(keymap.of([{ key: 'Enter', run: insertNewlineTightList }])),
         keymap.of([...multiCursorKeymap, indentWithTab, ...defaultKeymap, ...historyKeymap, ...searchKeymap]),
         theme,
         EditorView.lineWrapping,

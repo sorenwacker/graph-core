@@ -32,6 +32,10 @@ export class ReorderCommand extends Command {
     }
   }
 
+  remapNodeId(oldId, newId) {
+    if (this.nodeId === oldId) this.nodeId = newId
+  }
+
   getDescription() {
     return 'Reorder'
   }

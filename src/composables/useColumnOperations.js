@@ -11,7 +11,7 @@ import { ref, watch, nextTick } from 'vue'
  * @param {Object} options - Configuration options
  * @param {Function} options.getTableData - Function returning table data
  * @param {Function} options.getColumns - Function returning column definitions array
- * @param {Function} options.emit - Vue emit function for structure-change events
+ * @param {Function} options.emit - Vue emit function for structure-change and delete-column events
  * @returns {Object} Column operation state and handlers
  */
 export function useColumnOperations(options = {}) {
@@ -78,16 +78,11 @@ export function useColumnOperations(options = {}) {
       return
     }
 
-    // Create plain objects to avoid Vue Proxy issues
-    const updatedCols = currentCols
-      .filter((_, idx) => idx !== columnMenuIndex.value)
-      .map(col => ({
-        id: col.id,
-        name: col.name,
-        type: col.type || 'text',
-      }))
-
-    emit('structure-change', { type: 'column_definitions', value: updatedCols })
+    // Deleting a column has to move the cells with it. Emitting replacement
+    // column_definitions would leave every cell to the right showing its
+    // neighbour's data, so this goes through a dedicated operation that
+    // rewrites both together.
+    emit('delete-column', { colIndex: columnMenuIndex.value })
 
     showColumnMenu.value = false
     columnMenuIndex.value = null

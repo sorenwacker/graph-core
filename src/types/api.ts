@@ -291,6 +291,7 @@ export interface Api {
   deleteNodeTable(nodeId: number): Promise<void>
   getTableCells(nodeId: number): Promise<TableCell[]>
   setCells(nodeId: number, cells: TableCell[]): Promise<void>
+  deleteTableColumn(nodeId: number, colIndex: number): Promise<void>
   clearCells(nodeId: number): Promise<void>
 
   // Ollama LLM
