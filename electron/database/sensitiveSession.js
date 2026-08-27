@@ -102,12 +102,23 @@ function createSensitiveSession({ wrappedKey = null, idleMs = DEFAULT_IDLE_MS, o
    * Decrypt a stored notes value for reading. Plaintext values pass through.
    * A sensitive value decrypts when unlocked, and is returned unchanged (as the
    * ciphertext marker) when locked, so the renderer shows a locked placeholder.
+   *
+   * A value that cannot be decrypted - written under a key that has since been
+   * replaced, or corrupted - is also returned unchanged rather than thrown.
+   * This runs inside `_rowToNode`, so throwing would take down every list query
+   * that happens to include the note instead of degrading that one note to a
+   * locked placeholder. Callers that must distinguish a real decryption from a
+   * pass-through check the result with `isEncryptedNote`.
    */
   function decryptForRead(value) {
     if (!isEncryptedNote(value)) return value
     if (!isUnlocked()) return value
     touch()
-    return decryptNote(value, key)
+    try {
+      return decryptNote(value, key)
+    } catch {
+      return value
+    }
   }
 
   return {
