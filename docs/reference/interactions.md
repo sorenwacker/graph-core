@@ -48,6 +48,8 @@ When a tooltip is locked:
 | Action | Result |
 |--------|--------|
 | Click card | Select and show detail |
+| Shift + Click | Multi-select toggle |
+| Click card notes | Edit the notes inline |
 | Cmd/Ctrl + Click | Add child node |
 | Opt + Cmd/Ctrl + Click | Delete node |
 

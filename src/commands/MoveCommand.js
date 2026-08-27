@@ -28,6 +28,12 @@ export class MoveCommand extends Command {
     }
   }
 
+  remapNodeId(oldId, newId) {
+    if (this.nodeId === oldId) this.nodeId = newId
+    if (this.oldParentId === oldId) this.oldParentId = newId
+    if (this.newParentId === oldId) this.newParentId = newId
+  }
+
   getDescription() {
     return 'Move'
   }

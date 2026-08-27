@@ -107,7 +107,12 @@ All drag operations that modify hierarchy or dates can be undone:
 - `Cmd/Ctrl + Z` to undo
 - `Cmd/Ctrl + Shift + Z` to redo
 
-The undo stack persists for the browser session.
+The undo stack persists for the browser session, with two limits:
+
+- **Switching workspace clears it.** Commands record node ids, which carry no workspace, so an undo after a switch would edit an item in the workspace you just left without showing it to you.
+- **Note edits are not restored after a window reload.** The stack is persisted to session storage, which note content must not reach; see [sensitive notes](../architecture/sensitive-notes.md). Only the actions taken since the most recent note edit come back.
+
+One user action is one undo step, including actions on a multi-node selection.
 
 ## Keyboard Alternatives
 

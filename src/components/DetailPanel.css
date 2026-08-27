@@ -30,6 +30,11 @@
 /* Fullscreen / wide mode: All sections side by side */
 .detail-panel.fullscreen .bottom-sections {
   display: flex;
+  /* Resets the column direction the narrow side panel sets. Without this the
+     container still stacks: the flex-basis percentages below resolve against
+     the height, every section shrinks to its min-width, and the rest of the
+     window is left empty. */
+  flex-direction: row;
   flex-wrap: wrap;
   gap: 8px 12px;
   align-items: flex-start;

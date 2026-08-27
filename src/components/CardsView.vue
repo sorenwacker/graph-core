@@ -91,8 +91,9 @@ function handleCardClick(e, node) {
     // Cmd/Ctrl+click: add child node
     emit('add-child', node.id, e)
   } else if (e.shiftKey) {
-    // Shift+click: multi-select
-    emit('select-multiple', node)
+    // Shift+click: multi-select toggle. handleMultiSelect takes an options
+    // object; a bare node destructures to undefined there and selects nothing.
+    emit('select-multiple', { node, add: true })
   } else {
     // Pass event for tooltip lock positioning
     emit('select', node, e)
@@ -488,6 +489,7 @@ function handleCanvasClick(e) {
               :sensitive="child.notes_sensitive"
               size="child"
               class="child-card-notes"
+              @start-edit="emit('start-notes', child, $event)"
             />
 
             <!-- Grandchildren (hidden for smallest child cards) -->

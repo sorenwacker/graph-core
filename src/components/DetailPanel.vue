@@ -20,6 +20,9 @@ const props = defineProps({
   node: Object,
   width: { type: Number, default: 400 },
   fullscreen: { type: Boolean, default: false },
+  // Rendered inside its own window. Pin, fullscreen, detach and link search
+  // have no host to act on there, so they are hidden rather than shown inert.
+  detached: { type: Boolean, default: false },
   hideCompleted: { type: Boolean, default: false },
   pinned: { type: Boolean, default: false },
   workspaces: { type: Array, default: () => [] },
@@ -150,6 +153,7 @@ const {
   deleteTable,
   saveCell,
   saveCellStyle,
+  deleteTableColumn,
 } = useNodeTable()
 
 // Split view preview ref
@@ -607,6 +611,11 @@ async function handleStyleChange({ row, col, style }) {
   await saveCellStyle(props.node.id, row, col, style)
 }
 
+async function handleDeleteColumn({ colIndex }) {
+  if (!props.node?.id) return
+  await deleteTableColumn(props.node.id, colIndex)
+}
+
 async function handleTableStructureChange({ type, value }) {
   if (!props.node?.id) return
   await updateTable(props.node.id, { [type]: value })
@@ -668,6 +677,7 @@ defineExpose({
           <input type="checkbox" :checked="editedNode.completed" @change="onCompletedChange" />
         </label>
         <button
+          v-if="!detached"
           class="pin-btn"
           :class="{ active: pinned }"
           @click="$emit('toggle-pin')"
@@ -678,7 +688,7 @@ defineExpose({
           {{ pinned ? '&#128205;' : '&#128204;' }}
         </button>
         <button
-          v-if="isElectron"
+          v-if="isElectron && !detached"
           class="detach-btn"
           @click="$emit('detach', props.node)"
           title="Open in new window"
@@ -700,6 +710,7 @@ defineExpose({
           </svg>
         </button>
         <button
+          v-if="!detached"
           class="fullscreen-btn"
           @click="$emit('toggle-fullscreen')"
           :title="fullscreen ? 'Exit fullscreen' : 'Fullscreen'"
@@ -790,19 +801,40 @@ defineExpose({
                 <button
                   class="sensitive-btn"
                   :class="{ active: editedNode.notes_sensitive }"
+                  :disabled="notesLocked"
                   @click="toggleNotesSensitive"
                   :title="
-                    editedNode.notes_sensitive
-                      ? 'Notes are hidden (click to unlock)'
-                      : 'Notes are visible (click to lock)'
+                    notesLocked
+                      ? 'Unlock sensitive notes to change this'
+                      : editedNode.notes_sensitive
+                        ? 'Notes are hidden (click to unlock)'
+                        : 'Notes are visible (click to lock)'
                   "
                 >
                   {{ editedNode.notes_sensitive ? '&#128274;' : '&#128275;' }}
                 </button>
               </div>
 
+              <!-- A locked note holds ciphertext, and any write to it is
+                   rejected by the main process. Show the unlock prompt instead
+                   of an editor whose edits would be silently discarded. -->
+              <div v-if="activeTab === 'edit' && notesLocked" class="sensitive-hidden">
+                <p>Sensitive notes are locked</p>
+                <form class="sensitive-unlock-form" @submit.prevent="onSensitiveUnlock">
+                  <input
+                    v-model="sensitiveUnlockPassword"
+                    type="password"
+                    placeholder="Recovery password"
+                    autocomplete="current-password"
+                  />
+                  <button class="unlock-btn" type="submit" :disabled="!sensitiveUnlockPassword">Unlock</button>
+                </form>
+                <p v-if="sensitiveUnlockError" class="sensitive-unlock-error" role="alert">
+                  {{ sensitiveUnlockError }}
+                </p>
+              </div>
               <NotesEditor
-                v-if="activeTab === 'edit'"
+                v-else-if="activeTab === 'edit'"
                 ref="notesEditorRef"
                 :model-value="editedNode.notes"
                 :workspace-id="currentWorkspace"
@@ -917,6 +949,7 @@ defineExpose({
                   @delete="handleDeleteTable"
                   @cell-change="handleCellChange"
                   @structure-change="handleTableStructureChange"
+                  @delete-column="handleDeleteColumn"
                   @style-change="handleStyleChange"
                 />
               </div>
@@ -940,6 +973,7 @@ defineExpose({
 
             <!-- Metadata Section -->
             <MetadataGridSection
+              :detached="detached"
               :edited-node="editedNode"
               :linked-nodes="linkedNodes"
               :workspaces="workspaces"

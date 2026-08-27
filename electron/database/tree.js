@@ -122,8 +122,34 @@ function createTreeOperations(ctx) {
      * @returns {Node} The restored node object
      */
     restoreNode(id) {
-      ctx._run('UPDATE nodes SET deleted_at = NULL WHERE id = ?', [id])
-      return ctx.getNode(id)
+      return ctx._batch(() => {
+        ctx._run('UPDATE nodes SET deleted_at = NULL WHERE id = ?', [id])
+
+        // Deleting a parent only reparents its live children, so a node trashed
+        // before its parent still points at a trashed parent. Restoring it as-is
+        // would make it invisible: not a root, and not a child of anything the
+        // tree shows. Reattach it to the nearest ancestor that is still live,
+        // falling back to the root level.
+        const node = ctx.getNode(id)
+        if (!node) return null
+
+        const parent = node.parent_id != null ? ctx.getNode(node.parent_id) : null
+        if (node.parent_id == null || parent) return node
+
+        const ancestorIds = String(node.path || '')
+          .split('/')
+          .filter(Boolean)
+          .map(Number)
+        let liveAncestorId = null
+        for (let i = ancestorIds.length - 1; i >= 0; i--) {
+          if (ctx.getNode(ancestorIds[i])) {
+            liveAncestorId = ancestorIds[i]
+            break
+          }
+        }
+
+        return ctx.moveNode(id, liveAncestorId)
+      })
     },
 
     /**
