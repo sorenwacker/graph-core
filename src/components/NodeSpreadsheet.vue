@@ -82,7 +82,7 @@ const props = defineProps({
   cellData: { type: Array, default: () => [] },
 })
 
-const emit = defineEmits(['create', 'delete', 'cell-change', 'structure-change', 'style-change'])
+const emit = defineEmits(['create', 'delete', 'cell-change', 'structure-change', 'style-change', 'delete-column'])
 
 // ============================================================================
 // State

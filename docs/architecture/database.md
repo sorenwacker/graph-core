@@ -136,6 +136,24 @@ The invariant is maintained by two helpers in `electron/database/nodes.js`:
 
 Both helpers read rows regardless of `deleted_at`: soft-deleted nodes are still rows in the table, and a stale path would resurface when they are restored.
 
+## Acyclicity
+
+No node may be its own ancestor. `moveNode` rejects a move whose target is the node itself or one of its descendants, checking the target's `path` before writing anything. Without that check the tree gains a cycle and `updateDescendantPaths` walks it until the call stack overflows.
+
+## Reachability After Restore
+
+Every live node must be reachable from a root. `deleteNode` reparents a deleted node's children to their grandparent, but only the children that are still live, so a node trashed *before* its parent keeps pointing at a parent that is now trashed too.
+
+`restoreNode` therefore reattaches such a node to the nearest ancestor that is still live, falling back to the root level, and recomputes `path`/`depth` through `moveNode`. Restoring it in place would leave it invisible: not a root, and not a child of anything the tree renders.
+
+`emptyTrash` keeps its own recovery for the same invariant, since a live node can point at a trashed parent through other routes.
+
+## Table Columns and Cells
+
+`node_table_cells` addresses cells by position (`col_index`), so the cell store and the table's `column_definitions` have to change together. `deleteTableColumn(nodeId, colIndex)` deletes that column's cells, decrements `col_index` for every cell to its right, and rewrites the definitions in one batch. Removing a definition on its own would leave every later column showing its neighbour's values and strand the last column's cells.
+
+`setCells` merges each write with the stored row rather than replacing it. Values and styles arrive from separate UI events, so a replacing write would blank whichever of the two the caller did not send. A field is cleared only when the caller names it explicitly.
+
 ## Batched Writes
 
 `_save()` writes the whole database file, so a naive subtree update would write the file once per row. `Database._batch(fn)` wraps `fn` in a single `BEGIN`/`COMMIT` and defers the write until the outermost batch ends — one transaction, one file write, rolled back on error. It is nestable, so helpers can batch without knowing their caller.

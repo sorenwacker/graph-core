@@ -23,6 +23,11 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 - Clicking the notes on a nested card opens them for editing. The notes swallowed the click and emitted an event nothing was listening for, so nothing happened at all.
 - The tooltip completion checkbox works in Table View. It emitted a node id where every consumer of that event expects a node.
 - Importing JSON or CSV writes into the workspace you are in. `MainToolbar` sits between the app and the settings panel and never declared `currentWorkspace`, so the panel fell back to its default and every import landed in `work`. The same gap made the "Skip SSL verification" toggle inert and kept the tree from reloading after an import. A test now compares the two components' declared contracts, so a settings prop or event added later cannot silently go unrelayed.
+- Linking two items that are already linked is rejected whichever way round you do it. Only a repeat in the stored direction was caught, so linking B to A after A to B stored the pair twice and showed it twice. Linking an item to itself is refused.
+- Restoring an item from the trash puts it somewhere you can see it ([design](docs/architecture/database.md#reachability-after-restore)). An item trashed before its parent kept pointing at that parent, so restoring it on its own left it invisible: not a root, and not a child of anything shown. It is now reattached to the nearest ancestor still present, or to the top level.
+- Moving an item into its own descendant is refused instead of corrupting the tree ([design](docs/architecture/database.md#acyclicity)). The move created a cycle that the path rebuild then walked until the call stack overflowed.
+- Deleting a table column no longer shifts every other column's data left. Cells are addressed by position, and only the column definitions were rewritten, so the columns after the deleted one showed their neighbour's values and the last column's cells were stranded in the database. The column and its cells are now removed together in one operation.
+- Typing in a styled cell keeps its styling. Cell writes replaced the whole record, so a value written on its own blanked the style, and a style written on its own would have blanked the value. Writes now merge with what is stored, and a field is cleared only when the caller names it.
 
 ## [1.16.0] - 2026-08-26
 

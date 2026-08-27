@@ -120,6 +120,7 @@ const DB_UPDATE_NODE_TABLE = 'db:updateNodeTable'
 const DB_DELETE_NODE_TABLE = 'db:deleteNodeTable'
 const DB_GET_TABLE_CELLS = 'db:getTableCells'
 const DB_SET_CELLS = 'db:setCells'
+const DB_DELETE_TABLE_COLUMN = 'db:deleteTableColumn'
 const DB_CLEAR_CELLS = 'db:clearCells'
 
 // ===========================================
@@ -288,6 +289,7 @@ module.exports = {
   DB_DELETE_NODE_TABLE,
   DB_GET_TABLE_CELLS,
   DB_SET_CELLS,
+  DB_DELETE_TABLE_COLUMN,
   DB_CLEAR_CELLS,
 
   // Database - Settings

@@ -35,6 +35,8 @@ function createLinkOperations(ctx) {
   return {
     /**
      * Links two nodes, stored as a single directed row (source -> target).
+     * An already-linked pair is rejected in either direction, matching the
+     * bidirectional read semantics rather than only the stored direction.
      * Reads (getLinkedNodes, getAllLinks) and unlinkNodes treat the link as
      * bidirectional, so direction does not matter to callers.
      * Updates the updated_at timestamp on both nodes.
@@ -43,7 +45,19 @@ function createLinkOperations(ctx) {
      * @returns {LinkResult} Success status with optional error message
      */
     linkNodes(sourceId, targetId) {
+      if (sourceId === targetId) {
+        return { success: false, error: 'Cannot link a node to itself' }
+      }
       try {
+        // UNIQUE(source_id, target_id) rejects an identical row but not the
+        // reverse one. Reads treat a link as bidirectional, so storing both
+        // directions would show the pair as linked twice.
+        const existing = ctx._get(
+          'SELECT id FROM node_links WHERE (source_id = ? AND target_id = ?) OR (source_id = ? AND target_id = ?)',
+          [sourceId, targetId, targetId, sourceId]
+        )
+        if (existing) return { success: false, error: 'Nodes are already linked' }
+
         ctx._run('INSERT INTO node_links (source_id, target_id) VALUES (?, ?)', [sourceId, targetId])
         ctx._run('UPDATE nodes SET updated_at = CURRENT_TIMESTAMP WHERE id IN (?, ?)', [sourceId, targetId])
         return { success: true }

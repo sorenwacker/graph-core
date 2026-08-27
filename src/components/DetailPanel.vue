@@ -153,6 +153,7 @@ const {
   deleteTable,
   saveCell,
   saveCellStyle,
+  deleteTableColumn,
 } = useNodeTable()
 
 // Split view preview ref
@@ -602,6 +603,11 @@ async function handleStyleChange({ row, col, style }) {
   await saveCellStyle(props.node.id, row, col, style)
 }
 
+async function handleDeleteColumn({ colIndex }) {
+  if (!props.node?.id) return
+  await deleteTableColumn(props.node.id, colIndex)
+}
+
 async function handleTableStructureChange({ type, value }) {
   if (!props.node?.id) return
   await updateTable(props.node.id, { [type]: value })
@@ -935,6 +941,7 @@ defineExpose({
                   @delete="handleDeleteTable"
                   @cell-change="handleCellChange"
                   @structure-change="handleTableStructureChange"
+                  @delete-column="handleDeleteColumn"
                   @style-change="handleStyleChange"
                 />
               </div>
