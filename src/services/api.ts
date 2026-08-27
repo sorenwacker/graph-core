@@ -145,6 +145,7 @@ interface ElectronAPI {
   deleteNodeTable(nodeId: number): Promise<void>
   getTableCells(nodeId: number): Promise<TableCell[]>
   setCells(nodeId: number, cells: TableCell[]): Promise<void>
+  deleteTableColumn(nodeId: number, colIndex: number): Promise<void>
   clearCells(nodeId: number): Promise<void>
   ollamaGenerate(options: OllamaGenerateOptions): Promise<string>
   ollamaTestConnection(endpoint: string): Promise<ConnectionTestResult>
@@ -638,6 +639,12 @@ const webApi: Api = {
     })
   },
 
+  async deleteTableColumn(nodeId: number, colIndex: number): Promise<void> {
+    return request<void>(`/nodes/${nodeId}/table/columns/${colIndex}`, {
+      method: 'DELETE',
+    })
+  },
+
   async clearCells(nodeId: number): Promise<void> {
     return request<void>(`/nodes/${nodeId}/table/cells`, {
       method: 'DELETE',
@@ -914,6 +921,8 @@ const electronApi: Api = {
   getTableCells: (nodeId: number): Promise<TableCell[]> => window.electronAPI!.getTableCells(nodeId),
 
   setCells: (nodeId: number, cells: TableCell[]): Promise<void> => window.electronAPI!.setCells(nodeId, cells),
+  deleteTableColumn: (nodeId: number, colIndex: number): Promise<void> =>
+    window.electronAPI!.deleteTableColumn(nodeId, colIndex),
 
   clearCells: (nodeId: number): Promise<void> => window.electronAPI!.clearCells(nodeId),
 

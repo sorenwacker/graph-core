@@ -319,6 +319,74 @@ describe('Database Integration Tests', () => {
   })
 
   describe('Search', () => {
+    it('ranks a title match above a notes-only match that was updated later', () => {
+      const person = factory.person({ title: 'Test Person Alpha' })
+      const meeting = factory.note({ title: '260826 Intake meeting', notes: 'Test Person Alpha attended' })
+
+      // The meeting note is the more recently touched of the two, so pure
+      // recency ordering would put it first.
+      db._run('UPDATE nodes SET updated_at = ? WHERE id = ?', ['2026-08-01 09:00:00', person.id])
+      db._run('UPDATE nodes SET updated_at = ? WHERE id = ?', ['2026-08-26 09:00:00', meeting.id])
+
+      const results = db.search('Alpha')
+      expect(results.map(r => r.id)).toEqual([person.id, meeting.id])
+    })
+
+    it('orders results exact title, title prefix, title contains, then notes-only', () => {
+      const notesOnly = factory.note({ title: '260826 Intake meeting', notes: 'about Alpha' })
+      const contains = factory.task({ title: 'Call with Alpha' })
+      const prefix = factory.note({ title: 'Alpha onboarding' })
+      const exact = factory.person({ title: 'Alpha' })
+
+      // Recency runs opposite to the intended ranking: the weakest match is the
+      // newest. Only the relevance tiers can produce the expected order.
+      db._run('UPDATE nodes SET updated_at = ? WHERE id = ?', ['2026-08-26 09:00:00', notesOnly.id])
+      db._run('UPDATE nodes SET updated_at = ? WHERE id = ?', ['2026-08-25 09:00:00', contains.id])
+      db._run('UPDATE nodes SET updated_at = ? WHERE id = ?', ['2026-08-24 09:00:00', prefix.id])
+      db._run('UPDATE nodes SET updated_at = ? WHERE id = ?', ['2026-08-23 09:00:00', exact.id])
+
+      const results = db.search('Alpha')
+      expect(results.map(r => r.title)).toEqual([
+        'Alpha',
+        'Alpha onboarding',
+        'Call with Alpha',
+        '260826 Intake meeting',
+      ])
+    })
+
+    it('falls back to most recently updated within the same relevance tier', () => {
+      const older = factory.task({ title: 'Alpha sync' })
+      const newer = factory.task({ title: 'Alpha review' })
+
+      db._run('UPDATE nodes SET updated_at = ? WHERE id = ?', ['2026-08-01 09:00:00', older.id])
+      db._run('UPDATE nodes SET updated_at = ? WHERE id = ?', ['2026-08-26 09:00:00', newer.id])
+
+      const results = db.search('Alpha')
+      expect(results.map(r => r.id)).toEqual([newer.id, older.id])
+    })
+
+    it('ranks in the database so the best match survives pagination', () => {
+      const notesOnly = factory.note({ title: '260826 Intake meeting', notes: 'Alpha was there' })
+      const person = factory.person({ title: 'Test Person Alpha' })
+
+      db._run('UPDATE nodes SET updated_at = ? WHERE id = ?', ['2026-08-26 09:00:00', notesOnly.id])
+      db._run('UPDATE nodes SET updated_at = ? WHERE id = ?', ['2026-08-01 09:00:00', person.id])
+
+      const firstPage = db.search('Alpha', null, undefined, { limit: 1, offset: 0 })
+      expect(firstPage.map(r => r.id)).toEqual([person.id])
+    })
+
+    it('is case-insensitive when matching an exact title', () => {
+      const exact = factory.person({ title: 'Alpha' })
+      const contains = factory.task({ title: 'Call with Alpha' })
+
+      db._run('UPDATE nodes SET updated_at = ? WHERE id = ?', ['2026-08-01 09:00:00', exact.id])
+      db._run('UPDATE nodes SET updated_at = ? WHERE id = ?', ['2026-08-26 09:00:00', contains.id])
+
+      const results = db.search('alpha')
+      expect(results.map(r => r.id)).toEqual([exact.id, contains.id])
+    })
+
     it('should search by title', () => {
       factory.task({ title: 'Important Meeting' })
       factory.task({ title: 'Unrelated Task' })
@@ -681,11 +749,13 @@ describe('Database Integration Tests', () => {
       const parent = factory.task({ title: 'Parent', parent_id: root.id })
       const child = factory.task({ title: 'Child', parent_id: parent.id })
 
-      // Trash the child first so the parent's soft delete does not reparent it,
-      // then restore it: a live node whose parent is still in the trash.
+      // A live node whose parent is still in the trash. restoreNode no longer
+      // leaves a node in this state (it reattaches to the nearest live
+      // ancestor), so the row is put there directly: emptyTrash still has to
+      // recover any node that reaches it, however it got there.
       db.deleteNode(child.id)
       db.deleteNode(parent.id)
-      db.restoreNode(child.id)
+      db._run('UPDATE nodes SET deleted_at = NULL WHERE id = ?', [child.id])
       const grandchild = factory.task({ title: 'Grandchild', parent_id: child.id })
 
       db.emptyTrash()

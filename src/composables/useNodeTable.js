@@ -9,7 +9,6 @@ export function useNodeTable() {
   const table = ref(null)
   const cells = ref([])
   const loading = ref(false)
-  const error = ref(null)
 
   const hasTable = computed(() => table.value !== null)
 
@@ -19,7 +18,6 @@ export function useNodeTable() {
    */
   async function loadTable(nodeId) {
     loading.value = true
-    error.value = null
 
     try {
       const tableData = await api.getNodeTable(nodeId)
@@ -33,7 +31,6 @@ export function useNodeTable() {
       }
     } catch (err) {
       handleError(err, { context: 'Loading table', silent: true })
-      error.value = err.message
       table.value = null
       cells.value = []
     } finally {
@@ -48,14 +45,12 @@ export function useNodeTable() {
    */
   async function createTable(nodeId, options = {}) {
     loading.value = true
-    error.value = null
 
     try {
       await api.createNodeTable(nodeId, options)
       await loadTable(nodeId)
     } catch (err) {
-      handleError(err, { context: 'Creating table', silent: true })
-      error.value = err.message
+      handleError(err, { context: 'Creating table' })
     } finally {
       loading.value = false
     }
@@ -71,7 +66,26 @@ export function useNodeTable() {
       const updatedTable = await api.updateNodeTable(nodeId, updates)
       table.value = updatedTable
     } catch (err) {
-      handleError(err, { context: 'Updating table', silent: true })
+      handleError(err, { context: 'Updating table' })
+    }
+  }
+
+  /**
+   * Delete one column and the cells belonging to it.
+   *
+   * Goes through a dedicated operation rather than writing replacement
+   * column_definitions, because cells are addressed by position: removing a
+   * definition on its own shifts every column's data left.
+   *
+   * @param {number} nodeId - Node ID
+   * @param {number} colIndex - Zero-based index of the column to delete
+   */
+  async function deleteTableColumn(nodeId, colIndex) {
+    try {
+      await api.deleteTableColumn(nodeId, colIndex)
+      await loadTable(nodeId)
+    } catch (err) {
+      handleError(err, { context: 'Deleting column' })
       error.value = err.message
     }
   }
@@ -87,7 +101,6 @@ export function useNodeTable() {
       cells.value = []
     } catch (err) {
       handleError(err, { context: 'Deleting table' })
-      error.value = err.message
     }
   }
 
@@ -139,8 +152,7 @@ export function useNodeTable() {
         cell.formula = undefined
       }
     } catch (err) {
-      handleError(err, { context: 'Saving cell', silent: true })
-      error.value = err.message
+      handleError(err, { context: 'Saving cell' })
     }
   }
 
@@ -172,8 +184,7 @@ export function useNodeTable() {
       await api.setCells(nodeId, [cellData])
       cell.style = JSON.stringify(style)
     } catch (err) {
-      handleError(err, { context: 'Saving cell style', silent: true })
-      error.value = err.message
+      handleError(err, { context: 'Saving cell style' })
     }
   }
 
@@ -182,7 +193,6 @@ export function useNodeTable() {
     table,
     cells,
     loading,
-    error,
     hasTable,
 
     // Actions
@@ -192,5 +202,6 @@ export function useNodeTable() {
     deleteTable,
     saveCell,
     saveCellStyle,
+    deleteTableColumn,
   }
 }

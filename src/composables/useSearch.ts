@@ -107,6 +107,8 @@ export function useSearch({
   const linkSourceNodeId = ref<number | null>(null)
   const searchInputRef = ref<HTMLInputElement | null>(null)
   const searchOffset = ref(0)
+  // Newest search wins; a slower earlier response is discarded.
+  let searchTicket = 0
   const hasMoreResults = ref(false)
   const isLoadingMore = ref(false)
 
@@ -169,6 +171,8 @@ export function useSearch({
   }
 
   async function handleSearch(workspaceId: number | null, loadMore = false): Promise<void> {
+    const ticket = ++searchTicket
+    const isCurrent = () => ticket === searchTicket
     if (!searchQuery.value.trim()) {
       searchResults.value = []
       searchOffset.value = 0
@@ -190,6 +194,10 @@ export function useSearch({
         }
 
         const results = await onSearch(searchQuery.value, searchMode.value, workspaceId, paginationOptions)
+
+        // The query moved on while this request was in flight; appending now
+        // would mix results from two different searches.
+        if (!isCurrent()) return
 
         // Check if there are more results
         hasMoreResults.value = results.length === SEARCH_PAGE_SIZE
@@ -221,7 +229,11 @@ export function useSearch({
       }
     } catch (e) {
       handleError(e as Error, { context: 'Searching' })
+      if (!isCurrent()) return
       isLoadingMore.value = false
+      // The page this call was fetching never arrived, so put the window back:
+      // leaving it advanced makes the retry skip that page for good.
+      if (loadMore) searchOffset.value = Math.max(0, searchOffset.value - SEARCH_PAGE_SIZE)
     }
   }
 

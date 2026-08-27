@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { api } from '../services/api'
 import { STORAGE_KEYS } from '../utils/uiConstants.js'
+import { handleError } from '../composables/useErrorHandler.js'
 
 /**
  * Quick capture window (docs/guides/quick-capture.md). A small input that
@@ -12,6 +13,7 @@ import { STORAGE_KEYS } from '../utils/uiConstants.js'
 const text = ref('')
 const inputRef = ref(null)
 const busy = ref(false)
+const error = ref('')
 
 onMounted(() => inputRef.value?.focus())
 
@@ -23,6 +25,7 @@ async function save() {
   const title = text.value.trim()
   if (!title || busy.value) return
   busy.value = true
+  error.value = ''
   try {
     await api.createNode({
       type: 'note',
@@ -32,6 +35,11 @@ async function save() {
     })
     text.value = ''
     hide()
+  } catch (err) {
+    // The capture window is the only place this text exists. Keep it in the
+    // box and say what went wrong rather than closing on a failed save.
+    handleError(err, { context: 'Saving capture' })
+    error.value = err.message
   } finally {
     busy.value = false
   }
@@ -56,10 +64,18 @@ function onKeydown(e) {
         @keydown="onKeydown"
       />
     </form>
+    <p v-if="error" class="capture-error" role="alert">{{ error }}</p>
   </div>
 </template>
 
 <style scoped>
+.capture-error {
+  margin: 0;
+  padding: 0 16px 8px;
+  color: var(--error-color);
+  font-size: 12px;
+}
+
 .capture-view {
   height: 100vh;
   display: flex;

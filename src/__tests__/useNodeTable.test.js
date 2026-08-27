@@ -30,7 +30,6 @@ describe('useNodeTable', () => {
       expect(result).toHaveProperty('table')
       expect(result).toHaveProperty('cells')
       expect(result).toHaveProperty('loading')
-      expect(result).toHaveProperty('error')
       expect(result).toHaveProperty('hasTable')
 
       // Actions
@@ -96,11 +95,12 @@ describe('useNodeTable', () => {
     it('should handle errors', async () => {
       api.getNodeTable.mockRejectedValue(new Error('Network error'))
 
-      const { table, cells, error, loadTable } = useNodeTable()
+      const { table, cells, loadTable } = useNodeTable()
 
       await loadTable(1)
 
-      expect(error.value).toBe('Network error')
+      // Failures are reported through the shared error handler, not stored in
+      // a ref nothing reads; the table is left empty.
       expect(table.value).toBeNull()
       expect(cells.value).toEqual([])
     })
@@ -123,11 +123,11 @@ describe('useNodeTable', () => {
     it('should handle errors', async () => {
       api.createNodeTable.mockRejectedValue(new Error('Creation failed'))
 
-      const { error, createTable } = useNodeTable()
+      const { table, createTable } = useNodeTable()
 
       await createTable(1)
 
-      expect(error.value).toBe('Creation failed')
+      expect(table.value).toBeNull()
     })
   })
 
