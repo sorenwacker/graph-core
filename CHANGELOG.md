@@ -4,8 +4,20 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- Search ranks title matches above notes matches ([guide](docs/guides/search.md#ranking)), in four tiers: exact title, title prefix, title contains, then notes-only. Within a tier the most recently updated node still comes first. Searching for a person now returns that person before the meeting notes mentioning them; previously results were ordered by modification date alone, so a recently edited note outranked the node the query named.
+
 ### Fixed
 
+- The notes editor no longer adds a blank line between list items ([guide](docs/guides/detail-panel.md#notes-section)). Pressing Enter on an empty list item used to move that item down instead of ending the list, and once a list held a blank line the editor inserted another one ahead of every following marker. Enter now ends the list on an empty item and keeps lists tight.
+- Metadata uses the full width in fullscreen and detached mode. The bottom sections were laid out as a flex column there, so the width percentages resolved against the height and Table, Tasks and Metadata each shrank to their minimum width, leaving most of the window empty.
+- Turning sensitive notes off no longer destroys trashed notes ([design](docs/architecture/sensitive-notes.md#turning-the-feature-off)). The sweep decrypted notes through a path that filters out soft-deleted rows, so a sensitive note in the trash kept its ciphertext while the only key that could read it was deleted. It now decrypts every note, including trashed ones, and the sweep plus the key deletion happen in one batch, so a note that fails to decrypt leaves the feature enabled instead of half-disabling it.
+- Enabling sensitive notes verifies the recovery password before wrapping the key under it. A typo previously produced notes that could only be opened with the mistyped password.
+- The undo stack no longer writes note text to sessionStorage, which is disk-backed. A decrypted sensitive note ended up there and outlived the relock that was supposed to clear it. Undo and redo of note edits still work normally within a session; after a window reload only the commands made since the most recent note edit are restored.
+- Sensitive notes are withheld from every surface that showed them ([design](docs/architecture/sensitive-notes.md#session-and-relock)). The notes editor masked only its preview tab, so Edit and Split showed the content and, on a locked note, let the user type over ciphertext while the main process discarded the write. Person and organization notes were never masked at all, because the props that would have done it were not passed. The table's Notes column printed sensitive text in full, hover tooltip included.
+- The wrapped sensitive-notes key is no longer readable or writable from the renderer. It is stored as a setting, so the generic settings channels handed it out and would have let the renderer overwrite or delete it, which makes every sensitive note permanently unreadable.
+- A sensitive note that cannot be decrypted no longer breaks every list it appears in. It now reads as a locked placeholder instead of throwing out of the row decoder.
 - The detached window no longer shows controls that do nothing. Pin, fullscreen, detach and the link-search buttons acted on the main window, which a detached window does not have, so three of them were wired to empty handlers and detach was not handled at all.
 - Shift-clicking a card selects it. Cards View emitted the node on its own where the handler expects an options object, so the handler read undefined and selected nothing ([reference](docs/reference/interactions.md)).
 - Clicking the notes on a nested card opens them for editing. The notes swallowed the click and emitted an event nothing was listening for, so nothing happened at all.

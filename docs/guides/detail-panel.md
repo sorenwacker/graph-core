@@ -61,6 +61,10 @@ The notes section supports full Markdown editing.
 - Code blocks with syntax highlighting
 - Tables and lists support
 
+**Lists and Enter:**
+
+Pressing `Enter` inside a list or blockquote continues it with the next marker, renumbering ordered lists as it goes. Lists are kept tight: `Enter` never inserts a blank line between items, whether or not the list already contains one. Pressing `Enter` on an empty list item ends the list and removes the marker.
+
 ### Mentions
 
 Type `@` in the notes editor (Edit or Split mode) to mention and link to person nodes:

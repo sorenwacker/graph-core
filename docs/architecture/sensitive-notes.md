@@ -34,7 +34,12 @@ Content is encrypted with AES-256-GCM under the sensitive-notes key. GCM authent
 
 Entering the recovery password unlocks all sensitive notes for the session. An idle timer relocks them after a period of no activity (default five minutes), clearing the sensitive-notes key from memory. Relocking also happens when the app locks or quits.
 
-While unlocked, sensitive notes render normally. While locked, the detail panel shows a locked placeholder with an unlock action, and cards and tooltips keep the existing masking.
+While unlocked, sensitive notes render normally. While locked, the stored value is still ciphertext and the app withholds it everywhere it would otherwise appear:
+
+- The notes editor shows a locked placeholder with an unlock action on all three tabs, not only the preview. An editor on a locked note would display the ciphertext marker and silently lose whatever was typed, because the main process rejects the write.
+- The sensitivity toggle is disabled while the note is locked, for the same reason.
+- The table's Notes column shows a lock icon instead of the text, and drops the hover title with it. Person and organization notes mask on the same terms as any other note.
+- Cards and tooltips keep the existing masking.
 
 ## Search
 
@@ -44,8 +49,21 @@ Sensitive-note content is not searchable while locked. The content is ciphertext
 
 Exports (Markdown, JSON, CSV) are plaintext by design. A sensitive note exports as its ciphertext marker string when the session is locked, and as decrypted content when unlocked and the export is confirmed. The export UI states which of the two applies before writing the file.
 
+## Turning the feature off
+
+Disabling decrypts every note carrying the marker back to plaintext and clears its flag, then deletes the wrapped key. It requires an unlocked session, since the key is what does the decrypting.
+
+Two properties matter, because getting either wrong destroys content permanently:
+
+- **Every note, including trashed ones.** The sweep writes rows directly rather than going through `updateNode`, whose read path filters out soft-deleted rows. A trashed sensitive note skipped by the sweep would keep its ciphertext after the only key that could read it was gone.
+- **All or nothing.** The sweep and the key deletion run in one batch. A note that fails to decrypt aborts the whole operation and leaves the feature enabled, rather than half-disabling and stripping the key from the rest.
+
+Enabling verifies the recovery password against the database file before wrapping the key under it. The wrapped key can only ever be unwrapped with that password, so an unverified typo would produce notes that nobody can open.
+
 ## Honest limits
 
 - Decrypted content is plaintext in memory during an unlocked session.
+- Undo and redo of a note edit are lost when the window reloads. The undo stack is persisted to sessionStorage, which is disk-backed, so commands carrying note text are excluded from it; only the commands made after the most recent such edit are restored. Within a session, undo and redo of note edits work normally.
 - Losing the recovery password loses the sensitive notes along with the rest of the encrypted database.
 - Turning the flag off, or editing a sensitive note, requires an unlocked session; the app cannot decrypt without the password.
+- A note that cannot be decrypted - written under a key that has since been replaced - reads as a locked placeholder rather than failing the query it appears in. It stays unreadable, and it blocks disabling the feature until it is deleted.
