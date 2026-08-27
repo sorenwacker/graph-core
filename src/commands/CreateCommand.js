@@ -43,6 +43,11 @@ export class CreateCommand extends Command {
     }
   }
 
+  /** Not persisted when it carries note text; see Command.isPersistable. */
+  isPersistable() {
+    return !this.nodeData?.notes
+  }
+
   remapNodeId(oldId, newId) {
     if (this.nodeId === oldId) this.nodeId = newId
     if (this.parentId === oldId) this.parentId = newId

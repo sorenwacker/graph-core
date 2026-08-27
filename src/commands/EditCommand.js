@@ -28,6 +28,11 @@ export class EditCommand extends Command {
     }
   }
 
+  /** Not persisted when it carries note text; see Command.isPersistable. */
+  isPersistable() {
+    return !('notes' in (this.oldValues || {}) || 'notes' in (this.newValues || {}))
+  }
+
   remapNodeId(oldId, newId) {
     if (this.nodeId === oldId) this.nodeId = newId
   }

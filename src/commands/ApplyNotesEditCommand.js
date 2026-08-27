@@ -32,6 +32,11 @@ export class ApplyNotesEditCommand extends Command {
     }
   }
 
+  /** Carries note text, so it is never written to sessionStorage. */
+  isPersistable() {
+    return false
+  }
+
   remapNodeId(oldId, newId) {
     if (this.nodeId === oldId) this.nodeId = newId
   }
