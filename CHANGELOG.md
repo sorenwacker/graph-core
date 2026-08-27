@@ -2,6 +2,17 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
+## [Unreleased]
+
+### Changed
+
+- Search ranks title matches above notes matches ([guide](docs/guides/search.md#ranking)), in four tiers: exact title, title prefix, title contains, then notes-only. Within a tier the most recently updated node still comes first. Searching for a person now returns that person before the meeting notes mentioning them; previously results were ordered by modification date alone, so a recently edited note outranked the node the query named.
+
+### Fixed
+
+- The notes editor no longer adds a blank line between list items ([guide](docs/guides/detail-panel.md#notes-section)). Pressing Enter on an empty list item used to move that item down instead of ending the list, and once a list held a blank line the editor inserted another one ahead of every following marker. Enter now ends the list on an empty item and keeps lists tight.
+- Metadata uses the full width in fullscreen and detached mode. The bottom sections were laid out as a flex column there, so the width percentages resolved against the height and Table, Tasks and Metadata each shrank to their minimum width, leaving most of the window empty.
+
 ## [1.16.0] - 2026-08-26
 
 ### Added
