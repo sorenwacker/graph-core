@@ -276,11 +276,10 @@ describe('Node Table Feature', () => {
     })
 
     it('should initialize with empty state', () => {
-      const { table, cells, loading, error } = useNodeTable()
+      const { table, cells, loading } = useNodeTable()
       expect(table.value).toBeNull()
       expect(cells.value).toEqual([])
       expect(loading.value).toBe(false)
-      expect(error.value).toBeNull()
     })
 
     it('loadTable should fetch table and cells', async () => {
@@ -352,13 +351,16 @@ describe('Node Table Feature', () => {
       expect(table.value).toBeNull()
     })
 
-    it('should set error on API failure', async () => {
+    it('should leave the table empty on API failure', async () => {
+      // The composable used to keep the message in an `error` ref that no
+      // component read. Reporting is the shared error handler's job; what this
+      // asserts is that a failed load does not leave stale data behind.
       api.getNodeTable.mockRejectedValue(new Error('Network error'))
 
-      const { error, loadTable } = useNodeTable()
+      const { table, loadTable } = useNodeTable()
       await loadTable(123)
 
-      expect(error.value).toBe('Network error')
+      expect(table.value).toBeNull()
     })
 
     it('hasTable should return true when table exists', () => {

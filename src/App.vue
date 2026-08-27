@@ -159,6 +159,9 @@ const {
     selectedNode.value = null
     selectedIds.value = new Set()
     showDetail.value = false
+    // Commands name node ids, which carry no workspace. Undoing after a switch
+    // would edit a node in the workspace the user just left, invisibly.
+    clearUndoRedo()
     await loadChildren(null)
     await loadSidebarTree()
     await Promise.all([loadRecentItems(), loadFavorites(), loadTags()])
@@ -259,7 +262,14 @@ const {
 })
 
 // Undo/redo
-const { undoStack, redoStack, pushCommand, undo, redo } = useUndoRedo({
+const {
+  undoStack,
+  redoStack,
+  pushCommand,
+  undo,
+  redo,
+  clear: clearUndoRedo,
+} = useUndoRedo({
   api,
   showNotification: showToast,
   onSuccess: async () => {

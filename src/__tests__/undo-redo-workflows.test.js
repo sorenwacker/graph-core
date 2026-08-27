@@ -164,7 +164,9 @@ describe('undo/redo workflows', () => {
 
       await undoRedo.undo()
 
-      expect(mockApi.updateNode).toHaveBeenCalledWith(1, { completed: false })
+      // Undo restores end_date too: completing stamps one, so leaving it
+      // behind would keep an uncompleted item looking finished.
+      expect(mockApi.updateNode).toHaveBeenCalledWith(1, { completed: false, end_date: null })
     })
   })
 
@@ -329,7 +331,7 @@ describe('undo/redo workflows', () => {
 
       // Undo all
       await undoRedo.undo() // uncomplete
-      expect(mockApi.updateNode).toHaveBeenLastCalledWith(1, { completed: false })
+      expect(mockApi.updateNode).toHaveBeenLastCalledWith(1, { completed: false, end_date: null })
 
       await undoRedo.undo() // revert title
       expect(mockApi.updateNode).toHaveBeenLastCalledWith(1, { title: 'Task' })

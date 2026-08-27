@@ -120,6 +120,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteNodeTable: nodeId => ipcRenderer.invoke(C.DB_DELETE_NODE_TABLE, nodeId),
   getTableCells: nodeId => ipcRenderer.invoke(C.DB_GET_TABLE_CELLS, nodeId),
   setCells: (nodeId, cells) => ipcRenderer.invoke(C.DB_SET_CELLS, nodeId, cells),
+  deleteTableColumn: (nodeId, colIndex) => ipcRenderer.invoke(C.DB_DELETE_TABLE_COLUMN, nodeId, colIndex),
   clearCells: nodeId => ipcRenderer.invoke(C.DB_CLEAR_CELLS, nodeId),
 
   // Settings

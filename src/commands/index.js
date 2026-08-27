@@ -1,5 +1,6 @@
 export { Command } from './Command.js'
 export { MoveCommand } from './MoveCommand.js'
+export { MoveMultipleCommand } from './MoveMultipleCommand.js'
 export { LinkCommand } from './LinkCommand.js'
 export { UnlinkCommand } from './UnlinkCommand.js'
 export { CompleteCommand } from './CompleteCommand.js'

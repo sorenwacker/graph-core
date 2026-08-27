@@ -34,7 +34,9 @@ describe('CompleteCommand', () => {
     it('should call api.updateNode with oldCompleted', async () => {
       const cmd = new CompleteCommand({ nodeId: 1, oldCompleted: false, newCompleted: true })
       await cmd.undo(mockApi)
-      expect(mockApi.updateNode).toHaveBeenCalledWith(1, { completed: false })
+      // Undo restores end_date too: completing stamps one, so leaving it
+      // behind would keep an uncompleted item looking finished.
+      expect(mockApi.updateNode).toHaveBeenCalledWith(1, { completed: false, end_date: null })
     })
   })
 
@@ -46,6 +48,7 @@ describe('CompleteCommand', () => {
         nodeId: 1,
         oldCompleted: false,
         newCompleted: true,
+        oldEndDate: null,
       })
     })
   })

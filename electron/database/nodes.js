@@ -311,6 +311,22 @@ function createNodeOperations(ctx) {
       const node = ops.getNode(id)
       if (!node) return null
 
+      // A node may not become its own ancestor. Without this the tree gains a
+      // cycle and updateSubtreePath below walks it until the stack overflows.
+      if (newParentId != null) {
+        if (newParentId === id) throw new Error('Cannot move a node into itself')
+        const target = ops.getNode(newParentId)
+        if (target) {
+          const ancestorIds = String(target.path || '')
+            .split('/')
+            .filter(Boolean)
+            .map(Number)
+          if (ancestorIds.includes(id)) {
+            throw new Error('Cannot move a node into its own descendant')
+          }
+        }
+      }
+
       return ctx._batch(() => {
         let depth = 0
         let path = ''

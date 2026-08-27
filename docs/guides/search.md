@@ -83,6 +83,19 @@ Prefix with `#` to search by tag:
 
 ## Results
 
+### Ranking
+
+Results are ordered by how well the query matches the node **title**, because the node a query names is almost always wanted ahead of the notes that merely mention it. Searching for a person returns that person's node before the meeting notes they appear in.
+
+Four tiers, in order:
+
+1. The title equals the query.
+2. The title starts with the query.
+3. The title contains the query.
+4. Only the notes match.
+
+Within a tier, the most recently updated node comes first. Ranking is applied in the database query, so it holds across pages rather than only reordering the page you are looking at.
+
 ### Pagination
 
 Results are paginated with 50 items per page. Click "Load More" to fetch additional results.

@@ -601,13 +601,27 @@ function handleGlobalKeydown(e) {
 /**
  * Initialize the graph with nodes and edges.
  */
+// Guards re-entry across the await below. A second call that got there first
+// would leave the earlier cytoscape instance assigned to nothing but still
+// holding its listeners and DOM.
+let initTicket = 0
+
 async function initGraph() {
   if (!container.value) return
+  const ticket = ++initTicket
   isInitializing = true
 
   const savedPos = _loadPos()
   const elements = await graphUpdate.buildElementsWithLinks(savedPos)
+  if (ticket !== initTicket) return
   const hasPos = Object.keys(savedPos).length > 0
+
+  // Destroy whatever is mounted before replacing the reference, so an instance
+  // is never orphaned with its listeners still attached.
+  if (cy) {
+    cy.destroy()
+    cy = null
+  }
 
   cy = graphInit.createCytoscapeInstance(elements, hasPos)
   if (!cy) {
