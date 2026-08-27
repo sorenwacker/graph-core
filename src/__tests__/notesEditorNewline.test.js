@@ -46,28 +46,28 @@ function enter(doc, opts) {
 
 describe('Enter in the notes editor', () => {
   it('continues a tight list without a blank line', () => {
-    expect(enter('- Anne\n- Douwe').doc).toBe('- Anne\n- Douwe\n- ')
+    expect(enter('- Anne\n- Bravo').doc).toBe('- Anne\n- Bravo\n- ')
   })
 
   it('continues a list that is already loose without adding another blank line', () => {
-    expect(enter('- Anne\n\n- Douwe').doc).toBe('- Anne\n\n- Douwe\n- ')
+    expect(enter('- Anne\n\n- Bravo').doc).toBe('- Anne\n\n- Bravo\n- ')
   })
 
   it('leaves the cursor after the new marker', () => {
-    const { doc, cursor } = enter('- Anne\n\n- Douwe')
+    const { doc, cursor } = enter('- Anne\n\n- Bravo')
     expect(cursor).toBe(doc.length)
   })
 
   it('inserts a single line break in plain prose', () => {
-    expect(enter('Henriette Jensenius').doc).toBe('Henriette Jensenius\n')
+    expect(enter('Test Person Alpha').doc).toBe('Test Person Alpha\n')
   })
 
   it('continues an ordered list with the next number', () => {
-    expect(enter('1. Anne\n2. Douwe').doc).toBe('1. Anne\n2. Douwe\n3. ')
+    expect(enter('1. Anne\n2. Bravo').doc).toBe('1. Anne\n2. Bravo\n3. ')
   })
 
   it('does not add a blank line to a loose ordered list', () => {
-    expect(enter('1. Anne\n\n2. Douwe').doc).toBe('1. Anne\n\n2. Douwe\n3. ')
+    expect(enter('1. Anne\n\n2. Bravo').doc).toBe('1. Anne\n\n2. Bravo\n3. ')
   })
 
   it('continues a blockquote', () => {
@@ -84,7 +84,7 @@ describe('Enter in the notes editor', () => {
   })
 
   it('continues a nested list at its own level', () => {
-    expect(enter('- Anne\n  - Douwe').doc).toBe('- Anne\n  - Douwe\n  - ')
+    expect(enter('- Anne\n  - Bravo').doc).toBe('- Anne\n  - Bravo\n  - ')
   })
 
   // NotesEditor binds only Enter itself; Backspace markup deletion has to keep
