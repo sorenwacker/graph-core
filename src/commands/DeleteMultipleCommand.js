@@ -56,6 +56,11 @@ export class DeleteMultipleCommand extends Command {
     }
   }
 
+  /** Not persisted when it carries note text; see Command.isPersistable. */
+  isPersistable() {
+    return !(this.nodes || []).some(node => node?.notes)
+  }
+
   remapNodeId(oldId, newId) {
     for (const node of this.nodes || []) {
       if (node.id === oldId) node.id = newId

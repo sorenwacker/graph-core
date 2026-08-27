@@ -1,10 +1,11 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import NotesEditor from '../NotesEditor.vue'
 import NotesAIToolbar from '../NotesAIToolbar.vue'
 import MarkdownRenderer from '../MarkdownRenderer.vue'
+import { useSensitiveNotes } from '../../composables/useSensitiveNotes.js'
 
-defineProps({
+const props = defineProps({
   notes: { type: String, default: '' },
   nodeId: { type: [String, Number], required: true },
   // Workspace used to scope @mention person auto-linking
@@ -16,6 +17,14 @@ defineProps({
 })
 
 const emit = defineEmits(['update:notes', 'update:activeTab', 'blur', 'ai-improve', 'mention-inserted'])
+
+const { isLockedNote } = useSensitiveNotes()
+
+/** The note is still ciphertext because the sensitive session is locked. */
+const locked = computed(() => isLockedNote(props.notes))
+
+/** Withhold the note from every tab: locked ciphertext, or flagged and not revealed. */
+const hidden = computed(() => locked.value || (props.notesSensitive && !props.showSensitive))
 
 const notesEditorRef = ref(null)
 const notesEditorSplitRef = ref(null)
@@ -63,8 +72,17 @@ defineExpose({ getSelection, notesEditorRef, notesEditorSplitRef })
     </div>
   </div>
 
+  <!-- Masking wraps every tab, not just the preview. An edit or split tab that
+       rendered the note would show the content the preview hides, and while the
+       note is locked ciphertext any edit is rejected by the main process and
+       silently lost. -->
+  <div v-if="hidden" :class="['sensitive-hidden', cssClass]">
+    <p>{{ locked ? 'Sensitive notes are locked' : 'Sensitive notes hidden' }}</p>
+    <slot name="unlock-button" />
+  </div>
+
   <NotesEditor
-    v-if="activeTab === 'edit'"
+    v-else-if="activeTab === 'edit'"
     ref="notesEditorRef"
     :model-value="notes"
     :workspace-id="workspaceId"
@@ -76,11 +94,7 @@ defineExpose({ getSelection, notesEditorRef, notesEditorSplitRef })
   />
 
   <div v-else-if="activeTab === 'preview'" :class="['notes-preview', 'markdown-body', cssClass]">
-    <div v-if="notesSensitive && !showSensitive" class="sensitive-hidden">
-      <p>Sensitive notes hidden</p>
-      <slot name="unlock-button" />
-    </div>
-    <MarkdownRenderer v-else-if="notes" :content="notes" />
+    <MarkdownRenderer v-if="notes" :content="notes" />
     <p v-else class="placeholder">No notes yet</p>
   </div>
 

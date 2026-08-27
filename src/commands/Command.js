@@ -37,6 +37,18 @@ export class Command {
   }
 
   /**
+   * Whether this command may be written to sessionStorage with the rest of the
+   * stack. Commands carrying note text override this to false: sessionStorage
+   * is disk-backed, and a sensitive note is decrypted only into memory for an
+   * unlocked session (docs/architecture/sensitive-notes.md). A non-persistable
+   * command still undoes and redoes normally within the session.
+   * @returns {boolean}
+   */
+  isPersistable() {
+    return true
+  }
+
+  /**
    * Replace every reference to `oldId` with `newId`.
    *
    * Redoing a creation cannot reuse the original row id, so the commands queued

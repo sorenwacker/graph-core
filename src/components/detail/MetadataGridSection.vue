@@ -9,6 +9,9 @@ const props = defineProps({
   linkedNodes: { type: Array, default: () => [] },
   workspaces: { type: Array, default: () => [] },
   collapsed: { type: Boolean, default: false },
+  // In a detached window there is no spotlight to open, so the link affordances
+  // would do nothing; hide them instead of showing dead buttons.
+  detached: { type: Boolean, default: false },
 })
 
 // Filter linked nodes into tags and non-tags
@@ -233,10 +236,12 @@ function clearLocation() {
                   {{ linked.title }}
                   <button class="remove-link-btn" @click.stop="emit('remove-link', linked)" title="Remove">x</button>
                 </span>
-                <button class="add-link-btn" @click="emit('add-link')" title="Add link">+</button>
+                <button v-if="!detached" class="add-link-btn" @click="emit('add-link')" title="Add link">+</button>
               </div>
             </div>
-            <button v-else class="add-field-btn compact" @click="emit('add-link')" title="Add link">+Link</button>
+            <button v-else-if="!detached" class="add-field-btn compact" @click="emit('add-link')" title="Add link">
+              +Link
+            </button>
           </template>
           <button v-else class="add-field-btn compact" @click="emit('toggle-links-visibility', 1)" title="Show links">
             +Link

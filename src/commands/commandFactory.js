@@ -56,7 +56,15 @@ export function fromJSON(json) {
  * @returns {Object[]} - Array of serialized command data
  */
 export function serializeStack(commands) {
-  return commands.map(cmd => cmd.toJSON())
+  // Commands carrying note text are never written to storage. Keep only the
+  // commands after the last one of those: undo pops from the end, so the
+  // suffix is undoable without the command that was dropped, while anything
+  // before it is not.
+  let start = 0
+  for (let i = 0; i < commands.length; i++) {
+    if (typeof commands[i].isPersistable === 'function' && !commands[i].isPersistable()) start = i + 1
+  }
+  return commands.slice(start).map(cmd => cmd.toJSON())
 }
 
 /**

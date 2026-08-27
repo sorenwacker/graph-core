@@ -417,6 +417,10 @@ app.whenReady().then(async () => {
     },
     createSession: makeSensitiveSession,
     isDatabaseEncrypted: () => Boolean(db && db.encryptionKey),
+    verifyRecoveryPassword: password => {
+      const fileBuffer = fsSync.readFileSync(dbPath)
+      if (isEncrypted(fileBuffer)) keyManager.unlockWithPassword(fileBuffer, password)
+    },
   })
   registerOllamaHandlers(ipcMain, httpRequest)
   registerOpenaiHandlers(ipcMain, httpRequest)
