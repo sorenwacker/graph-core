@@ -27,9 +27,12 @@ const SETTINGS_KEY = 'sensitiveNotesWrappedKey'
  * @param {Function} ctx.setSession - Install a session on the db and ctx.
  * @param {Function} ctx.createSession - (wrappedKey) => session, wired to onLock.
  * @param {Function} ctx.isDatabaseEncrypted - Whether db encryption is on.
+ * @param {Function} ctx.verifyRecoveryPassword - Throws unless the password
+ *   unwraps the current database file. Enabling wraps the sensitive-notes key
+ *   under this password, so a typo would produce a key nobody can unwrap.
  */
 function registerSensitiveNotesHandlers(ipcMain, ctx) {
-  const { getDb, getSession, setSession, createSession, isDatabaseEncrypted } = ctx
+  const { getDb, getSession, setSession, createSession, isDatabaseEncrypted, verifyRecoveryPassword } = ctx
 
   ipcMain.handle(SENSITIVE_STATUS, () => {
     const session = getSession()
@@ -50,6 +53,11 @@ function registerSensitiveNotesHandlers(ipcMain, ctx) {
       return { success: false, error: 'Sensitive notes are already enabled' }
     }
     try {
+      // The sensitive-notes key is wrapped under the recovery password and can
+      // only ever be unwrapped with it. Check it against the database file
+      // first: an unverified typo here is unrecoverable, because the wrong
+      // password is then the only one that opens the notes.
+      verifyRecoveryPassword(password)
       const session = createSession(null)
       const wrapped = session.enable(password)
       db.setSetting(SETTINGS_KEY, wrapped.toString('base64'))
@@ -79,13 +87,13 @@ function registerSensitiveNotesHandlers(ipcMain, ctx) {
     // back to plaintext. The unlock is the authentication; no separate password.
     if (!session.isUnlocked()) return { success: false, error: 'Unlock sensitive notes first' }
     try {
-      // Decrypt every sensitive note back to plaintext through the tested
-      // toggle-off path, then drop the key. The display-masking flag stays.
-      const encrypted = db._query("SELECT id FROM nodes WHERE notes LIKE 'SNENC1:%'")
-      for (const { id } of encrypted) {
-        db.updateNode(id, { notes_sensitive: false })
-      }
-      db.deleteSetting(SETTINGS_KEY)
+      // Decrypt every note - including trashed ones - and drop the key in one
+      // batch, so the key can never be destroyed while ciphertext remains.
+      // Both the notes and the display-masking flag revert to plain.
+      db._batch(() => {
+        db.disableSensitiveNotes()
+        db.deleteSetting(SETTINGS_KEY)
+      })
       session.lock()
       setSession(null)
       return { success: true }

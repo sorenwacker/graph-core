@@ -43,6 +43,11 @@ export class CreateCommand extends Command {
     }
   }
 
+  /** Not persisted when it carries note text; see Command.isPersistable. */
+  isPersistable() {
+    return !this.nodeData?.notes
+  }
+
   getDescription() {
     const title = this.nodeData?.title || 'item'
     return `Create "${title}"`
