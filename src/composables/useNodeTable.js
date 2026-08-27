@@ -86,7 +86,6 @@ export function useNodeTable() {
       await loadTable(nodeId)
     } catch (err) {
       handleError(err, { context: 'Deleting column' })
-      error.value = err.message
     }
   }
 
