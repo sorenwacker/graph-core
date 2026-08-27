@@ -749,11 +749,13 @@ describe('Database Integration Tests', () => {
       const parent = factory.task({ title: 'Parent', parent_id: root.id })
       const child = factory.task({ title: 'Child', parent_id: parent.id })
 
-      // Trash the child first so the parent's soft delete does not reparent it,
-      // then restore it: a live node whose parent is still in the trash.
+      // A live node whose parent is still in the trash. restoreNode no longer
+      // leaves a node in this state (it reattaches to the nearest live
+      // ancestor), so the row is put there directly: emptyTrash still has to
+      // recover any node that reaches it, however it got there.
       db.deleteNode(child.id)
       db.deleteNode(parent.id)
-      db.restoreNode(child.id)
+      db._run('UPDATE nodes SET deleted_at = NULL WHERE id = ?', [child.id])
       const grandchild = factory.task({ title: 'Grandchild', parent_id: child.id })
 
       db.emptyTrash()
