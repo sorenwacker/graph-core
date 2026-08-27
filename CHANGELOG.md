@@ -18,6 +18,11 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 - Sensitive notes are withheld from every surface that showed them ([design](docs/architecture/sensitive-notes.md#session-and-relock)). The notes editor masked only its preview tab, so Edit and Split showed the content and, on a locked note, let the user type over ciphertext while the main process discarded the write. Person and organization notes were never masked at all, because the props that would have done it were not passed. The table's Notes column printed sensitive text in full, hover tooltip included.
 - The wrapped sensitive-notes key is no longer readable or writable from the renderer. It is stored as a setting, so the generic settings channels handed it out and would have let the renderer overwrite or delete it, which makes every sensitive note permanently unreadable.
 - A sensitive note that cannot be decrypted no longer breaks every list it appears in. It now reads as a locked placeholder instead of throwing out of the row decoder.
+- The detached window no longer shows controls that do nothing. Pin, fullscreen, detach and the link-search buttons acted on the main window, which a detached window does not have, so three of them were wired to empty handlers and detach was not handled at all.
+- Shift-clicking a card selects it. Cards View emitted the node on its own where the handler expects an options object, so the handler read undefined and selected nothing ([reference](docs/reference/interactions.md)).
+- Clicking the notes on a nested card opens them for editing. The notes swallowed the click and emitted an event nothing was listening for, so nothing happened at all.
+- The tooltip completion checkbox works in Table View. It emitted a node id where every consumer of that event expects a node.
+- Importing JSON or CSV writes into the workspace you are in. `MainToolbar` sits between the app and the settings panel and never declared `currentWorkspace`, so the panel fell back to its default and every import landed in `work`. The same gap made the "Skip SSL verification" toggle inert and kept the tree from reloading after an import. A test now compares the two components' declared contracts, so a settings prop or event added later cannot silently go unrelayed.
 
 ## [1.16.0] - 2026-08-26
 
