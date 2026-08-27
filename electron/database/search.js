@@ -38,12 +38,14 @@ function createSearchOperations(ctx) {
   return {
     /**
      * Searches nodes by title and notes content using LIKE pattern matching.
-     * Results are ordered by most recently updated first.
+     * Results are ranked by how well the title matches, in four tiers: exact
+     * title, title prefix, title contains, then notes-only matches. Within a
+     * tier the most recently updated node comes first.
      * @param {string} query - Search query string (matched against title and notes)
      * @param {string|null} [type=null] - Optional node type filter
      * @param {string|null|undefined} [workspaceId] - Workspace filter (undefined uses context default, null searches all)
      * @param {SearchOptions} [options={}] - Additional search options
-     * @returns {Node[]} Array of matching nodes ordered by updated_at descending
+     * @returns {Node[]} Array of matching nodes, best title match first
      */
     search(query, type = null, workspaceId = undefined, options = {}) {
       const { hideCompleted = false, limit = 50, offset = 0 } = options
@@ -62,8 +64,20 @@ function createSearchOperations(ctx) {
         sql += ' AND completed = 0'
       }
 
-      sql += ' ORDER BY updated_at DESC LIMIT ? OFFSET ?'
-      values.push(limit, offset)
+      // Rank title matches above notes-only matches: the node a query names is
+      // wanted ahead of the notes that merely mention it. Ordering happens here
+      // rather than in the renderer so it holds across pages instead of
+      // reshuffling whichever page was fetched.
+      sql += ` ORDER BY
+        CASE
+          WHEN LOWER(title) = LOWER(?) THEN 0
+          WHEN title LIKE ? THEN 1
+          WHEN title LIKE ? THEN 2
+          ELSE 3
+        END,
+        updated_at DESC
+        LIMIT ? OFFSET ?`
+      values.push(query, `${query}%`, `%${query}%`, limit, offset)
       return ctx._query(sql, values).map(r => ctx._rowToNode(r))
     },
 
