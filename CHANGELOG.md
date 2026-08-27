@@ -39,6 +39,10 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 - The task list, search results and a person's organizations all keep the newest result when an earlier request finishes late.
 - A failed "load more" in search retries the same page instead of skipping it.
 - Rebuilding the graph while a rebuild is already running no longer leaves the previous graph in memory with its event listeners attached.
+- A table edit that fails now says so. Creating, renaming, deleting a table and saving a cell all reported failures with the toast suppressed, and stored the message where nothing displayed it, so a rejected write looked identical to a successful one. Background refreshes stay quiet, since nobody asked for them.
+- Cutting spreadsheet cells when the clipboard is unavailable no longer deletes them. The copy failed to a console warning and the cut deleted anyway, destroying the only copy of the content.
+- A failed quick capture keeps your text and shows the reason instead of closing the window. The capture window is the only place that text exists.
+- Changing an item's workspace puts the dropdown back if the change fails, rather than showing a move that did not happen.
 
 ## [1.16.0] - 2026-08-26
 

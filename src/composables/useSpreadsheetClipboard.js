@@ -3,16 +3,18 @@
  * Handles copy, cut, paste, delete, and multi-cell fill operations
  */
 
+import { handleError } from './useErrorHandler.js'
+
 /**
  * Copy selected cells to clipboard as tab-separated values
  * @param {Object} options
  * @param {Object} options.selectionBounds - {minRow, maxRow, minCol, maxCol}
  * @param {Array} options.columns - Column definitions
  * @param {Array} options.rowData - Row data array
- * @returns {Promise<void>}
+ * @returns {Promise<boolean>} Whether the text reached the clipboard
  */
 export async function copySelection({ selectionBounds, columns, rowData }) {
-  if (!selectionBounds) return
+  if (!selectionBounds) return false
 
   const lines = []
 
@@ -30,8 +32,10 @@ export async function copySelection({ selectionBounds, columns, rowData }) {
 
   try {
     await navigator.clipboard.writeText(text)
+    return true
   } catch (err) {
-    console.warn('Failed to copy to clipboard:', err.message)
+    handleError(err, { context: 'Copying to clipboard' })
+    return false
   }
 }
 
@@ -67,11 +71,15 @@ export function deleteSelectedCells({ selectionBounds, columns, gridApi, emit })
 }
 
 /**
- * Cut selected cells (copy then delete)
+ * Cut selected cells: copy first, and delete only if the copy succeeded.
  * @param {Object} options - Same as copySelection + deleteSelectedCells
+ * @returns {Promise<void>}
  */
 export async function cutSelection(options) {
-  await copySelection(options)
+  // Only clear the cells once their contents are safely on the clipboard.
+  // Deleting after a failed copy destroys the only copy that existed.
+  const copied = await copySelection(options)
+  if (!copied) return
   deleteSelectedCells(options)
 }
 

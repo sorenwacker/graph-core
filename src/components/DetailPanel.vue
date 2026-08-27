@@ -466,9 +466,17 @@ function onLinksVisibilityToggle(value) {
 }
 
 async function changeWorkspace(newWorkspaceId) {
+  const previous = editedNode.value.workspace_id
   editedNode.value.workspace_id = newWorkspaceId
-  await api.updateNode(editedNode.value.id, { workspace_id: newWorkspaceId })
-  emit('update', editedNode.value)
+  try {
+    await api.updateNode(editedNode.value.id, { workspace_id: newWorkspaceId })
+    emit('update', editedNode.value)
+  } catch (err) {
+    // Put the dropdown back where it was: leaving it on the new workspace
+    // claims a move that did not happen.
+    editedNode.value.workspace_id = previous
+    handleError(err, { context: 'Changing workspace' })
+  }
 }
 
 function deleteNode() {
