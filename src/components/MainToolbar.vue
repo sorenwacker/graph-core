@@ -93,6 +93,7 @@ const props = defineProps({
   availableSnapshots: { type: Array, default: () => [] },
   showLostFound: { type: Boolean, default: false },
   orphanedNodes: { type: Array, default: () => [] },
+  currentWorkspace: { type: String, default: 'work' },
   // AI settings
   aiEnabled: { type: Boolean, default: true },
   aiProvider: { type: String, default: 'ollama' },
@@ -104,6 +105,7 @@ const props = defineProps({
   openaiEndpoint: { type: String, default: 'https://api.openai.com/v1' },
   openaiApiKey: { type: String, default: '' },
   openaiModel: { type: String, default: 'gpt-4o-mini' },
+  openaiSkipSslVerification: { type: Boolean, default: false },
   // Legacy
   ollamaEnabled: { type: Boolean, default: false },
 })
@@ -132,6 +134,7 @@ const emit = defineEmits([
   'update:openaiEndpoint',
   'update:openaiApiKey',
   'update:openaiModel',
+  'update:openaiSkipSslVerification',
   'update:ollamaEnabled',
   'create-snapshot',
   'toggle-snapshots',
@@ -140,6 +143,7 @@ const emit = defineEmits([
   'toggle-lost-found',
   'move-to-root',
   'delete-orphan',
+  'import-complete',
   'show-onboarding',
   'create-demo',
   'reset-demo',
@@ -261,6 +265,8 @@ const emit = defineEmits([
           :openai-endpoint="openaiEndpoint"
           :openai-api-key="openaiApiKey"
           :openai-model="openaiModel"
+          :openai-skip-ssl-verification="openaiSkipSslVerification"
+          :current-workspace="currentWorkspace"
           :ollama-enabled="ollamaEnabled"
           @update:graph-detail-threshold="emit('update:graphDetailThreshold', $event)"
           @update:graph-max-depth="emit('update:graphMaxDepth', $event)"
@@ -277,6 +283,8 @@ const emit = defineEmits([
           @update:openai-endpoint="emit('update:openaiEndpoint', $event)"
           @update:openai-api-key="emit('update:openaiApiKey', $event)"
           @update:openai-model="emit('update:openaiModel', $event)"
+          @update:openai-skip-ssl-verification="emit('update:openaiSkipSslVerification', $event)"
+          @import-complete="emit('import-complete', $event)"
           @update:ollama-enabled="emit('update:ollamaEnabled', $event)"
           @create-snapshot="emit('create-snapshot')"
           @toggle-snapshots="emit('toggle-snapshots')"

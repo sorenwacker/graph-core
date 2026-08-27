@@ -67,7 +67,12 @@ function isSensitiveNote(node) {
 // Setup tooltips
 const { showTooltip, hideTooltip } = useNodeTooltip({
   onOpenDetail: nodeId => emit('open-fullscreen', nodeId),
-  onToggleComplete: nodeId => emit('toggle-complete', nodeId),
+  // The tooltip reports an id; every toggle-complete consumer takes a node, so
+  // resolve it here rather than emitting a shape the handler cannot use.
+  onToggleComplete: nodeId => {
+    const node = findNodeById(nodeId)
+    if (node) emit('toggle-complete', node)
+  },
   getHideSensitive: () => props.hideSensitive,
   shouldShowTooltip: node => {
     if (props.hideSensitive && node?.notes_sensitive) {
