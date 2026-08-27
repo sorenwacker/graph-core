@@ -33,6 +33,11 @@ export class DeleteCommand extends Command {
     return !this.nodeData?.notes
   }
 
+  remapNodeId(oldId, newId) {
+    if (this.nodeData?.id === oldId) this.nodeData.id = newId
+    if (this.nodeData?.parent_id === oldId) this.nodeData.parent_id = newId
+  }
+
   getDescription() {
     const title = this.nodeData?.title || 'item'
     return `Delete "${title}"`
