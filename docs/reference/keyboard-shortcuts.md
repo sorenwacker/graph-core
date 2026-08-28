@@ -107,6 +107,20 @@ The modifier is required rather than using bare digits, because a bare digit wou
 | `Shift + Drag` | Reorder only (disable nesting) |
 | `Option + Drag` | Create link (Graph view) |
 
+## Global
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl/Cmd + Shift + N` | Quick capture, from any application |
+
+Quick capture is registered by the main process, so it fires while another app has focus. It is the one shortcut that cannot be discovered from inside the window. Enable it and change the combination in Settings > General; the value above is the default. The hotkey registers only once the database is unlocked.
+
+## Discoverability
+
+Every shortcut the app binds is listed in the in-app reference (`?`, or `Ctrl/Cmd + /`), which renders `src/utils/keyboardShortcuts.js`.
+
+That list is a gate, not a convention: `hotkeysAreDocumented.test.js` reads the three places shortcuts are actually bound - the Electron menu accelerators, the global quick-capture accelerator, and the key comparisons in `useKeyboardShortcuts.js` - and fails if any of them is missing from the list. Adding a binding without explaining it breaks the build.
+
 ## See Also
 
 - [Quickstart](../guides/quickstart.md)

@@ -20,7 +20,25 @@ export const shortcuts = {
     { keys: ['{modifier}', 'K'], desc: 'Quick search' },
     { keys: ['{modifier}', 'Z'], desc: 'Undo' },
     { keys: ['{modifier}', '{shift}', 'Z'], desc: 'Redo' },
+    { keys: ['{modifier}', 'Y'], desc: 'Redo' },
     { keys: ['{modifier}', '{delete}'], desc: 'Delete selected' },
+    { keys: ['{modifier}', ','], desc: 'Open settings' },
+  ],
+  views: [
+    { keys: ['{modifier}', '1'], desc: 'Graph' },
+    { keys: ['{modifier}', '2'], desc: 'Cards' },
+    { keys: ['{modifier}', '3'], desc: 'Table' },
+    { keys: ['{modifier}', '4'], desc: 'Tasks' },
+    { keys: ['{modifier}', '5'], desc: 'Timeline' },
+    { keys: ['{modifier}', '6'], desc: 'People' },
+    { keys: ['{modifier}', '7'], desc: 'Trash' },
+  ],
+  global: [
+    // Registered by the main process, so it works while another app has focus.
+    // Configurable in Settings > General; this is the default.
+    { keys: ['{modifier}', '{shift}', 'N'], desc: 'Quick capture (from any app)' },
+    { keys: ['?'], desc: 'Show this list' },
+    { keys: ['{modifier}', '/'], desc: 'Show this list' },
   ],
   selection: [
     { keys: ['Click'], desc: 'Select node' },

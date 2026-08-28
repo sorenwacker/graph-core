@@ -4,6 +4,10 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Fixed
+
+- The `?` shortcuts list now includes every shortcut the app binds. Quick capture's global hotkey, view switching with `Ctrl/Cmd` and a digit, `Ctrl/Cmd + ,` for settings, `Ctrl/Cmd + /` and `?` itself were all bound but absent from the list, so the only way to find them was to read the source. A test now reads the places shortcuts are actually bound and fails if one is missing from the list ([reference](docs/reference/keyboard-shortcuts.md#discoverability)).
+
 ### Changed
 
 - The sidebar hover handle reaches the bottom of the window instead of stopping a quarter of the way past the middle ([reference](docs/reference/interactions.md#sidebar-reveal)). Throwing the pointer into the bottom-left corner now opens the sidebar. The top third of the edge stays inert, which is what stopped the sidebar opening on incidental passes near the title bar.
