@@ -18,7 +18,7 @@ import { DEBOUNCE_DELAY_MS, LAYOUT_RELAYOUT_DELAY_MS } from '../utils/settingsCo
 import AddNodeModal from './AddNodeModal.vue'
 import GraphControls from './GraphControls.vue'
 import GraphEditModal from './GraphEditModal.vue'
-import GraphPromptModal from './GraphPromptModal.vue'
+import PromptModal from './PromptModal.vue'
 import KeyboardShortcutsModal from './KeyboardShortcutsModal.vue'
 
 const props = defineProps({
@@ -825,7 +825,7 @@ onUnmounted(() => {
       @wrap-with-parent="wrapWithParentFromModal"
     />
 
-    <GraphPromptModal
+    <PromptModal
       :visible="promptModal.visible"
       :title="promptModal.title"
       :placeholder="promptModal.placeholder"

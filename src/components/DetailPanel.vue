@@ -13,6 +13,7 @@ import { useNodeTable } from '../composables/useNodeTable.js'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
 import { selectElementText } from '../composables/useKeyboardShortcuts.js'
 import { useSensitiveNotes } from '../composables/useSensitiveNotes.js'
+import { usePrompt } from '../composables/usePrompt.js'
 import { pickNodeFields } from '../utils/nodeFields.js'
 import { AUTOSAVE_DELAY_MS } from '../utils/settingsConstants'
 
@@ -64,6 +65,7 @@ const showSensitivePreview = ref(false)
 // content is stored ciphertext, revealing it takes the recovery password;
 // unlocking reloads the node so its notes come back decrypted.
 const { unlock: unlockSensitive, isLockedNote, status: sensitiveStatus } = useSensitiveNotes()
+const { showPrompt } = usePrompt()
 const sensitiveUnlockPassword = ref('')
 const sensitiveUnlockError = ref('')
 const notesLocked = computed(() => isLockedNote(editedNode.value?.notes))
@@ -483,8 +485,10 @@ function deleteNode() {
   emit('delete', props.node.id)
 }
 
-function wrapWithParent() {
-  const title = prompt('New parent title:')
+async function wrapWithParent() {
+  // Electron does not implement window.prompt: it returns undefined without
+  // showing anything, so this silently did nothing in the desktop app.
+  const title = await showPrompt('New parent title:', 'Title')
   if (title) {
     emit('wrap-with-parent', { nodeId: props.node.id, parentTitle: title })
   }

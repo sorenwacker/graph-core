@@ -6,6 +6,8 @@ const props = defineProps({
   title: { type: String, default: 'Enter Value' },
   placeholder: { type: String, default: '' },
   value: { type: String, default: '' },
+  // Named per caller: this dialog is not only used for creating things.
+  confirmLabel: { type: String, default: 'OK' },
 })
 
 const emit = defineEmits(['close', 'submit', 'update:value'])
@@ -53,7 +55,7 @@ defineExpose({ inputRef })
       </div>
       <div class="prompt-modal-footer">
         <button class="btn-secondary" @click="emit('close')">Cancel</button>
-        <button class="btn-primary" @click="emit('submit')">Create</button>
+        <button class="btn-primary" @click="emit('submit')">{{ confirmLabel }}</button>
       </div>
     </div>
   </div>
