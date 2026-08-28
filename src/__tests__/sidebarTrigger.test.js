@@ -4,9 +4,10 @@ import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
 /**
- * The unpinned sidebar's hover target is a handle centered on the left edge,
- * not the full window edge. A full-height trigger opened the sidebar on every
- * incidental mouse pass along the edge of a non-fullscreen window.
+ * The unpinned sidebar's hover target runs from the upper third of the left
+ * edge down to the bottom of the window. It is not the full edge: a full-height
+ * trigger opened the sidebar on every incidental mouse pass past the title bar
+ * of a non-fullscreen window.
  */
 
 const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../style.css'), 'utf-8')
@@ -23,16 +24,17 @@ describe('sidebar trigger geometry', () => {
     expect(trigger).not.toBeNull()
   })
 
-  it('is vertically centered instead of spanning the full edge', () => {
-    expect(trigger).toMatch(/top:\s*50%/)
-    expect(trigger).toMatch(/translateY\(-50%\)/)
-    expect(trigger).not.toMatch(/bottom:\s*0/)
+  it('reaches the bottom of the window', () => {
+    // Aiming at the middle of the screen to reveal the sidebar is awkward; the
+    // bottom corner is a natural place to throw the pointer.
+    expect(trigger).toMatch(/bottom:\s*0/)
   })
 
-  it('has a bounded height so most of the edge stays inert', () => {
-    // clamp keeps the zone usable on small windows without ever approaching
-    // full height on large ones.
-    expect(trigger).toMatch(/height:\s*clamp\(/)
+  it('leaves the top of the edge inert', () => {
+    // The pointer travels past the title bar and window controls constantly,
+    // and that is where a full-height trigger fired by accident.
+    expect(trigger).toMatch(/top:\s*3[0-9]%/)
+    expect(trigger).not.toMatch(/top:\s*0/)
   })
 
   it('shows a visible handle so the hover target is discoverable', () => {

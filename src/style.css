@@ -195,9 +195,12 @@ a:hover {
 .sidebar-trigger {
   position: fixed;
   left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  height: clamp(120px, 25vh, 280px);
+  /* Runs to the bottom corner: aiming at the middle of the screen to reveal the
+     sidebar is awkward. The top third stays inert because that is where the
+     pointer passes the title bar and window controls, and where a full-height
+     trigger used to fire by accident. */
+  top: 35%;
+  bottom: 0;
   width: 20px;
   z-index: 99;
   background: transparent;
