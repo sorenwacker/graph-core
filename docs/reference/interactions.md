@@ -15,9 +15,9 @@ These interactions work across all views:
 
 ## Sidebar Reveal
 
-When the sidebar is unpinned it stays hidden and slides in on demand. The hover target is a handle vertically centered on the left edge, about a quarter of the window tall. A vertical bar marks the full zone and brightens on hover; the marked area and the active area are the same. Only that handle opens the sidebar; the rest of the left edge is inert.
+When the sidebar is unpinned it stays hidden and slides in on demand. The hover target is a handle running down the left edge from roughly a third of the way down to the bottom of the window. A vertical bar marks the full zone and brightens on hover; the marked area and the active area are the same. Only that handle opens the sidebar; the top of the left edge is inert.
 
-The handle is deliberately not the full window edge. In a non-fullscreen window the left edge borders other windows and the desktop, so a full-height trigger opened the sidebar on every incidental mouse pass. Centering the target and marking it visibly means opening the sidebar is always an intentional act.
+The handle is deliberately not the *full* window edge. In a non-fullscreen window the left edge borders other windows and the desktop, so a full-height trigger opened the sidebar on every incidental mouse pass. Leaving the top third inert keeps that from happening near the title bar and window controls, where the pointer travels most, while the rest of the edge down to the bottom corner stays available: reaching for the sidebar should not require aiming at the middle of the screen.
 
 Once open, the whole sidebar area keeps it open; it closes shortly after the pointer leaves the sidebar, and the pin button keeps it open permanently. Pinning removes the handle entirely.
 

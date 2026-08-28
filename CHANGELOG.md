@@ -2,6 +2,12 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
+## [Unreleased]
+
+### Changed
+
+- The sidebar hover handle reaches the bottom of the window instead of stopping a quarter of the way past the middle ([reference](docs/reference/interactions.md#sidebar-reveal)). Throwing the pointer into the bottom-left corner now opens the sidebar. The top third of the edge stays inert, which is what stopped the sidebar opening on incidental passes near the title bar.
+
 ## [1.17.0] - 2026-08-27
 
 ### Changed
