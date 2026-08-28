@@ -1,4 +1,5 @@
 import { ref, nextTick } from 'vue'
+import { usePrompt } from './usePrompt.js'
 
 /**
  * Composable for managing graph modal dialogs.
@@ -17,15 +18,17 @@ export function useGraphModals(options = {}) {
   const editTitleInput = ref(null)
   const editModalEl = ref(null)
 
-  // Prompt modal state (replacement for native prompt())
-  const promptModal = ref({
-    visible: false,
-    title: '',
-    placeholder: '',
-    value: '',
-    resolve: null,
-  })
-  const promptInputRef = ref(null)
+  // The prompt dialog is app-wide (composables/usePrompt.js) and rendered once
+  // at the root; these are re-exported so the graph's existing bindings keep
+  // working against that one implementation rather than a second copy.
+  const {
+    promptState: promptModal,
+    inputRef: promptInputRef,
+    showPrompt,
+    submitPrompt,
+    cancelPrompt,
+    handlePromptKeydown,
+  } = usePrompt()
 
   // Add node modal state
   const addNodeModal = ref({
@@ -89,58 +92,6 @@ export function useGraphModals(options = {}) {
   function goToParentFromModal() {
     hideEditModal()
     if (emit) emit('go-parent')
-  }
-
-  /**
-   * Show a styled prompt dialog.
-   * @param {string} title - Prompt title
-   * @param {string} placeholder - Input placeholder
-   * @returns {Promise<string|null>} User input or null if cancelled
-   */
-  function showPrompt(title, placeholder = '') {
-    return new Promise(resolve => {
-      promptModal.value = {
-        visible: true,
-        title,
-        placeholder,
-        value: '',
-        resolve,
-      }
-      nextTick(() => {
-        promptInputRef.value?.focus()
-      })
-    })
-  }
-
-  /**
-   * Submit the prompt dialog.
-   */
-  function submitPrompt() {
-    const value = promptModal.value.value.trim()
-    promptModal.value.resolve(value || null)
-    promptModal.value.visible = false
-  }
-
-  /**
-   * Cancel the prompt dialog.
-   */
-  function cancelPrompt() {
-    promptModal.value.resolve(null)
-    promptModal.value.visible = false
-  }
-
-  /**
-   * Handle keydown events in the prompt dialog.
-   * @param {KeyboardEvent} e - Keyboard event
-   */
-  function handlePromptKeydown(e) {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      submitPrompt()
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      cancelPrompt()
-    }
   }
 
   /**

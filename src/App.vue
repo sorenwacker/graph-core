@@ -35,6 +35,8 @@ import ViewRenderer from './components/ViewRenderer.vue'
 import NodeContextMenu from './components/NodeContextMenu.vue'
 import AddNodeModal from './components/AddNodeModal.vue'
 import ToastContainer from './components/ToastContainer.vue'
+import PromptModal from './components/PromptModal.vue'
+import { usePrompt } from './composables/usePrompt.js'
 import AppSidebar from './components/AppSidebar.vue'
 import WorkspaceSelector from './components/WorkspaceSelector.vue'
 import AddNodeBar from './components/AddNodeBar.vue'
@@ -262,6 +264,9 @@ const {
 })
 
 // Undo/redo
+// One shared prompt dialog for the app; see composables/usePrompt.js.
+const { promptState, submitPrompt, cancelPrompt } = usePrompt()
+
 const {
   undoStack,
   redoStack,
@@ -1090,6 +1095,19 @@ useAppLifecycle({
       @select-result="_goToSearchResult"
       @clear-recent="clearRecent"
       @load-more="loadMoreResults"
+    />
+
+    <!-- One dialog for the whole app; usePrompt is shared state, so any
+         component can ask for a value without rendering its own. -->
+    <PromptModal
+      :visible="promptState.visible"
+      :title="promptState.title"
+      :placeholder="promptState.placeholder"
+      :value="promptState.value"
+      confirm-label="OK"
+      @update:value="promptState.value = $event"
+      @submit="submitPrompt"
+      @close="cancelPrompt"
     />
 
     <ToastContainer />

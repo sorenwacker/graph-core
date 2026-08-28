@@ -38,6 +38,12 @@ Open the detail panel in a separate window:
 - Quitting the app closes detached windows
 - URL format: `?detached={nodeId}`
 
+## Wrap With Parent
+
+Creates a new item and moves the current one under it. The panel asks for the new item's title in an in-app dialog.
+
+Native browser dialogs are not used anywhere in the app: Electron does not implement `window.prompt`, so it returns nothing without showing anything, and a feature built on it fails silently. The dialog is rendered once at the app root and shared through `composables/usePrompt.js`, so any component can ask for a value without adding one of its own.
+
 ## Sections
 
 The detail panel contains collapsible sections:
