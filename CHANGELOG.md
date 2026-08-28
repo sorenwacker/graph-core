@@ -2,7 +2,7 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
-## [Unreleased]
+## [1.18.0] - 2026-08-28
 
 ### Fixed
 
