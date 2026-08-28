@@ -6,6 +6,8 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Fixed
 
+- Quick capture no longer blanks the app when it is in macOS fullscreen ([guide](docs/guides/quick-capture.md#fullscreen)). A fullscreen window owns its own Space, and showing an ordinary window while one is active made the system switch away from that Space, leaving the fullscreen window black. The capture window now floats above the fullscreen Space instead of displacing it.
+
 - The `?` shortcuts list now includes every shortcut the app binds. Quick capture's global hotkey, view switching with `Ctrl/Cmd` and a digit, `Ctrl/Cmd + ,` for settings, `Ctrl/Cmd + /` and `?` itself were all bound but absent from the list, so the only way to find them was to read the source. A test now reads the places shortcuts are actually bound and fails if one is missing from the list ([reference](docs/reference/keyboard-shortcuts.md#discoverability)).
 
 ### Changed

@@ -7,12 +7,20 @@
  */
 
 const path = require('path')
-const { BrowserWindow, globalShortcut, screen } = require('electron')
+const electron = require('electron')
 const { createWindowConfig } = require('./ipc/window')
 
 const DEFAULT_ACCELERATOR = 'CommandOrControl+Shift+N'
 
-function createQuickCapture({ getAccelerator }) {
+/**
+ * @param {Object} options
+ * @param {Function} options.getAccelerator - Current accelerator from settings.
+ * @param {Object} [options.deps] - Electron pieces, injectable so the window
+ *   configuration can be asserted without a running Electron.
+ * @param {string} [options.platform] - Overridable for the same reason.
+ */
+function createQuickCapture({ getAccelerator, deps = electron, platform = process.platform }) {
+  const { BrowserWindow, globalShortcut, screen } = deps
   let captureWindow = null
   let registeredAccelerator = null
 
@@ -28,8 +36,20 @@ function createQuickCapture({ getAccelerator }) {
         skipTaskbar: true,
         show: false,
         titleBarStyle: 'default',
+        // Never let it take a Space of its own.
+        fullscreenable: false,
       })
     )
+
+    if (platform === 'darwin') {
+      // A macOS fullscreen window owns its own Space. Showing an ordinary
+      // window while one is active makes the system switch away from that
+      // Space, leaving the fullscreen window blank - the app looks broken.
+      // Marking the capture window visible on all workspaces, at a level above
+      // fullscreen, makes it float over that Space instead of displacing it.
+      win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+      win.setAlwaysOnTop(true, 'screen-saver')
+    }
     // Hiding on blur makes the window feel like a spotlight overlay.
     win.on('blur', () => win.hide())
     win.on('closed', () => {

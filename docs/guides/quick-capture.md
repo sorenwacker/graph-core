@@ -23,3 +23,9 @@ In **Settings > General**, quick capture can be turned off, and the hotkey can b
 ## Availability
 
 Quick capture is a desktop feature. It relies on a system-wide hotkey and a separate capture window, neither of which exists in web mode. The hotkey is registered after the database is unlocked, so on an encrypted database it becomes active once the app is unlocked for the session.
+
+## Fullscreen
+
+The capture window floats above whatever is on screen, including a macOS app in native fullscreen, and does not change Spaces.
+
+That is not the default behaviour and has to be asked for. On macOS each fullscreen window owns its own Space, so showing an ordinary window while one is active makes the system switch away from that Space, which leaves the fullscreen window blank. The capture window is therefore marked visible on all workspaces including fullscreen, given a window level above fullscreen, and made non-fullscreenable so it never takes a Space of its own.
