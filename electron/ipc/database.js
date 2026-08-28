@@ -73,7 +73,6 @@ const {
   DB_LIST_BACKUPS,
   DB_RESTORE_BACKUP,
   DB_RELOAD,
-  DB_GET_DATA_PATH,
   // Node Tables
   DB_GET_NODE_TABLE,
   DB_CREATE_NODE_TABLE,
@@ -187,8 +186,6 @@ function registerDatabaseHandlers(ipcMain, db) {
   ipcMain.handle(DB_LIST_BACKUPS, () => db.listBackups())
   ipcMain.handle(DB_RESTORE_BACKUP, (_event, backupPath) => db.restoreBackup(backupPath))
   ipcMain.handle(DB_RELOAD, () => db.reload())
-  ipcMain.handle(DB_GET_DATA_PATH, () => app.getPath('userData'))
-
   // Node Tables
   ipcMain.handle(DB_GET_NODE_TABLE, (_event, nodeId) => db.getNodeTable(nodeId))
   ipcMain.handle(DB_CREATE_NODE_TABLE, (_event, nodeId, data) => db.createNodeTable(nodeId, data))

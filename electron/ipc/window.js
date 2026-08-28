@@ -4,9 +4,9 @@
  * Registers WINDOW_* IPC handlers and manages detached windows.
  */
 
-const { BrowserWindow, shell } = require('electron')
+const { app, BrowserWindow, shell } = require('electron')
 const path = require('path')
-const { WINDOW_OPEN_DETACHED, SHELL_OPEN_EXTERNAL } = require('../ipcChannels')
+const { WINDOW_OPEN_DETACHED, SHELL_OPEN_EXTERNAL, DB_GET_DATA_PATH } = require('../ipcChannels')
 
 // Track open detached windows by nodeId
 const detachedWindows = new Map()
@@ -116,6 +116,12 @@ function createDetachedWindow(nodeId, nodeTitle) {
  * @param {Electron.IpcMain} ipcMain - Electron IPC main module
  */
 function registerWindowHandlers(ipcMain) {
+  // The user-data directory, not a database operation. It is registered here
+  // because these handlers are installed unconditionally: registering it with
+  // the database handlers made it unavailable whenever an encrypted database
+  // was still locked, which is precisely when the unlock screen is showing.
+  ipcMain.handle(DB_GET_DATA_PATH, () => app.getPath('userData'))
+
   ipcMain.handle(WINDOW_OPEN_DETACHED, (_event, nodeId, nodeTitle) => {
     return createDetachedWindow(nodeId, nodeTitle)
   })
