@@ -51,17 +51,27 @@ async function loadWorkspaces() {
   }
 }
 
-// Handle node update from DetailPanel
-async function handleUpdate(updatedNode) {
+/**
+ * Persist an edit made in the panel.
+ *
+ * `refresh: false` marks a save made while the edit is still in progress - the
+ * notes autosave fires on every pause in typing. Such a save is written and
+ * nothing else: the record is already stale by the time the write returns
+ * (typing continued during it), and the main window answers a broadcast by
+ * reloading its container and rebuilding the graph. Both are deferred to the
+ * save that ends the edit.
+ *
+ * @param {Object} updatedNode - The node's new field values, including its id
+ * @param {{refresh?: boolean}} [options] - Whether the other windows should be told
+ */
+async function handleUpdate(updatedNode, { refresh = true } = {}) {
   try {
     await api.updateNode(updatedNode.id, pickNodeFields(updatedNode))
-    currentNode.value = { ...updatedNode }
-
-    // Broadcast update to other windows
-    broadcastNodeUpdate(updatedNode)
-
-    // Update window title
     document.title = updatedNode.title || 'Detached Node'
+    if (!refresh) return
+
+    currentNode.value = { ...currentNode.value, ...updatedNode }
+    broadcastNodeUpdate(updatedNode)
   } catch (e) {
     handleError(e, { context: 'Updating node' })
   }

@@ -8,7 +8,7 @@ import { EditorState, EditorSelection, Prec } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
-import { insertNewlineTightList } from '../utils/markdownEditing.js'
+import { insertNewlineTightList, minimalReplacement } from '../utils/markdownEditing.js'
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
 import MentionDropdown from './MentionDropdown.vue'
 import { useMentions } from '../composables/useMentions.js'
@@ -238,16 +238,16 @@ function setupEditor() {
   })
 }
 
+// An incoming value is applied as the smallest change that accounts for the
+// difference, never as a whole-document replacement: CodeMirror maps the
+// selection through the change, so the caret only moves when the edit landed
+// where the caret was.
 watch(
   () => props.modelValue,
   newVal => {
     if (!editor) return
-    const current = editor.state.doc.toString()
-    if (newVal !== current) {
-      editor.dispatch({
-        changes: { from: 0, to: editor.state.doc.length, insert: newVal || '' },
-      })
-    }
+    const change = minimalReplacement(editor.state.doc.toString(), newVal || '')
+    if (change) editor.dispatch({ changes: change })
   }
 )
 

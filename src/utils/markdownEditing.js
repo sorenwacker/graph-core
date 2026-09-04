@@ -64,3 +64,34 @@ export function insertNewlineTightList(view) {
   )
   return true
 }
+
+/**
+ * Smallest single replacement that turns `current` into `next`.
+ *
+ * Applying an incoming note as a whole-document replacement drops the caret:
+ * CodeMirror cannot map a selection through a change that covers the text the
+ * selection sits in, so the cursor lands at the end of the new document. A
+ * change limited to the span that actually differs leaves every position
+ * outside it mappable, so the caret stays where the user put it.
+ *
+ * @param {string} current - Text currently in the document
+ * @param {string} next - Text the document should hold
+ * @returns {{from: number, to: number, insert: string}|null} The change, or
+ *   null when the texts are already equal
+ */
+export function minimalReplacement(current, next) {
+  if (current === next) return null
+
+  let start = 0
+  const shortest = Math.min(current.length, next.length)
+  while (start < shortest && current[start] === next[start]) start++
+
+  let endCurrent = current.length
+  let endNext = next.length
+  while (endCurrent > start && endNext > start && current[endCurrent - 1] === next[endNext - 1]) {
+    endCurrent--
+    endNext--
+  }
+
+  return { from: start, to: endCurrent, insert: next.slice(start, endNext) }
+}

@@ -208,19 +208,56 @@ const isResizing = ref(false)
 // Notes autosave timeout
 let notesAutosaveTimeout = null
 
+// Set when a save deliberately skipped the reload, so the app's view is behind
+// what has been written. Cleared by the next save that does reload.
+let refreshOwed = false
+
 // Scroll sync listener for split view
 let editorScrollListener = null
 
 // Error handling
 const { handleError } = useErrorHandler()
 
+// Fields changed here since the last save was emitted. Saving is a round-trip
+// - the panel emits, the write is awaited, the saved record comes back as a new
+// `node` prop - and typing continues meanwhile, so the record that returns is
+// already stale. It must not be allowed to overwrite these. The same applies to
+// a record broadcast by another window showing the same node.
+const locallyEdited = new Set()
+
 function onCodeMirrorNotesUpdate(newValue) {
   editedNode.value.notes = newValue
+  locallyEdited.add('notes')
   // Debounced autosave after inactivity
   if (notesAutosaveTimeout) clearTimeout(notesAutosaveTimeout)
   notesAutosaveTimeout = setTimeout(() => {
-    saveChanges()
+    // Mid-edit: write the text, but leave the view as it is. Reloading here
+    // rebuilds the graph on every pause in typing.
+    saveChanges({ refresh: false })
   }, AUTOSAVE_DELAY_MS)
+}
+
+/**
+ * Take the incoming record for the node already open, keeping every field the
+ * user has edited since the last save.
+ *
+ * @param {Object} incoming - The node record that arrived on the `node` prop
+ */
+function adoptExternalChanges(incoming) {
+  const merged = { ...incoming }
+  for (const field of locallyEdited) {
+    merged[field] = editedNode.value[field]
+  }
+  editedNode.value = merged
+}
+
+/**
+ * Save whatever the edit left behind: text still on the autosave timer, and a
+ * reload the mid-edit saves deliberately skipped. Called wherever an edit ends -
+ * the editor tab is left, another node is opened, the panel closes.
+ */
+function flushPendingSave() {
+  if (notesAutosaveTimeout || refreshOwed) saveChanges()
 }
 
 function onAIImproveNotes(payload) {
@@ -270,11 +307,9 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
   endSplitDrag()
-  // Clear autosave timeout
-  if (notesAutosaveTimeout) {
-    clearTimeout(notesAutosaveTimeout)
-    notesAutosaveTimeout = null
-  }
+  // A pending autosave holds text that is not written yet; dropping its timer
+  // here would drop the text with it.
+  flushPendingSave()
   // Clean up scroll sync listener
   if (editorScrollListener && notesEditorSplitRef.value) {
     const scrollEl = notesEditorSplitRef.value.getScrollElement()
@@ -291,42 +326,51 @@ const organizationFormRef = ref(null)
 watch(
   () => props.node,
   async (newNode, oldNode) => {
-    if (newNode) {
-      const isNewNode = newNode.id !== oldNode?.id
-      editedNode.value = { ...newNode }
+    if (!newNode) return
 
-      // Only reset UI state when switching to a different node
-      if (isNewNode) {
-        // Always show notes expanded by default
-        notesCollapsed.value = false
-        // Set tab based on whether notes exist
-        activeTab.value = newNode.notes?.trim() ? 'preview' : 'edit'
-        // Reset links
-        linkedNodes.value = []
-        // Reset sensitive preview unlock
-        showSensitivePreview.value = false
-        // Reset table collapsed - will be expanded only if table exists after loading
-        tableCollapsed.value = true
-
-        await Promise.all([loadChildren(), loadLinkedNodes(), loadTable(newNode.id)])
-
-        // Set collapsed states based on content
-        // Children: collapse if no children
-        childrenCollapsed.value = children.value.length === 0
-        // Metadata: always start collapsed
-        metadataCollapsed.value = true
-        // Table: collapse if no table
-        tableCollapsed.value = !hasTable.value
-
-        // Auto-resize title for long titles
-        nextTick(() => {
-          if (titleInput.value) {
-            titleInput.value.style.height = 'auto'
-            titleInput.value.style.height = titleInput.value.scrollHeight + 'px'
-          }
-        })
-      }
+    // A record for the node already open is a refresh, not a navigation: adopt
+    // what changed elsewhere and leave the panel's own state alone. Only a
+    // different node resets the tabs, sections and loaded lists.
+    if (newNode.id === oldNode?.id) {
+      adoptExternalChanges(newNode)
+      return
     }
+
+    // The previous node's unfinished edit is still the user's; save it before
+    // this panel starts showing something else.
+    flushPendingSave()
+
+    locallyEdited.clear()
+    editedNode.value = { ...newNode }
+
+    // Always show notes expanded by default
+    notesCollapsed.value = false
+    // Set tab based on whether notes exist
+    activeTab.value = newNode.notes?.trim() ? 'preview' : 'edit'
+    // Reset links
+    linkedNodes.value = []
+    // Reset sensitive preview unlock
+    showSensitivePreview.value = false
+    // Reset table collapsed - will be expanded only if table exists after loading
+    tableCollapsed.value = true
+
+    await Promise.all([loadChildren(), loadLinkedNodes(), loadTable(newNode.id)])
+
+    // Set collapsed states based on content
+    // Children: collapse if no children
+    childrenCollapsed.value = children.value.length === 0
+    // Metadata: always start collapsed
+    metadataCollapsed.value = true
+    // Table: collapse if no table
+    tableCollapsed.value = !hasTable.value
+
+    // Auto-resize title for long titles
+    nextTick(() => {
+      if (titleInput.value) {
+        titleInput.value.style.height = 'auto'
+        titleInput.value.style.height = titleInput.value.scrollHeight + 'px'
+      }
+    })
   },
   { immediate: true }
 )
@@ -335,6 +379,9 @@ watch(
 watch(
   () => activeTab.value,
   async newTab => {
+    // Leaving the editor ends the edit, even when focus never left the panel.
+    flushPendingSave()
+
     // Clean up old listener
     if (editorScrollListener && notesEditorSplitRef.value) {
       const scrollEl = notesEditorSplitRef.value.getScrollElement()
@@ -402,14 +449,26 @@ function onUnlinkTag(tagNode) {
 const isPerson = computed(() => editedNode.value.type === 'person')
 const isOrganization = computed(() => editedNode.value.type === 'organization')
 
-function saveChanges() {
+/**
+ * Persist the panel's pending edits.
+ *
+ * @param {Object} [options] - Save options
+ * @param {boolean} [options.refresh=true] - Whether the app should reload the
+ *   view afterwards. False while an edit is still in progress, so the graph and
+ *   sidebar are not rebuilt between keystrokes; the write happens either way.
+ */
+function saveChanges({ refresh = true } = {}) {
   // Clear any pending autosave
   if (notesAutosaveTimeout) {
     clearTimeout(notesAutosaveTimeout)
     notesAutosaveTimeout = null
   }
+  refreshOwed = !refresh
+  // Everything held back from incoming records is now on its way to the
+  // database; anything typed from here on is newer than what was sent.
+  locallyEdited.clear()
   // Use toRaw to unwrap Vue proxy before emitting (prevents IPC cloning errors)
-  emit('update', { ...toRaw(editedNode.value) })
+  emit('update', { ...toRaw(editedNode.value) }, { refresh })
 }
 
 /**
@@ -433,6 +492,7 @@ async function saveChangesNow() {
   }
   const node = toRaw(editedNode.value)
   if (!node?.id) return false
+  locallyEdited.clear()
   await api.updateNode(node.id, pickNodeFields(node))
   return true
 }
@@ -454,6 +514,7 @@ function onCompletedChange(event) {
 
 function onTitleInput(event) {
   editedNode.value.title = event.target.value
+  locallyEdited.add('title')
   autoResizeTitle(event)
 }
 
@@ -732,9 +793,9 @@ defineExpose({
         placeholder="Title"
         rows="1"
         @input="onTitleInput"
-        @change="saveChanges"
+        @change="saveChanges()"
         @keydown.escape="$emit('close')"
-        @keydown.enter.prevent="saveChanges"
+        @keydown.enter.prevent="saveChanges()"
       ></textarea>
     </div>
 
@@ -749,7 +810,7 @@ defineExpose({
         :current-workspace="currentWorkspace"
         @update:edited-node="editedNode = $event"
         @update:active-tab="activeTab = $event"
-        @save="saveChanges"
+        @save="saveChanges()"
         @select-child="emit('select-child', $event)"
         @open-link-search="emit('open-link-search')"
         @remove-link="removeLink"
@@ -768,7 +829,7 @@ defineExpose({
         :current-workspace="currentWorkspace"
         @update:edited-node="editedNode = $event"
         @update:active-tab="activeTab = $event"
-        @save="saveChanges"
+        @save="saveChanges()"
         @select-child="emit('select-child', $event)"
         @open-link-search="emit('open-link-search')"
         @remove-link="removeLink"
@@ -844,7 +905,7 @@ defineExpose({
                 :workspace-id="currentWorkspace"
                 :node-id="props.node?.id ?? null"
                 @update:model-value="onCodeMirrorNotesUpdate"
-                @blur="saveChanges"
+                @blur="saveChanges()"
                 @mention-inserted="loadLinkedNodes"
                 class="notes-codemirror"
               />
@@ -889,7 +950,7 @@ defineExpose({
                     :workspace-id="currentWorkspace"
                     :node-id="props.node?.id ?? null"
                     @update:model-value="onCodeMirrorNotesUpdate"
-                    @blur="saveChanges"
+                    @blur="saveChanges()"
                     @mention-inserted="loadLinkedNodes"
                     class="notes-codemirror"
                   />
@@ -990,7 +1051,7 @@ defineExpose({
               @remove-link="removeLink"
               @add-link="emit('open-link-search')"
               @toggle-links-visibility="onLinksVisibilityToggle"
-              @save="saveChanges"
+              @save="saveChanges()"
               @reload-links="loadLinkedNodes"
               @unlink-tag="onUnlinkTag"
             />

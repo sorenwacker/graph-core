@@ -99,6 +99,13 @@ export interface RefreshOptions {
   recent?: boolean
 }
 
+export interface UpdateNodeUIOptions {
+  /** Whether to record the change as an undo step (default true) */
+  trackUndo?: boolean
+  /** Whether to reload the view afterwards (default true) */
+  refresh?: boolean
+}
+
 /**
  * Return type for useNodeActionsUI composable.
  */
@@ -133,8 +140,8 @@ export interface UseNodeActionsUIReturn {
   handleAIImproveNotes: (payload: AIImproveNotesPayload) => Promise<void>
   /** Handle reorder of a node (for drag-and-drop) */
   handleReorder: (params: ReorderParams) => Promise<void>
-  /** Update a node with full UI refresh */
-  updateNode: (updatedNode: Partial<Node> & { id: number }, trackUndo?: boolean) => Promise<boolean>
+  /** Persist a node's changes, reloading the view unless told not to */
+  updateNode: (updatedNode: Partial<Node> & { id: number }, options?: UpdateNodeUIOptions) => Promise<boolean>
   /** Clear all selection state */
   clearSelection: () => void
 }
@@ -396,12 +403,25 @@ export function useNodeActionsUI({
   }
 
   /**
-   * Update a node with full UI refresh.
+   * Persist a node's changes.
+   *
+   * The refresh reloads the current container from the database and rebuilds
+   * every graph element, so a caller that saves repeatedly during a single edit
+   * - the notes autosave, which fires on every pause in typing - passes
+   * `refresh: false` and asks for one refresh when the edit is over. The write
+   * itself is unaffected.
+   *
+   * @param updatedNode - The node's new field values, including its id
+   * @param options - `trackUndo` records an undo step; `refresh` reloads the view
+   * @returns Whether the write succeeded
    */
-  async function updateNode(updatedNode: Partial<Node> & { id: number }, trackUndo: boolean = true): Promise<boolean> {
+  async function updateNode(
+    updatedNode: Partial<Node> & { id: number },
+    { trackUndo = true, refresh = true }: UpdateNodeUIOptions = {}
+  ): Promise<boolean> {
     try {
       const success = await nodeOps.updateNode(updatedNode, { trackUndo })
-      if (success) {
+      if (success && refresh) {
         await refreshAfterChange({ favorites: true })
       }
       return success
