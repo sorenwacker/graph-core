@@ -253,6 +253,14 @@ See [Standards](standards.md#commit-conventions).
 4. Ensure all tests pass
 5. Submit PR with clear description
 
+## Continuous integration
+
+`.github/workflows/ci.yml` defines a single `test` job that runs on every push to `main` and every pull request against it. In order, it checks formatting (`format:check`), lints (`lint`), type-checks (`type-check`), audits dependencies for high-severity advisories, runs the unit suite (`test:run`), and builds the renderer.
+
+Type-checking is part of the job because neither the unit suite nor eslint runs the TypeScript compiler, so a dependency that breaks type-checking passes both. The TypeScript 7 bump (PR #102) is the case that proved it: TypeScript 7 removed the `./lib/tsc` subpath from its package exports, `vue-tsc` resolves exactly that path, and `npm run type-check` failed outright while CI stayed green. Dependabot auto-merge polls this same `test` check by name, so a gap here is a gap in the merge gate.
+
+`src/__tests__/ciWorkflow.test.js` gates the job: it fails if any of those checks is dropped.
+
 ## Dependencies
 
 Dependabot opens PRs weekly, with minor and patch updates grouped into one PR. Merging is automated only for the safe subset:
