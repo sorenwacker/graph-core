@@ -308,6 +308,74 @@ describe('useSearch composable', () => {
     })
   })
 
+  describe('root destination in move mode', () => {
+    /**
+     * The top level is not a node, so no search can return it. Without a
+     * synthetic entry, "Move to..." can reach every container except the one
+     * users need most - see docs/guides/search.md.
+     */
+    let onMove, onMoveToRoot, moveSearch
+
+    beforeEach(() => {
+      onMove = vi.fn()
+      onMoveToRoot = vi.fn()
+      selectedNode = ref({ id: 7, title: 'Child' })
+      moveSearch = useSearch({ onSearch, onMove, onMoveToRoot, getAncestors, selectedNode })
+      moveSearch.openMoveSearch()
+      onSearch.mockResolvedValue([])
+      getAncestors.mockResolvedValue([])
+    })
+
+    it('offers root while the search box is empty', async () => {
+      moveSearch.searchQuery.value = ''
+      await moveSearch.handleSearch('work')
+
+      expect(moveSearch.searchResults.value).toHaveLength(1)
+      expect(moveSearch.searchResults.value[0].isRootTarget).toBe(true)
+      expect(onSearch).not.toHaveBeenCalled()
+    })
+
+    it('keeps root first while the query is still a prefix of "root"', async () => {
+      onSearch.mockResolvedValue([{ id: 1, title: 'Rooted plan' }])
+      moveSearch.searchQuery.value = 'Ro'
+      await moveSearch.handleSearch('work')
+
+      expect(moveSearch.searchResults.value[0].isRootTarget).toBe(true)
+      expect(moveSearch.searchResults.value[1].id).toBe(1)
+    })
+
+    it('drops root once the query no longer matches it', async () => {
+      onSearch.mockResolvedValue([{ id: 1, title: 'Tulip' }])
+      moveSearch.searchQuery.value = 'tul'
+      await moveSearch.handleSearch('work')
+
+      expect(moveSearch.searchResults.value.every(r => !r.isRootTarget)).toBe(true)
+    })
+
+    it('never offers root outside move mode', async () => {
+      const normal = useSearch({ onSearch, onMove, onMoveToRoot, getAncestors, selectedNode })
+      normal.searchQuery.value = 'roo'
+      onSearch.mockResolvedValue([])
+      await normal.handleSearch('work')
+
+      expect(normal.searchResults.value.every(r => !r.isRootTarget)).toBe(true)
+    })
+
+    it('moves the node to the top level when root is selected', async () => {
+      await moveSearch.goToSearchResult({ id: 'root', title: 'Root', isRootTarget: true })
+
+      expect(onMoveToRoot).toHaveBeenCalledWith(7)
+      expect(onMove).not.toHaveBeenCalled()
+    })
+
+    it('still moves under a real node when one is selected', async () => {
+      await moveSearch.goToSearchResult({ id: 3, title: 'Infrastructure' })
+
+      expect(onMove).toHaveBeenCalledWith(7, 3)
+      expect(onMoveToRoot).not.toHaveBeenCalled()
+    })
+  })
+
   describe('goToSearchResult', () => {
     it('should call onSelect with node and mode', () => {
       search.searchMode.value = 'normal'

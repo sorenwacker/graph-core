@@ -36,6 +36,8 @@ Relocate nodes to new parents.
 3. Select the new parent node
 4. Node is moved to the new location
 
+The top level is not a node, so it cannot be found by searching. Move mode therefore offers a **Root** destination as its first result: it is listed while the search box is empty, and stays listed while what you type is still a prefix of "root". Selecting it clears the node's parent, the same operation as the detail panel's "Move to Root" button.
+
 ## Search Filters
 
 ### Type Filter
