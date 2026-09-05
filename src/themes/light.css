@@ -1064,17 +1064,6 @@
   color: var(--accent-hover);
 }
 
-/* TableView - drag ghost */
-[data-theme='light'] .drag-ghost {
-  background: var(--bg-primary);
-  border-color: var(--accent-color);
-  color: var(--text-primary);
-}
-
-[data-theme='light'] .drag-ghost .ghost-action {
-  color: var(--accent-color);
-}
-
 /* TableView - drop indicators */
 [data-theme='light'] .node-row.drop-before {
   border-top-color: var(--accent-color);

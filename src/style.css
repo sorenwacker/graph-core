@@ -2635,3 +2635,63 @@ tr.search-highlight td {
 .node-html-notes th {
   background: var(--bg-tertiary);
 }
+
+/* Table drag ghost. Appended to document.body while a row is dragged, so it
+   cannot be styled from TableView.css - that file is loaded with <style scoped>
+   and its selectors only match elements inside the component. Only left/top are
+   set on the element itself; see useTableDrag.js. */
+.drag-ghost {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 320px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
+  backdrop-filter: blur(6px);
+  border: 1px solid color-mix(in srgb, var(--accent-color) 45%, transparent);
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.2;
+  pointer-events: none;
+  z-index: 9999;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 20%),
+    0 8px 24px rgb(0 0 0 / 28%),
+    0 0 0 4px color-mix(in srgb, var(--accent-color) 12%, transparent);
+}
+
+.drag-ghost .ghost-type {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 22%);
+}
+
+.drag-ghost .ghost-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Empty until the drag is over a target, so it must not reserve space. */
+.drag-ghost .ghost-action:not(:empty) {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-color) 16%, transparent);
+  color: var(--accent-color);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}

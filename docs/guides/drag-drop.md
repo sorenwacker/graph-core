@@ -16,6 +16,12 @@ Visual indicators show the active drop zone during drag operations.
 
 A node always moves with its whole subtree — including dropping it before or after a target that has a different parent, which reparents it. Descendants keep their position under the moved node.
 
+## Dropping on the breadcrumb root
+
+The breadcrumb trail's home icon is a drop target. Dragging a node onto it moves that node to the top level, clearing its parent - the same operation as the detail panel's "Move to Root" button and the Root entry in "Move to...". The icon highlights while a dragged node is over it.
+
+This works while dragging in graph, cards and table view. Each view drags by a different mechanism, so each detects the target its own way, but the outcome is identical. A multi-node selection moves as a whole in cards and table view; graph view moves the single node being dragged.
+
 ## Modifier Keys
 
 ### Shift+Drag (Reorder Only)
@@ -47,6 +53,7 @@ See [Linking Nodes](linking.md) for more on links.
 | Drag card | Card follows cursor with opacity |
 | Drop on card | Move as child |
 | Drop at card edge | Reorder within parent |
+| Drop on breadcrumb home | Move to top level |
 | Shift+drag | Reorder only (no nesting) |
 
 Cards show colored drop indicators:
@@ -59,10 +66,11 @@ Cards show colored drop indicators:
 | Action | Result |
 |--------|--------|
 | Drag node | Reposition in graph (layout) |
+| Drop on breadcrumb home | Move to top level |
 | Option+drag to node | Create link |
 | Cmd/Ctrl+click edge | Insert node between |
 
-Graph view dragging repositions nodes within the visualization rather than changing hierarchy. Use the context menu or other views for hierarchy changes.
+Graph view dragging repositions nodes within the visualization rather than changing hierarchy, with one exception: dropping a node on the breadcrumb home icon moves it to the top level. Use the context menu or other views for other hierarchy changes.
 
 Node positions are persisted per-workspace and per-parent context.
 
@@ -73,6 +81,7 @@ Node positions are persisted per-workspace and per-parent context.
 | Drag row | Shows ghost preview at cursor |
 | Drop on row | Move as child |
 | Drop between rows | Reorder within parent |
+| Drop on breadcrumb home | Move to top level |
 | Shift+drag | Reorder only (no nesting) |
 
 Rows show insertion lines during drag, and expand/collapse indicators for rows with children. Dragging over a collapsed row expands it after a short delay.
@@ -98,7 +107,7 @@ Date changes are applied when the drag ends. A preview shows the new dates durin
 
 ## Cross-View Dragging
 
-Dragging between different views is not supported. Each view handles its own drag operations independently.
+Dragging between different views is not supported. Each view handles its own drag operations independently. The breadcrumb root target is the one shared destination: it sits outside the views and accepts a drag from any of them.
 
 ## Undo Support
 

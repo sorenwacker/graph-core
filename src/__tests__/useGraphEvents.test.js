@@ -688,6 +688,78 @@ describe('useGraphEvents', () => {
     })
   })
 
+  describe('dropping a node on the breadcrumb root', () => {
+    /**
+     * Graph drags happen on a canvas, so there is no drop event to receive.
+     * The pointer is tracked through the drag and hit-tested on release, which
+     * is the only way a canvas drag can reach a DOM target.
+     * See docs/guides/drag-drop.md.
+     */
+    function dragNodeTo(clientX, clientY) {
+      const { setupEvents } = createGraphEvents()
+      setupEvents()
+
+      const draggedNode = {
+        position: vi.fn().mockReturnValue({ x: 300, y: 300 }),
+        id: vi.fn().mockReturnValue('1'),
+        data: vi.fn().mockReturnValue({ id: 1, title: 'Dragged', parent_id: 5 }),
+      }
+
+      // Cytoscape calls every handler registered for an event, and more than
+      // one is registered for 'drag'; picking the first would depend on
+      // registration order.
+      fire('grab', { target: { position: () => ({ x: 100, y: 100 }) } })
+      fire('drag', { target: draggedNode, originalEvent: { clientX, clientY } })
+      fire('free', { target: draggedNode })
+    }
+
+    function fire(event, eventData) {
+      mockCy.on.mock.calls.filter(c => c[0] === event && c[1] === 'node').forEach(c => c[2](eventData))
+    }
+
+    let crumb
+
+    beforeEach(() => {
+      crumb = document.createElement('span')
+      crumb.className = 'crumb home-crumb'
+      document.body.appendChild(crumb)
+    })
+
+    afterEach(() => {
+      crumb.remove()
+      vi.restoreAllMocks()
+    })
+
+    it('moves the node to the top level when released over the home crumb', () => {
+      vi.spyOn(document, 'elementFromPoint').mockReturnValue(crumb)
+
+      dragNodeTo(30, 12)
+
+      expect(mockEmit).toHaveBeenCalledWith('move', { nodeId: 1, oldParentId: 5, newParentId: null })
+    })
+
+    it('highlights the crumb while the pointer is over it', () => {
+      vi.spyOn(document, 'elementFromPoint').mockReturnValue(crumb)
+
+      const { setupEvents } = createGraphEvents()
+      setupEvents()
+      fire('drag', {
+        target: { position: () => ({ x: 300, y: 300 }), id: () => '1' },
+        originalEvent: { clientX: 30, clientY: 12 },
+      })
+
+      expect(crumb.classList.contains('drop-target')).toBe(true)
+    })
+
+    it('leaves an ordinary drop inside the graph alone', () => {
+      vi.spyOn(document, 'elementFromPoint').mockReturnValue(document.body)
+
+      dragNodeTo(500, 500)
+
+      expect(mockEmit).not.toHaveBeenCalledWith('move', expect.objectContaining({ newParentId: null }))
+    })
+  })
+
   describe('re-initialization', () => {
     function makeDblclickEvent() {
       return {
