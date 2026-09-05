@@ -559,9 +559,24 @@ describe('useNodeActionsUI', () => {
     it('should respect trackUndo option', async () => {
       const { updateNode } = createNodeActionsUI()
 
-      await updateNode({ id: 1, title: 'Updated' }, false)
+      await updateNode({ id: 1, title: 'Updated' }, { trackUndo: false })
 
       expect(mockNodeOps.updateNode).toHaveBeenCalledWith({ id: 1, title: 'Updated' }, { trackUndo: false })
+    })
+
+    // An autosave fires every few hundred milliseconds while a note is being
+    // typed. Refreshing on each one reloads the whole container from the
+    // database and rebuilds every graph element, so the graph churns under the
+    // cursor for the length of the edit. The write still happens; only the
+    // reload waits until the edit is finished.
+    it('writes without reloading the view when the caller asks for no refresh', async () => {
+      const { updateNode } = createNodeActionsUI()
+
+      const result = await updateNode({ id: 1, notes: 'half a sen' }, { refresh: false })
+
+      expect(mockNodeOps.updateNode).toHaveBeenCalledWith({ id: 1, notes: 'half a sen' }, { trackUndo: true })
+      expect(mockRefreshAfterChange).not.toHaveBeenCalled()
+      expect(result).toBe(true)
     })
   })
 
