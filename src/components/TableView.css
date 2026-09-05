@@ -572,30 +572,3 @@ td.col-title {
   outline: 2px solid var(--accent-color);
   outline-offset: -2px;
 }
-
-/* Ghost element styles */
-.drag-ghost .ghost-type {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 600;
-  color: white;
-  flex-shrink: 0;
-}
-
-.drag-ghost .ghost-title {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.drag-ghost .ghost-action {
-  font-size: 11px;
-  color: #4a9eff;
-  font-weight: 500;
-}

@@ -3,6 +3,7 @@
  * Handles node reordering and reparenting via mouse drag.
  */
 import { ref } from 'vue'
+import { findRootDropTarget, setRootDropHighlight } from '../utils/rootDropTarget.js'
 
 // Only accept simple hex colors for the ghost badge; anything else (including
 // user-supplied strings trying to smuggle CSS/markup) falls back to the default.
@@ -30,24 +31,12 @@ function createDragGhost(node, x, y) {
   actionEl.className = 'ghost-action'
 
   ghost.append(typeEl, titleEl, actionEl)
-  ghost.style.cssText = `
-    position: fixed;
-    left: ${x + 10}px;
-    top: ${y + 10}px;
-    background: var(--bg-primary, #1a1a2e);
-    border: 2px solid var(--accent-color, #4a9eff);
-    color: var(--text-primary, #fff);
-    padding: 6px 10px;
-    border-radius: 6px;
-    pointer-events: none;
-    z-index: 9999;
-    font-size: 13px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    max-width: 300px;
-  `
+  // Only the position is inline: it follows the cursor. Everything else is in
+  // TableView.css so the themes can restyle it - an inline background could not
+  // be overridden by a theme rule.
+  ghost.style.position = 'fixed'
+  ghost.style.left = `${x + 10}px`
+  ghost.style.top = `${y + 10}px`
   document.body.appendChild(ghost)
   return ghost
 }
@@ -116,11 +105,18 @@ export function useTableDrag({ findNodeById, selectedIds, onMove, onMoveMultiple
     const elemBelow = document.elementFromPoint(e.clientX, e.clientY)
     const row = elemBelow?.closest('tr.node-row')
     const table = elemBelow?.closest('.table-view')
+    // The breadcrumb home icon sits outside the table, so it is hit-tested
+    // directly rather than through a row. See docs/guides/drag-drop.md.
+    const overRoot = Boolean(findRootDropTarget(e.clientX, e.clientY))
+    setRootDropHighlight(overRoot)
 
     let newTargetId = null
     let newPosition = null
 
-    if (row) {
+    if (overRoot) {
+      newTargetId = 'root'
+      newPosition = 'root'
+    } else if (row) {
       const nodeId = parseInt(row.dataset.nodeId)
       if (nodeId && nodeId !== draggedNode.value?.id) {
         newTargetId = nodeId
@@ -177,6 +173,7 @@ export function useTableDrag({ findNodeById, selectedIds, onMove, onMoveMultiple
     document.querySelectorAll('.drop-before, .drop-after, .drop-inside').forEach(el => {
       el.classList.remove('drop-before', 'drop-after', 'drop-inside')
     })
+    setRootDropHighlight(false)
 
     if (dragGhost.value) {
       dragGhost.value.remove()

@@ -528,6 +528,22 @@ const {
   getWorkspace: () => currentWorkspace.value,
 })
 
+/**
+ * Move a node dropped on the breadcrumb home icon to the top level.
+ *
+ * Cards view drags natively and so reaches this through the component's event;
+ * graph and table view detect the same target by pointer position and move the
+ * node themselves. See docs/guides/drag-drop.md.
+ */
+function handleDropToRoot(nodeId) {
+  if (selectedIds.value.size > 1 && selectedIds.value.has(nodeId)) {
+    moveMultipleNodes({ nodeIds: Array.from(selectedIds.value), newParentId: null })
+    return
+  }
+  const node = flatChildren.value.find(n => n.id === nodeId)
+  moveNode({ nodeId, oldParentId: node?.parent_id ?? null, newParentId: null })
+}
+
 // Inline edit
 const {
   editingCardId,
@@ -934,7 +950,7 @@ useAppLifecycle({
 
       <div class="content-wrapper">
         <div class="content-main">
-          <Breadcrumbs :breadcrumbs="breadcrumbs" @navigate="navigateToBreadcrumb" />
+          <Breadcrumbs :breadcrumbs="breadcrumbs" @navigate="navigateToBreadcrumb" @drop-to-root="handleDropToRoot" />
           <div
             class="content-body"
             :class="{

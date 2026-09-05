@@ -1,5 +1,6 @@
 import { nextTick } from 'vue'
 import { updateHtmlLabelsFromCySelection } from './useGraphSelection.js'
+import { findRootDropTarget, setRootDropHighlight } from '../utils/rootDropTarget.js'
 
 /**
  * Check if a cytoscape event originated from an HTML label overlay.
@@ -95,6 +96,10 @@ export function useGraphEvents(options = {}) {
 
   let backgroundClickPending = false
   let dragStartPos = null
+  // Pointer position during a node drag, and whether it is over the breadcrumb
+  // root target - a canvas drag has no drop event to tell us.
+  let dragPointer = null
+  let overRootTarget = false
   let highlightedNode = null
   let selectionUpdateTimer = null
   // Cleanup for the container DOM listeners added by setupHtmlLabelHandlers.
@@ -541,6 +546,8 @@ export function useGraphEvents(options = {}) {
   function setupDragDropHandlers(cy, container) {
     cy.on('grab', 'node', e => {
       dragStartPos = { ...e.target.position() }
+      dragPointer = null
+      overRootTarget = false
     })
 
     cy.on('dragfree', 'node', () => {
@@ -551,6 +558,14 @@ export function useGraphEvents(options = {}) {
       const draggedNode = e.target
       const pos = draggedNode.position()
       const dropHighlight = getDropHighlight()
+
+      // A canvas drag produces no drop event, so the pointer is remembered
+      // here and hit-tested on release. See docs/guides/drag-drop.md.
+      if (e.originalEvent) {
+        dragPointer = { x: e.originalEvent.clientX, y: e.originalEvent.clientY }
+        overRootTarget = Boolean(findRootDropTarget(dragPointer.x, dragPointer.y))
+        setRootDropHighlight(overRootTarget)
+      }
 
       if (highlightedNode) {
         highlightedNode.removeClass('drop-target')
@@ -581,6 +596,23 @@ export function useGraphEvents(options = {}) {
 
       const draggedNode = e.target
       const pos = draggedNode.position()
+
+      // Released over the breadcrumb home icon: move to the top level. The
+      // nearest node in the graph is irrelevant, the pointer left the canvas.
+      if (overRootTarget && dragPointer && findRootDropTarget(dragPointer.x, dragPointer.y)) {
+        setRootDropHighlight(false)
+        dragPointer = null
+        overRootTarget = false
+        dragStartPos = null
+        const nodeData = draggedNode.data('nodeData')
+        if (nodeData) {
+          emit('move', { nodeId: nodeData.id, oldParentId: nodeData.parent_id ?? null, newParentId: null })
+        }
+        return
+      }
+      setRootDropHighlight(false)
+      dragPointer = null
+      overRootTarget = false
 
       // Ignore small drags (clicks)
       if (dragStartPos) {
