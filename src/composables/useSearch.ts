@@ -14,6 +14,27 @@ export type SearchMode = 'normal' | 'link' | 'move'
  */
 export interface SearchResult extends Node {
   breadcrumb?: string
+  /** Marks the synthetic top-level destination offered in move mode. */
+  isRootTarget?: boolean
+}
+
+/**
+ * The top level is not a node, so it can never come back from a search. Move
+ * mode offers it as a synthetic result instead; `id` is a string so it cannot
+ * collide with a node id. See docs/guides/search.md.
+ */
+export const ROOT_TARGET: SearchResult = {
+  id: 'root' as unknown as number,
+  title: 'Root',
+  type: 'container',
+  breadcrumb: 'Top level',
+  isRootTarget: true,
+} as SearchResult
+
+/** Whether move mode should list the root destination for this query. */
+export function matchesRootTarget(query: string): boolean {
+  const q = query.trim().toLowerCase()
+  return q === '' || ROOT_TARGET.title.toLowerCase().startsWith(q)
 }
 
 /**
@@ -41,6 +62,8 @@ export interface UseSearchOptions {
   onLink?: (targetNode: Node, sourceId: number) => Promise<void>
   /** Called when moving */
   onMove?: (sourceId: number, targetId: number) => Promise<void>
+  /** Called when moving to the top level */
+  onMoveToRoot?: (sourceId: number) => Promise<void>
   /** Called for navigation */
   onNavigate?: (node: Node) => Promise<void>
   /** Called to fetch ancestors for a node */
@@ -91,6 +114,7 @@ export function useSearch({
   onSelect,
   onLink,
   onMove,
+  onMoveToRoot,
   onNavigate,
   getAncestors,
   selectedNode,
@@ -173,8 +197,10 @@ export function useSearch({
   async function handleSearch(workspaceId: number | null, loadMore = false): Promise<void> {
     const ticket = ++searchTicket
     const isCurrent = () => ticket === searchTicket
+    const offerRoot = searchMode.value === 'move' && matchesRootTarget(searchQuery.value)
     if (!searchQuery.value.trim()) {
-      searchResults.value = []
+      searchResults.value = offerRoot ? [ROOT_TARGET] : []
+      selectedResultIndex.value = 0
       searchOffset.value = 0
       hasMoreResults.value = false
       return
@@ -223,7 +249,7 @@ export function useSearch({
           searchResults.value = [...searchResults.value, ...processedResults]
           isLoadingMore.value = false
         } else {
-          searchResults.value = processedResults
+          searchResults.value = offerRoot ? [ROOT_TARGET, ...processedResults] : processedResults
           selectedResultIndex.value = 0
         }
       }
@@ -283,6 +309,10 @@ export function useSearch({
     // Use mode-specific handlers if available
     if (mode === 'link' && sourceId && onLink) {
       await onLink(node, sourceId)
+      return
+    }
+    if (mode === 'move' && sourceId && node.isRootTarget && onMoveToRoot) {
+      await onMoveToRoot(sourceId)
       return
     }
     if (mode === 'move' && sourceId && onMove) {

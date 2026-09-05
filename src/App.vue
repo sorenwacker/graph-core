@@ -514,6 +514,12 @@ const {
       handleError(e, { context: 'Moving node' })
     }
   },
+  // moveNodeToRoot is declared further down, so call it through a closure
+  // rather than passing the binding itself.
+  onMoveToRoot: async sourceId => {
+    await moveNodeToRoot(sourceId)
+    if (selectedNode.value?.id === sourceId) selectedNode.value = await api.getNode(sourceId)
+  },
   onNavigate: async node => {
     if (currentContainerId.value !== node.id) await loadChildren(node.id)
     selectNode(node)
