@@ -9,6 +9,28 @@ permissions:
   contents: write
 
 jobs:
+  # One full release per calendar month, release candidates in between, with
+  # critical bugfixes and security patches claiming an exception in the tag
+  # message. See docs/contributing/development.md.
+  release-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The policy reads the annotated tag's message, which a shallow
+          # checkout does not fetch.
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check release cadence
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/check-release-policy.mjs
+
   # Tests must pass before any release artifacts are built
   test:
     runs-on: ubuntu-latest
@@ -49,7 +71,7 @@ jobs:
 
   # Validate release type - full releases require existing prerelease
   validate:
-    needs: test
+    needs: [release-policy, test]
     runs-on: ubuntu-latest
     outputs:
       is_prerelease: ${{ steps.check.outputs.is_prerelease }}
@@ -89,7 +111,7 @@ jobs:
 
   # Clean up invalid releases - delete tag if validation failed
   cleanup-invalid:
-    needs: [test, validate]
+    needs: [release-policy, test, validate]
     if: failure()
     runs-on: ubuntu-latest
     steps:
