@@ -287,6 +287,22 @@ Releases are tag-driven: pushing a semver tag runs `.github/workflows/release.ym
 
 The workflow creates the GitHub release as a draft, builds artifacts on each platform and uploads them to that draft, then flips it to published only once the artifacts are in place.
 
+### Cadence: one full release per month
+
+A full release goes out at most once per calendar month. Everything between those is a release candidate. Building and installing locally (`make install-mac`) is not a release and is not restricted - that is how work is tried out between releases.
+
+Two exceptions bypass the monthly limit: a critical bugfix and a security patch. Claim one in the annotated tag's message, on its own line:
+
+```
+RELEASE-EXCEPTION: security
+```
+
+The accepted reasons are `critical` and `security`. A lightweight tag carries no message and so can never claim an exception.
+
+The `release-policy` job enforces this before anything is built or published: it reads the pushed tag, the tag's message, and the dates of previous full releases, and fails the workflow when a second full release is attempted in a month without an exception. A rejected tag is deleted by the existing `cleanup-invalid` job, so a blocked release leaves nothing behind.
+
+`scripts/releasePolicy.mjs` holds the decision, `scripts/check-release-policy.mjs` is the thin wrapper the workflow runs, and `src/__tests__/releasePolicy.test.js` covers the rules.
+
 ### Release creation is idempotent
 
 The step that creates the release reuses an existing release for the tag rather than creating a new one. This matters because a draft release is not bound to its tag: `gh release create` will happily create a *second* draft for a tag that already has a release, so a re-run or a retried job silently produces duplicates. Four such duplicate pairs accumulated on the repository before this was enforced (v1.10.1, v1.10.1-rc.1, v1.10.3, v1.10.3-beta.1), each an empty draft shadowing the real published release.

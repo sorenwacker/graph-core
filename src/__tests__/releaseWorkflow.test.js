@@ -27,6 +27,45 @@ function createReleaseScript() {
   return step.run
 }
 
+describe('release cadence gate', () => {
+  /**
+   * The cadence rule is worthless if the workflow can release without asking
+   * it. The job must run before anything is created or built, and a tag it
+   * rejects must be cleaned up like any other invalid release.
+   */
+  const workflow = () => parse(fs.readFileSync(workflowPath, 'utf8'))
+
+  it('runs the policy check as its own job', () => {
+    const job = workflow().jobs['release-policy']
+
+    expect(job).toBeDefined()
+    const run = job.steps
+      .map(s => s.run)
+      .filter(Boolean)
+      .join('\n')
+    expect(run).toContain('node scripts/check-release-policy.mjs')
+  })
+
+  it('checks the tag out with its history, or the tag message is unreadable', () => {
+    const checkout = workflow().jobs['release-policy'].steps.find(s => (s.uses || '').includes('actions/checkout'))
+
+    expect(checkout.with['fetch-depth']).toBe(0)
+  })
+
+  it('gates every later job through validate', () => {
+    const jobs = workflow().jobs
+
+    expect(jobs.validate.needs).toContain('release-policy')
+    for (const name of ['create-release', 'build', 'publish-release']) {
+      expect(JSON.stringify(jobs[name].needs)).toContain('validate')
+    }
+  })
+
+  it('deletes a tag the policy rejected', () => {
+    expect(workflow().jobs['cleanup-invalid'].needs).toContain('release-policy')
+  })
+})
+
 let dir
 
 beforeEach(() => {
