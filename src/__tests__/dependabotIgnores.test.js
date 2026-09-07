@@ -36,10 +36,16 @@ describe('dependabot held-back majors', () => {
   })
 
   it('documents why each held-back major is held back', () => {
+    // Scoped to the section: `development.md` names electron, vite and others
+    // in unrelated places, so searching the whole file would pass for almost
+    // any package without a word of explanation being written.
     const docs = readFileSync(join(repoRoot, 'docs/contributing/development.md'), 'utf-8')
+    const section = docs.split('### Held-back majors')[1]?.split(/^## /m)[0]
+
+    expect(section, 'development.md has no "Held-back majors" section').toBeDefined()
 
     for (const entry of npmUpdateConfig().ignore ?? []) {
-      expect(docs).toContain(entry['dependency-name'])
+      expect(section).toContain(entry['dependency-name'])
     }
   })
 })

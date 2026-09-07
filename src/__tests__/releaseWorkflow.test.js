@@ -64,6 +64,22 @@ describe('release cadence gate', () => {
   it('deletes a tag the policy rejected', () => {
     expect(workflow().jobs['cleanup-invalid'].needs).toContain('release-policy')
   })
+
+  it('deletes the rejected tag through the API, not a git push it cannot make', () => {
+    // The job has no checkout, so `git push --delete origin` ran in an empty
+    // workspace with no repository and no credentials, and `|| echo` hid it.
+    const job = workflow().jobs['cleanup-invalid']
+    const run = job.steps
+      .map(s => s.run)
+      .filter(Boolean)
+      .join('\n')
+    const checksOut = job.steps.some(s => (s.uses || '').includes('actions/checkout'))
+
+    expect(run).not.toContain('git push --delete')
+    if (!checksOut) {
+      expect(run).toMatch(/gh api[^\n]*--method DELETE[^\n]*git\/refs\/tags/)
+    }
+  })
 })
 
 let dir

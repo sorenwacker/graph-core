@@ -125,8 +125,15 @@ jobs:
           # Delete the release if it exists
           gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes 2>/dev/null || echo "No release to delete"
 
-          # Delete the tag
-          git push --delete origin "$TAG" 2>/dev/null || echo "No remote tag to delete"
+          # Delete the tag through the API. This job has no checkout, so the
+          # git command used here before ran in an empty workspace with no
+          # repository and no credentials, and its failure was swallowed:
+          # rejected tags survived, and re-pushing the same tag did nothing.
+          if gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$TAG"; then
+            echo "Deleted tag $TAG"
+          else
+            echo "::warning::Could not delete tag $TAG; delete it by hand before retrying."
+          fi
 
           echo ""
           echo "Invalid release $TAG has been deleted."

@@ -307,9 +307,13 @@ Two exceptions bypass the monthly limit: a critical bugfix and a security patch.
 RELEASE-EXCEPTION: security
 ```
 
-The accepted reasons are `critical` and `security`. A lightweight tag carries no message and so can never claim an exception.
+The accepted reasons are `critical` and `security`, and the claim must be the whole line - `RELEASE-EXCEPTION: security patch` claims nothing. A malformed claim is reported as such rather than silently ignored, so a real security patch is never blocked by a typo with a message about monthly cadence.
 
-The `release-policy` job enforces this before anything is built or published: it reads the pushed tag, the tag's message, and the dates of previous full releases, and fails the workflow when a second full release is attempted in a month without an exception. A rejected tag is deleted by the existing `cleanup-invalid` job, so a blocked release leaves nothing behind.
+Only an annotated tag can claim an exception, because only an annotated tag has a message of its own. This has to be read deliberately: `git tag -l --format=%(contents)` follows a *lightweight* tag through to its commit and returns the commit message, so a commit whose message happened to contain the marker would claim the exception without anyone tagging deliberately. The wrapper checks the ref is a tag object before reading its message.
+
+The month of a previous release is the date GitHub published it (`publishedAt`), not `createdAt`, which is the tagged *commit's* date and can fall in an earlier month than the release itself: `v1.18.0` and `v1.18.0-rc.1` share a `createdAt` because they share a commit. Drafts are excluded, since an abandoned draft in the current month would otherwise block a legitimate release.
+
+The `release-policy` job enforces this before anything is built or published: it reads the pushed tag, the tag's message, and the publication dates of previous full releases, and fails the workflow when a second full release is attempted in a month without an exception. A rejected tag is deleted by the existing `cleanup-invalid` job, which deletes the ref through the API: the job has no checkout, so the `git push --delete` it used before ran in an empty workspace and failed silently, leaving rejected tags on the remote where a re-push of the same tag would not retrigger the workflow.
 
 `scripts/releasePolicy.mjs` holds the decision, `scripts/check-release-policy.mjs` is the thin wrapper the workflow runs, and `src/__tests__/releasePolicy.test.js` covers the rules.
 
