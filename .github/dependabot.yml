@@ -13,5 +13,12 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # TypeScript 7 dropped the ./lib/tsc subpath that vue-tsc resolves, so
+      # type-check fails outright. Lift once vue-tsc supports TypeScript 7.
+      # See docs/contributing/development.md.
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
     # Security updates are always created immediately
     # and are not subject to the schedule above

@@ -272,6 +272,16 @@ Dependabot opens PRs weekly, with minor and patch updates grouped into one PR. M
 
 `src/__tests__/dependabotAutomerge.test.js` gates the workflow: it fails if the merge step stops requiring the patch/minor guard, drops `--auto`, or loses the Dependabot actor check.
 
+### Held-back majors
+
+A major that cannot work yet is held back in `.github/dependabot.yml`, not in `package.json`. A version range does not stop Dependabot: `typescript` was already declared `^6.0.3`, which excludes 7, and the 7.0.2 PR was opened regardless, because a major update rewrites the range rather than respecting it. Only an `ignore` entry stops the same PR returning every week.
+
+Currently held back:
+
+- `typescript` major. TypeScript 7 is the Go rewrite and dropped the `./lib/tsc` subpath from its package exports; `vue-tsc` resolves exactly that path, so `npm run type-check` fails with `ERR_PACKAGE_PATH_NOT_EXPORTED` before it checks anything. Neither package can be fixed here. Lift the hold once `vue-tsc` supports TypeScript 7 - its peer range is `typescript: >=5.0.0`, which already claims a compatibility it does not have, so the peer range is not evidence. Check that `npm run type-check` passes rather than trusting the install.
+
+Minor and patch updates continue to flow for a held-back package; only the major is ignored. `src/__tests__/dependabotIgnores.test.js` gates this: it fails if the hold is dropped, if it widens to catch minors and patches, or if a held-back package is not explained here.
+
 ## Keyboard input ownership
 
 Global keyboard shortcuts live in `useKeyboardShortcuts`. They must stand down when a focused surface owns keyboard input, or a shortcut fires while the user is typing. That decision lives in one place, `utils/inputOwnership.js`, not in the shortcut handler:
