@@ -71,6 +71,37 @@ npm run build
 npm run electron:build
 ```
 
+### Installing a local build on macOS
+
+`make install-mac` builds a DMG and copies the app into `/Applications`. This is how work is tried out between releases; it is not a release.
+
+Those builds are ad-hoc signed, because `build.mac.identity` is `null` in `package.json` and must stay that way - CI has no signing certificate, and setting one there would break the release workflow. An ad-hoc signature has no certificate behind it, so the app's designated requirement is a bare hash of the binary:
+
+```
+codesign -d -r- "/Applications/Graph Core.app"
+# designated => cdhash H"<hash of this exact binary>"
+```
+
+That hash changes with every build. macOS records the designated requirement when you grant a keychain item "Always Allow", so each local install invalidates the grant and the app asks for keychain access again on next start - it reads the database key through `safeStorage` at boot.
+
+`make install-mac-signed` avoids that by signing with a certificate whose identity is stable across rebuilds:
+
+```bash
+SIGN_IDENTITY="Your Name" make install-mac-signed
+```
+
+The identity must be a code-signing certificate in your keychain; a self-signed one is enough, since the requirement anchors to the certificate rather than to the bytes. Create it in Keychain Access under Certificate Assistant > Create a Certificate, with Identity Type "Self Signed Root" and Certificate Type "Code Signing", then check it with `security find-identity -v -p codesigning`.
+
+The target builds and installs normally, then re-signs the installed app with `codesign`. It deliberately does not hand the identity to electron-builder, which reads a Team ID out of the certificate and only an Apple-issued Developer ID has one:
+
+```
+Could not automatically determine ElectronTeamID from identity: <name>
+```
+
+electron-builder wraps signing in a retry, so a self-signed certificate does not fail fast - it re-signs the whole bundle repeatedly for many minutes and only then reports that error. Signing afterwards with `--timestamp=none` takes a second and needs no Apple infrastructure. The committed configuration and CI are untouched either way.
+
+This only affects your own machine. Released builds are unsigned for everyone else, which is what the `xattr -cr` line in the release notes is for.
+
 ## Code Style
 
 ### Vue Components

@@ -1,4 +1,4 @@
-.PHONY: dev install clean clean-release stop build dist install-mac reset-db docs docs-build lint format check test e2e
+.PHONY: dev install clean clean-release stop build dist install-mac install-mac-from-release install-mac-signed reset-db docs docs-build lint format check test e2e
 
 # Documentation toolchain: Zensical, run through uvx so there is no virtualenv
 # to create or keep in sync. This is a Node project with no pyproject.toml, so
@@ -22,7 +22,12 @@ dist:
 	npm run dist
 
 # Build DMG and install to /Applications (Mac only)
-install-mac: clean-release dist
+install-mac: clean-release dist install-mac-from-release
+
+# Mount whichever DMG is in release/ and copy the app into /Applications.
+# Shared by install-mac and install-mac-signed so the install half is not
+# written twice and cannot drift between them.
+install-mac-from-release:
 	@echo "Installing Graph Core to /Applications..."
 	@DMG_FILE=$$(ls release/*.dmg 2>/dev/null | head -1); \
 	if [ -z "$$DMG_FILE" ]; then \
@@ -49,6 +54,39 @@ install-mac: clean-release dist
 	cp -R "$$APP_PATH" /Applications/; \
 	hdiutil detach "$$VOLUME" -quiet; \
 	echo "Installed to /Applications/Graph Core.app"
+
+# Build normally, install, then re-sign the installed app with a stable local
+# identity.
+#
+# Ad-hoc signed builds get a designated requirement that is a hash of the
+# binary, so it changes on every build and a keychain "Always Allow" is
+# invalidated each time. Signing with a certificate anchors the requirement to
+# that certificate instead, and the grant survives rebuilds.
+#
+# The signing is done here rather than by electron-builder: electron-builder
+# demands a Team ID it can read out of the certificate, which only an Apple
+# issued Developer ID carries, and fails on a self-signed one - retrying the
+# whole bundle for many minutes before giving up. See
+# docs/contributing/development.md.
+install-mac-signed:
+	@if [ -z "$$SIGN_IDENTITY" ]; then \
+		echo "Error: SIGN_IDENTITY is not set."; \
+		echo "  SIGN_IDENTITY=\"Your Name\" make install-mac-signed"; \
+		echo "Available identities:"; \
+		security find-identity -v -p codesigning; \
+		exit 1; \
+	fi; \
+	if ! security find-identity -v -p codesigning | grep -q "$$SIGN_IDENTITY"; then \
+		echo "Error: no code-signing identity matching \"$$SIGN_IDENTITY\"."; \
+		security find-identity -v -p codesigning; \
+		exit 1; \
+	fi
+	$(MAKE) install-mac
+	@echo "Signing /Applications/Graph Core.app as \"$$SIGN_IDENTITY\"..."
+	@codesign --force --deep --sign "$$SIGN_IDENTITY" --timestamp=none \
+		"/Applications/Graph Core.app"
+	@codesign --verify --deep "/Applications/Graph Core.app" && echo "Signature verified"
+	@codesign -d -r- "/Applications/Graph Core.app" 2>&1 | tail -1
 
 # Clean release artifacts
 clean-release:
