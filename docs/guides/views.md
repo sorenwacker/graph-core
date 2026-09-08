@@ -90,6 +90,10 @@ Click "Apply" after adjusting sliders to restart the layout with new parameters.
 | Fit to View | Fit once | Toggle auto-fit mode |
 | Reset Layout | Randomize positions | - |
 
+**Relax uses a different engine to the radial layout.** Radial runs cose-bilkent, which has a true repulsion force. Relax and continuous relax run cola, which has none: its only spacing controls are `nodeSpacing`, a padding added to each node's bounding box for overlap avoidance, and `edgeLength`.
+
+Padding alone spreads nodes vertically and almost not at all horizontally. Nodes are far wider than they are tall - a node box is 120-250px wide against a title row of roughly 40px - so the padded boxes overlap vertically long before they overlap horizontally, and only the vertical overlaps are ever resolved. The Node Repulsion setting therefore scales `edgeLength` as well, which is what moves nodes apart sideways. At the default repulsion the edge length is exactly what the Edge Length slider says; above it, edges lengthen in proportion.
+
 **Continuous Relax Mode (Lock Relax):**
 
 When locked, the physics simulation runs continuously, keeping nodes dynamically arranged. Useful for exploring large graphs where manual positioning would be tedious.
