@@ -1,4 +1,9 @@
+import { RADIAL_DEFAULTS } from '../utils/uiConstants'
+
 const GRAVITY_SCALE_DIVISOR = 10000
+// Cola damps spacing by gravity on the same 0-50000 scale the slider uses.
+const GRAVITY_EFFECT_DIVISOR = 50000
+const NODE_SPACING_DIVISOR = 50
 
 const GRID_GAP = 15 // Gap between nodes in grid
 
@@ -184,6 +189,38 @@ function runTetrisGridLayout(cy, options = {}) {
       }
     })
     cy.fit(padding)
+  }
+}
+
+/**
+ * Spacing options for the cola relax layouts, from the radial physics settings.
+ *
+ * Cola has no repulsion force. Its only spacing controls are `nodeSpacing` -
+ * padding added to each node's bounding box, consumed by overlap avoidance -
+ * and `edgeLength`. Padding on its own spreads nodes vertically and barely at
+ * all horizontally: a node box is 120-250px wide against a title row of about
+ * 40px, so the padded boxes overlap vertically long before they overlap
+ * horizontally, and only those overlaps are ever resolved. Edge length is what
+ * moves nodes apart sideways, so the repulsion setting scales it too.
+ *
+ * At the default repulsion the edge length is exactly what the Edge Length
+ * slider says, so the two controls do not fight at the neutral point.
+ * See docs/guides/views.md.
+ *
+ * @param {Object} [radialSettings] - The radial physics settings.
+ * @returns {{nodeSpacing: number, edgeLength: number}} Cola spacing options.
+ */
+export function colaSpacingOptions(radialSettings = {}) {
+  const repulsion = radialSettings.nodeRepulsion ?? RADIAL_DEFAULTS.repulsion
+  const edgeLength = radialSettings.edgeLength ?? RADIAL_DEFAULTS.edgeLength
+  const gravity = radialSettings.gravity ?? RADIAL_DEFAULTS.gravity
+
+  const gravityEffect = Math.max(0.1, 1 - gravity / GRAVITY_EFFECT_DIVISOR)
+  const spread = repulsion / RADIAL_DEFAULTS.repulsion
+
+  return {
+    nodeSpacing: Math.max(5, Math.round((repulsion / NODE_SPACING_DIVISOR) * gravityEffect)),
+    edgeLength: Math.max(20, Math.round(edgeLength * spread * gravityEffect)),
   }
 }
 
@@ -499,17 +536,15 @@ export function useGraphLayout(options = {}) {
     syncNodeDimensions(cy)
 
     const radialSettings = getRadialSettings ? getRadialSettings() : {}
-    const spacing = Math.max(5, Math.round((radialSettings.nodeRepulsion || 4500) / 50))
-    const edgeLen = Math.max(20, Math.round(radialSettings.edgeLength || 100))
-    const gravityEffect = Math.max(0.1, 1 - (radialSettings.gravity || 10000) / 50000)
+    const { nodeSpacing, edgeLength } = colaSpacingOptions(radialSettings)
 
     const layoutOptions = {
       name: 'cola',
       animate: true,
       fit: false,
       randomize: false,
-      nodeSpacing: Math.round(spacing * gravityEffect),
-      edgeLength: Math.round(edgeLen * gravityEffect),
+      nodeSpacing,
+      edgeLength,
       avoidOverlap: true,
       handleDisconnected: true,
       centerGraph: radialSettings.gravity > 20000,
@@ -625,17 +660,18 @@ export function useGraphLayout(options = {}) {
     stopContinuousRelax()
 
     const radialSettings = getRadialSettings ? getRadialSettings() : {}
-    const spacing = Math.max(5, Math.round((radialSettings.nodeRepulsion || 4500) / 50))
-    const edgeLen = Math.max(20, Math.round(radialSettings.edgeLength || 100))
-    const gravityEffect = Math.max(0.1, 1 - (radialSettings.gravity || 10000) / 50000)
+    // Continuous relax used the raw edge length while the single pass damped
+    // it by gravity, so the two spread the graph differently from the same
+    // settings. Both derive it the same way now.
+    const { nodeSpacing, edgeLength } = colaSpacingOptions(radialSettings)
 
     const layoutOptions = {
       name: 'cola',
       animate: true,
       infinite: true,
       fit: false,
-      nodeSpacing: Math.round(spacing * gravityEffect),
-      edgeLength: edgeLen,
+      nodeSpacing,
+      edgeLength,
       avoidOverlap: true,
       handleDisconnected: true,
       centerGraph: false,
