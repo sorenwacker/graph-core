@@ -24,7 +24,6 @@ For the complete keyboard shortcut reference, see [Keyboard Shortcuts](keyboard-
 - Modal dialogs trap focus
 - Focus returns to trigger element when modals close
 - Visible focus indicators on all interactive elements
-- Skip links for main content areas
 
 ## Screen Reader Support
 
@@ -36,7 +35,7 @@ For the complete keyboard shortcut reference, see [Keyboard Shortcuts](keyboard-
 ## Color and Contrast
 
 - Minimum 4.5:1 contrast ratio for text
-- High contrast theme available
+- Light, dark and system themes
 - Color not used as sole indicator
 - Focus indicators meet contrast requirements
 

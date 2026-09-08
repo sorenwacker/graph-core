@@ -22,12 +22,11 @@ npm install
 ### Development Mode
 
 ```bash
-# Web only (opens in browser)
-npm run dev
-
-# Electron app (recommended)
+# The desktop app
 npm run electron:dev
 ```
+
+`npm run dev` starts the Vite renderer alone. It is a build step that `electron:dev` runs for you, not a way to use the app: outside Electron the renderer talks to an HTTP API at `/api`, and no server in this repository serves it, so every request fails.
 
 ### Production Build
 
