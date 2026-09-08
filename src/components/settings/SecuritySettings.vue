@@ -90,7 +90,13 @@ async function toggleTouchId(event) {
         unlocking automatically.
       </p>
       <div class="setting-row">
-        <input v-model="password" type="password" placeholder="Recovery password" data-testid="enable-password" />
+        <input
+          v-model="password"
+          type="password"
+          placeholder="New recovery password"
+          aria-label="New recovery password"
+          data-testid="enable-password"
+        />
         <input
           v-model="passwordConfirm"
           type="password"
@@ -107,10 +113,14 @@ async function toggleTouchId(event) {
         Require Touch ID at startup
       </label>
       <div class="setting-row">
+        <!-- This field decrypts the whole database. It sits beside the
+             sensitive-notes unlock field, which takes the same password, so it
+             has to name what it does. -->
         <input
           v-model="disablePassword"
           type="password"
-          placeholder="Recovery password"
+          placeholder="Recovery password to disable encryption"
+          aria-label="Recovery password to disable encryption"
           data-testid="disable-password"
         />
         <button :disabled="busy || !disablePassword" @click="disable">Disable encryption</button>

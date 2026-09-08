@@ -47,6 +47,8 @@ The Touch ID gate setting lives in `security.json` next to the database, not ins
 
 Enabling encryption happens in **Settings > Security**: set the recovery password, and the file is rewritten encrypted on the next save. Disabling requires the recovery password and rewrites the file as plaintext.
 
+The same panel shows the sensitive-notes section beside this one, and both take the recovery password. Every password field there names the action it performs - unlocking notes, disabling encryption - rather than reading "Recovery password" alone. Two identically labelled fields sat side by side, one of which decrypts the whole database, and nothing but position distinguished them. `src/__tests__/securityPasswordLabels.test.js` fails if two password fields that can appear together carry the same label, or if the destructive one stops naming what it does.
+
 ## Honest limits
 
 - Memory is plaintext while the app runs.
