@@ -34,6 +34,16 @@ graph TB
     MAIN --> OPENAI
 ```
 
+## The preload bridge is required, not preferred
+
+The renderer reaches the main process through `window.electronAPI`, installed by the preload bundle. A build in which that bundle is missing has no bridge at all.
+
+The renderer used to fall back to an HTTP client aimed at `/api` in that case. Nothing serves `/api`, so the app loaded, rendered nothing, and reported no reason - which is why the release workflow gates every artifact on `electron/preload.build.js` being present in `app.asar`.
+
+A build with no bridge now refuses to start and says why. `resolveApi()` in `src/services/api.ts` throws, and because that happens while the module graph loads - before `main.js` runs - the message is rendered by a small handler registered in `index.html` ahead of the module script. A blank window becomes a stated reason.
+
+Outside a build, the HTTP implementation is still what the code is exercised against: `window.electronAPI` is undefined under Vitest, so every test that touches `api` runs against it. `src/__tests__/apiResolution.test.js` covers both paths.
+
 ## Directory Structure
 
 ```

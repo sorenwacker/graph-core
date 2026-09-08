@@ -178,9 +178,6 @@ interface ElectronAPI {
   quitSaveDone(): Promise<void>
 }
 
-// Detect if running in Electron
-const isElectron = typeof window !== 'undefined' && window.electronAPI !== undefined
-
 /**
  * Filter out null/undefined entries from arrays.
  */
@@ -950,5 +947,49 @@ const electronApi: Api = {
   agentResearch: (options: AgentResearchOptions): Promise<string> => window.electronAPI!.agentResearch(options),
 }
 
-// Export the appropriate API based on environment
-export const api: Api = isElectron ? electronApi : webApi
+/** Shown when a build starts without the preload bridge. */
+export const MISSING_BRIDGE_MESSAGE =
+  'Graph Core cannot reach the main process: the preload bundle is missing from this build. ' +
+  'Reinstall the app, or rebuild with `npm run bundle:preload`.'
+
+/**
+ * Pick the API implementation, or refuse.
+ *
+ * A build with no bridge used to fall back to the HTTP client, whose requests
+ * to `/api` nothing serves - so the app loaded, rendered nothing, and gave no
+ * reason. The release workflow gates every artifact on the preload being
+ * packaged because that failure is otherwise invisible. Fail loudly instead.
+ *
+ * Outside a build - Vitest, and the Vite renderer `electron:dev` runs - the
+ * HTTP implementation is what the code is exercised against, so it stays.
+ *
+ * @param {Object} options
+ * @param {unknown} options.bridge - `window.electronAPI`, if the preload ran.
+ * @param {Api} options.electron - The Electron-backed implementation.
+ * @param {Api} options.web - The HTTP-backed implementation.
+ * @param {boolean} options.isProduction - Whether this is a build.
+ * @returns {Api} The implementation to use.
+ * @throws {Error} In a build with no bridge.
+ */
+export function resolveApi({
+  bridge,
+  electron,
+  web,
+  isProduction,
+}: {
+  bridge: unknown
+  electron: Api
+  web: Api
+  isProduction: boolean
+}): Api {
+  if (bridge !== undefined) return electron
+  if (isProduction) throw new Error(MISSING_BRIDGE_MESSAGE)
+  return web
+}
+
+export const api: Api = resolveApi({
+  bridge: typeof window !== 'undefined' ? window.electronAPI : undefined,
+  electron: electronApi,
+  web: webApi,
+  isProduction: import.meta.env.PROD,
+})
