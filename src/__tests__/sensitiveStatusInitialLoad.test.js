@@ -43,6 +43,21 @@ describe('the shared sensitive-notes status', () => {
     expect(sensitiveStatus).toHaveBeenCalledTimes(1)
   })
 
+  it('keeps a usable status when the call resolves with nothing', async () => {
+    // The value is read as `status.value.enabled` by consumers, so assigning a
+    // null response makes every one of them throw - which took the whole
+    // detail panel's render down, not just the sensitive-notes parts.
+    sensitiveStatus.mockResolvedValueOnce(null)
+    const { useSensitiveNotes } = await import('../composables/useSensitiveNotes.js')
+
+    const { status } = useSensitiveNotes()
+    await vi.waitFor(() => expect(sensitiveStatus).toHaveBeenCalled())
+
+    expect(status.value).toBeTruthy()
+    expect(status.value.enabled).toBe(false)
+    expect(status.value.unlocked).toBe(false)
+  })
+
   it('survives a status call that rejects, rather than raising unhandled', async () => {
     sensitiveStatus.mockRejectedValueOnce(new Error('database is locked'))
     const { useSensitiveNotes } = await import('../composables/useSensitiveNotes.js')

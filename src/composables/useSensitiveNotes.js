@@ -8,12 +8,19 @@ import { api } from '../services/api'
  * actions. A single shared instance keeps every view in step.
  */
 
-const status = ref({ available: false, enabled: false, unlocked: false })
+/** What the status is before it is known, and whenever it cannot be read. */
+const UNKNOWN_STATUS = { available: false, enabled: false, unlocked: false }
+
+const status = ref({ ...UNKNOWN_STATUS })
 let unsubscribe = null
 let loaded = false
 
 async function refresh() {
-  status.value = await api.sensitiveStatus()
+  // Consumers read `status.value.enabled` directly, so a null or partial
+  // response must not reach them: it would throw in every one of them and take
+  // down renders that have nothing to do with sensitive notes.
+  const fetched = await api.sensitiveStatus()
+  status.value = fetched ? { ...UNKNOWN_STATUS, ...fetched } : { ...UNKNOWN_STATUS }
 }
 
 async function unlock(password) {
