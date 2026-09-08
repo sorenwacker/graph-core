@@ -73,6 +73,25 @@ npm run lint && npm run format:check && npm run type-check && npm run test:run
 | Max template depth | 5 levels |
 | Max props | 10 |
 
+### Controls state their preconditions
+
+An action that can fail must know before it is offered whether it can succeed, and say what is missing when it cannot. A control that is live in a state where its own write is rejected teaches users that the interface does not know its own state.
+
+Three bugs in one week came from this single omission:
+
+- The sensitivity toggle stayed active while the sensitive-notes session was locked. Marking a note sensitive encrypts it, so the write reached `session.encrypt()` in the main process and surfaced a raw `db:updateNode` failure.
+- The same flag in the graph edit modal consulted the session not at all, so guarding one surface only moved the error.
+- Two adjacent fields both read `Recovery password`; one unlocked notes for the session, the other decrypted the whole database.
+
+What this requires of a control that depends on a precondition:
+
+- Ask the state, not a proxy for it. `isLockedNote(notes)` answers whether *this note* is ciphertext, which is not the same question as whether the session is unlocked.
+- Offer the way forward rather than only refusing. The sensitivity toggle asks for the recovery password in place and applies the change once the session unlocks.
+- Name the action on any control whose neighbour takes the same input. A shared placeholder is not a label.
+- Cover the blocked state with a test that mounts the control and asserts it does not act.
+
+`src/__tests__/preconditionGuards.test.js` gates the class of control this was found in: a component that toggles `notes_sensitive` must also consult the session state. It fails on a surface that offers the flag without a guard, which is exactly what the graph edit modal did.
+
 ## TypeScript Configuration
 
 TypeScript runs in strict mode. Key settings:
