@@ -70,6 +70,15 @@ const sensitiveUnlockPassword = ref('')
 const sensitiveUnlockError = ref('')
 const notesLocked = computed(() => isLockedNote(editedNode.value?.notes))
 
+// Turning the flag on encrypts the note and turning it off decrypts it, so the
+// toggle needs the sensitive-notes key whenever the feature is enabled - not
+// only once this note already holds ciphertext. With the feature off the flag
+// is display masking, no key is involved, and the toggle stays live
+// (docs/architecture/sensitive-notes.md).
+const sensitiveToggleLocked = computed(
+  () => notesLocked.value || (sensitiveStatus.value.enabled && !sensitiveStatus.value.unlocked)
+)
+
 // Re-mask an open sensitive note when the session relocks (idle timer or a
 // manual lock). editedNode holds a decrypted copy, so without this a locked
 // note keeps showing until you navigate away (docs/architecture/sensitive-notes.md).
@@ -866,10 +875,10 @@ defineExpose({
                 <button
                   class="sensitive-btn"
                   :class="{ active: editedNode.notes_sensitive }"
-                  :disabled="notesLocked"
+                  :disabled="sensitiveToggleLocked"
                   @click="toggleNotesSensitive"
                   :title="
-                    notesLocked
+                    sensitiveToggleLocked
                       ? 'Unlock sensitive notes to change this'
                       : editedNode.notes_sensitive
                         ? 'Notes are hidden (click to unlock)'

@@ -37,7 +37,7 @@ Entering the recovery password unlocks all sensitive notes for the session. An i
 While unlocked, sensitive notes render normally. While locked, the stored value is still ciphertext and the app withholds it everywhere it would otherwise appear:
 
 - The notes editor shows a locked placeholder with an unlock action on all three tabs, not only the preview. An editor on a locked note would display the ciphertext marker and silently lose whatever was typed, because the main process rejects the write.
-- The sensitivity toggle is disabled while the note is locked, for the same reason.
+- The sensitivity toggle is disabled whenever the feature is enabled and the session is locked, not only when the note already holds ciphertext. Marking a plaintext note sensitive encrypts it, which needs the key: offering the toggle on a plaintext note while locked produced a raw `db:updateNode` failure rather than a refusal the interface could explain. While the feature is off entirely the toggle stays available, because the flag is then display masking and no key is involved.
 - The table's Notes column shows a lock icon instead of the text, and drops the hover title with it. Person and organization notes mask on the same terms as any other note.
 - Cards and tooltips keep the existing masking.
 

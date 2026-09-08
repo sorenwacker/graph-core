@@ -1,7 +1,8 @@
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 import { nodeTypes } from '../utils/constants.js'
+import { useSensitiveNotes } from '../composables/useSensitiveNotes.js'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -10,6 +11,13 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'save', 'go-to-parent', 'wrap-with-parent', 'update:editedNode'])
+
+// Marking a note sensitive encrypts it, so the flag needs the sensitive-notes
+// key whenever the feature is enabled. Without this the checkbox stayed live
+// while the session was locked and the write failed in the main process
+// (docs/architecture/sensitive-notes.md).
+const { status: sensitiveStatus } = useSensitiveNotes()
+const sensitiveToggleLocked = computed(() => sensitiveStatus.value.enabled && !sensitiveStatus.value.unlocked)
 
 const showNotesPreview = ref(false)
 const editTitleInput = ref(null)
@@ -104,12 +112,16 @@ defineExpose({ editTitleInput, editModalEl })
           <label>
             <input
               type="checkbox"
+              data-field="notes_sensitive"
               :checked="editedNode.notes_sensitive"
+              :disabled="sensitiveToggleLocked"
               @change="updateField('notes_sensitive', $event.target.checked)"
             />
             Sensitive content
           </label>
-          <span class="field-hint">Hide notes in sensitive mode</span>
+          <span class="field-hint">
+            {{ sensitiveToggleLocked ? 'Unlock sensitive notes to change this' : 'Hide notes in sensitive mode' }}
+          </span>
         </div>
         <div class="edit-field-row">
           <div class="edit-field">
