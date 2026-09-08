@@ -71,12 +71,21 @@ const sensitiveUnlockError = ref('')
 const notesLocked = computed(() => isLockedNote(editedNode.value?.notes))
 
 // Turning the flag on encrypts the note and turning it off decrypts it, so the
-// toggle needs the sensitive-notes key whenever the feature is enabled - not
-// only once this note already holds ciphertext. With the feature off the flag
-// is display masking, no key is involved, and the toggle stays live
-// (docs/architecture/sensitive-notes.md).
-const sensitiveToggleLocked = computed(
-  () => notesLocked.value || (sensitiveStatus.value.enabled && !sensitiveStatus.value.unlocked)
+// toggle needs the sensitive-notes key whenever the feature is enabled. With
+// the feature off the flag is display masking, no key is involved, and the
+// toggle acts at once (docs/architecture/sensitive-notes.md).
+const sensitiveSessionLocked = computed(() => sensitiveStatus.value.enabled && !sensitiveStatus.value.unlocked)
+
+// The sensitivity change the user asked for while the session was locked, held
+// until the password unlocks it. Null when nothing is pending.
+const pendingSensitive = ref(null)
+const sensitiveUnlockRequested = ref(false)
+// The edit tab's locked placeholder already carries a prompt, and also stands
+// in for the editor. This one covers every other tab, and the plaintext note a
+// user is trying to lock, without ever showing two prompts at once.
+const showToolbarUnlockForm = computed(
+  () =>
+    sensitiveSessionLocked.value && sensitiveUnlockRequested.value && !(activeTab.value === 'edit' && notesLocked.value)
 )
 
 // Re-mask an open sensitive note when the session relocks (idle timer or a
@@ -141,6 +150,13 @@ async function revealSensitive() {
     if (props.node?.id) {
       const fresh = await api.getNode(props.node.id)
       if (fresh) editedNode.value = { ...fresh }
+    }
+    sensitiveUnlockRequested.value = false
+    // Applied after the refresh above, which replaces editedNode wholesale.
+    if (pendingSensitive.value !== null) {
+      editedNode.value.notes_sensitive = pendingSensitive.value
+      pendingSensitive.value = null
+      saveChanges()
     }
   } else {
     sensitiveUnlockError.value = result.error || 'Unlock failed'
@@ -528,7 +544,16 @@ function onTitleInput(event) {
 }
 
 function toggleNotesSensitive() {
-  editedNode.value.notes_sensitive = !editedNode.value.notes_sensitive
+  const desired = !editedNode.value.notes_sensitive
+  // Acting now would reach session.encrypt() in the main process and throw.
+  // Ask for the password and carry the intent across the unlock instead.
+  if (sensitiveSessionLocked.value) {
+    pendingSensitive.value = desired
+    sensitiveUnlockRequested.value = true
+    sensitiveUnlockError.value = ''
+    return
+  }
+  editedNode.value.notes_sensitive = desired
   saveChanges()
 }
 
@@ -875,10 +900,9 @@ defineExpose({
                 <button
                   class="sensitive-btn"
                   :class="{ active: editedNode.notes_sensitive }"
-                  :disabled="sensitiveToggleLocked"
                   @click="toggleNotesSensitive"
                   :title="
-                    sensitiveToggleLocked
+                    sensitiveSessionLocked
                       ? 'Unlock sensitive notes to change this'
                       : editedNode.notes_sensitive
                         ? 'Notes are hidden (click to unlock)'
@@ -889,12 +913,30 @@ defineExpose({
                 </button>
               </div>
 
+              <!-- Asked for by the toggle: changing the flag encrypts or
+                   decrypts the note, so the password comes first. -->
+              <div v-if="showToolbarUnlockForm" class="sensitive-hidden">
+                <p>Unlock sensitive notes to change this</p>
+                <form class="sensitive-unlock-form" @submit.prevent="revealSensitive">
+                  <input
+                    v-model="sensitiveUnlockPassword"
+                    type="password"
+                    placeholder="Recovery password"
+                    autocomplete="current-password"
+                  />
+                  <button class="unlock-btn" type="submit" :disabled="!sensitiveUnlockPassword">Unlock</button>
+                </form>
+                <p v-if="sensitiveUnlockError" class="sensitive-unlock-error" role="alert">
+                  {{ sensitiveUnlockError }}
+                </p>
+              </div>
+
               <!-- A locked note holds ciphertext, and any write to it is
                    rejected by the main process. Show the unlock prompt instead
                    of an editor whose edits would be silently discarded. -->
               <div v-if="activeTab === 'edit' && notesLocked" class="sensitive-hidden">
                 <p>Sensitive notes are locked</p>
-                <form class="sensitive-unlock-form" @submit.prevent="onSensitiveUnlock">
+                <form class="sensitive-unlock-form" @submit.prevent="revealSensitive">
                   <input
                     v-model="sensitiveUnlockPassword"
                     type="password"

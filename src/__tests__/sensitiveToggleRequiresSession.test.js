@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import DetailPanel from '../components/DetailPanel.vue'
@@ -25,11 +25,16 @@ vi.mock('../services/api', () => ({
 }))
 
 const status = ref({ available: true, enabled: true, unlocked: false })
+const unlockFn = vi.fn(async () => ({ success: true }))
+
+const flush = async () => {
+  for (let i = 0; i < 6; i++) await Promise.resolve()
+}
 
 vi.mock('../composables/useSensitiveNotes.js', () => ({
   useSensitiveNotes: () => ({
     status,
-    unlock: vi.fn(),
+    unlock: unlockFn,
     refresh: vi.fn(),
     isLockedNote: notes => typeof notes === 'string' && notes.startsWith('SNENC1:'),
   }),
@@ -58,40 +63,93 @@ function render(node = PLAINTEXT_NOTE) {
 
 const toggle = w => w.find('.sensitive-btn')
 
-describe('the sensitivity toggle on a plaintext note', () => {
-  it('is disabled while the sensitive session is locked', () => {
-    status.value = { available: true, enabled: true, unlocked: false }
+const unlockForm = w => w.find('.sensitive-unlock-form')
 
-    expect(toggle(render()).attributes('disabled')).toBeDefined()
+describe('the sensitivity toggle on a plaintext note while the session is locked', () => {
+  beforeEach(() => {
+    status.value = { available: true, enabled: true, unlocked: false }
+  })
+
+  it('asks for the password instead of attempting the write', async () => {
+    const w = render()
+    await toggle(w).trigger('click')
+
+    expect(unlockForm(w).exists()).toBe(true)
+    // The flag must not have moved: the write would have failed in the main
+    // process with "Sensitive notes are locked".
+    expect(w.vm.editedNode.notes_sensitive).toBeFalsy()
   })
 
   it('explains that unlocking is what is missing', () => {
-    status.value = { available: true, enabled: true, unlocked: false }
-
     expect(toggle(render()).attributes('title')).toContain('Unlock')
   })
 
-  it('is available once the session is unlocked', () => {
-    status.value = { available: true, enabled: true, unlocked: true }
+  it('applies the change the user asked for once the session unlocks', async () => {
+    unlockFn.mockResolvedValueOnce({ success: true })
+    const w = render()
+    await toggle(w).trigger('click')
 
-    expect(toggle(render()).attributes('disabled')).toBeUndefined()
+    await unlockForm(w).find('input[type="password"]').setValue('recovery')
+    await unlockForm(w).trigger('submit')
+    await flush()
+
+    expect(unlockFn).toHaveBeenCalledWith('recovery')
+    expect(w.vm.editedNode.notes_sensitive).toBe(true)
   })
 
-  it('stays available while the feature is off, where the flag only masks', () => {
-    // With the feature disabled the write path returns early and no key is
-    // involved, so the toggle must not be held hostage to a session.
-    status.value = { available: true, enabled: false, unlocked: false }
+  it('keeps the flag unchanged when the password is wrong', async () => {
+    unlockFn.mockResolvedValueOnce({ success: false, error: 'Wrong password' })
+    const w = render()
+    await toggle(w).trigger('click')
 
-    expect(toggle(render()).attributes('disabled')).toBeUndefined()
+    await unlockForm(w).find('input[type="password"]').setValue('wrong')
+    await unlockForm(w).trigger('submit')
+    await flush()
+
+    expect(w.vm.editedNode.notes_sensitive).toBeFalsy()
+    expect(w.text()).toContain('Wrong password')
   })
 })
 
-describe('the sensitivity toggle on a note already stored as ciphertext', () => {
-  it('stays disabled even when the session reports unlocked', () => {
+describe('the sensitivity toggle when no key is needed', () => {
+  it('acts at once while the session is unlocked', async () => {
     status.value = { available: true, enabled: true, unlocked: true }
+    const w = render()
+    await toggle(w).trigger('click')
+
+    expect(unlockForm(w).exists()).toBe(false)
+    expect(w.vm.editedNode.notes_sensitive).toBe(true)
+  })
+
+  it('acts at once while the feature is off, where the flag only masks', async () => {
+    // With the feature disabled the write path returns early and no key is
+    // involved, so the toggle must not be held hostage to a session.
+    status.value = { available: true, enabled: false, unlocked: false }
+    const w = render()
+    await toggle(w).trigger('click')
+
+    expect(unlockForm(w).exists()).toBe(false)
+    expect(w.vm.editedNode.notes_sensitive).toBe(true)
+  })
+})
+
+describe('the unlock form on the edit tab', () => {
+  it('is wired to a handler that exists', async () => {
+    // It called `onSensitiveUnlock`, which was never defined, so submitting it
+    // did nothing at all. The preview and split tabs used `revealSensitive`.
+    status.value = { available: true, enabled: true, unlocked: false }
     const w = render({ ...PLAINTEXT_NOTE, notes: 'SNENC1:abc', notes_sensitive: true })
 
-    expect(toggle(w).attributes('disabled')).toBeDefined()
+    // A note with content opens on the preview tab, whose form was wired
+    // correctly. The broken one is the edit tab's.
+    const editTab = w.findAll('.tabs button').find(b => b.text() === 'Edit')
+    await editTab.trigger('click')
+
+    await unlockForm(w).find('input[type="password"]').setValue('recovery')
+    await unlockForm(w).trigger('submit')
+    await flush()
+
+    expect(unlockFn).toHaveBeenCalledWith('recovery')
   })
 })
 
