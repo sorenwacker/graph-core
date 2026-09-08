@@ -10,6 +10,7 @@ import { api } from '../services/api'
 
 const status = ref({ available: false, enabled: false, unlocked: false })
 let unsubscribe = null
+let loaded = false
 
 async function refresh() {
   status.value = await api.sensitiveStatus()
@@ -47,6 +48,14 @@ export function useSensitiveNotes() {
   // The main process relocks on idle and tells the renderer; reflect it.
   if (!unsubscribe) {
     unsubscribe = api.onSensitiveLocked(() => refresh())
+  }
+  // Load the real status the first time anyone asks. Without this the settings
+  // panel was the only thing that ever fetched it, so every other consumer -
+  // and every guard written against it - saw the default until that panel had
+  // been opened. A failure here leaves the safe default in place.
+  if (!loaded) {
+    loaded = true
+    refresh().catch(() => {})
   }
   return {
     status: readonly(status),
