@@ -9,10 +9,12 @@ import { dirname, join } from 'path'
  * "Always Allow" to that requirement, so every rebuild invalidates the grant
  * and the app asks for keychain access again at boot.
  *
- * `make install-mac-signed` fixes that with a stable signing identity, passed
- * to electron-builder on the command line. It must stay a command-line
- * override: CI has no certificate, so a signing identity committed to
- * `package.json` would break the release workflow for everyone.
+ * `make install-mac-signed` fixes that by re-signing the installed app with a
+ * stable identity. The signing is deliberately not handed to electron-builder,
+ * which requires a Team ID it can read from the certificate - only an Apple
+ * issued Developer ID has one, and it retries the whole bundle for many minutes
+ * before failing on a self-signed certificate. The committed config must also
+ * stay unsigned: CI has no certificate at all.
  * See docs/contributing/development.md.
  */
 
@@ -39,7 +41,22 @@ describe('macOS signing configuration', () => {
     const recipe = target('install-mac-signed')
 
     expect(recipe).toContain('SIGN_IDENTITY')
-    expect(recipe).toMatch(/-c\.mac\.identity/)
+    expect(recipe).toMatch(/codesign[^\n]*--sign/)
+  })
+
+  it('signs without a timestamp, which a self-signed certificate cannot use', () => {
+    expect(target('install-mac-signed')).toContain('--timestamp=none')
+  })
+
+  it('does not ask electron-builder to sign, which needs a Team ID', () => {
+    // electron-builder fails with "Could not automatically determine
+    // ElectronTeamID from identity" on a self-signed certificate, after
+    // retrying the whole bundle for minutes.
+    expect(target('install-mac-signed')).not.toMatch(/-c\.mac\.identity/)
+  })
+
+  it('verifies the signature it just applied', () => {
+    expect(target('install-mac-signed')).toMatch(/codesign --verify/)
   })
 
   it('fails loudly when no identity is given, rather than silently going ad-hoc', () => {

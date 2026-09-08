@@ -90,7 +90,15 @@ That hash changes with every build. macOS records the designated requirement whe
 SIGN_IDENTITY="Your Name" make install-mac-signed
 ```
 
-The identity must be a code-signing certificate in your keychain; a self-signed one is enough, since the requirement anchors to the certificate rather than to the bytes. Create it in Keychain Access under Certificate Assistant > Create a Certificate, with Identity Type "Self Signed Root" and Certificate Type "Code Signing", then check it with `security find-identity -v -p codesigning`. The target passes the identity to electron-builder as a command-line override, so the committed configuration and CI are untouched.
+The identity must be a code-signing certificate in your keychain; a self-signed one is enough, since the requirement anchors to the certificate rather than to the bytes. Create it in Keychain Access under Certificate Assistant > Create a Certificate, with Identity Type "Self Signed Root" and Certificate Type "Code Signing", then check it with `security find-identity -v -p codesigning`.
+
+The target builds and installs normally, then re-signs the installed app with `codesign`. It deliberately does not hand the identity to electron-builder, which reads a Team ID out of the certificate and only an Apple-issued Developer ID has one:
+
+```
+Could not automatically determine ElectronTeamID from identity: <name>
+```
+
+electron-builder wraps signing in a retry, so a self-signed certificate does not fail fast - it re-signs the whole bundle repeatedly for many minutes and only then reports that error. Signing afterwards with `--timestamp=none` takes a second and needs no Apple infrastructure. The committed configuration and CI are untouched either way.
 
 This only affects your own machine. Released builds are unsigned for everyone else, which is what the `xattr -cr` line in the release notes is for.
 

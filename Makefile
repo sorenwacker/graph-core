@@ -55,14 +55,19 @@ install-mac-from-release:
 	hdiutil detach "$$VOLUME" -quiet; \
 	echo "Installed to /Applications/Graph Core.app"
 
-# Build DMG signed with a stable local identity, then install it.
+# Build normally, install, then re-sign the installed app with a stable local
+# identity.
 #
 # Ad-hoc signed builds get a designated requirement that is a hash of the
 # binary, so it changes on every build and a keychain "Always Allow" is
 # invalidated each time. Signing with a certificate anchors the requirement to
-# that certificate instead, and the grant survives rebuilds. The identity is a
-# command-line override so the committed config stays unsigned for CI.
-# See docs/contributing/development.md.
+# that certificate instead, and the grant survives rebuilds.
+#
+# The signing is done here rather than by electron-builder: electron-builder
+# demands a Team ID it can read out of the certificate, which only an Apple
+# issued Developer ID carries, and fails on a self-signed one - retrying the
+# whole bundle for many minutes before giving up. See
+# docs/contributing/development.md.
 install-mac-signed:
 	@if [ -z "$$SIGN_IDENTITY" ]; then \
 		echo "Error: SIGN_IDENTITY is not set."; \
@@ -76,11 +81,11 @@ install-mac-signed:
 		security find-identity -v -p codesigning; \
 		exit 1; \
 	fi
-	$(MAKE) clean-release
-	npm run bundle:preload
-	npm run build
-	npx electron-builder --mac -c.mac.identity="$$SIGN_IDENTITY"
-	$(MAKE) install-mac-from-release
+	$(MAKE) install-mac
+	@echo "Signing /Applications/Graph Core.app as \"$$SIGN_IDENTITY\"..."
+	@codesign --force --deep --sign "$$SIGN_IDENTITY" --timestamp=none \
+		"/Applications/Graph Core.app"
+	@codesign --verify --deep "/Applications/Graph Core.app" && echo "Signature verified"
 	@codesign -d -r- "/Applications/Graph Core.app" 2>&1 | tail -1
 
 # Clean release artifacts
