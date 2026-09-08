@@ -10,8 +10,13 @@
 /** Reasons that may bypass the monthly limit. */
 export const EXCEPTION_REASONS = ['critical', 'security']
 
-/** A tag claims an exception with this on a line of its own. */
-const EXCEPTION_LINE = /^[ \t]*RELEASE-EXCEPTION:[ \t]*(\S+)[ \t]*$/im
+/**
+ * A tag claims an exception with this on a line of its own. The value is
+ * captured loosely so a malformed claim can be reported rather than read as no
+ * claim at all - a security patch told it merely missed its monthly slot would
+ * be a misleading rejection.
+ */
+const EXCEPTION_LINE = /^[ \t]*RELEASE-EXCEPTION:[ \t]*(.*?)[ \t]*$/im
 
 const SEMVER_TAG = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/
 
@@ -30,18 +35,28 @@ function parseTag(tag) {
  * The exception a tag message claims, if any.
  *
  * @param {string} tagMessage - Annotated tag message; a lightweight tag has none.
- * @returns {{reason: string}|{invalid: string}|null} The claim, an invalid claim, or null.
+ * @returns {{reason: string}|{invalid: string}|{malformed: string}|null} The claim, or null.
  */
 function claimedException(tagMessage) {
   const match = EXCEPTION_LINE.exec(String(tagMessage || ''))
   if (!match) return null
-  const reason = match[1].toLowerCase()
-  return EXCEPTION_REASONS.includes(reason) ? { reason } : { invalid: match[1] }
+
+  const claimed = match[1]
+  if (!/^\S+$/.test(claimed)) return { malformed: claimed }
+
+  const reason = claimed.toLowerCase()
+  return EXCEPTION_REASONS.includes(reason) ? { reason } : { invalid: claimed }
 }
 
-/** Calendar month of a date, in UTC, as `YYYY-MM`. */
+/**
+ * Calendar month of a date, in UTC, as `YYYY-MM`.
+ *
+ * @param {string|Date} date - The date to read.
+ * @returns {string|null} The month, or null when the date is missing or unparsable.
+ */
 function utcMonth(date) {
-  return new Date(date).toISOString().slice(0, 7)
+  const parsed = new Date(date ?? NaN)
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 7)
 }
 
 /**
@@ -65,21 +80,45 @@ export function evaluateReleasePolicy({ tag, tagMessage = '', previousReleases =
   }
 
   const month = utcMonth(now)
-  const clash = previousReleases.find(r => {
+  const fullReleases = previousReleases.filter(r => {
     const previous = parseTag(r.tag)
-    return previous && !previous.prerelease && utcMonth(r.date) === month
+    return previous && !previous.prerelease
   })
 
+  // A release whose date cannot be read makes the month unknowable. Releasing
+  // anyway would skip the gate silently, so refuse and say which one it was.
+  const undated = fullReleases.find(r => utcMonth(r.date) === null)
+  if (undated) {
+    return {
+      allowed: false,
+      reason: `${undated.tag} has no readable release date, so the monthly cadence cannot be checked for ${tag}.`,
+    }
+  }
+
+  const clash = fullReleases.find(r => utcMonth(r.date) === month)
+
+  // The first full release of a month needs no exception, so a bad claim must
+  // not block it: the rejection would feed cleanup-invalid and delete the tag.
+  if (!clash) {
+    return { allowed: true, reason: `${tag} is the first full release of ${month}.` }
+  }
+
   const claim = claimedException(tagMessage)
+
+  if (claim?.malformed !== undefined) {
+    return {
+      allowed: false,
+      reason:
+        `${tag} has a RELEASE-EXCEPTION: line that could not be read ("${claim.malformed}"). ` +
+        `The reason must be a single word: ${EXCEPTION_REASONS.join(' or ')}.`,
+    }
+  }
+
   if (claim?.invalid) {
     return {
       allowed: false,
       reason: `${tag} claims the exception "${claim.invalid}", which is not one of: ${EXCEPTION_REASONS.join(', ')}.`,
     }
-  }
-
-  if (!clash) {
-    return { allowed: true, reason: `${tag} is the first full release of ${month}.` }
   }
 
   if (claim) {

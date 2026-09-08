@@ -68,13 +68,51 @@ describe('release policy', () => {
   })
 
   it('rejects an exception reason that is not one of the two', () => {
+    // A single token, or EXCEPTION_LINE does not match at all and the branch
+    // under test is never reached.
     const result = evaluate({
       now: '2026-08-28T10:00:00Z',
-      tagMessage: 'RELEASE-EXCEPTION: the customer asked nicely\n',
+      tagMessage: 'RELEASE-EXCEPTION: urgent\n',
     })
 
     expect(result.allowed).toBe(false)
-    expect(result.reason).toMatch(/critical|security/)
+    expect(result.reason).toContain('urgent')
+  })
+
+  it('allows the first release of a month even when the claim is unrecognised', () => {
+    // The first full release needs no exception, so a bad claim must not block
+    // it - the rejection would feed cleanup-invalid and delete the tag.
+    const result = evaluate({
+      now: '2026-09-03T10:00:00Z',
+      tagMessage: 'RELEASE-EXCEPTION: urgent\n',
+    })
+
+    expect(result.allowed).toBe(true)
+  })
+
+  it('reports a malformed claim instead of blaming the monthly cadence', () => {
+    // 'security patch' is not a single token, so the claim does not parse. A
+    // real security patch must not be told it merely missed its monthly slot.
+    const result = evaluate({
+      now: '2026-08-28T10:00:00Z',
+      tagMessage: 'Patch the unlock bypass\n\nRELEASE-EXCEPTION: security patch\n',
+    })
+
+    expect(result.allowed).toBe(false)
+    expect(result.reason).toContain('RELEASE-EXCEPTION')
+    expect(result.reason).toMatch(/could not be read|malformed|not understood/i)
+  })
+
+  it('refuses a release whose previous release carries no usable date', () => {
+    // A missing date must not throw: the job would fail with a bare stack
+    // trace and cleanup-invalid would delete the tag.
+    const result = evaluate({
+      previousReleases: [{ tag: 'v1.18.0' }],
+      now: '2026-09-03T10:00:00Z',
+    })
+
+    expect(result.allowed).toBe(false)
+    expect(result.reason).toContain('v1.18.0')
   })
 
   it('ignores the marker mentioned mid-sentence rather than claimed', () => {
