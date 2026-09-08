@@ -56,7 +56,8 @@ async function run(fn, okMessage) {
         <input
           v-model="password"
           type="password"
-          placeholder="Recovery password"
+          placeholder="Recovery password to encrypt notes"
+          aria-label="Recovery password to encrypt notes"
           data-testid="sensitive-enable-password"
         />
         <button :disabled="busy || !password" @click="run(enable, 'Sensitive notes are now encrypted.')">Enable</button>
@@ -69,7 +70,8 @@ async function run(fn, okMessage) {
         <input
           v-model="password"
           type="password"
-          placeholder="Recovery password"
+          placeholder="Recovery password to unlock notes"
+          aria-label="Recovery password to unlock notes"
           data-testid="sensitive-unlock-password"
         />
         <button :disabled="busy || !password" @click="run(unlock, 'Sensitive notes unlocked for this session.')">
