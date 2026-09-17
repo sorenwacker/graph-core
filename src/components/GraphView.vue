@@ -508,13 +508,6 @@ watch(
   },
   { deep: true }
 )
-watch(
-  () => props.showDetail,
-  o => {
-    // Only force hide tooltip if it's not locked (locked tooltip should stay visible)
-    if (o && !isTooltipLocked()) forceHideTooltip()
-  }
-)
 
 function handleGlobalKeydown(e) {
   const inModal = isAnyModalVisible()

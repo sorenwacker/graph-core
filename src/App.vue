@@ -219,17 +219,6 @@ const {
   },
 })
 
-// A tooltip that is already visible (or locked) must not stay up over the
-// settings panel.
-watch(showSettings, open => {
-  if (open) forceHideTooltip()
-})
-watch(showDetail, isOpen => {
-  if (isOpen) forceHideTooltip()
-})
-watch(sidebarVisible, isOpen => {
-  if (isOpen) forceHideTooltip()
-})
 // Leaving a view unmounts the row the tooltip describes without that row ever
 // sending mouseleave, so the tooltip would otherwise hang over the next view.
 // Navigating into a container replaces the rows for the same reason.
