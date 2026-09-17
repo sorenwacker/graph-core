@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 
 /**
  * useNodeTooltip Lock-in Feature Tests
@@ -155,6 +155,39 @@ describe('useNodeTooltip Lock-in Feature', () => {
       // Click same node again
       tooltip.toggleLock(mockNode)
       expect(tooltip.isLocked()).toBe(false)
+    })
+  })
+
+  describe('suppressed while a panel is open', () => {
+    it('does not create or lock a tooltip on click while the detail panel is open', async () => {
+      const tippy = (await import('tippy.js')).default
+      const { useNodeTooltip } = await import('../composables/useNodeTooltip.js')
+      const showDetail = ref(true)
+      const tooltip = useNodeTooltip({ shouldShowTooltip: () => !showDetail.value })
+
+      tooltip.toggleLock({ id: 1, title: 'Test', type: 'note' }, { clientX: 100, clientY: 100 })
+      vi.advanceTimersByTime(20)
+
+      expect(tippy).not.toHaveBeenCalled()
+      expect(tooltip.isLocked()).toBe(false)
+    })
+
+    it('dismisses a locked tooltip when the detail panel opens', async () => {
+      const tippy = (await import('tippy.js')).default
+      const { useNodeTooltip } = await import('../composables/useNodeTooltip.js')
+      const showDetail = ref(false)
+      const tooltip = useNodeTooltip({ shouldShowTooltip: () => !showDetail.value })
+
+      tooltip.toggleLock({ id: 1, title: 'Test', type: 'note' }, { clientX: 100, clientY: 100 })
+      vi.advanceTimersByTime(20)
+      expect(tooltip.isLocked()).toBe(true)
+      const instance = tippy.mock.results[0].value
+
+      showDetail.value = true
+      await nextTick()
+
+      expect(tooltip.isLocked()).toBe(false)
+      expect(instance.destroy).toHaveBeenCalled()
     })
   })
 })
