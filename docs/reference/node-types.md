@@ -238,7 +238,7 @@ All node types support these fields:
 |-------|-------------|
 | `title` | Display name |
 | `notes` | Markdown content |
-| `notes_sensitive` | Mark notes as sensitive; content is always masked in card displays and hover tooltips, independent of the Hide Sensitive setting |
+| `notes_sensitive` | Mark notes as sensitive; node reads then withhold the content, so it appears only in the detail panel after the reveal action, independent of the Hide Sensitive setting (see [sensitive notes](../architecture/sensitive-notes.md#read-path)) |
 | `tags` | Array of tag strings |
 | `color` | Custom color override |
 | `importance` | Priority level 1-5 |

@@ -44,22 +44,26 @@ A note is sensitive on this path when its `notes_sensitive` flag is set or its s
 
 This holds whether the feature is enabled or not, and whether the session is locked or not. A view that lists nodes - graph, cards, table, timeline, persons, search results, the hover tooltip - never holds the text, so it cannot display it. Masking in those views is a consequence of the data being absent, not a rule each view has to remember.
 
-`db:getNodeNotes(id)` returns `{ notes, locked }`. With the feature enabled and the session locked it returns `{ notes: null, locked: true }` and no ciphertext. The detail panel calls it when the user presses the reveal action, and drops the text again when the session relocks or the panel closes. The detached detail window and the graph edit modal use the same call.
+`db:getNodeNotes(id)` returns `{ notes, locked }`. When the content is ciphertext the current session cannot decrypt it returns `{ notes: null, locked: true }` and no ciphertext. The detail panel, including its person and organization forms and the detached detail window, calls it when the user presses the reveal action, and drops the text again when the session relocks or the panel shows another node. The graph edit modal and the persons view editor have no reveal: for a node with `notes_withheld` they show no notes field and point to the detail panel.
 
-Main-process code that needs the plaintext without an IPC round trip - encoding a write, export, the disable sweep - reads it through `_readNotesPlaintext(id)`, which is not exposed to the renderer.
+Main-process code that needs the text - re-encoding a note when its flag is toggled, and export - reads it through `_readSensitiveNotes(id)`, which is not exposed to the renderer. It returns the decrypted text while the session is unlocked and the ciphertext marker while it is locked. [Export](#export) is the one other channel whose response can contain the text, by design.
 
 ### Writes
 
-A renderer copy with `notes_withheld: true` has no note text to send. `pickNodeFields` omits `notes` for such a node, and `updateNode` ignores an incoming `notes` on a sensitive node unless the update also carries `notes_revealed: true`, which only the editor sets after a successful `db:getNodeNotes`. A title edit on a card therefore cannot overwrite a note the card never saw.
+A renderer copy with `notes_withheld: true` has no note text to send. `pickNodeFields` omits `notes` for such a node, and `updateNode` ignores an incoming `notes` on a sensitive node unless the update also carries `notes_revealed: true`, which only the editor sets after a successful `db:getNodeNotes`. A title edit on a card therefore cannot overwrite a note the card never saw. This guards against accidental overwrites; it is not a security boundary, because the renderer is trusted code.
+
+Undo of an edit to a revealed note restores the previous text: `updateNode` in the renderer reads it through `db:getNodeNotes` before the write and keeps it in the in-memory undo command.
 
 ### Display policy for non-sensitive notes
 
-The Hide Sensitive setting masks notes that are not flagged but contain a keyword (`password`, `secret`, `api_key`, `credential`). That decision is made in one function, `notesForDisplay(node, { hideSensitive })` in `src/utils/nodeDisplay.js`, which returns the text to show or a withheld reason. Views do not read `node.notes` themselves.
+The Hide Sensitive setting masks notes that are not flagged but contain a keyword (`password`, `secret`, `api_key`, `credential`). That decision is made in one function, `notesForDisplay(node, { hideSensitive })` in `src/utils/nodeDisplay.js`, which returns the text to show or a withheld reason. Views do not read `node.notes` themselves. The same rule applies in the hover tooltip, graph nodes, cards, the table and search results.
+
+The hover tooltip is shown for every node. For a node with `notes_withheld` it carries the title, type and dates and a placeholder in place of the note.
 
 ### Gates
 
-- A main-process test asserts that every database read method returns `notes: null` for a flagged node and for a marker-carrying node, in locked, unlocked and feature-off states, and that `db:getNodeNotes` is the only IPC channel whose response contains the text.
-- A source-scanning test fails when a file under `src/` reads `.notes` outside the allowlist: `nodeDisplay.js`, the notes editor components, and the inline-edit and command modules that write notes.
+- `sensitiveReadPath.test.js` asserts that every database read method returns `notes: null` for a flagged node with the feature off and with the session unlocked, that a locked session exposes neither text nor ciphertext, that `getNodeNotes` returns the text, and that an unrevealed write cannot replace it.
+- `nodeDisplaySingleSource.test.js` scans `src/` and fails when a file reads `.notes` outside its allowlist - `nodeDisplay.js`, the notes editor components, and the modules that write notes - or when a view branches on `notes_sensitive`.
 
 ## Session and relock
 
