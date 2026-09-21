@@ -22,7 +22,7 @@ import type {
   ConnectionTestResult,
   OllamaGenerateOptions,
   OpenAIGenerateOptions,
-  AgentResearchOptions,
+  WikipediaLookupOptions,
   NodeTable,
   TableCell,
   ExportJSONOptions,
@@ -155,7 +155,7 @@ interface ElectronAPI {
   openaiGenerate(options: OpenAIGenerateOptions): Promise<string>
   openaiTestConnection(endpoint: string, apiKey: string, skipSslVerification?: boolean): Promise<ConnectionTestResult>
   openaiListModels(endpoint: string, apiKey: string, skipSslVerification?: boolean): Promise<string[]>
-  agentResearch(options: AgentResearchOptions): Promise<string>
+  wikipediaLookup(options: WikipediaLookupOptions): Promise<string>
 
   // Settings (DB-backed key/value store)
   getSetting(key: string): Promise<string | null>
@@ -687,11 +687,10 @@ const webApi: Api = {
     return openaiService.listModels(endpoint, apiKey)
   },
 
-  // Agent research - runs agent loop with tool calling
-  async agentResearch(options: AgentResearchOptions): Promise<string> {
-    // Import dynamically to avoid bundling issues
-    const { research } = await import('./agentService.js')
-    return research(options)
+  // The Wikipedia lookup runs in the main process, which owns its one
+  // implementation; the browser has no copy of it.
+  async wikipediaLookup(): Promise<string> {
+    return 'The Wikipedia lookup is only available in the desktop app.'
   },
 }
 
@@ -951,8 +950,8 @@ const electronApi: Api = {
   openaiListModels: (endpoint: string, apiKey: string, skipSslVerification?: boolean): Promise<string[]> =>
     window.electronAPI!.openaiListModels(endpoint, apiKey, skipSslVerification),
 
-  // Agent research
-  agentResearch: (options: AgentResearchOptions): Promise<string> => window.electronAPI!.agentResearch(options),
+  // Wikipedia lookup
+  wikipediaLookup: (options: WikipediaLookupOptions): Promise<string> => window.electronAPI!.wikipediaLookup(options),
 }
 
 /** Shown when a build starts without the preload bridge. */

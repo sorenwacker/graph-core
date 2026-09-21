@@ -4,6 +4,7 @@ import { useAiNotes } from '../composables/useAiNotes.js'
 import { useSettings } from '../composables/useSettings'
 import AiPromptModal from './AiPromptModal.vue'
 import AiDiffPreview from './AiDiffPreview.vue'
+import { appendLookupResult } from '../utils/wikipediaLookup.js'
 
 const props = defineProps({
   notes: { type: String, default: '' },
@@ -14,11 +15,11 @@ const props = defineProps({
 const emit = defineEmits(['apply-improvement'])
 
 const { aiEnabled } = useSettings()
-const { isGenerating, error, presetPrompts, improveNotes, research } = useAiNotes()
+const { isGenerating, error, presetPrompts, improveNotes, lookUpOnWikipedia } = useAiNotes()
 
 const showDropdown = ref(false)
 const showCustomPromptModal = ref(false)
-const showResearchModal = ref(false)
+const showLookupModal = ref(false)
 const showDiffPreview = ref(false)
 const originalContent = ref('')
 const improvedContent = ref('')
@@ -53,8 +54,8 @@ function closeDropdown() {
 async function handlePresetAction(preset) {
   closeDropdown()
   if (preset.isAgent) {
-    // Agent presets open a modal for user to enter their query
-    showResearchModal.value = true
+    // The Wikipedia lookup opens a dialog for the question
+    showLookupModal.value = true
   } else {
     await generateImprovement(preset.prompt, preset.label)
   }
@@ -70,16 +71,17 @@ async function handleCustomPromptSubmit(prompt) {
   await generateImprovement(prompt, 'Custom')
 }
 
-async function handleResearchSubmit(query) {
-  showResearchModal.value = false
-  usedPrompt.value = 'Research'
+async function handleLookupSubmit(question) {
+  showLookupModal.value = false
+  usedPrompt.value = 'Wikipedia'
   originalContent.value = props.notes || ''
   selectionRange.value = null
 
-  const result = await research(query)
+  const result = await lookUpOnWikipedia(question, props.nodeId)
 
   if (result) {
-    improvedContent.value = result
+    // A lookup adds to the note; it does not replace what is there.
+    improvedContent.value = appendLookupResult(originalContent.value, question, result)
     showDiffPreview.value = true
   }
 }
@@ -198,13 +200,13 @@ function handleRejectImprovement() {
     />
 
     <AiPromptModal
-      v-if="showResearchModal"
+      v-if="showLookupModal"
       :is-loading="isGenerating"
-      title="Research Topic"
-      placeholder="Enter a topic to research, e.g., 'What is CRISPR?' or 'Explain quantum computing'"
-      submit-label="Research"
-      @submit="handleResearchSubmit"
-      @close="showResearchModal = false"
+      title="Look up on Wikipedia"
+      placeholder="Ask a specific question, e.g. 'When was CRISPR first used to edit human cells, and by whom?'"
+      submit-label="Look up"
+      @submit="handleLookupSubmit"
+      @close="showLookupModal = false"
     />
 
     <AiDiffPreview

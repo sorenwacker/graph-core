@@ -156,7 +156,6 @@ AI providers are wrapped in adapters (`services/aiProviders.js`): every provider
 | `api.ts` | Backend communication (IPC in Electron, REST in the browser) |
 | `nodeCache.js` | LRU cache with TTL for node data |
 | `ollamaService.js` / `openaiService.js` | AI provider clients |
-| `agentService.js` / `wikipediaService.js` | Research agent and its Wikipedia tool |
 
 ### State Management
 

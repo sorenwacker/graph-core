@@ -1,12 +1,14 @@
 {
   "maxIterations": 5,
-  "systemPrompt": "You are a research assistant with access to Wikipedia.\n\nWhen asked about a topic:\n1. Use wikipedia_search to find relevant articles\n2. Use wikipedia_get_content to read the most relevant article\n3. Write a clear, informative summary based on the information\n\nAlways cite Wikipedia as your source. Be concise but thorough.\nIf you cannot find information, say so clearly.\n\nImportant: After gathering information, provide a final written response without calling any more tools.",
+  "lookupPrompt": "Answer the question using Wikipedia, which is your only source.\n\nHow to look things up:\n- Search with specific terms. If the results do not fit the question, search again with different wording.\n- Read the article that fits best in full. Read a second or third article when the question spans several topics or the first one leaves part of it open.\n\nHow to write:\n- Answer the question that was asked. Do not write a general overview of the topic.\n- Prefer concrete facts: dates, figures, names, places, definitions. Leave out statements that would be true of almost any topic.\n- Use only what the articles say. If they do not answer the question, or only part of it, say so plainly. Do not fill the gap from memory.\n- Write in Markdown, in short paragraphs or a list where the content is a list. End each paragraph with the article it came from in parentheses, for example (Delta Works).\n- Finish with a \"Sources\" list of the articles you read, each as a Markdown link.",
+  "toolProtocol": "You have two tools: wikipedia_search finds articles, wikipedia_get_content returns the full text of one article by its exact title. Call them as often as the instructions require. When you have what you need, stop calling tools and write the final answer as plain text.",
+  "fallbackProtocol": "The Wikipedia articles found for the question are given below. They are all you have.",
   "tools": [
     {
       "type": "function",
       "function": {
         "name": "wikipedia_search",
-        "description": "Search Wikipedia for articles matching a query. Returns titles and descriptions of matching articles.",
+        "description": "Search Wikipedia. Returns up to five article titles with a short snippet each. Search again with different wording if nothing fits.",
         "parameters": {
           "type": "object",
           "properties": {
@@ -15,7 +17,9 @@
               "description": "The search query to find Wikipedia articles"
             }
           },
-          "required": ["query"]
+          "required": [
+            "query"
+          ]
         }
       }
     },
@@ -23,7 +27,7 @@
       "type": "function",
       "function": {
         "name": "wikipedia_get_content",
-        "description": "Get the content of a Wikipedia article by its exact title. Use this after searching to read article details.",
+        "description": "Get the full plain text of a Wikipedia article by its exact title, including all sections, and its URL. Long articles are cut at a length that fits the context window.",
         "parameters": {
           "type": "object",
           "properties": {
@@ -32,10 +36,17 @@
               "description": "The exact title of the Wikipedia article to retrieve"
             }
           },
-          "required": ["title"]
+          "required": [
+            "title"
+          ]
         }
       }
     }
   ],
-  "garbagePatterns": ["<|", "|>", "<|channel|>", "<|constrain|>"]
+  "garbagePatterns": [
+    "<|",
+    "|>",
+    "<|channel|>",
+    "<|constrain|>"
+  ]
 }
