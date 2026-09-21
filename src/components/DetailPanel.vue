@@ -93,7 +93,14 @@ async function revealNotes() {
   const nodeId = props.node?.id
   if (!nodeId) return
   sensitiveUnlockError.value = ''
-  const { notes, locked } = await api.getNodeNotes(nodeId)
+  let notes, locked
+  try {
+    ;({ notes, locked } = await api.getNodeNotes(nodeId))
+  } catch (e) {
+    console.error('getNodeNotes failed:', e)
+    sensitiveUnlockError.value = 'The notes could not be loaded'
+    return
+  }
   // The panel may have moved on to another node while this was in flight.
   if (props.node?.id !== nodeId) return
   if (locked) {

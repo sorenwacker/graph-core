@@ -154,6 +154,16 @@ describe('revealing', () => {
     expect(w.html()).not.toContain('the secret')
   })
 
+  it('says so when the call fails, instead of leaving Show doing nothing', async () => {
+    getNodeNotes.mockRejectedValue(new Error('no handler registered'))
+    const w = render()
+    await w.find('.sensitive-hidden .unlock-btn').trigger('click')
+    await flush()
+
+    expect(w.find('.sensitive-hidden').exists()).toBe(true)
+    expect(w.find('.sensitive-unlock-error').text()).toMatch(/could not be loaded/i)
+  })
+
   it('says so when the note cannot be decrypted', async () => {
     getNodeNotes.mockResolvedValue({ notes: null, locked: true })
     const w = render()
