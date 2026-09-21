@@ -71,8 +71,12 @@ export interface Node {
   favorite: boolean
   /** Rich text notes content */
   notes: string | null
-  /** Whether notes are marked sensitive (hidden when hide-sensitive is on) */
+  /** Whether notes are marked sensitive; a node read then withholds them */
   notes_sensitive: boolean
+  /** True when `notes` is null because the content is sensitive; fetch it with getNodeNotes */
+  notes_withheld: boolean
+  /** Whether the node has note content, including content that is withheld */
+  has_notes: boolean
   /** Due date in ISO format (YYYY-MM-DD) */
   due_date: string | null
   /** Start date in ISO format */
@@ -162,6 +166,8 @@ export interface UpdateNodeData {
   type?: NodeType
   notes?: string | null
   notes_sensitive?: boolean
+  /** Set by the notes editor after getNodeNotes; without it, notes sent for a sensitive node are ignored */
+  notes_revealed?: boolean
   completed?: boolean
   favorite?: boolean
   due_date?: string | null
@@ -203,6 +209,14 @@ export interface TreeNode extends Node {
 /**
  * Node link representing a non-hierarchical relationship.
  */
+/** Result of getNodeNotes, the one call that returns withheld note content. */
+export interface NodeNotes {
+  /** The note text; null when the node has none or the session is locked */
+  notes: string | null
+  /** True when the content is ciphertext the current session cannot decrypt */
+  locked: boolean
+}
+
 export interface NodeLink {
   source_id: number
   target_id: number

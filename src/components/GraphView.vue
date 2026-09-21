@@ -200,11 +200,7 @@ const {
   },
   onOpenDetail: id => emit('open-fullscreen', id),
   getHideSensitive: () => props.hideSensitive,
-  shouldShowTooltip: node => {
-    // Don't show tooltip for sensitive nodes when hideSensitive is enabled
-    if (props.hideSensitive && node?.notes_sensitive) {
-      return false
-    }
+  shouldShowTooltip: () => {
     return (
       props.hoverPreviewEnabled &&
       !props.showDetail &&

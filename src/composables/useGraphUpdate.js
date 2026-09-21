@@ -37,7 +37,6 @@ export function useGraphUpdate(options = {}) {
       detailThreshold: props.detailThreshold,
       maxDepth: settings.maxDepth,
       hideCompleted: props.hideCompleted,
-      hideSensitive: props.hideSensitive,
       sortAlphabetically: props.sortAlphabetically,
       visibleTypes: settings.visibleTypes,
       showRootNode: settings.showRootNode,

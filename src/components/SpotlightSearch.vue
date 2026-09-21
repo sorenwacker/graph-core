@@ -2,6 +2,7 @@
 import { ref, nextTick, watch } from 'vue'
 import { getTypeIcon, getImportanceLabel } from '../utils/constants.js'
 import { decodeHtml } from '../utils/html.js'
+import { notesForDisplay } from '../utils/nodeDisplay.js'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -12,6 +13,7 @@ const props = defineProps({
   selectedResultIndex: { type: Number, default: 0 },
   viewMode: { type: String, default: 'tree' },
   hasMoreResults: { type: Boolean, default: false },
+  hideSensitive: { type: Boolean, default: false },
   isLoadingMore: { type: Boolean, default: false },
 })
 
@@ -25,6 +27,12 @@ const emit = defineEmits([
   'clear-recent',
   'load-more',
 ])
+
+/** The note snippet a result may show: whatever notesForDisplay allows, shortened. */
+function notesSnippet(result) {
+  const text = decodeHtml(notesForDisplay(result, { hideSensitive: props.hideSensitive }).text)
+  return text.length > 80 ? `${text.substring(0, 80)}...` : text
+}
 
 const resultsRef = ref(null)
 
@@ -118,9 +126,7 @@ function getModeBadge() {
                   getImportanceLabel(result.importance)
                 }}</span>
               </div>
-              <div v-if="result.notes" class="result-notes">
-                {{ decodeHtml(result.notes).substring(0, 80) }}{{ result.notes.length > 80 ? '...' : '' }}
-              </div>
+              <div v-if="notesSnippet(result)" class="result-notes">{{ notesSnippet(result) }}</div>
             </div>
             <div class="result-action">
               {{ getSearchActionLabel(result) }}

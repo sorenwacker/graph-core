@@ -4,6 +4,10 @@ import { Command } from './Command.js'
  * Command that replaces a node's notes with new text, keeping the old text for
  * undo. Used to apply AI-generated edits from any provider; the command itself
  * neither calls a model nor knows which one produced the text.
+ *
+ * Its only producer is the notes editor, which holds the text it edits; for a
+ * sensitive note that means it was fetched through getNodeNotes, so the writes
+ * are marked `notes_revealed` (docs/architecture/sensitive-notes.md, "Writes").
  */
 export class ApplyNotesEditCommand extends Command {
   constructor({ nodeId, oldNotes, newNotes, prompt }) {
@@ -15,11 +19,11 @@ export class ApplyNotesEditCommand extends Command {
   }
 
   async execute(api) {
-    await api.updateNode(this.nodeId, { notes: this.newNotes })
+    await api.updateNode(this.nodeId, { notes: this.newNotes, notes_revealed: true })
   }
 
   async undo(api) {
-    await api.updateNode(this.nodeId, { notes: this.oldNotes })
+    await api.updateNode(this.nodeId, { notes: this.oldNotes, notes_revealed: true })
   }
 
   toJSON() {

@@ -89,6 +89,7 @@ defineExpose({ editTitleInput, editModalEl })
           <div class="notes-header">
             <label>Notes</label>
             <button
+              v-if="!editedNode.notes_withheld"
               class="preview-toggle"
               :class="{ active: showNotesPreview }"
               @click="showNotesPreview = !showNotesPreview"
@@ -96,8 +97,13 @@ defineExpose({ editTitleInput, editModalEl })
               {{ showNotesPreview ? 'Edit' : 'Preview' }}
             </button>
           </div>
+          <!-- A node read withholds sensitive notes and this modal has no reveal,
+               so it offers no field whose edits would be discarded. -->
+          <p v-if="editedNode.notes_withheld" class="notes-withheld">
+            Sensitive notes are shown and edited in the detail panel.
+          </p>
           <textarea
-            v-if="!showNotesPreview"
+            v-else-if="!showNotesPreview"
             :value="editedNode.notes"
             @input="updateField('notes', $event.target.value)"
             class="edit-textarea"

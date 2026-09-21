@@ -6,7 +6,7 @@ Sensitive notes are a second encryption layer on top of [database encryption](en
 
 A note marked sensitive is stored as ciphertext in the database, not just masked in the display. Its content is decrypted only after you enter the recovery password, and only into memory, for the length of an unlocked session.
 
-The `notes_sensitive` flag by itself is display masking: it hides the note in cards and tooltips but leaves the text readable in the detail panel and stored in plaintext. Sensitive-note encryption makes the flag cryptographically real.
+The `notes_sensitive` flag by itself is not encryption: it keeps the note out of every list read (see [Read path](#read-path)) but leaves the text stored in plaintext and readable in the detail panel through the reveal action. Sensitive-note encryption makes the flag cryptographically real.
 
 ## Prerequisites
 
@@ -30,17 +30,51 @@ A note without the marker is plaintext. When the flag is turned on, the note is 
 
 Content is encrypted with AES-256-GCM under the sensitive-notes key. GCM authenticates, so a wrong key or a tampered value fails loudly rather than returning garbage.
 
+## Read path
+
+The content of a sensitive note reaches the renderer through exactly one call, `db:getNodeNotes(id)`. Every other read - children, tree, search, links, tags, a single node - returns the node without it.
+
+A note is sensitive on this path when its `notes_sensitive` flag is set or its stored value carries the `SNENC1:` marker. For such a node, `_rowToNode` returns:
+
+| Field | Value |
+| --- | --- |
+| `notes` | `null` |
+| `notes_withheld` | `true` |
+| `has_notes` | whether the stored value is non-empty |
+
+This holds whether the feature is enabled or not, and whether the session is locked or not. A view that lists nodes - graph, cards, table, timeline, persons, search results, the hover tooltip - never holds the text, so it cannot display it. Masking in those views is a consequence of the data being absent, not a rule each view has to remember.
+
+`db:getNodeNotes(id)` returns `{ notes, locked }`. When the content is ciphertext the current session cannot decrypt it returns `{ notes: null, locked: true }` and no ciphertext. The detail panel, including its person and organization forms and the detached detail window, calls it when the user presses the reveal action, and drops the text again when the session relocks or the panel shows another node. The graph edit modal and the persons view editor have no reveal: for a node with `notes_withheld` they show no notes field and point to the detail panel.
+
+Main-process code that needs the text - re-encoding a note when its flag is toggled, and export - reads it through `_readSensitiveNotes(id)`, which is not exposed to the renderer. It returns the decrypted text while the session is unlocked and the ciphertext marker while it is locked. [Export](#export) is the one other channel whose response can contain the text, by design.
+
+### Writes
+
+A renderer copy with `notes_withheld: true` has no note text to send. `pickNodeFields` omits `notes` for such a node, and `updateNode` ignores an incoming `notes` on a sensitive node unless the update also carries `notes_revealed: true`, which only the editor sets after a successful `db:getNodeNotes`. A title edit on a card therefore cannot overwrite a note the card never saw. This guards against accidental overwrites; it is not a security boundary, because the renderer is trusted code.
+
+Undo of an edit to a revealed note restores the previous text: `updateNode` in the renderer reads it through `db:getNodeNotes` before the write and keeps it in the in-memory undo command.
+
+### Display policy for non-sensitive notes
+
+The Hide Sensitive setting masks notes that are not flagged but contain a keyword (`password`, `secret`, `api_key`, `credential`). That decision is made in one function, `notesForDisplay(node, { hideSensitive })` in `src/utils/nodeDisplay.js`, which returns the text to show or a withheld reason. Views do not read `node.notes` themselves. The same rule applies in the hover tooltip, graph nodes, cards, the table and search results.
+
+The hover tooltip is shown for every node. For a node with `notes_withheld` it carries the title, type and dates and a placeholder in place of the note.
+
+### Gates
+
+- `sensitiveReadPath.test.js` asserts that every database read method returns `notes: null` for a flagged node with the feature off and with the session unlocked, that a locked session exposes neither text nor ciphertext, that `getNodeNotes` returns the text, and that an unrevealed write cannot replace it.
+- `nodeDisplaySingleSource.test.js` scans `src/` and fails when a file reads `.notes` outside its allowlist - `nodeDisplay.js`, the notes editor components, and the modules that write notes - or when a view branches on `notes_sensitive`.
+
 ## Session and relock
 
 Entering the recovery password unlocks all sensitive notes for the session. An idle timer relocks them after a period of no activity (default five minutes), clearing the sensitive-notes key from memory. Relocking also happens when the app locks or quits.
 
-While unlocked, sensitive notes render normally. While locked, the stored value is still ciphertext and the app withholds it everywhere it would otherwise appear:
+Unlocking does not put sensitive text into any list view; it makes `db:getNodeNotes` answer. While locked:
 
 - The notes editor shows a locked placeholder with an unlock action on all three tabs, not only the preview. An editor on a locked note would display the ciphertext marker and silently lose whatever was typed, because the main process rejects the write.
 - The sensitivity toggle asks for the recovery password when the feature is enabled and the session is locked, rather than acting. Marking a plaintext note sensitive encrypts it, which needs the key: acting anyway produced a raw `db:updateNode` failure. The password prompt appears in place, and the change the user asked for is applied as soon as the session unlocks, so locking a note is one uninterrupted action. While the feature is off the toggle acts immediately, because the flag is then display masking and no key is involved.
 - The same flag in the graph edit modal is disabled while the session is locked. That surface has no unlock prompt of its own, so it explains what is missing instead of failing the write.
-- The table's Notes column shows a lock icon instead of the text, and drops the hover title with it. Person and organization notes mask on the same terms as any other note.
-- Cards and tooltips keep the existing masking.
+- The table's Notes column, cards, graph nodes and the hover tooltip show a lock icon for a node with `notes_withheld`, in both session states. Person and organization notes are withheld on the same terms as any other note.
 
 ## Search
 

@@ -46,11 +46,6 @@ async function disable(password) {
   return result
 }
 
-/** Whether a stored notes value is locked sensitive ciphertext. */
-function isLockedNote(notes) {
-  return typeof notes === 'string' && notes.startsWith('SNENC1:')
-}
-
 export function useSensitiveNotes() {
   // The main process relocks on idle and tells the renderer; reflect it.
   if (!unsubscribe) {
@@ -71,6 +66,5 @@ export function useSensitiveNotes() {
     unlock,
     lock,
     disable,
-    isLockedNote,
   }
 }

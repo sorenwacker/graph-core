@@ -59,6 +59,21 @@
  * @returns {Object} Object containing all export/import operations
  */
 function createExportOperations(ctx) {
+  /**
+   * Exports are plaintext by design (docs/architecture/sensitive-notes.md), so
+   * put back the note text that a node read withholds: decrypted while the
+   * session is unlocked, the ciphertext marker while it is locked. The
+   * read-path fields are dropped; they describe a read, not the node.
+   * @param {Node|null} node - Node as returned by a read
+   * @returns {Node|null} The node carrying its note text
+   * @private
+   */
+  function withNotes(node) {
+    if (!node) return node
+    const { notes_withheld: withheld, has_notes: _hasNotes, ...exported } = node
+    return withheld ? { ...exported, notes: ctx._readSensitiveNotes(node.id) } : exported
+  }
+
   return {
     /**
      * Exports a node and its descendants as a Markdown document.
@@ -81,7 +96,7 @@ function createExportOperations(ctx) {
       }
 
       function exportNode(id, depth) {
-        const node = ctx.getNode(id)
+        const node = withNotes(ctx.getNode(id))
         if (!node) return ''
 
         let md = ''
@@ -123,7 +138,7 @@ function createExportOperations(ctx) {
       const { includeLinks = true } = options
 
       function exportNodeRecursive(id) {
-        const node = ctx.getNode(id)
+        const node = withNotes(ctx.getNode(id))
         if (!node) return null
 
         const childRows = ctx._query(
@@ -183,6 +198,7 @@ function createExportOperations(ctx) {
       } else {
         nodes = ctx.getNodes({ workspace_id: workspaceId })
       }
+      nodes = nodes.map(withNotes)
 
       const headers = [
         'id',

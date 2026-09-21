@@ -472,7 +472,9 @@ describe('useGraphEvents', () => {
       expect(mockShowTooltip).toHaveBeenCalledWith(null, { id: 1, title: 'Test', notes: 'Some notes' })
     })
 
-    it('should not show tooltip for sensitive notes', () => {
+    // The handler does not judge sensitivity: a node read withholds the text,
+    // and the tooltip shows a placeholder (docs/architecture/sensitive-notes.md).
+    it('should show the tooltip for a node whose notes were withheld', () => {
       const { setupEvents } = createGraphEvents()
       setupEvents()
 
@@ -480,13 +482,13 @@ describe('useGraphEvents', () => {
 
       const mockEvent = {
         target: {
-          data: vi.fn().mockReturnValue({ id: 1, title: 'Test', notes_sensitive: true }),
+          data: vi.fn().mockReturnValue({ id: 1, title: 'Test', notes: null, notes_withheld: true }),
         },
       }
 
       mouseoverHandler(mockEvent)
 
-      expect(mockShowTooltip).not.toHaveBeenCalled()
+      expect(mockShowTooltip).toHaveBeenCalledWith(null, expect.objectContaining({ notes_withheld: true }))
     })
 
     it('should hide tooltip on node mouseout', () => {

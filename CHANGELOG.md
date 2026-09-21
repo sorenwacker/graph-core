@@ -4,6 +4,17 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Security
+
+- The content of a note marked sensitive no longer reaches any list view ([architecture](docs/architecture/sensitive-notes.md#read-path)). Every node read sent the full note to the renderer - decrypted, once the session was unlocked - and each view decided for itself whether to hide it. Seven places made that decision with differing rules, and three made none: a person card printed the first 60 characters, the persons view printed the note once Reveal was pressed, and search results printed an 80-character snippet. Node reads now return `notes: null` with `notes_withheld` for a sensitive note, in every session state. The text is returned by one call, `db:getNodeNotes`, which the detail panel makes when Show is pressed. A database test covers every read method, and a source scan fails when a view reads note text other than through `notesForDisplay`.
+
+### Changed
+
+- With sensitive notes unlocked, a sensitive note is no longer shown in cards, the table or graph node details; it is read in the detail panel after pressing Show. The graph edit modal and the persons view editor show no notes field for such a node.
+- The hover tooltip appears for nodes with sensitive notes as well, with a placeholder in place of the note. It was suppressed for them in the graph view always and elsewhere only while Hide Sensitive was on.
+- Hide Sensitive applies one rule in every view: a note that is not flagged but mentions `password`, `secret`, `api_key` or `credential` is masked. Graph node details previously hid every note while the setting was on, and cards and search results ignored it.
+- A write that carries `notes` for a sensitive node is ignored unless it comes from the editor that loaded the text, so an edit made from a view that never held the note cannot erase it.
+
 ### Fixed
 
 - "Wrap with parent" works again. It asked for the new parent's title with `window.prompt`, which Electron does not implement, so the action did nothing and gave no sign of it ([guide](docs/guides/detail-panel.md#wrap-with-parent)). It now asks in an in-app dialog, shared across the app so no component needs one of its own.

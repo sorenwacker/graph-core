@@ -218,7 +218,7 @@ function createNodeOperations(ctx) {
      * @returns {Node} The updated node object
      */
     updateNode(id, data) {
-      data = ctx._encodeNotesForWrite(id, data)
+      data = ctx._encodeNotesForWrite(id, ctx._dropUnrevealedNotes(id, data))
       const updates = []
       const values = []
 

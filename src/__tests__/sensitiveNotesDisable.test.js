@@ -109,8 +109,8 @@ it('degrades an undecryptable note to a locked placeholder instead of breaking l
   const broken = db.createNode({ type: 'note', title: 'broken', workspace_id: 'work' })
   db._run('UPDATE nodes SET notes = ?, notes_sensitive = 1 WHERE id = ?', ['SNENC1:not-real-ciphertext', broken.id])
 
-  // A throw inside _rowToNode would take the whole listing down with it.
+  // A throw on the read path would take the whole listing down with it.
   const listed = db.getRecent(10)
   expect(listed.map(n => n.title).sort()).toEqual(['broken', 'readable'])
-  expect(db.getNode(broken.id).notes).toBe('SNENC1:not-real-ciphertext')
+  expect(db.getNodeNotes(broken.id)).toEqual({ notes: null, locked: true })
 })

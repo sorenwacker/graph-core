@@ -208,6 +208,58 @@ class Database {
   }
 
   /**
+   * Read a node's note text for main-process use: decrypted while the session
+   * is unlocked, the ciphertext marker while it is locked, the stored text for
+   * a note that is not encrypted. Trashed nodes are included. Not exposed over
+   * IPC; the renderer's path is getNodeNotes.
+   *
+   * @param {number} id - Node id.
+   * @returns {string|null} The note text, or null when the node has none.
+   */
+  _readSensitiveNotes(id) {
+    const row = this._get('SELECT notes FROM nodes WHERE id = ?', [id])
+    if (!row || typeof row.notes !== 'string') return null
+    return this.sensitiveSession ? this.sensitiveSession.decryptForRead(row.notes) : row.notes
+  }
+
+  /**
+   * The one read that returns note content a node read withholds
+   * (docs/architecture/sensitive-notes.md, "Read path").
+   *
+   * @param {number} id - Node id.
+   * @returns {{notes: string|null, locked: boolean}} The text, or `locked` when
+   *   it is ciphertext the current session cannot decrypt. Ciphertext is never
+   *   returned.
+   */
+  getNodeNotes(id) {
+    const live = this._get('SELECT id FROM nodes WHERE id = ? AND deleted_at IS NULL', [id])
+    if (!live) return { notes: null, locked: false }
+    const notes = this._readSensitiveNotes(id)
+    if (isEncryptedNote(notes)) return { notes: null, locked: true }
+    return { notes, locked: false }
+  }
+
+  /**
+   * Drop a `notes` value sent for a node whose notes the caller never held. A
+   * node read withholds sensitive notes, so a whole-node update built from one
+   * carries an empty `notes` that would erase the real text. Only an update
+   * marked `notes_revealed` - set by the editor after getNodeNotes - may write
+   * them.
+   *
+   * @param {number} id - Existing node id.
+   * @param {Object} data - Incoming node fields.
+   * @returns {Object} data without `notes_revealed`, and without `notes` when
+   *   the caller could not have held them.
+   */
+  _dropUnrevealedNotes(id, data) {
+    const { notes_revealed: revealed, ...fields } = data
+    if (!('notes' in fields) || revealed) return fields
+    const row = this._get('SELECT notes, notes_sensitive FROM nodes WHERE id = ?', [id])
+    if (row && (row.notes_sensitive || isEncryptedNote(row.notes))) delete fields.notes
+    return fields
+  }
+
+  /**
    * Encode a node's notes for writing when sensitive-notes encryption is on.
    * Returns data unchanged when the feature is off or nothing relevant changes.
    * Encrypting, editing a sensitive note, or toggling the flag all require an
@@ -227,12 +279,12 @@ class Database {
     const toggling = willBeSensitive !== wasSensitive
 
     // The plaintext to store: the new notes if provided, otherwise the existing
-    // notes (already decrypted by _rowToNode) when a toggle re-encodes them.
+    // notes when a toggle re-encodes them.
     let notes
     if ('notes' in data) {
       notes = data.notes
     } else if (toggling) {
-      notes = existing ? existing.notes : undefined
+      notes = existing ? this._readSensitiveNotes(id) : undefined
     } else {
       return data
     }
@@ -400,13 +452,14 @@ class Database {
         graph_physics = null
       }
     }
-    const notes =
-      this.sensitiveSession && typeof row.notes === 'string'
-        ? this.sensitiveSession.decryptForRead(row.notes)
-        : row.notes
+    // Sensitive note content never leaves through a node read; getNodeNotes is
+    // the one call that returns it (docs/architecture/sensitive-notes.md).
+    const notesWithheld = Boolean(row.notes_sensitive) || isEncryptedNote(row.notes)
     return {
       ...row,
-      notes,
+      notes: notesWithheld ? null : row.notes,
+      notes_withheld: notesWithheld,
+      has_notes: typeof row.notes === 'string' && row.notes.trim() !== '',
       completed: Boolean(row.completed),
       favorite: Boolean(row.favorite),
       // Only some queries compute has_table (via an EXISTS subquery); preserve

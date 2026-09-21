@@ -34,7 +34,7 @@ describe('ApplyNotesEditCommand', () => {
     it('should call api.updateNode with newNotes', async () => {
       const cmd = new ApplyNotesEditCommand(options)
       await cmd.execute(mockApi)
-      expect(mockApi.updateNode).toHaveBeenCalledWith(1, { notes: 'Improved notes content' })
+      expect(mockApi.updateNode).toHaveBeenCalledWith(1, { notes: 'Improved notes content', notes_revealed: true })
     })
   })
 
@@ -42,7 +42,7 @@ describe('ApplyNotesEditCommand', () => {
     it('should call api.updateNode with oldNotes', async () => {
       const cmd = new ApplyNotesEditCommand(options)
       await cmd.undo(mockApi)
-      expect(mockApi.updateNode).toHaveBeenCalledWith(1, { notes: 'Original notes content' })
+      expect(mockApi.updateNode).toHaveBeenCalledWith(1, { notes: 'Original notes content', notes_revealed: true })
     })
   })
 

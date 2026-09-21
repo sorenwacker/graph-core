@@ -83,6 +83,8 @@ export function useInlineEdit({ onSaveTitle, onSaveNotes, findNode } = {}) {
 
   async function startInlineNotes(node, e) {
     e?.stopPropagation()
+    // A card never holds sensitive note text, so it has nothing to edit.
+    if (node.notes_withheld) return
     inlineNotesId.value = node.id
     inlineNotesText.value = node.notes || ''
     await nextTick()

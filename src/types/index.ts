@@ -12,6 +12,7 @@ export type {
   UpdateNodeData,
   TreeNode,
   NodeLink,
+  NodeNotes,
 } from './node'
 
 export type { WorkspaceId, Workspace, CreateWorkspaceData, UpdateWorkspaceData } from './workspace'
