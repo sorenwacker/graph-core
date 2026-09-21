@@ -57,7 +57,7 @@ Use OpenAI, Azure OpenAI, or any compatible endpoint.
 
 The bypass is limited to local endpoints — `localhost`, `127.0.0.1`, `::1` and `*.local`. Certificates for any other host are always verified, even with the setting enabled, so pointing at a remote server with a bad certificate fails with an explicit error instead of silently sending your data over an unverified connection.
 
-The setting applies to note improvement and to research/agent runs alike.
+The setting applies to note improvement and to Wikipedia lookups alike.
 
 !!! warning
     Skipping verification exposes data to interception. Only use it on trusted networks.
@@ -78,6 +78,7 @@ Select text in a note and use the AI toolbar:
 | Bullet Points | Convert to bullet list |
 | Action Items | Extract actionable tasks |
 | Continue | Generate continuation |
+| Wikipedia | Look a topic up on Wikipedia and append what it finds ([details](#wikipedia-lookup)) |
 
 ### Custom Prompts
 
@@ -99,6 +100,31 @@ Create your own prompts in Settings:
 | Extract Dates | `Extract all dates and deadlines mentioned:\n\n{{selection}}` |
 
 Custom prompts appear in the AI action menu alongside the preset actions.
+
+### Wikipedia lookup
+
+The **Wikipedia** action looks a topic up on Wikipedia and writes what it finds into the note. Wikipedia is its only source: it does not search the web, read papers, or consult anything else, and the result is no more reliable or current than the articles it read. It is available when the Wikipedia tool is enabled in Settings > AI.
+
+1. Choose **Wikipedia** in the AI action menu.
+2. Enter what you want to know. A question works better than a bare keyword: "When was the Delta Works programme completed, and what did it cost?" rather than "Delta Works".
+3. Review the result in the preview, edit it if needed, and accept or reject it.
+
+**What the model is given:**
+
+| Input | Content |
+|-------|---------|
+| Your question | As typed |
+| The node | Title, type and the title of its parent, so that an ambiguous question is read in context. Note text is not sent. |
+| Search results | Up to 5 article titles with snippets per search; the model may search more than once with different wording |
+| Articles | The full plain text of each article it chooses to read, not only the introduction, cut to fit the configured context size. It may read several. |
+
+**What the model is asked to write:** an answer to the question, not a general summary of the topic. Concrete facts - dates, figures, names, definitions - are preferred over general statements. Every paragraph names the article it came from, and the result ends with a list of the articles read, with links. When the articles do not answer the question, the result says so instead of filling the gap.
+
+**Editing the prompt:** the writing rules above are the default prompt of the Wikipedia action, and it is editable like any other preset: Settings > AI > AI Prompts, select **Wikipedia**, change the text, save. Reset restores the default. The prompt is sent to the model as its instructions for every lookup, in the tool-calling path and the fallback alike. The parts that make the tools work - which tools exist and the instruction to stop calling them before answering - are added by the app and are not part of the editable text, so an edited prompt cannot break the lookup.
+
+**Where the result goes:** accepting appends the result below the existing note under a `## Wikipedia: <question>` heading. The existing note text is not replaced.
+
+**Models without tool calling:** some local models cannot call tools. For those, the app searches Wikipedia with your question itself, reads the top articles in full, and asks the model to answer from them under the same writing rules.
 
 ### Workflow
 

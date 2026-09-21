@@ -103,7 +103,7 @@ SSL/TLS error: <reason>. "Skip SSL verification" only applies to local endpoints
 (localhost, 127.0.0.1, ::1, *.local); certificates for remote hosts are always verified.
 ```
 
-The setting applies to note improvement as well as research and agent runs when the OpenAI-compatible provider is selected.
+The setting applies to note improvement as well as Wikipedia lookups when the OpenAI-compatible provider is selected.
 
 !!! warning
     Disabling verification exposes data to interception. Only use it on trusted networks.
@@ -117,6 +117,8 @@ Create custom AI prompts:
 3. Click "Add Prompt"
 4. Enter name and template
 5. Use `{{selection}}` as placeholder for selected text
+
+The preset actions, including the [Wikipedia lookup](../guides/ai-notes.md#wikipedia-lookup), are edited in the same list; Reset restores a preset's default text.
 
 For detailed AI usage, see [AI Notes](../guides/ai-notes.md).
 
