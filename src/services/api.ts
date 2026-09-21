@@ -10,6 +10,7 @@ import type {
   UpdateNodeData,
   TreeNode,
   NodeLink,
+  NodeNotes,
   Workspace,
   WorkspaceId,
   CreateWorkspaceData,
@@ -66,6 +67,7 @@ export interface CaptureConfig {
 interface ElectronAPI {
   getNodes(params?: GetNodesParams): Promise<(Node | null)[]>
   getNode(id: number): Promise<Node | null>
+  getNodeNotes(id: number): Promise<NodeNotes>
   createNode(data: CreateNodeData): Promise<Node>
   updateNode(id: number, data: UpdateNodeData): Promise<Node>
   deleteNode(id: number, hard?: boolean): Promise<void>
@@ -223,6 +225,10 @@ const webApi: Api = {
 
   async getNode(id: number): Promise<Node | null> {
     return request<Node | null>(`/nodes/${id}`)
+  },
+
+  async getNodeNotes(id: number): Promise<NodeNotes> {
+    return request<NodeNotes>(`/nodes/${id}/notes`)
   },
 
   async createNode(data: CreateNodeData): Promise<Node> {
@@ -698,6 +704,8 @@ const electronApi: Api = {
   },
 
   getNode: (id: number): Promise<Node | null> => window.electronAPI!.getNode(id),
+
+  getNodeNotes: (id: number): Promise<NodeNotes> => window.electronAPI!.getNodeNotes(id),
 
   createNode: async (data: CreateNodeData): Promise<Node> => {
     const plainData = JSON.parse(JSON.stringify(data))

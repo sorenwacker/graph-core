@@ -2,7 +2,7 @@
  * API interface definitions for graph-core.
  */
 
-import type { Node, CreateNodeData, UpdateNodeData, TreeNode, NodeLink } from './node'
+import type { Node, CreateNodeData, UpdateNodeData, TreeNode, NodeLink, NodeNotes } from './node'
 import type { Workspace, WorkspaceId, CreateWorkspaceData, UpdateWorkspaceData } from './workspace'
 
 /**
@@ -173,6 +173,8 @@ export interface Api {
   // Node CRUD
   getNodes(params?: GetNodesParams): Promise<Node[]>
   getNode(id: number): Promise<Node | null>
+  /** The one call that returns note content a node read withholds. */
+  getNodeNotes(id: number): Promise<NodeNotes>
   createNode(data: CreateNodeData): Promise<Node>
   updateNode(id: number, data: UpdateNodeData): Promise<Node>
   deleteNode(id: number, hard?: boolean): Promise<void>

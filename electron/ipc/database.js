@@ -13,6 +13,7 @@ const {
   // Node CRUD
   DB_GET_NODES,
   DB_GET_NODE,
+  DB_GET_NODE_NOTES,
   DB_CREATE_NODE,
   DB_UPDATE_NODE,
   DB_DELETE_NODE,
@@ -99,6 +100,8 @@ function registerDatabaseHandlers(ipcMain, db) {
   // Node CRUD
   ipcMain.handle(DB_GET_NODES, (_event, params) => db.getNodes(params))
   ipcMain.handle(DB_GET_NODE, (_event, id) => db.getNode(id))
+  // The one channel that returns sensitive note content (docs/architecture/sensitive-notes.md).
+  ipcMain.handle(DB_GET_NODE_NOTES, (_event, id) => db.getNodeNotes(id))
   ipcMain.handle(DB_CREATE_NODE, (_event, data) => db.createNode(data))
   ipcMain.handle(DB_UPDATE_NODE, (_event, id, data) => db.updateNode(id, data))
   ipcMain.handle(DB_DELETE_NODE, (_event, id, hard) => db.deleteNode(id, hard))

@@ -8,8 +8,9 @@ import { isEncryptedNote } from '../../electron/database/sensitiveNotes.js'
 
 /**
  * Sensitive notes end to end through the real Database: content is stored
- * encrypted, decrypted on read while unlocked, and shown as the ciphertext
- * marker while locked (docs/architecture/sensitive-notes.md).
+ * encrypted, returned by getNodeNotes while unlocked, and reported locked
+ * otherwise (docs/architecture/sensitive-notes.md). That node reads withhold
+ * it is covered by sensitiveReadPath.test.js.
  */
 
 let dir, db, session
@@ -27,7 +28,7 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-it('stores a sensitive note as ciphertext but reads it back as plaintext while unlocked', () => {
+it('stores a sensitive note as ciphertext but returns plaintext from getNodeNotes while unlocked', () => {
   const node = db.createNode({
     type: 'note',
     title: 'Plan',
@@ -36,13 +37,13 @@ it('stores a sensitive note as ciphertext but reads it back as plaintext while u
     workspace_id: 'work',
   })
 
-  // The raw stored value is ciphertext; the read path returns plaintext.
+  // The raw stored value is ciphertext; getNodeNotes returns plaintext.
   const raw = db._query('SELECT notes FROM nodes WHERE id = ?', [node.id])[0].notes
   expect(isEncryptedNote(raw)).toBe(true)
-  expect(db.getNode(node.id).notes).toBe('the secret')
+  expect(db.getNodeNotes(node.id).notes).toBe('the secret')
 })
 
-it('returns the ciphertext marker, not plaintext, once locked', () => {
+it('reports the note locked, returning neither plaintext nor ciphertext, once locked', () => {
   const node = db.createNode({
     type: 'note',
     title: 'Plan',
@@ -52,9 +53,7 @@ it('returns the ciphertext marker, not plaintext, once locked', () => {
   })
   session.lock()
 
-  const read = db.getNode(node.id).notes
-  expect(isEncryptedNote(read)).toBe(true)
-  expect(read).not.toContain('the secret')
+  expect(db.getNodeNotes(node.id)).toEqual({ notes: null, locked: true })
 })
 
 it('keeps non-sensitive notes as plaintext', () => {
@@ -75,7 +74,7 @@ it('encrypts existing notes when the flag is turned on', () => {
 
   const raw = db._query('SELECT notes FROM nodes WHERE id = ?', [node.id])[0].notes
   expect(isEncryptedNote(raw)).toBe(true)
-  expect(db.getNode(node.id).notes).toBe('becomes secret')
+  expect(db.getNodeNotes(node.id).notes).toBe('becomes secret')
 })
 
 it('decrypts back to plaintext when the flag is turned off', () => {
