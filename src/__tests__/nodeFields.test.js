@@ -87,4 +87,28 @@ describe('nodeFields', () => {
       expect(result.due_date).toBeUndefined()
     })
   })
+
+  // A node read withholds sensitive notes, so a copy built from one has no
+  // text to send; sending its null would erase the note
+  // (docs/architecture/sensitive-notes.md, "Writes").
+  describe('pickNodeFields and withheld notes', () => {
+    it('omits notes for a node whose notes were withheld', () => {
+      const result = pickNodeFields({ title: 'Vault', notes: null, notes_withheld: true, notes_sensitive: true })
+      expect('notes' in result).toBe(false)
+      expect(result.notes_sensitive).toBe(true)
+      expect('notes_revealed' in result).toBe(false)
+    })
+
+    it('sends notes, marked revealed, once the editor fetched them', () => {
+      const result = pickNodeFields({ title: 'Vault', notes: 'text', notes_withheld: false, notes_revealed: true })
+      expect(result.notes).toBe('text')
+      expect(result.notes_revealed).toBe(true)
+    })
+
+    it('sends an ordinary note unmarked', () => {
+      const result = pickNodeFields({ title: 'Open', notes: 'text', notes_withheld: false })
+      expect(result.notes).toBe('text')
+      expect('notes_revealed' in result).toBe(false)
+    })
+  })
 })

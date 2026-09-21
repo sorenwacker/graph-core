@@ -1,24 +1,17 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import NotesSection from '../components/detail/NotesSection.vue'
 
 /**
- * A sensitive note must be withheld from every tab, not only the preview.
- * While the session is locked the stored value is ciphertext, and any edit to
- * it is rejected by the main process, so an editor there would show the marker
- * and silently discard what the user typed
- * (docs/architecture/sensitive-notes.md).
+ * A node read withholds sensitive notes, so the section is told the text is
+ * absent rather than deciding for itself. While it is absent there is no editor
+ * on any tab: it would look empty, and the main process discards a write from a
+ * caller that never held the text (docs/architecture/sensitive-notes.md).
  */
-
-vi.mock('../composables/useSensitiveNotes.js', () => ({
-  useSensitiveNotes: () => ({
-    isLockedNote: notes => typeof notes === 'string' && notes.startsWith('SNENC1:'),
-  }),
-}))
 
 const stubs = {
   NotesEditor: { name: 'NotesEditor', template: '<div class="stub-editor" />' },
-  NotesAIToolbar: true,
+  NotesAIToolbar: { name: 'NotesAIToolbar', template: '<div class="stub-ai" />' },
   MarkdownRenderer: { name: 'MarkdownRenderer', props: ['content'], template: '<div class="stub-md" />' },
 }
 
@@ -28,48 +21,43 @@ function render(props) {
 
 const TABS = ['edit', 'preview', 'split']
 
-describe('a note flagged sensitive and not revealed', () => {
+describe('a note whose text was withheld', () => {
   for (const activeTab of TABS) {
-    it(`is withheld on the ${activeTab} tab`, () => {
-      const w = render({ notes: 'the secret', notesSensitive: true, showSensitive: false, activeTab })
-      expect(w.text()).not.toContain('the secret')
+    it(`offers no editor on the ${activeTab} tab`, () => {
+      const w = render({ notes: '', withheld: true, activeTab })
       expect(w.find('.sensitive-hidden').exists()).toBe(true)
       expect(w.find('.stub-editor').exists()).toBe(false)
+      expect(w.find('.stub-ai').exists()).toBe(false)
     })
   }
 
-  it('is shown once revealed', () => {
-    const w = render({ notes: 'the secret', notesSensitive: true, showSensitive: true, activeTab: 'edit' })
-    expect(w.find('.sensitive-hidden').exists()).toBe(false)
-    expect(w.find('.stub-editor').exists()).toBe(true)
+  it('asks the owner of the node to reveal it', async () => {
+    const w = render({ notes: '', withheld: true })
+    await w.find('.sensitive-hidden .unlock-btn').trigger('click')
+    expect(w.emitted('reveal')).toHaveLength(1)
+  })
+
+  it('points to the session unlock instead while the session is locked', () => {
+    const w = render({ notes: '', withheld: true, locked: true })
+    expect(w.text()).toContain('Sensitive notes are locked')
+    expect(w.find('.sensitive-hidden .unlock-btn').exists()).toBe(false)
+  })
+
+  it('shows why a reveal failed', () => {
+    const w = render({ notes: '', withheld: true, revealError: 'This note cannot be decrypted' })
+    expect(w.find('.sensitive-unlock-error').text()).toBe('This note cannot be decrypted')
   })
 })
 
-describe('a note still locked as ciphertext', () => {
-  for (const activeTab of TABS) {
-    it(`shows the locked prompt on the ${activeTab} tab and offers no editor`, () => {
-      const w = render({ notes: 'SNENC1:abc', notesSensitive: true, showSensitive: true, activeTab })
-      expect(w.text()).toContain('Sensitive notes are locked')
-      expect(w.text()).not.toContain('SNENC1:abc')
-      expect(w.find('.stub-editor').exists()).toBe(false)
-    })
-  }
-
-  it('stays withheld even when the reveal flag is set, because revealing cannot decrypt', () => {
-    const w = render({ notes: 'SNENC1:abc', notesSensitive: false, showSensitive: true, activeTab: 'edit' })
-    expect(w.find('.sensitive-hidden').exists()).toBe(true)
-  })
-})
-
-describe('an ordinary note', () => {
-  it('renders the editor and the text as before', () => {
-    const w = render({ notes: 'nothing secret', activeTab: 'edit' })
+describe('a note whose text is held', () => {
+  it('renders the editor', () => {
+    const w = render({ notes: 'revealed or ordinary', activeTab: 'edit' })
     expect(w.find('.sensitive-hidden').exists()).toBe(false)
     expect(w.find('.stub-editor').exists()).toBe(true)
   })
 
   it('renders the preview', () => {
-    const w = render({ notes: 'nothing secret', activeTab: 'preview' })
-    expect(w.findComponent({ name: 'MarkdownRenderer' }).props('content')).toBe('nothing secret')
+    const w = render({ notes: 'revealed or ordinary', activeTab: 'preview' })
+    expect(w.findComponent({ name: 'MarkdownRenderer' }).props('content')).toBe('revealed or ordinary')
   })
 })

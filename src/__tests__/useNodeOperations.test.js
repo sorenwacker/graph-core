@@ -109,6 +109,33 @@ describe('useNodeOperations composable', () => {
       expect(mockApi.getNode).not.toHaveBeenCalled()
       expect(mockPushCommand).not.toHaveBeenCalled()
     })
+
+    // getNode withholds sensitive notes, so the text an undo restores has to
+    // come from getNodeNotes, read before the write replaces it.
+    it('should record the previous sensitive notes for undo when the editor revealed them', async () => {
+      mockApi.getNode.mockResolvedValue({ id: 1, title: 'Vault', notes: null, notes_withheld: true })
+      mockApi.getNodeNotes = vi.fn().mockResolvedValue({ notes: 'before', locked: false })
+      mockApi.updateNode.mockImplementation(async () => {
+        expect(mockApi.getNodeNotes).toHaveBeenCalledWith(1)
+      })
+
+      await ops.updateNode({ id: 1, title: 'Vault', notes: 'after', notes_revealed: true })
+
+      const command = mockPushCommand.mock.calls[0][0]
+      expect(command.oldValues).toMatchObject({ notes: 'before', notes_revealed: true })
+      expect(command.newValues).toMatchObject({ notes: 'after', notes_revealed: true })
+    })
+
+    it('should not ask for notes it has no claim to', async () => {
+      mockApi.getNode.mockResolvedValue({ id: 1, title: 'Vault', notes: null, notes_withheld: true })
+      mockApi.getNodeNotes = vi.fn()
+
+      await ops.updateNode({ id: 1, title: 'Renamed', notes: null, notes_withheld: true })
+
+      expect(mockApi.getNodeNotes).not.toHaveBeenCalled()
+      expect('notes' in mockApi.updateNode.mock.calls[0][1]).toBe(false)
+      expect('notes' in mockPushCommand.mock.calls[0][0].oldValues).toBe(false)
+    })
   })
 
   describe('deleteNode', () => {

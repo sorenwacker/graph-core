@@ -237,12 +237,16 @@ export function useNodeOperations({
         }
 
         const newValues = pickNodeFields(node)
+        // getNode withholds sensitive notes, so the text an undo restores is read
+        // through getNodeNotes, before this write replaces it.
+        const oldNotes = trackUndo && newValues.notes_revealed ? (await api.getNodeNotes(node.id)).notes : null
         await api.updateNode(node.id, newValues)
 
         if (broadcastUpdate) broadcastUpdate(node)
 
         if (trackUndo && oldNode && pushCommand) {
           const oldValues = pickNodeFields(oldNode)
+          if (oldNotes !== null) Object.assign(oldValues, { notes: oldNotes, notes_revealed: true })
           pushCommand(new EditCommand({ nodeId: node.id, oldValues, newValues }))
         }
 

@@ -138,7 +138,7 @@ describe('the unlock form on the edit tab', () => {
     // It called `onSensitiveUnlock`, which was never defined, so submitting it
     // did nothing at all. The preview and split tabs used `revealSensitive`.
     status.value = { available: true, enabled: true, unlocked: false }
-    const w = render({ ...PLAINTEXT_NOTE, notes: 'SNENC1:abc', notes_sensitive: true })
+    const w = render({ ...PLAINTEXT_NOTE, notes: null, notes_sensitive: true, notes_withheld: true })
 
     // A note with content opens on the preview tab, whose form was wired
     // correctly. The broken one is the edit tab's.

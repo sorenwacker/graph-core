@@ -1,9 +1,8 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import NotesEditor from '../NotesEditor.vue'
 import NotesAIToolbar from '../NotesAIToolbar.vue'
 import MarkdownRenderer from '../MarkdownRenderer.vue'
-import { useSensitiveNotes } from '../../composables/useSensitiveNotes.js'
 
 const props = defineProps({
   notes: { type: String, default: '' },
@@ -11,20 +10,16 @@ const props = defineProps({
   // Workspace used to scope @mention person auto-linking
   workspaceId: { type: String, default: 'work' },
   activeTab: { type: String, default: 'edit' },
-  showSensitive: { type: Boolean, default: false },
-  notesSensitive: { type: Boolean, default: false },
+  // The text is sensitive and the node's owner does not hold it
+  // (docs/architecture/sensitive-notes.md, "Read path").
+  withheld: { type: Boolean, default: false },
+  // The sensitive session is locked, so a reveal cannot succeed yet.
+  locked: { type: Boolean, default: false },
+  revealError: { type: String, default: '' },
   cssClass: { type: String, default: '' },
 })
 
-const emit = defineEmits(['update:notes', 'update:activeTab', 'blur', 'ai-improve', 'mention-inserted'])
-
-const { isLockedNote } = useSensitiveNotes()
-
-/** The note is still ciphertext because the sensitive session is locked. */
-const locked = computed(() => isLockedNote(props.notes))
-
-/** Withhold the note from every tab: locked ciphertext, or flagged and not revealed. */
-const hidden = computed(() => locked.value || (props.notesSensitive && !props.showSensitive))
+const emit = defineEmits(['update:notes', 'update:activeTab', 'blur', 'ai-improve', 'mention-inserted', 'reveal'])
 
 const notesEditorRef = ref(null)
 const notesEditorSplitRef = ref(null)
@@ -59,7 +54,13 @@ defineExpose({ getSelection, notesEditorRef, notesEditorSplitRef })
 <template>
   <div class="notes-header">
     <div class="notes-header-actions">
-      <NotesAIToolbar :notes="notes" :node-id="nodeId" :get-selection="getSelection" @apply-improvement="onAIImprove" />
+      <NotesAIToolbar
+        v-if="!withheld"
+        :notes="notes"
+        :node-id="nodeId"
+        :get-selection="getSelection"
+        @apply-improvement="onAIImprove"
+      />
       <div class="tab-buttons">
         <button :class="{ active: activeTab === 'edit' }" @click="onTabChange('edit')" title="Edit notes">Edit</button>
         <button :class="{ active: activeTab === 'preview' }" @click="onTabChange('preview')" title="Preview markdown">
@@ -72,13 +73,15 @@ defineExpose({ getSelection, notesEditorRef, notesEditorSplitRef })
     </div>
   </div>
 
-  <!-- Masking wraps every tab, not just the preview. An edit or split tab that
-       rendered the note would show the content the preview hides, and while the
-       note is locked ciphertext any edit is rejected by the main process and
-       silently lost. -->
-  <div v-if="hidden" :class="['sensitive-hidden', cssClass]">
-    <p>{{ locked ? 'Sensitive notes are locked' : 'Sensitive notes hidden' }}</p>
-    <slot name="unlock-button" />
+  <!-- The placeholder stands in for every tab, not just the preview: an editor
+       on an absent text would look empty, and the main process discards a
+       write from a caller that never held the text. -->
+  <div v-if="withheld" :class="['sensitive-hidden', cssClass]">
+    <p>
+      {{ locked ? 'Sensitive notes are locked. Unlock them in Settings, under Security.' : 'Sensitive notes hidden' }}
+    </p>
+    <button v-if="!locked" class="unlock-btn" @click="emit('reveal')" title="Show sensitive notes">Show</button>
+    <p v-if="revealError" class="sensitive-unlock-error" role="alert">{{ revealError }}</p>
   </div>
 
   <NotesEditor

@@ -59,16 +59,16 @@ const linkedNodes = ref([])
 
 // Tab state for notes
 const activeTab = ref('edit')
-const showSensitivePreview = ref(false)
-
-// Sensitive-notes reveal (docs/architecture/sensitive-notes.md). When a note's
-// content is stored ciphertext, revealing it takes the recovery password;
-// unlocking reloads the node so its notes come back decrypted.
-const { unlock: unlockSensitive, isLockedNote, status: sensitiveStatus } = useSensitiveNotes()
+// Sensitive-notes reveal (docs/architecture/sensitive-notes.md). A node read
+// withholds sensitive notes; the panel fetches them through getNodeNotes when
+// the user asks, and holds them only until it shows something else or the
+// session relocks. While the session is locked, asking takes the recovery
+// password first.
+const { unlock: unlockSensitive, status: sensitiveStatus } = useSensitiveNotes()
 const { showPrompt } = usePrompt()
 const sensitiveUnlockPassword = ref('')
 const sensitiveUnlockError = ref('')
-const notesLocked = computed(() => isLockedNote(editedNode.value?.notes))
+const notesHidden = computed(() => Boolean(editedNode.value?.notes_withheld))
 
 // Turning the flag on encrypts the note and turning it off decrypts it, so the
 // toggle needs the sensitive-notes key whenever the feature is enabled. With
@@ -83,31 +83,38 @@ const sensitiveUnlockRequested = ref(false)
 // The edit tab's locked placeholder already carries a prompt, and also stands
 // in for the editor. This one covers every other tab, and the plaintext note a
 // user is trying to lock, without ever showing two prompts at once.
+const notesLocked = computed(() => notesHidden.value && sensitiveSessionLocked.value)
 const showToolbarUnlockForm = computed(
-  () =>
-    sensitiveSessionLocked.value && sensitiveUnlockRequested.value && !(activeTab.value === 'edit' && notesLocked.value)
+  () => sensitiveSessionLocked.value && sensitiveUnlockRequested.value && !notesLocked.value
 )
 
-// Re-mask an open sensitive note when the session relocks (idle timer or a
-// manual lock). editedNode holds a decrypted copy, so without this a locked
-// note keeps showing until you navigate away (docs/architecture/sensitive-notes.md).
+/** Fetch the withheld note text: the panel's one way to get it. */
+async function revealNotes() {
+  const nodeId = props.node?.id
+  if (!nodeId) return
+  sensitiveUnlockError.value = ''
+  const { notes, locked } = await api.getNodeNotes(nodeId)
+  // The panel may have moved on to another node while this was in flight.
+  if (props.node?.id !== nodeId) return
+  if (locked) {
+    sensitiveUnlockError.value = 'This note cannot be decrypted with the current key'
+    return
+  }
+  editedNode.value = { ...editedNode.value, notes: notes ?? '', notes_withheld: false, notes_revealed: true }
+}
+
+// Drop an open sensitive note when the session relocks (idle timer or a manual
+// lock). editedNode holds the text, so without this a locked note keeps showing
+// until you navigate away (docs/architecture/sensitive-notes.md).
 watch(
   () => sensitiveStatus.value.unlocked,
-  async unlocked => {
-    if (!unlocked && editedNode.value?.notes_sensitive && props.node?.id) {
-      const fresh = await api.getNode(props.node.id)
-      if (fresh) editedNode.value = { ...fresh }
-      showSensitivePreview.value = false
+  unlocked => {
+    if (!unlocked && editedNode.value?.notes_sensitive && editedNode.value.notes_withheld === false) {
+      locallyEdited.delete('notes')
+      editedNode.value = { ...editedNode.value, notes: null, notes_withheld: true, notes_revealed: false }
     }
   }
 )
-
-// Double-clicking the rendered preview jumps to the editor, unless the note is
-// locked sensitive content (then the reveal prompt stays put).
-function onPreviewDoubleClick() {
-  if (notesLocked.value) return
-  activeTab.value = 'edit'
-}
 
 // Resizable split view: the editor's width fraction, drag-adjustable and
 // persisted. Explicit sizing here replaces flexing both panes equally.
@@ -147,12 +154,8 @@ async function revealSensitive() {
   const result = await unlockSensitive(sensitiveUnlockPassword.value)
   if (result.success) {
     sensitiveUnlockPassword.value = ''
-    if (props.node?.id) {
-      const fresh = await api.getNode(props.node.id)
-      if (fresh) editedNode.value = { ...fresh }
-    }
+    if (notesHidden.value) await revealNotes()
     sensitiveUnlockRequested.value = false
-    // Applied after the refresh above, which replaces editedNode wholesale.
     if (pendingSensitive.value !== null) {
       editedNode.value.notes_sensitive = pendingSensitive.value
       pendingSensitive.value = null
@@ -273,6 +276,11 @@ function adoptExternalChanges(incoming) {
   for (const field of locallyEdited) {
     merged[field] = editedNode.value[field]
   }
+  // A record for a sensitive node never carries its text; keep what the panel
+  // already holds rather than hiding it again on every save.
+  if (incoming.notes_withheld && editedNode.value.notes_withheld === false) {
+    Object.assign(merged, { notes: editedNode.value.notes, notes_withheld: false, notes_revealed: true })
+  }
   editedNode.value = merged
 }
 
@@ -371,11 +379,10 @@ watch(
     // Always show notes expanded by default
     notesCollapsed.value = false
     // Set tab based on whether notes exist
-    activeTab.value = newNode.notes?.trim() ? 'preview' : 'edit'
+    activeTab.value = newNode.notes?.trim() || newNode.notes_withheld ? 'preview' : 'edit'
     // Reset links
     linkedNodes.value = []
-    // Reset sensitive preview unlock
-    showSensitivePreview.value = false
+    sensitiveUnlockError.value = ''
     // Reset table collapsed - will be expanded only if table exists after loading
     tableCollapsed.value = true
 
@@ -842,6 +849,9 @@ defineExpose({
         :linked-nodes="linkedNodes"
         :active-tab="activeTab"
         :current-workspace="currentWorkspace"
+        :notes-locked="notesLocked"
+        :reveal-error="sensitiveUnlockError"
+        @reveal-notes="revealNotes"
         @update:edited-node="editedNode = $event"
         @update:active-tab="activeTab = $event"
         @save="saveChanges()"
@@ -861,6 +871,9 @@ defineExpose({
         :linked-nodes="linkedNodes"
         :active-tab="activeTab"
         :current-workspace="currentWorkspace"
+        :notes-locked="notesLocked"
+        :reveal-error="sensitiveUnlockError"
+        @reveal-notes="revealNotes"
         @update:edited-node="editedNode = $event"
         @update:active-tab="activeTab = $event"
         @save="saveChanges()"
@@ -887,6 +900,7 @@ defineExpose({
             <div v-show="!notesCollapsed" class="section-content">
               <div class="tabs-row">
                 <NotesAIToolbar
+                  v-if="!notesHidden"
                   :notes="editedNode.notes"
                   :node-id="editedNode.id"
                   :get-selection="getNotesSelection"
@@ -931,10 +945,11 @@ defineExpose({
                 </p>
               </div>
 
-              <!-- A locked note holds ciphertext, and any write to it is
-                   rejected by the main process. Show the unlock prompt instead
-                   of an editor whose edits would be silently discarded. -->
-              <div v-if="activeTab === 'edit' && notesLocked" class="sensitive-hidden">
+              <!-- A node read withholds sensitive notes, so there is no text
+                   here until the user asks for it. One placeholder stands in
+                   for every tab: an editor on an absent text would look empty
+                   and its edits would be discarded by the main process. -->
+              <div v-if="notesLocked" class="sensitive-hidden">
                 <p>Sensitive notes are locked</p>
                 <form class="sensitive-unlock-form" @submit.prevent="revealSensitive">
                   <input
@@ -942,9 +957,17 @@ defineExpose({
                     type="password"
                     placeholder="Recovery password"
                     autocomplete="current-password"
+                    data-testid="notes-unlock-password"
                   />
                   <button class="unlock-btn" type="submit" :disabled="!sensitiveUnlockPassword">Unlock</button>
                 </form>
+                <p v-if="sensitiveUnlockError" class="sensitive-unlock-error" role="alert">
+                  {{ sensitiveUnlockError }}
+                </p>
+              </div>
+              <div v-else-if="notesHidden" class="sensitive-hidden">
+                <p>Sensitive notes hidden</p>
+                <button class="unlock-btn" @click="revealNotes" title="Show sensitive notes">Show</button>
                 <p v-if="sensitiveUnlockError" class="sensitive-unlock-error" role="alert">
                   {{ sensitiveUnlockError }}
                 </p>
@@ -966,30 +989,9 @@ defineExpose({
                 class="notes-preview markdown-body"
                 tabindex="0"
                 @keydown="onPreviewKeydown"
-                @dblclick="onPreviewDoubleClick"
+                @dblclick="activeTab = 'edit'"
               >
-                <div v-if="notesLocked" class="sensitive-hidden">
-                  <p>Sensitive notes locked</p>
-                  <form class="sensitive-unlock-form" @submit.prevent="revealSensitive">
-                    <input
-                      v-model="sensitiveUnlockPassword"
-                      type="password"
-                      placeholder="Recovery password"
-                      data-testid="notes-unlock-password"
-                    />
-                    <button class="unlock-btn" type="submit" :disabled="!sensitiveUnlockPassword">Unlock</button>
-                  </form>
-                  <p v-if="sensitiveUnlockError" class="sensitive-unlock-error" role="alert">
-                    {{ sensitiveUnlockError }}
-                  </p>
-                </div>
-                <div v-else-if="editedNode.notes_sensitive && !showSensitivePreview" class="sensitive-hidden">
-                  <p>Sensitive notes hidden</p>
-                  <button class="unlock-btn" @click="showSensitivePreview = true" title="Show sensitive notes">
-                    Unlock
-                  </button>
-                </div>
-                <MarkdownRenderer v-else-if="editedNode.notes" :content="editedNode.notes" />
+                <MarkdownRenderer v-if="editedNode.notes" :content="editedNode.notes" />
                 <p v-else class="placeholder">No notes yet</p>
               </div>
 
@@ -1020,23 +1022,7 @@ defineExpose({
                   @keydown="onPreviewKeydown"
                   @scroll="syncPreviewToEditor"
                 >
-                  <div v-if="notesLocked" class="sensitive-hidden">
-                    <p>Sensitive notes locked</p>
-                    <form class="sensitive-unlock-form" @submit.prevent="revealSensitive">
-                      <input v-model="sensitiveUnlockPassword" type="password" placeholder="Recovery password" />
-                      <button class="unlock-btn" type="submit" :disabled="!sensitiveUnlockPassword">Unlock</button>
-                    </form>
-                    <p v-if="sensitiveUnlockError" class="sensitive-unlock-error" role="alert">
-                      {{ sensitiveUnlockError }}
-                    </p>
-                  </div>
-                  <div v-else-if="editedNode.notes_sensitive && !showSensitivePreview" class="sensitive-hidden">
-                    <p>Sensitive notes hidden</p>
-                    <button class="unlock-btn" @click="showSensitivePreview = true" title="Show sensitive notes">
-                      Unlock
-                    </button>
-                  </div>
-                  <MarkdownRenderer v-else-if="editedNode.notes" :content="editedNode.notes" />
+                  <MarkdownRenderer v-if="editedNode.notes" :content="editedNode.notes" />
                   <p v-else class="placeholder">No notes yet</p>
                 </div>
               </div>
