@@ -33,6 +33,9 @@ Hovering over a node displays a preview tooltip with the node's title, metadata,
 | Space | Dismiss locked tooltip |
 | Escape | Dismiss locked tooltip |
 | Click elsewhere | Dismiss locked tooltip |
+| Open detail panel, sidebar, or settings | Dismiss tooltip, including a locked one |
+
+No tooltip shows while the detail panel, sidebar, or settings is open: hovering does not show one, and clicking a node does not lock one.
 
 When a tooltip is locked:
 

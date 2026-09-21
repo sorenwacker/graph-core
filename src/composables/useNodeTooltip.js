@@ -1,4 +1,4 @@
-import { onUnmounted } from 'vue'
+import { onUnmounted, watch } from 'vue'
 import tippy from 'tippy.js'
 import { buildTooltipHTML, tooltipOptions, getFixedTooltipReference, getTooltipPlacement } from '../utils/tooltip.js'
 
@@ -8,7 +8,9 @@ import { buildTooltipHTML, tooltipOptions, getFixedTooltipReference, getTooltipP
  * @param {Function} options.onOpenDetail - Callback when "Open Details" is clicked
  * @param {Function} options.onToggleComplete - Callback when checkbox is toggled
  * @param {Function} options.getHideSensitive - Function that returns current hideSensitive state
- * @param {Function} options.shouldShowTooltip - Function that returns whether tooltip should show for a node
+ * @param {Function} options.shouldShowTooltip - Function that returns whether tooltip should show for a node.
+ *   Called with null to ask whether any tooltip may show; when that turns false (a panel opened),
+ *   a visible or locked tooltip is dismissed. Read reactive state in it so the change is observed.
  * @returns {Object} - Tooltip handlers
  */
 export function useNodeTooltip(options = {}) {
@@ -192,6 +194,12 @@ export function useNodeTooltip(options = {}) {
   function toggleLock(node, event = null) {
     if (!node) return
 
+    // A click must not lock a tooltip over an open panel.
+    if (!shouldShowTooltip(node)) {
+      forceHide()
+      return
+    }
+
     // Clear any pending show/hide
     if (tooltipShowTimeout) {
       clearTimeout(tooltipShowTimeout)
@@ -235,6 +243,14 @@ export function useNodeTooltip(options = {}) {
       activeTooltip = null
     }
   }
+
+  // Opening a panel dismisses the tooltip, including a locked one.
+  watch(
+    () => shouldShowTooltip(null),
+    allowed => {
+      if (!allowed) forceHide()
+    }
+  )
 
   // Auto cleanup on unmount
   onUnmounted(cleanup)

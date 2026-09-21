@@ -223,18 +223,6 @@ const {
   },
 })
 
-// A tooltip that is already visible (or locked) must not stay up over the
-// settings panel.
-watch(showSettings, open => {
-  if (open) forceHideTooltip()
-})
-watch(showDetail, isOpen => {
-  if (isOpen) forceHideTooltip()
-})
-watch(sidebarVisible, isOpen => {
-  if (isOpen) forceHideTooltip()
-})
-
 // Detached window
 const {
   openDetachedWindow,
