@@ -1,5 +1,4 @@
 import { api } from '../services/api'
-import { buildTooltipHTML } from '../utils/tooltip.js'
 import { getGraphColors } from '../utils/constants.js'
 import { decodeHtmlEntities } from '../utils/html.js'
 import { hasExplicitColor } from '../utils/nodeColor.js'
@@ -66,7 +65,6 @@ function buildDescendantCountMap(nodeList, countMap = {}) {
  * @param {number} options.detailThreshold - Threshold for showing details
  * @param {number} options.maxDepth - Maximum depth to display
  * @param {boolean} options.hideCompleted - Whether to hide completed nodes
- * @param {boolean} options.hideSensitive - Whether to hide sensitive content
  * @param {boolean} options.sortAlphabetically - Whether to sort nodes
  * @param {Array} options.visibleTypes - Types to show
  * @param {boolean} options.showRootNode - Whether to show root node
@@ -84,7 +82,6 @@ export function buildElements(options) {
     detailThreshold = 30,
     maxDepth = 0,
     hideCompleted = false,
-    hideSensitive = false,
     sortAlphabetically = false,
     visibleTypes = [],
     showRootNode = true,
@@ -168,12 +165,6 @@ export function buildElements(options) {
     // Label is just the title - HTML rendering handles the rest
     const label = decodeHtmlEntities(node.title)
 
-    // Build tooltip HTML using shared utility
-    const tooltip = buildTooltipHTML(node, {
-      showCheckbox: node.type !== 'person',
-      hideSensitive: hideSensitive || node.notes_sensitive,
-    })
-
     // Adjust colors for completed nodes and parent nodes
     const bgColor = isCompleted ? darkenColor(colors.bg) : colors.bg
     const textColor = isCompleted ? '#888888' : colors.text
@@ -182,7 +173,6 @@ export function buildElements(options) {
       data: {
         id: String(node.id),
         label,
-        tooltip,
         type: node.type,
         isPerson: node.type === 'person',
         isTag: node.type === 'tag',

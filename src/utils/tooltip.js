@@ -2,9 +2,7 @@ import { getImportanceLabel } from './constants.js'
 import { escapeHtml } from './html.js'
 import { renderMarkdown } from './markdown.js'
 import { formatDate } from './formatting.js'
-
-// Keywords that indicate potentially sensitive content in notes
-const SENSITIVE_KEYWORDS = ['password', 'secret', 'api_key', 'credential']
+import { notesForDisplay } from './nodeDisplay.js'
 
 // Layout constants for tooltip positioning
 const TOOLTIP_MARGIN = 20
@@ -27,10 +25,7 @@ export function buildTooltipHTML(node, options = {}) {
 
   const childCount = node.children?.length || 0
   const isCompleted = node.completed
-  // Notes explicitly flagged sensitive are always masked in the hover info.
-  // Keyword-detected notes are masked only when the Hide Sensitive setting is on.
-  const explicitlySensitive = !!node.notes_sensitive
-  const keywordSensitive = SENSITIVE_KEYWORDS.some(kw => node.notes?.toLowerCase().includes(kw))
+  const notes = notesForDisplay(node, { hideSensitive })
 
   let tooltip = `<div class="tt-header">`
   if (showCheckbox && node.type === 'task') {
@@ -53,13 +48,10 @@ export function buildTooltipHTML(node, options = {}) {
     tooltip += `</div>`
   }
 
-  if (node.notes) {
-    if (explicitlySensitive || (keywordSensitive && hideSensitive)) {
-      tooltip += `<div class="tt-notes">[Sensitive content hidden]</div>`
-    } else {
-      const notesHtml = renderMarkdown(node.notes)
-      tooltip += `<div class="tt-notes markdown-body">${notesHtml}</div>`
-    }
+  if (notes.withheld) {
+    tooltip += `<div class="tt-notes">[Sensitive content hidden]</div>`
+  } else if (notes.text) {
+    tooltip += `<div class="tt-notes markdown-body">${renderMarkdown(notes.text)}</div>`
   }
 
   return tooltip

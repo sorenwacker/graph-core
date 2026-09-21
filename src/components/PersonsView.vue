@@ -282,7 +282,8 @@ async function savePerson() {
       organization: '', // Deprecated - now using linked organizations
       role: editingPerson.value.role || '',
       website: editingPerson.value.website || '',
-      notes: editingPerson.value.notes || '',
+      // A person read withholds sensitive notes; this form never held them.
+      ...(editingPerson.value.notes_withheld ? {} : { notes: editingPerson.value.notes || '' }),
       color: editingPerson.value.color || legacyDefaultColor,
       workspace_id: props.workspaceId,
     }
@@ -504,7 +505,9 @@ function getOrganizationsForPerson(personId) {
           {{ getOrganizationsForPerson(person.id).join(', ') }}
         </div>
         <div v-if="person.email" class="person-email">{{ maskEmail(person.email) }}</div>
-        <div v-if="person.notes && !hideSensitive" class="person-notes">{{ person.notes }}</div>
+        <div v-if="!hideSensitive && notesForDisplay(person).text" class="person-notes">
+          {{ notesForDisplay(person).text }}
+        </div>
         <div class="person-links-count">{{ getLinksForPerson(person.id).length }} linked</div>
       </div>
     </div>
@@ -635,7 +638,10 @@ function getOrganizationsForPerson(personId) {
 
             <div class="form-field full-width">
               <label>Notes</label>
-              <div class="person-notes-editor">
+              <p v-if="editingPerson.notes_withheld" class="person-notes-withheld">
+                Sensitive notes are shown and edited in the detail panel.
+              </p>
+              <div v-else class="person-notes-editor">
                 <NotesEditor
                   :model-value="editingPerson.notes || ''"
                   :workspace-id="props.workspaceId"

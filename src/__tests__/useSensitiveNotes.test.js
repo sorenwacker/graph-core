@@ -47,13 +47,6 @@ describe('useSensitiveNotes', () => {
     expect(result.error).toBe('Wrong password')
   })
 
-  it('detects locked ciphertext note values', () => {
-    const s = useSensitiveNotes()
-    expect(s.isLockedNote('SNENC1:abcd')).toBe(true)
-    expect(s.isLockedNote('plain notes')).toBe(false)
-    expect(s.isLockedNote(null)).toBe(false)
-  })
-
   it('re-reads status when the main process reports a relock', async () => {
     const s = useSensitiveNotes()
     // Simulate the app being unlocked, then a relock event arriving.

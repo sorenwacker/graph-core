@@ -344,7 +344,7 @@ export function useGraphEvents(options = {}) {
   function setupTooltipHandlers(cy) {
     cy.on('mouseover', 'node', e => {
       const nodeData = e.target.data('nodeData')
-      if (!nodeData || nodeData.notes_sensitive) return
+      if (!nodeData) return
       showTooltip(null, nodeData)
     })
 

@@ -215,10 +215,7 @@ const {
     if (node) await toggleComplete(node)
   },
   getHideSensitive: () => hideSensitive.value,
-  shouldShowTooltip: node => {
-    if (hideSensitive.value && node?.notes_sensitive) {
-      return false
-    }
+  shouldShowTooltip: () => {
     return hoverPreviewEnabled.value && !showDetail.value && !sidebarVisible.value && !showSettings.value
   },
 })
@@ -1108,6 +1105,7 @@ useAppLifecycle({
       v-model:selected-result-index="selectedResultIndex"
       :search-results="searchResults"
       :recent-items="recentItems"
+      :hide-sensitive="hideSensitive"
       :view-mode="viewMode"
       :has-more-results="hasMoreResults"
       :is-loading-more="isLoadingMore"

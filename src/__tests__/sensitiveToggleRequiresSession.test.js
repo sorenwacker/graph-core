@@ -36,7 +36,6 @@ vi.mock('../composables/useSensitiveNotes.js', () => ({
     status,
     unlock: unlockFn,
     refresh: vi.fn(),
-    isLockedNote: notes => typeof notes === 'string' && notes.startsWith('SNENC1:'),
   }),
 }))
 

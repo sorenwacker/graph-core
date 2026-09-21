@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import DetailPanel from '../components/DetailPanel.vue'
+import GraphEditModal from '../components/GraphEditModal.vue'
 
 /**
  * A node read withholds sensitive notes, so the detail panel opens without the
@@ -195,5 +196,25 @@ describe('with the sensitive session locked', () => {
 
     expect(w.find('.sensitive-hidden').exists()).toBe(true)
     expect(w.html()).not.toContain('the secret')
+  })
+})
+
+describe('the graph edit modal, which has no reveal of its own', () => {
+  function renderModal(editedNode) {
+    return mount(GraphEditModal, {
+      props: { visible: true, node: editedNode, editedNode },
+      global: { stubs: { MarkdownRenderer } },
+    })
+  }
+
+  it('offers no notes field for a node whose notes were withheld', () => {
+    const w = renderModal(WITHHELD)
+    expect(w.find('.notes-field textarea').exists()).toBe(false)
+    expect(w.find('.notes-field').text()).toContain('detail panel')
+  })
+
+  it('keeps the notes field for an ordinary node', () => {
+    const w = renderModal({ ...WITHHELD, notes: 'plain', notes_sensitive: false, notes_withheld: false })
+    expect(w.find('.notes-field textarea').exists()).toBe(true)
   })
 })

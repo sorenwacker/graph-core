@@ -6,6 +6,7 @@ import { getImportanceLabel } from '../utils/constants.js'
 import CardTitleEdit from './CardTitleEdit.vue'
 import CardNotes from './CardNotes.vue'
 import TableMiniature from './TableMiniature.vue'
+import { notesForDisplay } from '../utils/nodeDisplay.js'
 
 const props = defineProps({
   nodes: { type: Array, required: true },
@@ -22,6 +23,7 @@ const props = defineProps({
   inlineNotesText: String,
   dragOverNodeId: Number,
   dragPosition: String,
+  hideSensitive: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -174,8 +176,16 @@ function getDueDateStatus(dueDate) {
   return null
 }
 
-function isSensitiveNode(node) {
-  return node.notes_sensitive
+// Cards show what notesForDisplay allows and nothing else
+// (docs/architecture/sensitive-notes.md, "Display policy").
+function shownNotes(node) {
+  return notesForDisplay(node, { hideSensitive: props.hideSensitive })
+}
+
+function personNotesPreview(node) {
+  const text = shownNotes(node).text
+  const firstLine = text.split('\n')[0].substring(0, 60)
+  return text.length > 60 ? `${firstLine}...` : firstLine
 }
 
 // Calculate task/project completion progress from children
@@ -326,10 +336,10 @@ function handleCanvasClick(e) {
 
         <!-- Interactive notes area (hidden by CSS container query if card too short) -->
         <CardNotes
-          :notes="node.notes"
+          :notes="shownNotes(node).text"
           :model-value="inlineNotesText"
           :is-editing="inlineNotesId === node.id"
-          :sensitive="isSensitiveNode(node)"
+          :sensitive="Boolean(shownNotes(node).withheld)"
           size="normal"
           @start-edit="emit('start-notes', node, $event)"
           @save="emit('save-notes')"
@@ -372,8 +382,8 @@ function handleCanvasClick(e) {
               <span v-for="tag in node.tags.slice(0, 3)" :key="tag" class="person-tag">{{ tag }}</span>
               <span v-if="node.tags.length > 3" class="person-tag-more">+{{ node.tags.length - 3 }}</span>
             </div>
-            <div v-if="node.notes && !node.role && !node.organization" class="person-notes-preview">
-              {{ node.notes.split('\n')[0].substring(0, 60) }}{{ node.notes.length > 60 ? '...' : '' }}
+            <div v-if="shownNotes(node).text && !node.role && !node.organization" class="person-notes-preview">
+              {{ personNotesPreview(node) }}
             </div>
           </div>
         </div>
@@ -480,13 +490,8 @@ function handleCanvasClick(e) {
               <button class="child-delete-btn" @click.stop="emit('delete', child.id)" title="Delete">x</button>
             </div>
             <CardNotes
-              v-if="
-                child.notes &&
-                !child.notes_sensitive &&
-                getNestedCardSize(node.children.length, cardSizeClass) === 'child-lg'
-              "
-              :notes="child.notes"
-              :sensitive="child.notes_sensitive"
+              v-if="shownNotes(child).text && getNestedCardSize(node.children.length, cardSizeClass) === 'child-lg'"
+              :notes="shownNotes(child).text"
               size="child"
               class="child-card-notes"
               @start-edit="emit('start-notes', child, $event)"

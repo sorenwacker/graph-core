@@ -6,6 +6,7 @@ import d3Force from 'cytoscape-d3-force'
 import nodeHtmlLabel from 'cytoscape-node-html-label'
 import { renderMarkdownHtml } from '../utils/markdown.js'
 import { escapeHtml } from '../utils/html.js'
+import { notesForDisplay, hasNotes } from '../utils/nodeDisplay.js'
 import { getContrastColor } from '../utils/formatting.js'
 import { hasExplicitColor } from '../utils/nodeColor.js'
 import { LAYOUT_SETTLE_DELAY_MS, NODE_POSITION_SETTLE_DELAY_MS } from '../utils/settingsConstants'
@@ -140,17 +141,16 @@ export function useGraphInit(options = {}) {
               ? `background:linear-gradient(135deg,${tint}99 0%,${tint}44 50%,var(--bg-secondary) 100%),var(--bg-secondary);`
               : ''
             let notes = ''
-            if (d.showDetails && n.notes) {
-              notes =
-                n.notes_sensitive || props.hideSensitive
-                  ? '<span style="opacity:0.5"></span>'
-                  : renderMarkdownHtml(n.notes, props.notesPreviewLength)
+            if (d.showDetails) {
+              const shown = notesForDisplay(n, { hideSensitive: props.hideSensitive })
+              if (shown.withheld) notes = '<span style="opacity:0.5"></span>'
+              else if (shown.text) notes = renderMarkdownHtml(shown.text, props.notesPreviewLength)
             }
             const childBadge = d.childCount > 0 ? `<span class="child-count-badge">${d.childCount}</span>` : ''
             const collapseBtn = d.hasChildren
               ? `<button class="collapse-btn" data-collapse-node="${n.id}" title="${d.isCollapsed ? 'Expand children' : 'Collapse children'}">${d.isCollapsed ? '+' : '-'}</button>`
               : ''
-            return `<div class="node-html ${n.completed ? 'completed' : ''} ${d.shouldGlow ? 'current-container' : ''} ${n.favorite ? 'favorite' : ''} ${d.isCollapsed ? 'collapsed-node' : ''}" data-node-id="${n.id}" data-selected="${d.isSelected}" style="border-color:${bc};--glow-color:${bc};${bg}">${collapseBtn}${childBadge}<div class="node-html-title">${escapeHtml(n.title) || 'Untitled'}${n.notes && !d.showDetails ? '<span class="notes-indicator"></span>' : ''}</div>${notes ? `<div class="node-html-notes">${notes}</div>` : ''}</div>`
+            return `<div class="node-html ${n.completed ? 'completed' : ''} ${d.shouldGlow ? 'current-container' : ''} ${n.favorite ? 'favorite' : ''} ${d.isCollapsed ? 'collapsed-node' : ''}" data-node-id="${n.id}" data-selected="${d.isSelected}" style="border-color:${bc};--glow-color:${bc};${bg}">${collapseBtn}${childBadge}<div class="node-html-title">${escapeHtml(n.title) || 'Untitled'}${hasNotes(n) && !d.showDetails ? '<span class="notes-indicator"></span>' : ''}</div>${notes ? `<div class="node-html-notes">${notes}</div>` : ''}</div>`
           },
         },
       ],

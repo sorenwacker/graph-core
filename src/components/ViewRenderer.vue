@@ -165,6 +165,7 @@ defineExpose({
   <CardsView
     v-else-if="viewMode === 'cards'"
     :nodes="filteredChildren"
+    :hide-sensitive="hideSensitive"
     :selected-id="selectedNode?.id"
     :selected-ids="selectedIdsArray"
     :hide-completed="hideCompleted"
