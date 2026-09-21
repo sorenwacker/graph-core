@@ -149,11 +149,11 @@ describe('a lookup, end to end', () => {
   function network(replies) {
     const chats = []
     const http = vi.fn(async (url, request) => {
-      if (url.startsWith('http://llm.test')) {
+      const { host, searchParams: params } = new URL(url)
+      if (host === 'llm.test') {
         chats.push(request.body)
         return { message: replies[chats.length - 1] }
       }
-      const params = new URL(url).searchParams
       if (params.get('list') === 'search') {
         return { query: { search: [{ title: 'Oosterscheldekering', snippet: 'storm surge barrier', pageid: 1 }] } }
       }
