@@ -15,8 +15,10 @@ export async function launchApp(existingProfileDir) {
 
   const app = await electron.launch({
     args: ['.', `--user-data-dir=${profileDir}`],
-    // Hidden windows: the pack runs without anything appearing on the desktop.
-    env: { ...process.env, NODE_ENV: 'production', GRAPH_CORE_HIDE_WINDOWS: '1' },
+    // Hidden windows keep the pack off the desktop on a developer machine. CI
+    // runs under xvfb, where nothing is visible anyway and a hidden window loses
+    // keyboard focus on Linux, so the flag stays off there.
+    env: { ...process.env, NODE_ENV: 'production', ...(process.env.CI ? {} : { GRAPH_CORE_HIDE_WINDOWS: '1' }) },
   })
   const page = await app.firstWindow()
   await page.waitForLoadState('domcontentloaded')
