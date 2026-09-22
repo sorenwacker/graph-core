@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, dismissOnboarding, MOD } from './helpers.js'
+import { launchApp, dismissOnboarding, MOD, DOC_START } from './helpers.js'
 
 /**
  * Typing a note in the real app, across the autosave boundary.
@@ -92,7 +92,7 @@ test('leaves the caret where it was put', async () => {
   // touching the keyboard, then type again. Where the second character lands is
   // where the caret was left: a caret dragged to the top of the document by an
   // incoming value puts it in front of everything instead.
-  await page.keyboard.press(`${MOD}+ArrowUp`)
+  await page.keyboard.press(DOC_START)
   await page.keyboard.press('End')
   await page.keyboard.type('!')
   await page.waitForTimeout(900)
