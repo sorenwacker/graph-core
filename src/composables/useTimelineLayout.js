@@ -21,6 +21,8 @@ import {
 // Layout constants
 const ROW_HEIGHT = 36
 const MIN_BAR_WIDTH = 20
+// The least of a bar its floating label leaves visible before it stops following the scroll
+const LABEL_MIN_VISIBLE = 60
 const DEFAULT_ZOOM = 20
 const MIN_ZOOM = 5
 const MAX_ZOOM = 100
@@ -227,14 +229,32 @@ export function useTimelineLayout({ getNodes, getHideCompleted, _getColorMap, sc
   }
 
   /**
-   * Calculate floating label position for project boxes.
+   * How far a label moves right from the start of its bar so that it stays in
+   * view: to the visible edge once the start has scrolled out, and no further
+   * than LABEL_MIN_VISIBLE before the bar's end (docs/guides/views.md).
+   * @param {number} left - The bar's left edge in timeline pixels
+   * @param {number} width - The bar's width
+   * @returns {number} Offset from the bar's left edge, zero while the start is in view
    */
+  function getFloatingLabelOffset(left, width) {
+    const shown = Math.max(left, scrollLeft.value)
+    const stop = Math.max(left, left + width - LABEL_MIN_VISIBLE)
+    return Math.min(shown, stop) - left
+  }
+
+  /** Floating label position inside a project box. */
   function getProjectLabelLeft(project) {
-    const boxLeft = project.left
-    const boxRight = project.left + project.width
-    const visibleLeft = Math.max(boxLeft, scrollLeft.value)
-    const labelLeft = Math.min(visibleLeft, boxRight - 60)
-    return Math.max(boxLeft, labelLeft) - boxLeft + 4
+    return getFloatingLabelOffset(project.left, project.width) + 4
+  }
+
+  /** Floating label offset inside a task or event bar. */
+  function getBarLabelOffset(node) {
+    return getFloatingLabelOffset(getDatePosition(node.displayDate), getNodeWidth(node))
+  }
+
+  /** Floating label position beside a group marker, over the group's span. */
+  function getGroupLabelLeft(group) {
+    return group.position + 6 + getFloatingLabelOffset(group.position, group.width)
   }
 
   // Year markers
@@ -314,18 +334,21 @@ export function useTimelineLayout({ getNodes, getHideCompleted, _getColorMap, sc
             const minRow = Math.min(...childRowIndices)
             const maxRow = Math.max(...childRowIndices)
 
-            const childDates = descendantIds
-              .filter(id => nodeData.has(id))
-              .map(id => nodeData.get(id).displayDate)
-              .filter(Boolean)
+            const children = descendantIds.filter(id => nodeData.has(id)).map(id => nodeData.get(id))
+            const childDates = children.map(n => n.displayDate).filter(Boolean)
+            const childEnds = children.map(n => n.endDisplayDate || n.displayDate).filter(Boolean)
 
             const earliestDate = childDates.length > 0 ? childDates.reduce((a, b) => (a < b ? a : b)) : null
+            const latestDate = childEnds.length > 0 ? childEnds.reduce((a, b) => (a > b ? a : b)) : null
 
             if (earliestDate) {
+              const position = getDatePosition(earliestDate)
               result.push({
                 id: node.id,
                 title: node.title,
-                position: getDatePosition(earliestDate),
+                position,
+                // The span the label may float over
+                width: Math.max(getDatePosition(latestDate) - position, MIN_BAR_WIDTH),
                 top: minRow * rowHeight,
                 height: (maxRow - minRow + 1) * rowHeight,
                 date: earliestDate,
@@ -537,6 +560,10 @@ export function useTimelineLayout({ getNodes, getHideCompleted, _getColorMap, sc
     getBarStyle,
     getProjectBoxStyle,
     getProjectLabelLeft,
+    getFloatingLabelOffset,
+    getBarLabelOffset,
+    getGroupLabelLeft,
+    LABEL_MIN_VISIBLE,
     zoomIn,
     zoomOut,
     handleWheelZoom,

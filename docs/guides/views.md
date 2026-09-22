@@ -255,6 +255,7 @@ Displays nodes with dates on a horizontal timeline.
 - Project boxes span the range of child tasks
 - Events display as date-range bars
 - Groups render as vertical bars spanning child rows
+- Labels stay in view: when a bar, project box or group starts left of the visible area, its label moves to the visible edge and follows the scroll, until the bar's own end would push it out
 
 **Best for:** Project planning, scheduling
 

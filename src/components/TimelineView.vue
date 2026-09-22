@@ -262,7 +262,7 @@ onUnmounted(() => {
                 v-for="group in layout.groupMarkers.value"
                 :key="'group-label-' + group.id"
                 class="group-label"
-                :style="{ left: group.position + 6 + 'px', top: group.top + 'px' }"
+                :style="{ left: layout.getGroupLabelLeft(group) + 'px', top: group.top + 'px' }"
                 >{{ group.title }}</span
               >
               <div v-for="node in layout.timelineNodes.value" :key="node.id" class="timeline-row">
@@ -289,7 +289,12 @@ onUnmounted(() => {
                     ></div>
                     <!-- Draggable bar content -->
                     <div class="bar-content" @mousedown="handleDragStart($event, node, 'move')">
-                      <span v-if="node.type !== 'project'" class="bar-label">{{ node.title }}</span>
+                      <span
+                        v-if="node.type !== 'project'"
+                        class="bar-label"
+                        :style="{ marginLeft: layout.getBarLabelOffset(node) + 'px' }"
+                        >{{ node.title }}</span
+                      >
                     </div>
                     <!-- Right resize handle -->
                     <div
