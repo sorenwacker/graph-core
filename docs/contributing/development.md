@@ -232,7 +232,7 @@ To run the pack locally:
 make e2e
 ```
 
-The target builds the renderer, bundles the preload, and runs Playwright against the result. The pack is a release gate: the release workflow runs it before building artifacts, and it stays out of the per-push CI job to keep CI minutes for the checks that change most often.
+The target builds the renderer, bundles the preload, and runs Playwright against the result. The app's windows stay hidden throughout: Electron has no headless mode, so the helper sets `GRAPH_CORE_HIDE_WINDOWS=1`, which creates every window with `show: false` and background throttling off, so timers and animation frames keep running in the hidden window. Unset it to watch a run. The pack is a release gate: the release workflow runs it before building artifacts, and it stays out of the per-push CI job to keep CI minutes for the checks that change most often.
 
 When you add a feature that changes startup, navigation, or data persistence, extend the smoke pack in the same change. A flow that only unit tests cover is a flow the packaged app can break silently - that is how the v1.11.1 artifacts shipped broken.
 
