@@ -5,10 +5,10 @@
  */
 
 const { app } = require('electron')
-const { SENSITIVE_SETTINGS_KEY } = require('./sensitiveNotes')
+const { SENSITIVE_SETTINGS_KEYS } = require('./sensitiveNotes')
 
 /** Settings the renderer may neither read nor write; see the Settings section below. */
-const PROTECTED_SETTINGS = new Set([SENSITIVE_SETTINGS_KEY])
+const PROTECTED_SETTINGS = new Set(SENSITIVE_SETTINGS_KEYS)
 const {
   // Node CRUD
   DB_GET_NODES,

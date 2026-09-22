@@ -16,6 +16,7 @@ const props = defineProps({
   currentWorkspace: { type: String, default: 'work' },
   // Sensitive notes: the session is locked; why the last reveal failed.
   notesLocked: { type: Boolean, default: false },
+  notesTouchId: { type: Boolean, default: false },
   revealError: { type: String, default: '' },
 })
 
@@ -30,6 +31,7 @@ const emit = defineEmits([
   'unlink-tag',
   'reload-links',
   'reveal-notes',
+  'unlock-touch-id',
 ])
 
 const { handleError } = useErrorHandler()
@@ -140,6 +142,7 @@ defineExpose({ loadLinkedMembers, getNotesSelection })
           :notes="editedNode.notes || ''"
           :withheld="Boolean(editedNode.notes_withheld)"
           :locked="notesLocked"
+          :touch-id="notesTouchId"
           :reveal-error="revealError"
           :node-id="editedNode.id"
           :workspace-id="currentWorkspace"
@@ -151,6 +154,7 @@ defineExpose({ loadLinkedMembers, getNotesSelection })
           @ai-improve="$emit('ai-improve-notes', $event)"
           @mention-inserted="$emit('reload-links')"
           @reveal="$emit('reveal-notes')"
+          @unlock-touch-id="$emit('unlock-touch-id')"
         />
       </div>
     </div>

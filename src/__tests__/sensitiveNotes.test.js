@@ -1,71 +1,88 @@
 import { describe, it, expect } from 'vitest'
 import {
   SENSITIVE_MARKER,
-  generateSensitiveKey,
+  LEGACY_SENSITIVE_MARKER,
+  generateKeyPair,
   isEncryptedNote,
-  encryptNote,
-  decryptNote,
-  wrapSensitiveKey,
-  unwrapSensitiveKey,
+  isLegacyEncryptedNote,
+  sealNote,
+  openNote,
+  decryptLegacyNote,
+  wrapPrivateKey,
+  unwrapPrivateKey,
 } from '../../electron/database/sensitiveNotes.js'
+import { legacyEncryptNote, legacyKey } from './helpers/legacySensitiveNotes.js'
 
 /**
  * Sensitive-note content encryption (docs/architecture/sensitive-notes.md).
- * A note marked sensitive is stored as ciphertext under a key that is wrapped
- * by the recovery password, so silent database unlock alone never reveals it.
+ * A note is a sealed box under the stored public key, so locking needs no
+ * secret; opening it needs the private key, which is stored only wrapped.
  */
 
-describe('note content encryption', () => {
+describe('sealing a note', () => {
+  const { publicKey, privateKey } = generateKeyPair()
+
   it('round-trips note text through the marker format', () => {
-    const key = generateSensitiveKey()
-    const stored = encryptNote('secret plan for Q3', key)
-
+    const stored = sealNote('the plan', publicKey)
     expect(stored.startsWith(SENSITIVE_MARKER)).toBe(true)
-    expect(decryptNote(stored, key)).toBe('secret plan for Q3')
+    expect(stored).toBe(`SNENC2:${stored.slice(7)}`)
+    expect(openNote(stored, privateKey)).toBe('the plan')
   })
 
-  it('tells encrypted note values apart from plaintext', () => {
-    const key = generateSensitiveKey()
-    expect(isEncryptedNote(encryptNote('x', key))).toBe(true)
-    expect(isEncryptedNote('just plain notes')).toBe(false)
-    expect(isEncryptedNote('')).toBe(false)
-    expect(isEncryptedNote(null)).toBe(false)
+  it('needs only the public key to seal', () => {
+    expect(() => sealNote('x', publicKey)).not.toThrow()
+    expect(publicKey.length).toBe(32)
+    expect(privateKey.length).toBe(32)
   })
 
-  it('produces different ciphertext each time (fresh nonce)', () => {
-    const key = generateSensitiveKey()
-    expect(encryptNote('same', key)).not.toBe(encryptNote('same', key))
+  it('produces different ciphertext each time (fresh ephemeral key)', () => {
+    expect(sealNote('same', publicKey)).not.toBe(sealNote('same', publicKey))
   })
 
-  it('rejects a wrong key instead of returning garbage', () => {
-    const stored = encryptNote('secret', generateSensitiveKey())
-    expect(() => decryptNote(stored, generateSensitiveKey())).toThrow()
+  it('rejects the wrong private key instead of returning garbage', () => {
+    const other = generateKeyPair()
+    expect(() => openNote(sealNote('x', publicKey), other.privateKey)).toThrow(/wrong key|corrupted/i)
   })
 
   it('rejects a tampered value (GCM authentication)', () => {
-    const key = generateSensitiveKey()
-    const stored = encryptNote('secret', key)
-    const tampered = stored.slice(0, -4) + (stored.slice(-4) === 'AAAA' ? 'BBBB' : 'AAAA')
-    expect(() => decryptNote(tampered, key)).toThrow()
+    const stored = sealNote('x', publicKey)
+    const blob = Buffer.from(stored.slice(SENSITIVE_MARKER.length), 'base64')
+    blob[blob.length - 1] ^= 1
+    expect(() => openNote(SENSITIVE_MARKER + blob.toString('base64'), privateKey)).toThrow()
   })
 
   it('handles unicode and empty content', () => {
-    const key = generateSensitiveKey()
-    for (const text of ['', 'café ☕ 日本語', 'multi\nline\nnote']) {
-      expect(decryptNote(encryptNote(text, key), key)).toBe(text)
-    }
+    expect(openNote(sealNote('', publicKey), privateKey)).toBe('')
+    expect(openNote(sealNote('ünïcödé 🔒', publicKey), privateKey)).toBe('ünïcödé 🔒')
+  })
+
+  it('tells sealed, legacy and plaintext values apart', () => {
+    expect(isEncryptedNote(sealNote('x', publicKey))).toBe(true)
+    expect(isEncryptedNote(`${LEGACY_SENSITIVE_MARKER}abc`)).toBe(true)
+    expect(isLegacyEncryptedNote(`${LEGACY_SENSITIVE_MARKER}abc`)).toBe(true)
+    expect(isLegacyEncryptedNote(sealNote('x', publicKey))).toBe(false)
+    expect(isEncryptedNote('plain')).toBe(false)
+    expect(isEncryptedNote(null)).toBe(false)
   })
 })
 
-describe('sensitive key wrapping under the recovery password', () => {
-  it('round-trips the key through the password wrap', () => {
-    const key = generateSensitiveKey()
-    const blob = wrapSensitiveKey(key, 'recovery-pw')
-    expect(Buffer.compare(unwrapSensitiveKey(blob, 'recovery-pw'), key)).toBe(0)
+describe('notes written by earlier versions', () => {
+  it('still decrypt with the old symmetric key', () => {
+    const key = legacyKey()
+    expect(decryptLegacyNote(legacyEncryptNote('old', key), key)).toBe('old')
+    expect(() => decryptLegacyNote(legacyEncryptNote('old', key), legacyKey())).toThrow()
+  })
+})
+
+describe('the private key slots', () => {
+  const { privateKey } = generateKeyPair()
+
+  it('round-trip through the password wrap', () => {
+    const blob = wrapPrivateKey(privateKey, 'recovery-pw')
+    expect(Buffer.compare(unwrapPrivateKey(blob, 'recovery-pw'), privateKey)).toBe(0)
   })
 
-  it('rejects a wrong password', () => {
-    const blob = wrapSensitiveKey(generateSensitiveKey(), 'right')
-    expect(() => unwrapSensitiveKey(blob, 'wrong')).toThrow()
+  it('reject a wrong password', () => {
+    expect(() => unwrapPrivateKey(wrapPrivateKey(privateKey, 'right'), 'wrong')).toThrow()
   })
 })

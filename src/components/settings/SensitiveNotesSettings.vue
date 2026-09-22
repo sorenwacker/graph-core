@@ -8,7 +8,7 @@ import { useSensitiveNotes } from '../../composables/useSensitiveNotes'
  * is on, since it reuses the recovery password.
  */
 
-const { status, refresh, enable, unlock, lock, disable } = useSensitiveNotes()
+const { status, refresh, enable, unlock, unlockWithTouchId, lock, disable } = useSensitiveNotes()
 const password = ref('')
 const message = ref('')
 const error = ref('')
@@ -65,7 +65,22 @@ async function run(fn, okMessage) {
     </template>
 
     <template v-else-if="!status.unlocked">
-      <p class="setting-hint">Enter the recovery password to reveal sensitive notes for this session.</p>
+      <p class="setting-hint">
+        {{
+          status.touchId
+            ? 'Unlock with Touch ID or the recovery password to reveal sensitive notes for this session.'
+            : 'Enter the recovery password to reveal sensitive notes for this session.'
+        }}
+      </p>
+      <div v-if="status.touchId" class="setting-row">
+        <button
+          :disabled="busy"
+          data-testid="sensitive-unlock-touch-id"
+          @click="run(unlockWithTouchId, 'Sensitive notes unlocked for this session.')"
+        >
+          Unlock with Touch ID
+        </button>
+      </div>
       <div class="setting-row">
         <input
           v-model="password"

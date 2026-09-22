@@ -91,3 +91,31 @@ describe('on other platforms', () => {
     expect(win.calls.find(c => c[0] === 'setVisibleOnAllWorkspaces')).toBeUndefined()
   })
 })
+
+/**
+ * The e2e pack sets GRAPH_CORE_HIDE_WINDOWS so nothing appears on the desktop
+ * (docs/contributing/development.md). Every window goes through
+ * createWindowConfig, so honouring the flag there covers them all.
+ */
+describe('hidden windows for the e2e pack', () => {
+  it('creates windows hidden, without throttling, when the flag is set', async () => {
+    const previous = process.env.GRAPH_CORE_HIDE_WINDOWS
+    process.env.GRAPH_CORE_HIDE_WINDOWS = '1'
+    try {
+      const { createWindowConfig } = await import('../../electron/ipc/window.js')
+      const config = createWindowConfig({ width: 10 })
+      expect(config.show).toBe(false)
+      expect(config.webPreferences.backgroundThrottling).toBe(false)
+      expect(config.width).toBe(10)
+    } finally {
+      if (previous === undefined) delete process.env.GRAPH_CORE_HIDE_WINDOWS
+      else process.env.GRAPH_CORE_HIDE_WINDOWS = previous
+    }
+  })
+
+  it('shows windows as before without the flag', async () => {
+    delete process.env.GRAPH_CORE_HIDE_WINDOWS
+    const { createWindowConfig } = await import('../../electron/ipc/window.js')
+    expect(createWindowConfig().show).toBe(true)
+  })
+})

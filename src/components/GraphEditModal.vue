@@ -13,11 +13,15 @@ const props = defineProps({
 const emit = defineEmits(['close', 'save', 'go-to-parent', 'wrap-with-parent', 'update:editedNode'])
 
 // Marking a note sensitive encrypts it, so the flag needs the sensitive-notes
-// key whenever the feature is enabled. Without this the checkbox stayed live
-// while the session was locked and the write failed in the main process
-// (docs/architecture/sensitive-notes.md).
+// key only to clear: setting it seals the note under the public key, which is
+// always at hand once the key pair exists. Clearing needs the private key, so
+// it waits for an unlock (docs/architecture/sensitive-notes.md).
 const { status: sensitiveStatus } = useSensitiveNotes()
-const sensitiveToggleLocked = computed(() => sensitiveStatus.value.enabled && !sensitiveStatus.value.unlocked)
+const sensitiveToggleLocked = computed(() => {
+  const { enabled, unlocked, lockable } = sensitiveStatus.value
+  if (!enabled || unlocked) return false
+  return props.editedNode.notes_sensitive ? true : !lockable
+})
 
 const showNotesPreview = ref(false)
 const editTitleInput = ref(null)

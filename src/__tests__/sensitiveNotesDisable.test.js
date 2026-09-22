@@ -98,7 +98,7 @@ it('leaves every note encrypted when one note fails to decrypt', () => {
   // A note carrying the marker but undecryptable content: the batch must roll
   // back rather than half-disable and drop the key on the remainder.
   const broken = db.createNode({ type: 'note', title: 'broken', workspace_id: 'work' })
-  db._run('UPDATE nodes SET notes = ?, notes_sensitive = 1 WHERE id = ?', ['SNENC1:not-real-ciphertext', broken.id])
+  db._run('UPDATE nodes SET notes = ?, notes_sensitive = 1 WHERE id = ?', ['SNENC2:not-real-ciphertext', broken.id])
 
   expect(() => db.disableSensitiveNotes()).toThrow()
   expect(isEncryptedNote(rawNotes(good.id).notes)).toBe(true)
@@ -107,7 +107,7 @@ it('leaves every note encrypted when one note fails to decrypt', () => {
 it('degrades an undecryptable note to a locked placeholder instead of breaking list queries', () => {
   db.createNode({ type: 'note', title: 'readable', notes: 'fine', workspace_id: 'work' })
   const broken = db.createNode({ type: 'note', title: 'broken', workspace_id: 'work' })
-  db._run('UPDATE nodes SET notes = ?, notes_sensitive = 1 WHERE id = ?', ['SNENC1:not-real-ciphertext', broken.id])
+  db._run('UPDATE nodes SET notes = ?, notes_sensitive = 1 WHERE id = ?', ['SNENC2:not-real-ciphertext', broken.id])
 
   // A throw on the read path would take the whole listing down with it.
   const listed = db.getRecent(10)

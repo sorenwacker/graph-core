@@ -274,9 +274,16 @@ export interface Api {
   securityEnable(password: string): Promise<{ success: boolean; error?: string }>
   securityDisable(password: string): Promise<{ success: boolean; error?: string }>
   securitySetTouchId(enabled: boolean): Promise<{ success: boolean; error?: string }>
-  sensitiveStatus(): Promise<{ available: boolean; enabled: boolean; unlocked: boolean }>
+  sensitiveStatus(): Promise<{
+    available: boolean
+    enabled: boolean
+    unlocked: boolean
+    lockable: boolean
+    touchId: boolean
+  }>
   sensitiveEnable(password: string): Promise<{ success: boolean; error?: string }>
   sensitiveUnlock(password: string): Promise<{ success: boolean; error?: string }>
+  sensitiveUnlockTouchId(): Promise<{ success: boolean; error?: string }>
   sensitiveLock(): Promise<{ success: boolean; error?: string }>
   sensitiveDisable(password: string): Promise<{ success: boolean; error?: string }>
   onSensitiveLocked(callback: () => void): () => void

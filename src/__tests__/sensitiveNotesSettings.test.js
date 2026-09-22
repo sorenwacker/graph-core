@@ -6,6 +6,7 @@ vi.mock('../services/api', () => ({
     sensitiveStatus: vi.fn(),
     sensitiveEnable: vi.fn(),
     sensitiveUnlock: vi.fn(),
+    sensitiveUnlockTouchId: vi.fn(),
     sensitiveLock: vi.fn(),
     sensitiveDisable: vi.fn(),
     onSensitiveLocked: vi.fn(() => () => {}),
@@ -53,6 +54,24 @@ describe('SensitiveNotesSettings', () => {
       .trigger('click')
     await flushPromises()
     expect(api.sensitiveUnlock).toHaveBeenCalledWith('recovery-pw')
+  })
+
+  it('offers Touch ID next to the password when it is set up', async () => {
+    api.sensitiveStatus.mockResolvedValue({ available: true, enabled: true, unlocked: false, touchId: true })
+    api.sensitiveUnlockTouchId.mockResolvedValue({ success: true })
+    const wrapper = mount(SensitiveNotesSettings)
+    await flushPromises()
+
+    await wrapper.find('[data-testid="sensitive-unlock-touch-id"]').trigger('click')
+    await flushPromises()
+    expect(api.sensitiveUnlockTouchId).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers no Touch ID button without it', async () => {
+    api.sensitiveStatus.mockResolvedValue({ available: true, enabled: true, unlocked: false, touchId: false })
+    const wrapper = mount(SensitiveNotesSettings)
+    await flushPromises()
+    expect(wrapper.find('[data-testid="sensitive-unlock-touch-id"]').exists()).toBe(false)
   })
 
   it('offers lock now when unlocked', async () => {

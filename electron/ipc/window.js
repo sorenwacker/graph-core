@@ -17,16 +17,22 @@ const detachedWindows = new Map()
  * @returns {Object} Complete BrowserWindow configuration
  */
 function createWindowConfig(options = {}) {
+  // Electron has no headless mode. The e2e pack sets this so its windows never
+  // appear on the desktop; throttling stays off so timers and animation frames
+  // keep running in the hidden window (docs/contributing/development.md).
+  const hidden = process.env.GRAPH_CORE_HIDE_WINDOWS === '1'
   const baseConfig = {
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload.build.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      backgroundThrottling: !hidden,
     },
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#0a0a0f',
     icon: path.join(__dirname, '../../assets/icon.png'),
+    show: !hidden,
   }
 
   return { ...baseConfig, ...options }

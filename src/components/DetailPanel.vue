@@ -64,17 +64,21 @@ const activeTab = ref('edit')
 // the user asks, and holds them only until it shows something else or the
 // session relocks. While the session is locked, asking takes the recovery
 // password first.
-const { unlock: unlockSensitive, status: sensitiveStatus } = useSensitiveNotes()
+const { unlock: unlockSensitive, unlockWithTouchId, status: sensitiveStatus } = useSensitiveNotes()
 const { showPrompt } = usePrompt()
 const sensitiveUnlockPassword = ref('')
 const sensitiveUnlockError = ref('')
 const notesHidden = computed(() => Boolean(editedNode.value?.notes_withheld))
 
-// Turning the flag on encrypts the note and turning it off decrypts it, so the
-// toggle needs the sensitive-notes key whenever the feature is enabled. With
-// the feature off the flag is display masking, no key is involved, and the
-// toggle acts at once (docs/architecture/sensitive-notes.md).
+// Turning the flag on seals the note under the public key, which is at hand in
+// any session state once the key pair exists; turning it off needs the private
+// key, so it waits for an unlock. With the feature off the flag is display
+// masking and no key is involved (docs/architecture/sensitive-notes.md).
 const sensitiveSessionLocked = computed(() => sensitiveStatus.value.enabled && !sensitiveStatus.value.unlocked)
+const sensitiveToggleNeedsUnlock = computed(() => {
+  if (!sensitiveSessionLocked.value) return false
+  return editedNode.value?.notes_sensitive ? true : !sensitiveStatus.value.lockable
+})
 
 // The sensitivity change the user asked for while the session was locked, held
 // until the password unlocks it. Null when nothing is pending.
@@ -157,8 +161,21 @@ function startSplitDrag(e) {
 }
 
 async function revealSensitive() {
+  await unlockThen(() => unlockSensitive(sensitiveUnlockPassword.value))
+}
+
+async function revealSensitiveWithTouchId() {
+  await unlockThen(unlockWithTouchId)
+}
+
+/**
+ * Unlock the session one way or the other, then do what the user asked for
+ * before the unlock got in the way: reveal the note, or change its flag.
+ * @param {Function} unlock - Returns the unlock result
+ */
+async function unlockThen(unlock) {
   sensitiveUnlockError.value = ''
-  const result = await unlockSensitive(sensitiveUnlockPassword.value)
+  const result = await unlock()
   if (result.success) {
     sensitiveUnlockPassword.value = ''
     if (notesHidden.value) await revealNotes()
@@ -559,9 +576,9 @@ function onTitleInput(event) {
 
 function toggleNotesSensitive() {
   const desired = !editedNode.value.notes_sensitive
-  // Acting now would reach session.encrypt() in the main process and throw.
-  // Ask for the password and carry the intent across the unlock instead.
-  if (sensitiveSessionLocked.value) {
+  // Acting now would need the private key in the main process and throw.
+  // Ask for an unlock and carry the intent across it instead.
+  if (sensitiveToggleNeedsUnlock.value) {
     pendingSensitive.value = desired
     sensitiveUnlockRequested.value = true
     sensitiveUnlockError.value = ''
@@ -874,8 +891,10 @@ defineExpose({
         :active-tab="activeTab"
         :current-workspace="currentWorkspace"
         :notes-locked="notesLocked"
+        :notes-touch-id="sensitiveStatus.touchId"
         :reveal-error="sensitiveUnlockError"
         @reveal-notes="revealNotes"
+        @unlock-touch-id="revealSensitiveWithTouchId"
         @update:edited-node="editedNode = $event"
         @update:active-tab="activeTab = $event"
         @save="saveChanges()"
@@ -896,8 +915,10 @@ defineExpose({
         :active-tab="activeTab"
         :current-workspace="currentWorkspace"
         :notes-locked="notesLocked"
+        :notes-touch-id="sensitiveStatus.touchId"
         :reveal-error="sensitiveUnlockError"
         @reveal-notes="revealNotes"
+        @unlock-touch-id="revealSensitiveWithTouchId"
         @update:edited-node="editedNode = $event"
         @update:active-tab="activeTab = $event"
         @save="saveChanges()"
@@ -940,7 +961,7 @@ defineExpose({
                   :class="{ active: editedNode.notes_sensitive }"
                   @click="toggleNotesSensitive"
                   :title="
-                    sensitiveSessionLocked
+                    sensitiveToggleNeedsUnlock
                       ? 'Unlock sensitive notes to change this'
                       : editedNode.notes_sensitive
                         ? 'Notes are hidden (click to unlock)'
@@ -964,6 +985,14 @@ defineExpose({
                   />
                   <button class="unlock-btn" type="submit" :disabled="!sensitiveUnlockPassword">Unlock</button>
                 </form>
+                <button
+                  v-if="sensitiveStatus.touchId"
+                  class="unlock-btn sensitive-unlock-touch-id"
+                  type="button"
+                  @click="revealSensitiveWithTouchId"
+                >
+                  Unlock with Touch ID
+                </button>
                 <p v-if="sensitiveUnlockError" class="sensitive-unlock-error" role="alert">
                   {{ sensitiveUnlockError }}
                 </p>
@@ -985,6 +1014,14 @@ defineExpose({
                   />
                   <button class="unlock-btn" type="submit" :disabled="!sensitiveUnlockPassword">Unlock</button>
                 </form>
+                <button
+                  v-if="sensitiveStatus.touchId"
+                  class="unlock-btn sensitive-unlock-touch-id"
+                  type="button"
+                  @click="revealSensitiveWithTouchId"
+                >
+                  Unlock with Touch ID
+                </button>
                 <p v-if="sensitiveUnlockError" class="sensitive-unlock-error" role="alert">
                   {{ sensitiveUnlockError }}
                 </p>

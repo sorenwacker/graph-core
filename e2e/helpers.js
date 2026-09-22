@@ -15,7 +15,8 @@ export async function launchApp(existingProfileDir) {
 
   const app = await electron.launch({
     args: ['.', `--user-data-dir=${profileDir}`],
-    env: { ...process.env, NODE_ENV: 'production' },
+    // Hidden windows: the pack runs without anything appearing on the desktop.
+    env: { ...process.env, NODE_ENV: 'production', GRAPH_CORE_HIDE_WINDOWS: '1' },
   })
   const page = await app.firstWindow()
   await page.waitForLoadState('domcontentloaded')

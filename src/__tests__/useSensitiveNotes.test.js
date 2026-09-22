@@ -6,6 +6,7 @@ vi.mock('../services/api', () => ({
     sensitiveStatus: vi.fn(),
     sensitiveEnable: vi.fn(),
     sensitiveUnlock: vi.fn(),
+    sensitiveUnlockTouchId: vi.fn(),
     sensitiveLock: vi.fn(),
     sensitiveDisable: vi.fn(),
     onSensitiveLocked: vi.fn(cb => {
@@ -37,6 +38,14 @@ describe('useSensitiveNotes', () => {
     const s = useSensitiveNotes()
     const result = await s.unlock('pw')
     expect(result.success).toBe(true)
+    expect(s.status.value.unlocked).toBe(true)
+  })
+
+  it('unlockWithTouchId refreshes status on success', async () => {
+    api.sensitiveUnlockTouchId.mockResolvedValue({ success: true })
+    api.sensitiveStatus.mockResolvedValue({ available: true, enabled: true, unlocked: true, touchId: true })
+    const s = useSensitiveNotes()
+    expect(await s.unlockWithTouchId()).toEqual({ success: true })
     expect(s.status.value.unlocked).toBe(true)
   })
 

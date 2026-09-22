@@ -15,11 +15,21 @@ const props = defineProps({
   withheld: { type: Boolean, default: false },
   // The sensitive session is locked, so a reveal cannot succeed yet.
   locked: { type: Boolean, default: false },
+  // Touch ID can unlock the session, so a locked note offers it in place.
+  touchId: { type: Boolean, default: false },
   revealError: { type: String, default: '' },
   cssClass: { type: String, default: '' },
 })
 
-const emit = defineEmits(['update:notes', 'update:activeTab', 'blur', 'ai-improve', 'mention-inserted', 'reveal'])
+const emit = defineEmits([
+  'update:notes',
+  'update:activeTab',
+  'blur',
+  'ai-improve',
+  'mention-inserted',
+  'reveal',
+  'unlock-touch-id',
+])
 
 const notesEditorRef = ref(null)
 const notesEditorSplitRef = ref(null)
@@ -81,6 +91,9 @@ defineExpose({ getSelection, notesEditorRef, notesEditorSplitRef })
       {{ locked ? 'Sensitive notes are locked. Unlock them in Settings, under Security.' : 'Sensitive notes hidden' }}
     </p>
     <button v-if="!locked" class="unlock-btn" @click="emit('reveal')" title="Show sensitive notes">Show</button>
+    <button v-else-if="touchId" class="unlock-btn sensitive-unlock-touch-id" @click="emit('unlock-touch-id')">
+      Unlock with Touch ID
+    </button>
     <p v-if="revealError" class="sensitive-unlock-error" role="alert">{{ revealError }}</p>
   </div>
 

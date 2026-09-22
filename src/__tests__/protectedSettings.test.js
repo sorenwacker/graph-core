@@ -4,7 +4,9 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import Database from '../../electron/database/index.js'
 import { registerDatabaseHandlers } from '../../electron/ipc/database.js'
-import { SENSITIVE_SETTINGS_KEY } from '../../electron/ipc/sensitiveNotes.js'
+import { SENSITIVE_SETTINGS_KEYS } from '../../electron/ipc/sensitiveNotes.js'
+
+const SENSITIVE_SETTINGS_KEY = SENSITIVE_SETTINGS_KEYS[1]
 import {
   DB_GET_SETTING,
   DB_GET_ALL_SETTINGS,

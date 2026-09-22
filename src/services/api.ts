@@ -57,6 +57,10 @@ export interface SensitiveStatus {
   available: boolean
   enabled: boolean
   unlocked: boolean
+  /** The key pair exists, so a note can be marked sensitive in any session state */
+  lockable: boolean
+  /** A keychain slot exists and this machine can prompt Touch ID */
+  touchId: boolean
 }
 
 export interface CaptureConfig {
@@ -129,6 +133,7 @@ interface ElectronAPI {
   sensitiveStatus(): Promise<SensitiveStatus>
   sensitiveEnable(password: string): Promise<SecurityResult>
   sensitiveUnlock(password: string): Promise<SecurityResult>
+  sensitiveUnlockTouchId(): Promise<SecurityResult>
   sensitiveLock(): Promise<SecurityResult>
   sensitiveDisable(password: string): Promise<SecurityResult>
   onSensitiveLocked(callback: () => void): () => void
@@ -557,12 +562,15 @@ const webApi: Api = {
     return { success: false, error: 'Encryption is only available in the desktop app' }
   },
   async sensitiveStatus(): Promise<SensitiveStatus> {
-    return { available: false, enabled: false, unlocked: false }
+    return { available: false, enabled: false, unlocked: false, lockable: false, touchId: false }
   },
   async sensitiveEnable(): Promise<SecurityResult> {
     return { success: false, error: 'Encryption is only available in the desktop app' }
   },
   async sensitiveUnlock(): Promise<SecurityResult> {
+    return { success: false, error: 'Encryption is only available in the desktop app' }
+  },
+  async sensitiveUnlockTouchId(): Promise<SecurityResult> {
     return { success: false, error: 'Encryption is only available in the desktop app' }
   },
   async sensitiveLock(): Promise<SecurityResult> {
@@ -891,6 +899,7 @@ const electronApi: Api = {
   sensitiveStatus: (): Promise<SensitiveStatus> => window.electronAPI!.sensitiveStatus(),
   sensitiveEnable: (password: string): Promise<SecurityResult> => window.electronAPI!.sensitiveEnable(password),
   sensitiveUnlock: (password: string): Promise<SecurityResult> => window.electronAPI!.sensitiveUnlock(password),
+  sensitiveUnlockTouchId: (): Promise<SecurityResult> => window.electronAPI!.sensitiveUnlockTouchId(),
   sensitiveLock: (): Promise<SecurityResult> => window.electronAPI!.sensitiveLock(),
   sensitiveDisable: (password: string): Promise<SecurityResult> => window.electronAPI!.sensitiveDisable(password),
   onSensitiveLocked: (callback: () => void): (() => void) => window.electronAPI!.onSensitiveLocked(callback),

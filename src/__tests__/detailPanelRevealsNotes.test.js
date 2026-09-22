@@ -23,9 +23,10 @@ vi.mock('../services/api', () => ({
 
 const status = ref({ available: true, enabled: false, unlocked: false })
 const unlockFn = vi.fn(async () => ({ success: true }))
+const unlockTouchIdFn = vi.fn(async () => ({ success: true }))
 
 vi.mock('../composables/useSensitiveNotes.js', () => ({
-  useSensitiveNotes: () => ({ status, unlock: unlockFn, refresh: vi.fn() }),
+  useSensitiveNotes: () => ({ status, unlock: unlockFn, unlockWithTouchId: unlockTouchIdFn, refresh: vi.fn() }),
 }))
 
 const flush = async () => {
@@ -71,6 +72,7 @@ const lastUpdate = w => w.emitted('update').at(-1)[0]
 beforeEach(() => {
   getNodeNotes.mockReset()
   unlockFn.mockClear()
+  unlockTouchIdFn.mockClear()
   status.value = { available: true, enabled: false, unlocked: false }
 })
 
@@ -192,6 +194,33 @@ describe('with the sensitive session locked', () => {
     expect(unlockFn).toHaveBeenCalledWith('recovery')
     expect(getNodeNotes).toHaveBeenCalledWith(7)
     expect(w.findComponent(MarkdownRenderer).props('content')).toBe('the secret')
+  })
+
+  it('offers Touch ID when it is set up, and fetches the text after it', async () => {
+    status.value = { available: true, enabled: true, unlocked: false, lockable: true, touchId: true }
+    getNodeNotes.mockResolvedValue({ notes: 'the secret', locked: false })
+    const w = render()
+
+    await w.find('.sensitive-unlock-touch-id').trigger('click')
+    await flush()
+
+    expect(unlockTouchIdFn).toHaveBeenCalledTimes(1)
+    expect(getNodeNotes).toHaveBeenCalledWith(7)
+    expect(w.findComponent(MarkdownRenderer).props('content')).toBe('the secret')
+  })
+
+  it('shows why Touch ID did not unlock', async () => {
+    status.value = { available: true, enabled: true, unlocked: false, lockable: true, touchId: true }
+    unlockTouchIdFn.mockResolvedValueOnce({ success: false, error: 'Touch ID was not confirmed' })
+    const w = render()
+    await w.find('.sensitive-unlock-touch-id').trigger('click')
+    await flush()
+    expect(w.find('.sensitive-unlock-error').text()).toBe('Touch ID was not confirmed')
+  })
+
+  it('offers no Touch ID button without it', () => {
+    status.value = { available: true, enabled: true, unlocked: false, lockable: true, touchId: false }
+    expect(render().find('.sensitive-unlock-touch-id').exists()).toBe(false)
   })
 
   it('drops revealed text when the session relocks', async () => {
