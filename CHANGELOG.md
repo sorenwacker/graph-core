@@ -25,6 +25,8 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Fixed
 
+- Marking an open note sensitive hides its text in the detail panel at once. Since the read-path change it stayed readable until another node was opened.
+
 - "Wrap with parent" works again. It asked for the new parent's title with `window.prompt`, which Electron does not implement, so the action did nothing and gave no sign of it ([guide](docs/guides/detail-panel.md#wrap-with-parent)). It now asks in an in-app dialog, shared across the app so no component needs one of its own.
 
 ## [1.18.0] - 2026-08-28

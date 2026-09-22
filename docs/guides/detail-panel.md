@@ -105,7 +105,7 @@ While the dropdown is open these keys belong to it, so Enter inserts a mention i
 
 **Sensitive Notes:**
 
-Toggle the "sensitive" flag to keep a note out of every list view: cards, the table, graph nodes, search results and the hover tooltip show a lock in its place. The panel opens such a note hidden on all three tabs; press Show to load the text. When sensitive-note encryption is enabled and the session is locked, the panel asks for the recovery password first. The text is dropped again when you open another node or the session relocks. See [sensitive notes](../architecture/sensitive-notes.md#read-path).
+Toggle the "sensitive" flag to keep a note out of every list view: cards, the table, graph nodes, search results and the hover tooltip show a lock in its place. The panel opens such a note hidden on all three tabs, and hides the text the moment you set the flag; press Show to load it. Clearing the flag loads the text again. When sensitive-note encryption is enabled and the session is locked, the panel asks for the recovery password first. The text is dropped again when you open another node or the session relocks. See [sensitive notes](../architecture/sensitive-notes.md#read-path).
 
 ### Children Section
 

@@ -164,9 +164,9 @@ async function revealSensitive() {
     if (notesHidden.value) await revealNotes()
     sensitiveUnlockRequested.value = false
     if (pendingSensitive.value !== null) {
-      editedNode.value.notes_sensitive = pendingSensitive.value
+      const desired = pendingSensitive.value
       pendingSensitive.value = null
-      saveChanges()
+      applySensitiveFlag(desired)
     }
   } else {
     sensitiveUnlockError.value = result.error || 'Unlock failed'
@@ -567,8 +567,25 @@ function toggleNotesSensitive() {
     sensitiveUnlockError.value = ''
     return
   }
-  editedNode.value.notes_sensitive = desired
+  applySensitiveFlag(desired)
+}
+
+/**
+ * Set the flag and save. Flagging withholds the text at once, after the save
+ * that carries it: a note marked sensitive must not stay readable in the panel
+ * until another node is opened. Show fetches it again on request. Clearing the
+ * flag sends no text and fetches it back, since the app hands the panel no
+ * fresh record after a save.
+ * @param {boolean} sensitive - The new flag value
+ */
+function applySensitiveFlag(sensitive) {
+  editedNode.value.notes_sensitive = sensitive
   saveChanges()
+  if (sensitive) {
+    editedNode.value = { ...editedNode.value, notes: null, notes_withheld: true, notes_revealed: false }
+  } else if (editedNode.value.notes_withheld) {
+    revealNotes()
+  }
 }
 
 function onLinksVisibilityToggle(value) {
