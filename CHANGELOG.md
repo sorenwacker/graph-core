@@ -2,6 +2,12 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
+## [Unreleased]
+
+### Changed
+
+- Timeline labels stay in view for every kind of bar ([guide](docs/guides/views.md#timeline-view)). When a task, event or group starts left of the visible area, its label moves to the visible edge and follows the scroll, as project box labels already did; before, a long bar scrolled into the past showed no name at all.
+
 ## [1.19.0] - 2026-09-22
 
 ### Security
