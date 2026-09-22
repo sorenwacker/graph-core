@@ -228,3 +228,39 @@ describe('the graph edit modal, which has no reveal of its own', () => {
     expect(w.find('.notes-field textarea').exists()).toBe(true)
   })
 })
+
+describe('flagging an open note as sensitive', () => {
+  const PLAIN = { ...WITHHELD, notes: 'the secret', notes_sensitive: false, notes_withheld: false }
+
+  it('saves the flag with the text, then withholds the text at once', async () => {
+    const w = render(PLAIN)
+    await w.find('.sensitive-btn').trigger('click')
+    await flush()
+
+    expect(lastUpdate(w)).toMatchObject({ notes_sensitive: true, notes: 'the secret' })
+    expect(w.find('.sensitive-hidden').exists()).toBe(true)
+    expect(w.html()).not.toContain('the secret')
+    expect(w.find('.stub-editor').exists()).toBe(false)
+  })
+
+  it('does not fetch the text again by itself', async () => {
+    const w = render(PLAIN)
+    await w.find('.sensitive-btn').trigger('click')
+    await flush()
+    expect(getNodeNotes).not.toHaveBeenCalled()
+  })
+
+  it('fetches the text back once the flag is cleared', async () => {
+    getNodeNotes.mockResolvedValue({ notes: 'the secret', locked: false })
+    const w = render(PLAIN)
+    await w.find('.sensitive-btn').trigger('click')
+    await flush()
+    await w.find('.sensitive-btn').trigger('click')
+    await flush()
+
+    expect(lastUpdate(w)).toMatchObject({ notes_sensitive: false })
+    expect(lastUpdate(w).notes ?? null).toBeNull()
+    expect(getNodeNotes).toHaveBeenCalledWith(7)
+    expect(w.findComponent(MarkdownRenderer).props('content')).toBe('the secret')
+  })
+})
