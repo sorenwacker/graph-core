@@ -78,8 +78,11 @@ describe('setting the flag while the session is locked', () => {
     const w = render()
     await toggle(w).trigger('click')
 
-    expect(unlockForm(w).exists()).toBe(false)
+    // No prompt stood in the way; the placeholder that follows is the note
+    // being withheld, which is what flagging does.
+    expect(w.text()).not.toContain('Unlock sensitive notes to change this')
     expect(w.emitted('update').at(-1)[0]).toMatchObject({ notes_sensitive: true, notes: 'in the clear' })
+    expect(w.text()).not.toContain('in the clear')
   })
 
   it('asks for an unlock only while the key pair does not exist yet', async () => {
