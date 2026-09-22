@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Run the e2e pack on Linux for a branch without cutting a tag
+  # (docs/contributing/development.md, "End-to-end smoke pack").
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -43,3 +46,30 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  e2e:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: End-to-end smoke pack
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q xvfb
+          npm run bundle:preload
+          xvfb-run --auto-servernum npm run test:e2e
+      - name: Upload failure context
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: test-results/
+          if-no-files-found: ignore

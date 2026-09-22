@@ -67,3 +67,7 @@ export async function dismissOnboarding(page) {
 
 /** The platform's primary modifier, for view-switching shortcuts. */
 export const MOD = process.platform === 'darwin' ? 'Meta' : 'Control'
+
+/** The editor's "go to start of document" key: Cmd+Up on macOS, Ctrl+Home elsewhere,
+ *  where Ctrl+Up only moves one line. */
+export const DOC_START = process.platform === 'darwin' ? 'Meta+ArrowUp' : 'Control+Home'
