@@ -160,7 +160,7 @@ const OPENAI_LIST_MODELS = 'openai:listModels'
 // ===========================================
 // AGENT
 // ===========================================
-const AGENT_RESEARCH = 'agent:research'
+const AGENT_WIKIPEDIA_LOOKUP = 'agent:wikipediaLookup'
 
 // ===========================================
 // APP
@@ -318,7 +318,7 @@ module.exports = {
   OPENAI_LIST_MODELS,
 
   // Agent
-  AGENT_RESEARCH,
+  AGENT_WIKIPEDIA_LOOKUP,
 
   // Security
   SECURITY_STATUS,

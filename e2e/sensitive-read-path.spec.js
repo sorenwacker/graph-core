@@ -65,8 +65,10 @@ test('the hover tooltip shows a placeholder, not the text', async () => {
   const page = ctx.page
   // A fresh profile pins the sidebar, and no tooltip shows while it is open.
   // Unpinned, it stays open while the pointer is over it, so move off it first.
+  // Park the pointer on the add bar, not in the view: a row entered while the
+  // sidebar is still closing has its tooltip refused, and is not entered again.
   await page.getByTitle('Unpin sidebar').click()
-  await page.mouse.move(700, 500)
+  await page.getByPlaceholder('Add new...').hover()
   await expect(page.locator('.sidebar.pinned, .sidebar.show')).toHaveCount(0)
 
   const cell = await showTable(page)

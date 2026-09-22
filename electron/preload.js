@@ -149,8 +149,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openaiListModels: (endpoint, apiKey, skipSslVerification) =>
     ipcRenderer.invoke(C.OPENAI_LIST_MODELS, endpoint, apiKey, skipSslVerification),
 
-  // Agent (research with tools)
-  agentResearch: options => ipcRenderer.invoke(C.AGENT_RESEARCH, options),
+  // Wikipedia lookup (agent loop with the Wikipedia tools)
+  wikipediaLookup: options => ipcRenderer.invoke(C.AGENT_WIKIPEDIA_LOOKUP, options),
 
   // Menu events
   onMenuUndo: callback => ipcRenderer.on(C.MENU_UNDO, callback),

@@ -73,10 +73,15 @@ export interface OpenAIGenerateOptions {
 }
 
 /**
- * Agent research options.
+ * Options for a Wikipedia lookup (docs/guides/ai-notes.md, "Wikipedia lookup").
  */
-export interface AgentResearchOptions {
-  prompt: string
+export interface WikipediaLookupOptions {
+  /** What the user asked */
+  question: string
+  /** The Wikipedia preset's prompt, which the user may have edited; blank means the default */
+  instructions?: string
+  /** The node the lookup was started from; note text is never part of it */
+  node?: { title: string; type?: string; parentTitle?: string }
   provider: 'ollama' | 'openai'
   model: string
   endpoint: string
@@ -306,6 +311,6 @@ export interface Api {
   openaiTestConnection(endpoint: string, apiKey: string, skipSslVerification?: boolean): Promise<ConnectionTestResult>
   openaiListModels(endpoint: string, apiKey: string, skipSslVerification?: boolean): Promise<string[]>
 
-  // Agent (research with tools)
-  agentResearch?(options: AgentResearchOptions): Promise<string>
+  // Wikipedia lookup (agent loop with the Wikipedia tools)
+  wikipediaLookup?(options: WikipediaLookupOptions): Promise<string>
 }

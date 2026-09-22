@@ -3,6 +3,32 @@ import { api } from '../services/api.js'
 import { useSettings } from './useSettings'
 import { handleError } from './useErrorHandler.js'
 import { createAiProvider, AI_PROVIDERS } from '../services/aiProviders.js'
+import sharedAgentConfig from '../../shared/agentConfig.json'
+
+const WIKIPEDIA_PRESET_ID = 'wikipedia'
+// The id the preset had while it was labelled Research.
+const LEGACY_LOOKUP_PRESET_ID = 'research'
+
+/**
+ * Carry settings saved under the preset's old id over to the new one. An edited
+ * prompt is dropped - its text never reached the model and its label would
+ * bring the old name back - while a deletion and a place in the order are kept.
+ *
+ * @param {import('vue').Ref<Array>} promptsRef - Stored prompt overrides
+ * @param {import('vue').Ref<string[]>} [orderRef] - Stored prompt order
+ */
+function migrateLegacyLookupPreset(promptsRef, orderRef) {
+  const stored = promptsRef?.value || []
+  if (stored.some(p => p.id === LEGACY_LOOKUP_PRESET_ID)) {
+    promptsRef.value = stored
+      .filter(p => p.id !== LEGACY_LOOKUP_PRESET_ID || p._deleted)
+      .map(p => (p.id === LEGACY_LOOKUP_PRESET_ID ? { id: WIKIPEDIA_PRESET_ID, _deleted: true } : p))
+  }
+  const order = orderRef?.value || []
+  if (order.includes(LEGACY_LOOKUP_PRESET_ID)) {
+    orderRef.value = order.map(id => (id === LEGACY_LOOKUP_PRESET_ID ? WIKIPEDIA_PRESET_ID : id))
+  }
+}
 
 export { AI_PROVIDERS }
 
@@ -51,9 +77,11 @@ const defaultPrompts = [
     prompt: `Continue writing from where the text ends. Match the style, tone, and topic. Add 1-2 paragraphs of relevant content that flows naturally from the existing text. Do not summarize or repeat what was already written. Output the original text followed by your continuation.`,
   },
   {
-    id: 'research',
-    label: 'Research',
-    prompt: `Research and write about this topic using Wikipedia`,
+    // The Wikipedia lookup (docs/guides/ai-notes.md). Its prompt is the model's
+    // instructions for the lookup, so editing it in Settings has an effect.
+    id: WIKIPEDIA_PRESET_ID,
+    label: 'Wikipedia',
+    prompt: sharedAgentConfig.lookupPrompt,
     isAgent: true,
   },
 ]
@@ -83,6 +111,8 @@ export function useAiNotes() {
     ollamaCustomPrompts,
   } = useSettings()
 
+  migrateLegacyLookupPreset(aiCustomPrompts ?? ollamaCustomPrompts, aiPromptOrder)
+
   // Use new settings if available, fall back to legacy
   const isEnabled = computed(() => aiEnabled?.value ?? ollamaEnabled.value)
   const customPrompts = computed(() => aiCustomPrompts?.value ?? ollamaCustomPrompts.value)
@@ -106,7 +136,7 @@ export function useAiNotes() {
   const generatedContent = ref('')
 
   /**
-   * Provider configuration for the research agent call.
+   * Provider configuration for the Wikipedia lookup call.
    */
   function getProviderConfig() {
     return activeProvider.value.config()
@@ -287,20 +317,38 @@ export function useAiNotes() {
   }
 
   /**
-   * Research a topic using AI agent with Wikipedia tool calling
-   * @param {string} query - The research question or topic
-   * @returns {Promise<string|null>} Research result or null on error
+   * Describe the node a lookup is started from: its title, type and parent
+   * title. Note text is deliberately left out.
+   * @param {number|string|null} nodeId - The node
+   * @returns {Promise<Object|undefined>} Node context, or undefined when unknown
    */
-  async function research(query) {
+  async function lookupNodeContext(nodeId) {
+    if (typeof nodeId !== 'number') return undefined
+    const node = await api.getNode(nodeId)
+    if (!node) return undefined
+    const parent = node.parent_id ? await api.getNode(node.parent_id) : null
+    return { title: node.title, type: node.type, parentTitle: parent?.title }
+  }
+
+  /**
+   * Look a question up on Wikipedia, its only source.
+   * @param {string} question - What the user wants to know
+   * @param {number|string|null} [nodeId] - The node the lookup is started from
+   * @returns {Promise<string|null>} The result, or null on error
+   */
+  async function lookUpOnWikipedia(question, nodeId = null) {
     isGenerating.value = true
     error.value = null
     generatedContent.value = ''
 
     try {
       const config = getProviderConfig()
-      // Spread to plain array to avoid IPC cloning issues with Vue proxies
-      const result = await api.agentResearch({
-        prompt: query,
+      const preset = presetPrompts.value.find(p => p.id === WIKIPEDIA_PRESET_ID)
+      const result = await api.wikipediaLookup({
+        question,
+        instructions: preset?.prompt ?? sharedAgentConfig.lookupPrompt,
+        node: await lookupNodeContext(nodeId),
+        // Spread to plain array to avoid IPC cloning issues with Vue proxies
         enabledTools: [...aiEnabledTools.value],
         ...config,
       })
@@ -308,7 +356,7 @@ export function useAiNotes() {
       generatedContent.value = result
       return result
     } catch (e) {
-      handleError(e, { context: 'AI research', silent: true })
+      handleError(e, { context: 'Wikipedia lookup', silent: true })
       error.value = e.message
       return null
     } finally {
@@ -350,7 +398,7 @@ export function useAiNotes() {
 
     // Methods
     improveNotes,
-    research,
+    lookUpOnWikipedia,
     testConnection,
     listModels,
     savePrompt,

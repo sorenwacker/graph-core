@@ -10,10 +10,18 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Changed
 
+- The AI action that was called Research is now called **Wikipedia**, because Wikipedia is its only source ([guide](docs/guides/ai-notes.md#wikipedia-lookup)). Four things made its results thin, and all four are changed. The article tool fetched Wikipedia's page summary, a single paragraph; it now fetches the full article text, cut to fit the configured context size, and a search returns five hits instead of three. The model was told to write "a clear, informative summary" of the topic; it is now told to answer the question, prefer dates, figures and names, name the article behind each paragraph, list its sources with links, and say so when the articles do not answer the question. The model knew nothing about the note it was asked from; it now receives the note's title, type and parent title, and never the note text. Models without tool calling got one paragraph of the top hit; they now get the top two articles in full under the same instructions.
+- The Wikipedia action's prompt can be edited in Settings > AI > AI Prompts, and Reset restores the default. The preset was already listed there with an editable text, but that text was never sent to the model. The instructions that make the tools work are added by the app and are not part of the editable text. An edited Research prompt saved earlier is dropped, since it never had an effect; a deletion or a custom position of the preset is kept.
+- Accepting a Wikipedia result appends it to the note under a `## Wikipedia: <question>` heading. It used to replace the whole note with the result.
+
 - With sensitive notes unlocked, a sensitive note is no longer shown in cards, the table or graph node details; it is read in the detail panel after pressing Show. The graph edit modal and the persons view editor show no notes field for such a node.
 - The hover tooltip appears for nodes with sensitive notes as well, with a placeholder in place of the note. It was suppressed for them in the graph view always and elsewhere only while Hide Sensitive was on.
 - Hide Sensitive applies one rule in every view: a note that is not flagged but mentions `password`, `secret`, `api_key` or `credential` is masked. Graph node details previously hid every note while the setting was on, and cards and search results ignored it.
 - A write that carries `notes` for a sensitive node is ignored unless it comes from the editor that loaded the text, so an edit made from a view that never held the note cannot erase it.
+
+### Removed
+
+- The browser-only copy of the lookup's agent loop (`agentService.js`, `wikipediaService.js`) and the `generateWithTools` helpers only it called. It duplicated the main-process implementation, had no tests, and was reachable only without the Electron bridge, where no backend exists to load nodes from. The browser API now answers that the lookup is available in the desktop app only.
 
 ### Fixed
 

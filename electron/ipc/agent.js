@@ -1,12 +1,19 @@
 /**
- * Agent IPC Handlers
+ * Wikipedia lookup IPC handler (docs/guides/ai-notes.md, "Wikipedia lookup").
  *
- * Registers AGENT_RESEARCH handler and related functions for AI research capabilities.
+ * Runs a tool-calling loop in which the model searches and reads Wikipedia, and
+ * a fallback for models that cannot call tools. Wikipedia is the only source.
  */
 
 const wikipedia = require('../wikipedia')
-const { AGENT_TOOLS, RESEARCH_SYSTEM_PROMPT, MAX_AGENT_ITERATIONS, isGarbageResponse } = require('../agentConfig')
-const { AGENT_RESEARCH } = require('../ipcChannels')
+const {
+  AGENT_TOOLS,
+  MAX_AGENT_ITERATIONS,
+  articleCharBudget,
+  buildLookupMessages,
+  isGarbageResponse,
+} = require('../agentConfig')
+const { AGENT_WIKIPEDIA_LOOKUP } = require('../ipcChannels')
 const { chatRequest } = require('./llmProvider')
 
 // Map tool names to their tool group (e.g., wikipedia_search -> wikipedia)
@@ -14,6 +21,9 @@ const TOOL_GROUPS = {
   wikipedia_search: 'wikipedia',
   wikipedia_get_content: 'wikipedia',
 }
+
+// How many of the top search hits the fallback reads in full.
+const FALLBACK_ARTICLE_COUNT = 2
 
 /**
  * Filter tools based on enabled tool groups
@@ -32,9 +42,11 @@ function getEnabledTools(enabledTools) {
 }
 
 /**
- * Research options passed to agent functions.
- * @typedef {Object} ResearchOptions
- * @property {string} prompt - User's research query
+ * Lookup options passed to agent functions.
+ * @typedef {Object} LookupOptions
+ * @property {string} question - What the user asked
+ * @property {string} [instructions] - The preset's prompt, possibly edited; blank means the default
+ * @property {Object} [node] - Node context (title, type, parentTitle); never note text
  * @property {string} provider - LLM provider ('openai' or 'ollama')
  * @property {string} model - Model name
  * @property {string} endpoint - API endpoint
@@ -44,26 +56,34 @@ function getEnabledTools(enabledTools) {
  */
 
 /**
+ * Render an article for the model, with the URL it needs for the source list.
+ * @param {{title: string, content: string, url: string}} article - The article
+ * @returns {string} Title, URL and text
+ */
+function formatArticle(article) {
+  return `Title: ${article.title}\nURL: ${article.url}\n\n${article.content}`
+}
+
+/**
  * Execute an agent tool by name.
  * @param {Function} httpRequest - HTTP request function
  * @param {string} name - Tool name
  * @param {Object} args - Tool arguments
+ * @param {number} [maxChars] - Character budget for one article
  * @returns {Promise<string>} Tool result
  */
-async function executeAgentTool(httpRequest, name, args) {
+async function executeAgentTool(httpRequest, name, args, maxChars) {
   try {
     switch (name) {
       case 'wikipedia_search': {
-        const results = await wikipedia.search(httpRequest, args.query, 3)
+        const results = await wikipedia.search(httpRequest, args.query)
         if (results.length === 0) {
           return 'No Wikipedia articles found for this query.'
         }
         return JSON.stringify(results, null, 2)
       }
-      case 'wikipedia_get_content': {
-        const content = await wikipedia.getContent(httpRequest, args.title)
-        return `Title: ${content.title}\n\n${content.content}`
-      }
+      case 'wikipedia_get_content':
+        return formatArticle(await wikipedia.getContent(httpRequest, args.title, { maxChars }))
       default:
         return `Unknown tool: ${name}`
     }
@@ -95,13 +115,14 @@ function parseToolArgs(toolCall) {
  * @param {Array} toolCalls - Tool calls from response
  * @param {Array} messages - Message history to append to
  * @param {number} iterationIndex - Current iteration index (for generating IDs)
+ * @param {number} [maxChars] - Character budget for one article
  */
-async function processToolCalls(httpRequest, toolCalls, messages, iterationIndex) {
+async function processToolCalls(httpRequest, toolCalls, messages, iterationIndex, maxChars) {
   for (const toolCall of toolCalls) {
     const toolName = toolCall.function?.name || toolCall.name
     const toolArgs = parseToolArgs(toolCall)
     const toolId = toolCall.id || `call_${iterationIndex}_${toolName}`
-    const result = await executeAgentTool(httpRequest, toolName, toolArgs)
+    const result = await executeAgentTool(httpRequest, toolName, toolArgs, maxChars)
 
     messages.push({
       role: 'tool',
@@ -112,39 +133,36 @@ async function processToolCalls(httpRequest, toolCalls, messages, iterationIndex
 }
 
 /**
- * Fallback research using direct Wikipedia fetch + summarization.
- * Used when the model doesn't support tool calling.
+ * Lookup for models that cannot call tools: the app searches with the question,
+ * reads the top articles in full, and asks the model to answer from them under
+ * the same instructions as the tool-calling path.
  * @param {Function} httpRequest - HTTP request function
- * @param {ResearchOptions} options - Research options
- * @returns {Promise<string>} Research result
+ * @param {LookupOptions} options - Lookup options
+ * @returns {Promise<string>} Lookup result
  */
-async function fallbackResearch(httpRequest, options) {
-  const { prompt, provider, model, endpoint, apiKey, contextSize, skipSslVerification } = options
+async function fallbackLookup(httpRequest, options) {
+  const { question, instructions, node, provider, model, endpoint, apiKey, contextSize, skipSslVerification } = options
 
-  // Search Wikipedia directly
-  const searchResults = await wikipedia.search(httpRequest, prompt, 3)
-
+  const searchResults = await wikipedia.search(httpRequest, question)
   if (searchResults.length === 0) {
-    return `No Wikipedia articles found for "${prompt}".`
+    return `No Wikipedia articles found for "${question}".`
   }
 
-  // Get content from the top result
-  const topResult = searchResults[0]
-  let content
-  try {
-    content = await wikipedia.getContent(httpRequest, topResult.title)
-  } catch (err) {
-    return `Found article "${topResult.title}" but could not retrieve content: ${err.message}`
+  const maxChars = articleCharBudget(contextSize)
+  const articles = []
+  for (const hit of searchResults.slice(0, FALLBACK_ARTICLE_COUNT)) {
+    try {
+      articles.push(await wikipedia.getContent(httpRequest, hit.title, { maxChars }))
+    } catch {
+      // A hit that cannot be read is skipped; the next one may still answer.
+    }
+  }
+  if (articles.length === 0) {
+    return `Found "${searchResults[0].title}" on Wikipedia but could not retrieve its content.`
   }
 
-  // Ask model to summarize the content
-  const summaryPrompt = `Based on the following Wikipedia article, write a clear and informative summary about "${prompt}".
-
-Article: ${topResult.title}
-
-${content.content}
-
-Write a concise summary (2-4 paragraphs) that answers the user's question. Cite Wikipedia as your source.`
+  const [system, user] = buildLookupMessages({ question, instructions, node, withTools: false })
+  const articleText = articles.map(formatArticle).join('\n\n---\n\n')
 
   const response = await chatRequest(httpRequest, {
     provider,
@@ -153,28 +171,23 @@ Write a concise summary (2-4 paragraphs) that answers the user's question. Cite 
     apiKey,
     contextSize,
     skipSslVerification,
-    messages: [
-      {
-        role: 'system',
-        content: 'You are a helpful research assistant. Summarize information clearly and accurately.',
-      },
-      { role: 'user', content: summaryPrompt },
-    ],
+    messages: [system, { role: 'user', content: `${user.content}\n\n${articleText}` }],
   })
 
-  return response.content || 'Could not generate summary.'
+  return response.content || 'Could not generate an answer.'
 }
 
 /**
  * Run the agent iteration loop.
  * @param {Function} httpRequest - HTTP request function
  * @param {Array} messages - Initial messages array
- * @param {ResearchOptions} options - Research options
+ * @param {LookupOptions} options - Lookup options
  * @param {Array} tools - Tools to use
  * @returns {Promise<string>} Final response content
  */
 async function runAgentLoop(httpRequest, messages, options, tools) {
   const { provider, model, endpoint, apiKey, contextSize, skipSslVerification } = options
+  const maxChars = articleCharBudget(contextSize)
 
   for (let i = 0; i < MAX_AGENT_ITERATIONS; i++) {
     const response = await chatRequest(httpRequest, {
@@ -191,7 +204,7 @@ async function runAgentLoop(httpRequest, messages, options, tools) {
     // Check if model returned garbage (doesn't support tools)
     if (isGarbageResponse(response.content) && !response.tool_calls) {
       console.log('Model does not support tool calling, using fallback...')
-      return await fallbackResearch(httpRequest, options)
+      return await fallbackLookup(httpRequest, options)
     }
 
     if (response.tool_calls && response.tool_calls.length > 0) {
@@ -201,13 +214,13 @@ async function runAgentLoop(httpRequest, messages, options, tools) {
         tool_calls: response.tool_calls,
       })
 
-      await processToolCalls(httpRequest, response.tool_calls, messages, i)
+      await processToolCalls(httpRequest, response.tool_calls, messages, i, maxChars)
     } else {
       return response.content || 'No response generated.'
     }
   }
 
-  // Max iterations reached - generate final response
+  // Max iterations reached - ask for the answer without offering tools again
   const finalResponse = await chatRequest(httpRequest, {
     provider,
     endpoint,
@@ -215,41 +228,38 @@ async function runAgentLoop(httpRequest, messages, options, tools) {
     apiKey,
     contextSize,
     skipSslVerification,
-    messages: [...messages, { role: 'user', content: 'Based on the information gathered, provide a final summary.' }],
+    messages: [
+      ...messages,
+      { role: 'user', content: 'Stop calling tools. Answer the question now from the articles you have read.' },
+    ],
   })
 
   return finalResponse.content || 'No response generated.'
 }
 
 /**
- * Register agent IPC handlers.
+ * Register the Wikipedia lookup IPC handler.
  * @param {Electron.IpcMain} ipcMain - Electron IPC main module
  * @param {Function} httpRequest - HTTP request function
  */
 function registerAgentHandlers(ipcMain, httpRequest) {
-  ipcMain.handle(AGENT_RESEARCH, async (_event, options) => {
-    const { prompt, provider, model, endpoint, apiKey, contextSize, skipSslVerification, enabledTools } = options
-
-    const tools = getEnabledTools(enabledTools)
+  ipcMain.handle(AGENT_WIKIPEDIA_LOOKUP, async (_event, options) => {
+    const tools = getEnabledTools(options.enabledTools)
     if (tools.length === 0) {
-      return 'No agent tools are enabled. Enable tools in AI Settings to use the Research feature.'
+      return 'The Wikipedia tool is disabled. Enable it in Settings > AI > Agent Tools to use the Wikipedia lookup.'
     }
 
-    const messages = [
-      { role: 'system', content: RESEARCH_SYSTEM_PROMPT },
-      { role: 'user', content: prompt },
-    ]
-
-    const researchOptions = { prompt, provider, model, endpoint, apiKey, contextSize, skipSslVerification }
+    const { question, instructions, node } = options
+    const messages = buildLookupMessages({ question, instructions, node })
 
     try {
-      return await runAgentLoop(httpRequest, messages, researchOptions, tools)
+      return await runAgentLoop(httpRequest, messages, options, tools)
     } catch (err) {
       // If tool calling fails, try fallback
       console.log('Tool calling failed, using fallback:', err.message)
-      return await fallbackResearch(httpRequest, researchOptions)
+      return await fallbackLookup(httpRequest, options)
     }
   })
 }
 
-module.exports = { registerAgentHandlers, executeAgentTool, fallbackResearch, runAgentLoop }
+module.exports = { registerAgentHandlers, executeAgentTool, fallbackLookup, runAgentLoop }

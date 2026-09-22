@@ -93,7 +93,7 @@ describe('ollama adapter', () => {
     expect(api.ollamaListModels).toHaveBeenCalledWith('http://localhost:11434')
   })
 
-  it('reports the research config shape used by agentResearch', () => {
+  it('reports the config shape used by wikipediaLookup', () => {
     expect(adapter().config()).toEqual({
       provider: 'ollama',
       model: 'llama3.2',
@@ -133,7 +133,7 @@ describe('openai adapter', () => {
     expect(api.openaiListModels).toHaveBeenCalledWith('https://api.example.com/v1', 'sk-test', false)
   })
 
-  it('reports the research config shape used by agentResearch', () => {
+  it('reports the config shape used by wikipediaLookup', () => {
     expect(adapter().config()).toEqual({
       provider: 'openai',
       model: 'gpt-4o',
