@@ -21,6 +21,18 @@ test.afterAll(async () => {
   await ctx?.close()
 })
 
+/**
+ * Double-click a table cell through raw mouse events. The row reveals its
+ * action buttons on hover with an opacity transition, so Playwright's own
+ * dblclick can keep finding the cell "not stable" on a loaded runner and time
+ * out; the release job hit this twice under xvfb.
+ */
+async function dblclickCell(page, cell) {
+  await expect(cell).toBeVisible()
+  const box = await cell.boundingBox()
+  await page.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2)
+}
+
 test('drags a child onto the breadcrumb home icon to move it to the top level', async () => {
   const page = ctx.page
 
@@ -42,7 +54,7 @@ test('drags a child onto the breadcrumb home icon to move it to the top level', 
   await page.locator('body').press(`${MOD}+Digit3`)
   const parentCell = page.getByRole('cell', { name: 'Parent box' })
   await parentCell.waitFor({ timeout: 10000 })
-  await parentCell.dblclick()
+  await dblclickCell(page, parentCell)
 
   const childCell = page.getByRole('cell', { name: 'Nested child' })
   await childCell.waitFor({ timeout: 10000 })
@@ -93,7 +105,7 @@ test('drags a graph node onto the breadcrumb home icon', async () => {
   await page.locator('body').press(`${MOD}+Digit3`)
   const parentCell = page.getByRole('cell', { name: 'Graph box' })
   await parentCell.waitFor({ timeout: 10000 })
-  await parentCell.dblclick()
+  await dblclickCell(page, parentCell)
   await page.locator('body').press(`${MOD}+Digit1`)
 
   const label = page.locator('.node-html', { hasText: 'Graph child' }).first()
