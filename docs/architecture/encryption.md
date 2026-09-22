@@ -57,4 +57,4 @@ The same panel shows the sensitive-notes section beside this one, and both take 
 
 ## Sensitive notes (second layer)
 
-Notes marked `notes_sensitive` can be encrypted on top of database encryption, so they are protected even from a person at the unlocked app. See [Sensitive notes](sensitive-notes.md).
+Notes marked `notes_sensitive` can be encrypted on top of database encryption, so they are protected even from a person at the unlocked app. Locking a note needs no secret; revealing one takes Touch ID or the recovery password at the moment of reveal, not the silent keychain unlock that opens the database. See [Sensitive notes](sensitive-notes.md).
