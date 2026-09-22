@@ -42,9 +42,10 @@ function writeSecurityConfig(configPath, config) {
  * @param {string} ctx.configPath - Path to security.json.
  * @param {Object} ctx.keyManager - createKeyManager instance.
  * @param {Object} ctx.systemPreferences - Electron systemPreferences (or null).
+ * @param {Function} [ctx.onTouchIdGateChanged] - Called with the new gate value after it is saved.
  */
 function registerSecurityHandlers(ipcMain, ctx) {
-  const { getDb, finishUnlock, dbPath, configPath, keyManager, systemPreferences } = ctx
+  const { getDb, finishUnlock, dbPath, configPath, keyManager, systemPreferences, onTouchIdGateChanged } = ctx
 
   function touchIdAvailable() {
     return process.platform === 'darwin' && typeof systemPreferences?.canPromptTouchID === 'function'
@@ -116,6 +117,7 @@ function registerSecurityHandlers(ipcMain, ctx) {
     const config = readSecurityConfig(configPath)
     config.touchIdGate = Boolean(enabled)
     writeSecurityConfig(configPath, config)
+    onTouchIdGateChanged?.(config.touchIdGate)
     return { success: true }
   })
 }

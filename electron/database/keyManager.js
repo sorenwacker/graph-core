@@ -106,7 +106,25 @@ function createKeyManager({ safeStorage }) {
     return { key, slots }
   }
 
-  return { enable, unlockWithKeychain, unlockWithPassword, keychainAvailable }
+  /**
+   * Unwrap a keychain slot blob written by wrapKeyWithKeychain.
+   * @param {Buffer} blob - The slot.
+   * @returns {Buffer} The key.
+   * @throws {Error} When the blob is from another machine or the keychain was reset.
+   */
+  function unwrapKeyWithKeychain(blob) {
+    if (!keychainAvailable()) throw new Error('No keychain')
+    return Buffer.from(safeStorage.decryptString(Buffer.from(blob)), 'base64')
+  }
+
+  return {
+    enable,
+    unlockWithKeychain,
+    unlockWithPassword,
+    keychainAvailable,
+    wrapKeyWithKeychain,
+    unwrapKeyWithKeychain,
+  }
 }
 
 module.exports = { createKeyManager }

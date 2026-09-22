@@ -19,7 +19,7 @@ const { registerWindowHandlers, createWindowConfig, setupExternalLinkHandling } 
 const { httpRequest } = require('./ipc/httpClient')
 const { registerSecurityHandlers, readSecurityConfig } = require('./ipc/security')
 const { createKeyManager } = require('./database/keyManager')
-const { registerSensitiveNotesHandlers, SENSITIVE_SETTINGS_KEY } = require('./ipc/sensitiveNotes')
+const { registerSensitiveNotesHandlers, readSensitiveKeys, dropSensitiveKeychainSlot } = require('./ipc/sensitiveNotes')
 const { createSensitiveSession } = require('./database/sensitiveSession')
 const {
   SENSITIVE_LOCKED_EVENT,
@@ -304,9 +304,9 @@ app.whenReady().then(async () => {
   // The sensitive session is held here so its idle relock and the disable flow
   // can reach it (docs/architecture/sensitive-notes.md).
   let sensitiveSession = null
-  function makeSensitiveSession(wrappedKey) {
+  function makeSensitiveSession(keys) {
     return createSensitiveSession({
-      wrappedKey,
+      keys,
       onLock: () => {
         for (const w of BrowserWindow.getAllWindows()) w.webContents.send(SENSITIVE_LOCKED_EVENT)
       },
@@ -317,9 +317,9 @@ app.whenReady().then(async () => {
     db = new Database(dbPath, { encryptionKey, encryptionSlots })
     await db.ready
     // Restore the sensitive-notes session (locked) if the feature was enabled.
-    const wrappedB64 = db.getSetting(SENSITIVE_SETTINGS_KEY)
-    if (wrappedB64) {
-      sensitiveSession = makeSensitiveSession(Buffer.from(wrappedB64, 'base64'))
+    const keys = readSensitiveKeys(db)
+    if (Object.values(keys).some(Boolean)) {
+      sensitiveSession = makeSensitiveSession(keys)
       db.sensitiveSession = sensitiveSession
     }
     registerDatabaseHandlers(ipcMain, db)
@@ -407,6 +407,10 @@ app.whenReady().then(async () => {
     configPath: securityConfigPath,
     keyManager,
     systemPreferences,
+    // The keychain slot for sensitive notes exists only while the gate is on.
+    onTouchIdGateChanged: enabled => {
+      if (!enabled && db) dropSensitiveKeychainSlot(db, sensitiveSession)
+    },
   })
   registerSensitiveNotesHandlers(ipcMain, {
     getDb: () => db,
@@ -421,6 +425,11 @@ app.whenReady().then(async () => {
       const fileBuffer = fsSync.readFileSync(dbPath)
       if (isEncrypted(fileBuffer)) keyManager.unlockWithPassword(fileBuffer, password)
     },
+    keychainWrap: keyManager.keychainAvailable() ? key => keyManager.wrapKeyWithKeychain(key) : null,
+    keychainUnwrap: blob => keyManager.unwrapKeyWithKeychain(blob),
+    isTouchIdGateOn: () => Boolean(readSecurityConfig(securityConfigPath).touchIdGate),
+    touchIdAvailable: () => process.platform === 'darwin' && systemPreferences.canPromptTouchID(),
+    promptTouchId: () => systemPreferences.promptTouchID('reveal your sensitive notes'),
   })
   registerOllamaHandlers(ipcMain, httpRequest)
   registerOpenaiHandlers(ipcMain, httpRequest)

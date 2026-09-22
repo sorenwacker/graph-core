@@ -9,7 +9,7 @@ import { api } from '../services/api'
  */
 
 /** What the status is before it is known, and whenever it cannot be read. */
-const UNKNOWN_STATUS = { available: false, enabled: false, unlocked: false }
+const UNKNOWN_STATUS = { available: false, enabled: false, unlocked: false, lockable: false, touchId: false }
 
 const status = ref({ ...UNKNOWN_STATUS })
 let unsubscribe = null
@@ -25,6 +25,13 @@ async function refresh() {
 
 async function unlock(password) {
   const result = await api.sensitiveUnlock(password)
+  if (result.success) await refresh()
+  return result
+}
+
+/** Unlock through the keychain slot; the main process prompts Touch ID first. */
+async function unlockWithTouchId() {
+  const result = await api.sensitiveUnlockTouchId()
   if (result.success) await refresh()
   return result
 }
@@ -64,6 +71,7 @@ export function useSensitiveNotes() {
     refresh,
     enable,
     unlock,
+    unlockWithTouchId,
     lock,
     disable,
   }

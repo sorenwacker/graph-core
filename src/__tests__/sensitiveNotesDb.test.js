@@ -91,11 +91,20 @@ it('decrypts back to plaintext when the flag is turned off', () => {
   expect(raw).toBe('was secret')
 })
 
-it('refuses to save a sensitive note while locked', () => {
+it('saves a sensitive note while locked, since sealing needs only the public key', () => {
   session.lock()
-  expect(() =>
-    db.createNode({ type: 'note', title: 'X', notes: 'nope', notes_sensitive: true, workspace_id: 'work' })
-  ).toThrow(/locked/i)
+  const node = db.createNode({ type: 'note', title: 'X', notes: 'sealed', notes_sensitive: true, workspace_id: 'work' })
+  const raw = db._query('SELECT notes FROM nodes WHERE id = ?', [node.id])[0].notes
+  expect(isEncryptedNote(raw)).toBe(true)
+  expect(db.getNodeNotes(node.id)).toEqual({ notes: null, locked: true })
+  session.unlock('recovery-pw')
+  expect(db.getNodeNotes(node.id).notes).toBe('sealed')
+})
+
+it('refuses to clear the flag while locked, since that needs the private key', () => {
+  const node = db.createNode({ type: 'note', title: 'X', notes: 'sealed', notes_sensitive: true, workspace_id: 'work' })
+  session.lock()
+  expect(() => db.updateNode(node.id, { notes_sensitive: false })).toThrow(/locked/i)
 })
 
 it('leaves notes untouched when no session is configured', () => {

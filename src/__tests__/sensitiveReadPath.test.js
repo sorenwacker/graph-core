@@ -132,7 +132,7 @@ describe('sensitive note content with the session locked', () => {
     const node = db.getNode(ids.secret)
     expect(node.notes).toBeNull()
     expect(node.notes_withheld).toBe(true)
-    expect(JSON.stringify(db.getChildren(ids.parent))).not.toContain('SNENC1:')
+    expect(JSON.stringify(db.getChildren(ids.parent))).not.toContain('SNENC2:')
   })
 
   it('is reported locked by getNodeNotes, again without ciphertext', () => {
@@ -193,6 +193,6 @@ describe('export, which is plaintext by design', () => {
 
   it('carries the ciphertext marker while locked', () => {
     session.lock()
-    expect(db.exportJSON(ids.secret).root.notes).toMatch(/^SNENC1:/)
+    expect(db.exportJSON(ids.secret).root.notes).toMatch(/^SNENC2:/)
   })
 })

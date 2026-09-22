@@ -95,6 +95,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sensitiveStatus: () => ipcRenderer.invoke(C.SENSITIVE_STATUS),
   sensitiveEnable: password => ipcRenderer.invoke(C.SENSITIVE_ENABLE, password),
   sensitiveUnlock: password => ipcRenderer.invoke(C.SENSITIVE_UNLOCK, password),
+  sensitiveUnlockTouchId: () => ipcRenderer.invoke(C.SENSITIVE_UNLOCK_TOUCH_ID),
   sensitiveLock: () => ipcRenderer.invoke(C.SENSITIVE_LOCK),
   sensitiveDisable: password => ipcRenderer.invoke(C.SENSITIVE_DISABLE, password),
   onSensitiveLocked: callback => {

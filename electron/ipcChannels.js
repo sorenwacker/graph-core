@@ -179,6 +179,7 @@ const SECURITY_SET_TOUCH_ID = 'security:setTouchId'
 const SENSITIVE_STATUS = 'sensitive:status'
 const SENSITIVE_ENABLE = 'sensitive:enable'
 const SENSITIVE_UNLOCK = 'sensitive:unlock'
+const SENSITIVE_UNLOCK_TOUCH_ID = 'sensitive:unlockTouchId'
 const SENSITIVE_LOCK = 'sensitive:lock'
 const SENSITIVE_DISABLE = 'sensitive:disable'
 const SENSITIVE_LOCKED_EVENT = 'sensitive:locked'
@@ -329,6 +330,7 @@ module.exports = {
   SENSITIVE_STATUS,
   SENSITIVE_ENABLE,
   SENSITIVE_UNLOCK,
+  SENSITIVE_UNLOCK_TOUCH_ID,
   SENSITIVE_LOCK,
   SENSITIVE_DISABLE,
   SENSITIVE_LOCKED_EVENT,

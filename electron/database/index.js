@@ -18,7 +18,12 @@ const { createExportOperations } = require('./export')
 const { createBackupOperations } = require('./backup')
 const { createTableOperations } = require('./tables')
 const { createSettingsOperations } = require('./settings')
-const { SENSITIVE_MARKER, isEncryptedNote } = require('./sensitiveNotes')
+const {
+  SENSITIVE_MARKER,
+  LEGACY_SENSITIVE_MARKER,
+  isEncryptedNote,
+  isLegacyEncryptedNote,
+} = require('./sensitiveNotes')
 const { isEncrypted, encryptDatabase, decryptDatabase } = require('./encryption')
 
 let SQL = null
@@ -323,7 +328,10 @@ class Database {
     if (!session.isUnlocked()) throw new Error('Sensitive notes are locked')
 
     return this._batch(() => {
-      const rows = this._query('SELECT id, notes FROM nodes WHERE notes LIKE ?', [`${SENSITIVE_MARKER}%`])
+      const rows = this._query('SELECT id, notes FROM nodes WHERE notes LIKE ? OR notes LIKE ?', [
+        `${SENSITIVE_MARKER}%`,
+        `${LEGACY_SENSITIVE_MARKER}%`,
+      ])
       for (const row of rows) {
         const plaintext = session.decryptForRead(row.notes)
         // decryptForRead degrades an undecryptable note to its marker rather
@@ -337,6 +345,29 @@ class Database {
       }
       return { success: true, decrypted: rows.length }
     })
+  }
+
+  /**
+   * Re-seal every note written by an earlier version under the key pair
+   * (docs/architecture/sensitive-notes.md, "Notes written before the key pair").
+   * Trashed rows are included, as in disableSensitiveNotes. A note the old key
+   * cannot decrypt is fatal: the caller's batch rolls everything back, and the
+   * old key is kept.
+   *
+   * @returns {number} How many notes were re-sealed.
+   */
+  migrateLegacySensitiveNotes() {
+    const session = this.sensitiveSession
+    if (!session || !session.canEncrypt()) throw new Error('Sensitive notes are locked')
+    const rows = this._query('SELECT id, notes FROM nodes WHERE notes LIKE ?', [`${LEGACY_SENSITIVE_MARKER}%`])
+    for (const row of rows) {
+      const plaintext = session.decryptForRead(row.notes)
+      if (isLegacyEncryptedNote(plaintext)) {
+        throw new Error(`Cannot decrypt sensitive note ${row.id}; sensitive notes left as they were`)
+      }
+      this._run('UPDATE nodes SET notes = ? WHERE id = ?', [session.encrypt(plaintext), row.id])
+    }
+    return rows.length
   }
 
   _save() {
