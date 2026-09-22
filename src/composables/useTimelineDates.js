@@ -49,15 +49,21 @@ export function calculateDateRange(nodes) {
   const minDate = dates.reduce((a, b) => (a < b ? a : b))
   const maxDate = dates.reduce((a, b) => (a > b ? a : b))
 
-  // Start from earliest date or 3 months ago, whichever is earlier
-  const threeMonthsAgo = new Date()
-  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
-  const startDate = parseLocalDate(minDate) < threeMonthsAgo ? minDate : formatLocalDate(threeMonthsAgo)
+  // Room to scroll past the bars and to drag a start earlier than any of
+  // them: at least a year back and ahead of today, and a month beyond the
+  // earliest and latest dates in view (docs/guides/views.md).
+  const today = new Date()
+  const yearBack = new Date(today)
+  yearBack.setFullYear(today.getFullYear() - 1)
+  const yearAhead = new Date(today)
+  yearAhead.setFullYear(today.getFullYear() + 1)
+  const monthBeforeMin = parseLocalDate(minDate)
+  monthBeforeMin.setMonth(monthBeforeMin.getMonth() - 1)
+  const monthAfterMax = parseLocalDate(maxDate)
+  monthAfterMax.setMonth(monthAfterMax.getMonth() + 1)
 
-  // End at latest date or 1 year from now, whichever is later
-  const oneYearFromNow = new Date()
-  oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
-  const endDate = parseLocalDate(maxDate) > oneYearFromNow ? maxDate : formatLocalDate(oneYearFromNow)
+  const startDate = formatLocalDate(monthBeforeMin < yearBack ? monthBeforeMin : yearBack)
+  const endDate = formatLocalDate(monthAfterMax > yearAhead ? monthAfterMax : yearAhead)
 
   const start = parseLocalDate(startDate)
   const end = parseLocalDate(endDate)
