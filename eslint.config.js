@@ -81,6 +81,11 @@ export default [
       'max-params': ['warn', { max: 5 }],
       'max-nested-callbacks': ['warn', { max: 3 }],
 
+      // A template calling something the script never imported resolves to
+      // undefined and throws only when that branch renders: PersonsView's
+      // Reveal button shipped broken this way. Static, so it cannot regress.
+      'vue/no-undef-properties': 'error',
+
       // Project-specific relaxations
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       'no-console': 'off',
