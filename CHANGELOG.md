@@ -4,27 +4,45 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
-### Changed
-
-- A card grows to fit what it holds, between a floor and a cap, instead of every card taking the same height. One height was wrong both ways at once: it left most of a card holding a single child empty, and still cut the list off a card holding ten. The view scrolls when they do not all fit.
-- Card borders have more contrast. The shared hairline is nearly invisible against the near-black page, so cards now use a stronger border token, defined in both themes.
-- Cards keep a readable width ([guide](docs/guides/views.md#cards-view)). The grid chose its column count purely to make cards square, so a wide window was sliced into many narrow columns: children's names truncated to "HPC Admin C..." and notes broke mid-word. Width comes first now, and squareness decides between the counts that clear it. A window too narrow for one full-width card still gets a single column.
-- A note longer than its card fades on its last line instead of stopping flat, so a note that continues is not mistaken for a broken one.
-
-### Removed
-
-- The graph's edit modal. It was rendered and wired, but nothing could open it: the function that made it visible had no caller, so it has never been reachable in the app. Editing a node from the graph goes through the detail panel, which a click, the context menu's View Details, and Open in Window all reach. Keeping a second editing surface meant every change to editing had to be made twice, and the sensitive-note work had already paid that cost once.
-
-### Removed
-
-- `src/components/detail/index.js`, a barrel file nothing imported.
-- Code that could not be reached: the `cytoscape-d3-force` layout engine, registered but named by no layout; the timeline's `_getColorMap` option, accepted and passed and never read; an `onTagsUpdate` handler in each of the person and organization forms that neither template referenced; the graph's centre-on-node chain, driven by a window event nothing dispatches, along with the two helpers only it used; and the tooltip's open-detail button listener and styles, orphaned when the tooltip stopped rendering that button.
+## [1.19.0] - 2026-09-24
 
 ### Security
 
 - The OpenAI API key is no longer written to localStorage ([settings](docs/reference/settings.md#where-settings-are-kept)). Every setting was mirrored there as a pre-database fallback, so in the desktop app a live credential sat in plain files in the user-data directory, outside the database that encryption protects. Secrets now go to the database only, and a copy left by an earlier version is deleted the first time the setting loads.
 
 - A mermaid diagram that fails to render no longer injects its own source into the page as markup. The failure path put the block's text on screen with `innerHTML`, after sanitization had already run and after the text had been decoded out of the sanitized HTML, so a note containing a crafted mermaid block could execute script with the desktop app's preload API in reach. The source is now written as text. `securityLevel: 'strict'`, which sanitizes the SVG mermaid generates, is pinned in source rather than inherited from the library default, because minor dependency updates merge automatically.
+
+- The content of a note marked sensitive no longer reaches any list view ([architecture](docs/architecture/sensitive-notes.md#read-path)). Every node read sent the full note to the renderer - decrypted, once the session was unlocked - and each view decided for itself whether to hide it. Seven places made that decision with differing rules, and three made none: a person card printed the first 60 characters, the persons view printed the note once Reveal was pressed, and search results printed an 80-character snippet. Node reads now return `notes: null` with `notes_withheld` for a sensitive note, in every session state. The text is returned by one call, `db:getNodeNotes`, which the detail panel makes when Show is pressed. A database test covers every read method, and a source scan fails when a view reads note text other than through `notesForDisplay`.
+
+### Changed
+
+- A card grows to fit what it holds, between a floor and a cap, instead of every card taking the same height. One height was wrong both ways at once: it left most of a card holding a single child empty, and still cut the list off a card holding ten. The view scrolls when they do not all fit.
+
+- Card borders have more contrast. The shared hairline is nearly invisible against the near-black page, so cards now use a stronger border token, defined in both themes.
+
+- Cards keep a readable width ([guide](docs/guides/views.md#cards-view)). The grid chose its column count purely to make cards square, so a wide window was sliced into many narrow columns: children's names truncated to "HPC Admin C..." and notes broke mid-word. Width comes first now, and squareness decides between the counts that clear it. A window too narrow for one full-width card still gets a single column.
+
+- A note longer than its card fades on its last line instead of stopping flat, so a note that continues is not mistaken for a broken one.
+
+- The timeline can be scrolled at least a year back and a year ahead of today, and a month beyond the earliest and latest dates in view ([guide](docs/guides/views.md#timeline-view)). It used to start exactly at the earliest date in view, so the first bar sat at the left edge with nothing to scroll back to, and no bar's start could be dragged earlier than that date.
+
+- Timeline labels stay in view for every kind of bar ([guide](docs/guides/views.md#timeline-view)). When a task, event or group starts left of the visible area, its label moves to the visible edge and follows the scroll, as project box labels already did; before, a long bar scrolled into the past showed no name at all.
+
+- Marking a note sensitive no longer asks for the recovery password ([architecture](docs/architecture/sensitive-notes.md#keys)). Sensitive notes are now sealed under an X25519 public key that the app holds in the open, so setting the flag works in any session state, from the detail panel, the graph edit modal and anywhere else. Reading a note back needs the private key, which is stored only wrapped: under the recovery password, and, while "Require Touch ID at startup" is on, in the machine keychain. With that slot present the app asks for Touch ID at the moment of reveal, in the detail panel and in Settings; the recovery password remains the fallback. Notes encrypted by earlier versions are re-sealed under the key pair once, on the first password unlock after the update, in one batch that is rolled back if any note cannot be decrypted. Until that unlock, setting the flag still asks for the password.
+
+- The AI action that was called Research is now called **Wikipedia**, because Wikipedia is its only source ([guide](docs/guides/ai-notes.md#wikipedia-lookup)). Four things made its results thin, and all four are changed. The article tool fetched Wikipedia's page summary, a single paragraph; it now fetches the full article text, cut to fit the configured context size, and a search returns five hits instead of three. The model was told to write "a clear, informative summary" of the topic; it is now told to answer the question, prefer dates, figures and names, name the article behind each paragraph, list its sources with links, and say so when the articles do not answer the question. The model knew nothing about the note it was asked from; it now receives the note's title, type and parent title, and never the note text. Models without tool calling got one paragraph of the top hit; they now get the top two articles in full under the same instructions.
+
+- The Wikipedia action's prompt can be edited in Settings > AI > AI Prompts, and Reset restores the default. The preset was already listed there with an editable text, but that text was never sent to the model. The instructions that make the tools work are added by the app and are not part of the editable text. An edited Research prompt saved earlier is dropped, since it never had an effect; a deletion or a custom position of the preset is kept.
+
+- Accepting a Wikipedia result appends it to the note under a `## Wikipedia: <question>` heading. It used to replace the whole note with the result.
+
+- With sensitive notes unlocked, a sensitive note is no longer shown in cards, the table or graph node details; it is read in the detail panel after pressing Show. The graph edit modal and the persons view editor show no notes field for such a node.
+
+- The hover tooltip appears for nodes with sensitive notes as well, with a placeholder in place of the note. It was suppressed for them in the graph view always and elsewhere only while Hide Sensitive was on.
+
+- Hide Sensitive applies one rule in every view: a note that is not flagged but mentions `password`, `secret`, `api_key` or `credential` is masked. Graph node details previously hid every note while the setting was on, and cards and search results ignored it.
+
+- A write that carries `notes` for a sensitive node is ignored unless it comes from the editor that loaded the text, so an edit made from a view that never held the note cannot erase it.
 
 ### Fixed
 
@@ -35,58 +53,48 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 - A workspace you delete stays deleted. The two default workspaces were seeded on every startup, not only on a fresh database, so deleting one brought it back at the next launch.
 
 - Moving a node into one of its own descendants is refused instead of crashing. `moveNode` already checked, but `updateNode` reparents through the same field and did not, so the tree gained a cycle and the path rewrite ran until the stack overflowed. Both now share one check.
+
 - Cell styling is stored as JSON rather than as JSON wrapped in a string. The editor encoded the style and the database layer encoded whatever it was handed.
+
 - Sorting tasks by priority puts the most important first on the first click, not last.
+
 - Cmd/Ctrl+Enter no longer opens the new-node dialog while the caret is in a text field; it sat above the guard the other shortcuts sit below.
+
 - Deleting a workspace asks once. The selector confirmed and only emitted on acceptance, and the app confirmed again with different wording.
 
 - A CSV round trip keeps a note's sensitive mark ([guide](docs/guides/import-export.md#csv-export)). The column was missing from the export, so re-importing produced a plain note and its text appeared in every view.
+
 - A paste into a table that the browser refuses reports the failure instead of writing to the console. Copy in the same file already did.
 
 - A spreadsheet cell that stops being a formula, or becomes one, no longer keeps its old content in the database. The write named only the field it was setting, and the main process merges a cell write with the stored row on purpose, so the field left unnamed survived: the sheet looked right until it was reloaded, and then the old formula or the old literal came back. Both fields are now named on every cell write.
+
 - An AI note improvement made in a detached window is no longer discarded when the note is sensitive. The write did not say that its caller was holding the revealed text, so the main process dropped it, without an error: the window showed the improvement applied and the next load brought the old note back. The main window sends that mark already; the detached window carries its own copy of the apply logic and did not.
+
 - Redoing a link or unlink after redoing the creation of one of its nodes now follows the node to its new row. Redo cannot reuse the id undo deleted, so every command still queued is told the new one; link and unlink kept the base do-nothing version and went on naming the deleted row. A test now fails if any command that stores a node id does not implement the remap.
 
 - Graph shortcuts no longer fire while you are typing a note ([reference](docs/reference/keyboard-shortcuts.md)). The graph view tested only for `input` and `textarea` elements, and the notes editor is neither, so with the detail panel open beside the graph Cmd/Ctrl+Enter opened the add-node modal mid-sentence and Cmd/Ctrl+Backspace deleted the selected node. The whole handler now defers to `utils/inputOwnership.js`, the one rule the rest of the app already uses; Cmd/Ctrl+Enter had no such check at all.
 
 - Cmd/Ctrl+Arrow navigation runs once instead of twice. The graph view carried its own copy of the shortcut that emitted to the same handlers the app-wide binding already calls.
+
 - A table selection no longer outlives the click that leaves it ([guide](docs/guides/detail-panel.md)). The table's key handler runs before the rest of the app and keeps answering while focus sits on the page body, so a selection left behind after clicking away meant Cmd/Ctrl+Backspace blanked those cells and never reached the node it was aimed at, and typing overwrote the whole range. Clicking outside the grid now ends the selection, as clicking inside it but off a cell already did.
+
 - Pressing Reveal in the persons view no longer throws. The template called `notesForDisplay` without importing it, so the call resolved to undefined and the click failed with "notesForDisplay is not a function"; the notes stayed hidden because that is where rendering stopped. Introduced with the sensitive-notes read path in #130. The `vue/no-undef-properties` lint rule is now an error, so a template using an identifier the script never imported fails the build instead of the click.
+
 - Reloading the database from the maintenance dialog no longer breaks an encrypted database ([architecture](docs/architecture/encryption.md#where-encryption-happens)). `reload()` read the file without the deserialize step every other path uses, so with encryption on sql.js was handed ciphertext and threw - after the broken handle had already replaced the working one, which the next save would have written back over the real file. It now deserializes, and adopts the new handle only once it reads, so a file it cannot open leaves the open database untouched.
-
-### Changed
-
-- The timeline can be scrolled at least a year back and a year ahead of today, and a month beyond the earliest and latest dates in view ([guide](docs/guides/views.md#timeline-view)). It used to start exactly at the earliest date in view, so the first bar sat at the left edge with nothing to scroll back to, and no bar's start could be dragged earlier than that date.
-- Timeline labels stay in view for every kind of bar ([guide](docs/guides/views.md#timeline-view)). When a task, event or group starts left of the visible area, its label moves to the visible edge and follows the scroll, as project box labels already did; before, a long bar scrolled into the past showed no name at all.
-
-## [1.19.0] - 2026-09-22
-
-### Security
-
-- The content of a note marked sensitive no longer reaches any list view ([architecture](docs/architecture/sensitive-notes.md#read-path)). Every node read sent the full note to the renderer - decrypted, once the session was unlocked - and each view decided for itself whether to hide it. Seven places made that decision with differing rules, and three made none: a person card printed the first 60 characters, the persons view printed the note once Reveal was pressed, and search results printed an 80-character snippet. Node reads now return `notes: null` with `notes_withheld` for a sensitive note, in every session state. The text is returned by one call, `db:getNodeNotes`, which the detail panel makes when Show is pressed. A database test covers every read method, and a source scan fails when a view reads note text other than through `notesForDisplay`.
-
-### Changed
-
-- Marking a note sensitive no longer asks for the recovery password ([architecture](docs/architecture/sensitive-notes.md#keys)). Sensitive notes are now sealed under an X25519 public key that the app holds in the open, so setting the flag works in any session state, from the detail panel, the graph edit modal and anywhere else. Reading a note back needs the private key, which is stored only wrapped: under the recovery password, and, while "Require Touch ID at startup" is on, in the machine keychain. With that slot present the app asks for Touch ID at the moment of reveal, in the detail panel and in Settings; the recovery password remains the fallback. Notes encrypted by earlier versions are re-sealed under the key pair once, on the first password unlock after the update, in one batch that is rolled back if any note cannot be decrypted. Until that unlock, setting the flag still asks for the password.
-
-- The AI action that was called Research is now called **Wikipedia**, because Wikipedia is its only source ([guide](docs/guides/ai-notes.md#wikipedia-lookup)). Four things made its results thin, and all four are changed. The article tool fetched Wikipedia's page summary, a single paragraph; it now fetches the full article text, cut to fit the configured context size, and a search returns five hits instead of three. The model was told to write "a clear, informative summary" of the topic; it is now told to answer the question, prefer dates, figures and names, name the article behind each paragraph, list its sources with links, and say so when the articles do not answer the question. The model knew nothing about the note it was asked from; it now receives the note's title, type and parent title, and never the note text. Models without tool calling got one paragraph of the top hit; they now get the top two articles in full under the same instructions.
-- The Wikipedia action's prompt can be edited in Settings > AI > AI Prompts, and Reset restores the default. The preset was already listed there with an editable text, but that text was never sent to the model. The instructions that make the tools work are added by the app and are not part of the editable text. An edited Research prompt saved earlier is dropped, since it never had an effect; a deletion or a custom position of the preset is kept.
-- Accepting a Wikipedia result appends it to the note under a `## Wikipedia: <question>` heading. It used to replace the whole note with the result.
-
-- With sensitive notes unlocked, a sensitive note is no longer shown in cards, the table or graph node details; it is read in the detail panel after pressing Show. The graph edit modal and the persons view editor show no notes field for such a node.
-- The hover tooltip appears for nodes with sensitive notes as well, with a placeholder in place of the note. It was suppressed for them in the graph view always and elsewhere only while Hide Sensitive was on.
-- Hide Sensitive applies one rule in every view: a note that is not flagged but mentions `password`, `secret`, `api_key` or `credential` is masked. Graph node details previously hid every note while the setting was on, and cards and search results ignored it.
-- A write that carries `notes` for a sensitive node is ignored unless it comes from the editor that loaded the text, so an edit made from a view that never held the note cannot erase it.
-
-### Removed
-
-- The browser-only copy of the lookup's agent loop (`agentService.js`, `wikipediaService.js`) and the `generateWithTools` helpers only it called. It duplicated the main-process implementation, had no tests, and was reachable only without the Electron bridge, where no backend exists to load nodes from. The browser API now answers that the lookup is available in the desktop app only.
-
-### Fixed
 
 - Marking an open note sensitive hides its text in the detail panel at once. Since the read-path change it stayed readable until another node was opened.
 
 - "Wrap with parent" works again. It asked for the new parent's title with `window.prompt`, which Electron does not implement, so the action did nothing and gave no sign of it ([guide](docs/guides/detail-panel.md#wrap-with-parent)). It now asks in an in-app dialog, shared across the app so no component needs one of its own.
+
+### Removed
+
+- The graph's edit modal. It was rendered and wired, but nothing could open it: the function that made it visible had no caller, so it has never been reachable in the app. Editing a node from the graph goes through the detail panel, which a click, the context menu's View Details, and Open in Window all reach. Keeping a second editing surface meant every change to editing had to be made twice, and the sensitive-note work had already paid that cost once.
+
+- `src/components/detail/index.js`, a barrel file nothing imported.
+
+- Code that could not be reached: the `cytoscape-d3-force` layout engine, registered but named by no layout; the timeline's `_getColorMap` option, accepted and passed and never read; an `onTagsUpdate` handler in each of the person and organization forms that neither template referenced; the graph's centre-on-node chain, driven by a window event nothing dispatches, along with the two helpers only it used; and the tooltip's open-detail button listener and styles, orphaned when the tooltip stopped rendering that button.
+
+- The browser-only copy of the lookup's agent loop (`agentService.js`, `wikipediaService.js`) and the `generateWithTools` helpers only it called. It duplicated the main-process implementation, had no tests, and was reachable only without the Electron bridge, where no backend exists to load nodes from. The browser API now answers that the lookup is available in the desktop app only.
 
 ## [1.18.0] - 2026-08-28
 
