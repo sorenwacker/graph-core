@@ -107,7 +107,11 @@ async function handleAIImproveNotes(payload) {
   }
 
   try {
-    await api.updateNode(nodeId, { notes: finalNewNotes })
+    // The text came out of the editor, which only holds it once the note has
+    // been revealed, so this write may carry it: without the mark the main
+    // process drops `notes` for a sensitive node and the improvement is lost
+    // with no error (docs/architecture/sensitive-notes.md, "Writes").
+    await api.updateNode(nodeId, { notes: finalNewNotes, notes_revealed: true })
     // Update local state
     if (currentNode.value && currentNode.value.id === nodeId) {
       currentNode.value = { ...currentNode.value, notes: finalNewNotes }
