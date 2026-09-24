@@ -4,6 +4,10 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Removed
+
+- `src/components/detail/index.js`, a barrel file nothing imported.
+
 ### Security
 
 - The OpenAI API key is no longer written to localStorage ([settings](docs/reference/settings.md#where-settings-are-kept)). Every setting was mirrored there as a pre-database fallback, so in the desktop app a live credential sat in plain files in the user-data directory, outside the database that encryption protects. Secrets now go to the database only, and a copy left by an earlier version is deleted the first time the setting loads.

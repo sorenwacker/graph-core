@@ -42,6 +42,7 @@ describe('CI workflow', () => {
     ['formatting', 'format:check'],
     ['linting', 'lint'],
     ['type checking', 'type-check'],
+    ['dead code', 'dead-code'],
     ['unit tests', 'test:run'],
     ['the renderer build', 'build'],
   ])('gates %s', (_label, script) => {

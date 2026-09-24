@@ -236,6 +236,12 @@ The target builds the renderer, bundles the preload, and runs Playwright against
 
 When you add a feature that changes startup, navigation, or data persistence, extend the smoke pack in the same change. A flow that only unit tests cover is a flow the packaged app can break silently - that is how the v1.11.1 artifacts shipped broken.
 
+### Dead code
+
+`npm run dead-code` runs [knip](https://knip.dev) and fails when a source file is not reachable from any entry point: the renderer, the Electron main process, the preload script, the build scripts, or the test and e2e suites. It is a CI step, so a module nobody imports cannot sit in the tree unnoticed. `knip.json` lists those entry points; a new one has to be added there.
+
+The gate covers whole files only. knip also reports unused *exports* and *exported types*, and both are noisy here: the Electron code is CommonJS and knip does not see a namespace call such as `wikipedia.search(...)` as a use, so it reports live functions as dead. Turning those categories on would mean either a wall of false positives or an ignore list long enough to hide real findings. Unused exports are still worth removing when you touch a file; they are simply not gated.
+
 ## Documentation
 
 Documentation is built with [Zensical](https://zensical.org/), the successor to Material for MkDocs.
