@@ -12,7 +12,7 @@ import { useGraphEvents } from '../composables/useGraphEvents.js'
 import { useGraphInit } from '../composables/useGraphInit.js'
 import { useGraphUpdate } from '../composables/useGraphUpdate.js'
 import { useGraphWheel } from '../composables/useGraphWheel.js'
-import { updateHtmlLabelSelectionFromIds, centerOnNode, isNodeVisible } from '../composables/useGraphSelection.js'
+import { updateHtmlLabelSelectionFromIds } from '../composables/useGraphSelection.js'
 import { getPositionsKey, loadNodePositions, saveNodePositions } from '../composables/useNodePositions.js'
 import { DEBOUNCE_DELAY_MS, LAYOUT_RELAYOUT_DELAY_MS } from '../utils/settingsConstants'
 import AddNodeModal from './AddNodeModal.vue'
@@ -188,7 +188,6 @@ const {
         .find(n => n.id === id) || (props.parent?.id === id ? props.parent : null)
     if (node) emit('update', { ...node, completed: !node.completed })
   },
-  onOpenDetail: id => emit('open-fullscreen', id),
   getHideSensitive: () => props.hideSensitive,
   shouldShowTooltip: () => {
     return (
@@ -672,26 +671,18 @@ watch(
   }
 )
 
-const _centerOn = id => centerOnNode(cy, id)
-const handleCenterEvent = e => {
-  if (e.detail?.nodeId) _centerOn(e.detail.nodeId)
-}
-const _isVisible = id => isNodeVisible(cy, id)
-
 defineExpose({
   relaxLayout: () => layout.relaxLayout(),
   localRelax: id => layout.localRelax(id),
   fitView: () => layout.fitView(),
   saveNodePositions: _savePos,
   updateGraph,
-  isNodeVisible: _isVisible,
   maxDepth,
   visibleTypes,
 })
 
 onMounted(() => {
   initGraph()
-  window.addEventListener('graph-center-node', handleCenterEvent)
   window.addEventListener('keydown', handleGlobalKeydown)
   document.addEventListener('keydown', handleModifierKeydown)
   document.addEventListener('keyup', handleModifierKeyup)
@@ -711,7 +702,6 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  window.removeEventListener('graph-center-node', handleCenterEvent)
   window.removeEventListener('keydown', handleGlobalKeydown)
   document.removeEventListener('keydown', handleModifierKeydown)
   document.removeEventListener('keyup', handleModifierKeyup)

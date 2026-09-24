@@ -35,11 +35,10 @@ const MIN_ZOOM_FOR_DAYS = 8
  * @param {Object} options
  * @param {Function} options.getNodes - Function returning nodes array
  * @param {Function} options.getHideCompleted - Function returning hideCompleted state
- * @param {Function} options.getColorMap - Function returning color map
  * @param {Ref} options.scrollableRef - Reference to scrollable container
  * @returns {Object} Layout state and functions
  */
-export function useTimelineLayout({ getNodes, getHideCompleted, _getColorMap, scrollableRef }) {
+export function useTimelineLayout({ getNodes, getHideCompleted, scrollableRef }) {
   // Zoom level: pixels per day (higher = more zoomed in)
   const zoomLevel = ref(DEFAULT_ZOOM)
   const scrollLeft = ref(0)

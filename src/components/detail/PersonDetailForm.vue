@@ -145,11 +145,6 @@ function onNotesUpdate(notes) {
   updateField('notes', notes)
 }
 
-function onTagsUpdate(tags) {
-  updateField('tags', tags)
-  saveChanges()
-}
-
 function onColorUpdate(color) {
   updateField('color', color)
   saveChanges()

@@ -2,7 +2,6 @@ import cytoscape from 'cytoscape'
 import coseBilkent from 'cytoscape-cose-bilkent'
 import cola from 'cytoscape-cola'
 import dagre from 'cytoscape-dagre'
-import d3Force from 'cytoscape-d3-force'
 import nodeHtmlLabel from 'cytoscape-node-html-label'
 import { renderMarkdownHtml } from '../utils/markdown.js'
 import { escapeHtml } from '../utils/html.js'
@@ -24,7 +23,6 @@ if (!window.__cytoscapeExtensionsRegistered) {
   cytoscape.use(coseBilkent)
   cytoscape.use(cola)
   cytoscape.use(dagre)
-  cytoscape.use(d3Force)
   nodeHtmlLabel(cytoscape)
   window.__cytoscapeExtensionsRegistered = true
 }
