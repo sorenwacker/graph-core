@@ -11,6 +11,7 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Changed
 
+- The timeline can be scrolled at least a year back and a year ahead of today, and a month beyond the earliest and latest dates in view ([guide](docs/guides/views.md#timeline-view)). It used to start exactly at the earliest date in view, so the first bar sat at the left edge with nothing to scroll back to, and no bar's start could be dragged earlier than that date.
 - Timeline labels stay in view for every kind of bar ([guide](docs/guides/views.md#timeline-view)). When a task, event or group starts left of the visible area, its label moves to the visible edge and follows the scroll, as project box labels already did; before, a long bar scrolled into the past showed no name at all.
 
 ## [1.19.0] - 2026-09-22

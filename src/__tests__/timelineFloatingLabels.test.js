@@ -80,7 +80,8 @@ describe('in the rendered timeline', () => {
     const groupBefore = w.find('.group-label').attributes('style')
 
     const scrollable = w.find('.timeline-scrollable')
-    scrollable.element.scrollLeft = 5000
+    // Far past every bar's start, whatever the range begins at
+    scrollable.element.scrollLeft = 1_000_000
     await scrollable.trigger('scroll')
 
     const labelsAfter = w.findAll('.bar-label').map(l => l.attributes('style') || '')

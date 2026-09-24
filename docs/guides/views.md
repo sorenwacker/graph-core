@@ -251,6 +251,7 @@ Displays nodes with dates on a horizontal timeline.
 **Date Behavior:**
 
 - Uses due_date, start_date, or end_date fields
+- The scrollable range covers at least one year back and one year ahead of today, and extends a month beyond the earliest and latest dates in view, so there is always room to scroll past and to drag a bar's start earlier than any existing date
 - Nodes without end_date stretch to today
 - Project boxes span the range of child tasks
 - Events display as date-range bars
