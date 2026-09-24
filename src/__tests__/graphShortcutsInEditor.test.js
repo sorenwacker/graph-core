@@ -1,7 +1,29 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import GraphView from '../components/GraphView.vue'
+
+// Cytoscape wants a real 2d canvas and rejects asynchronously without one,
+// which fails the run even though every test passes. The graph itself is not
+// under test here: these shortcuts are registered on window either way.
+vi.mock('cytoscape', () => {
+  // Every call and property returns the same stand-in, except the few the
+  // component uses as values: an empty collection with no elements.
+  const chain = new Proxy(function () {}, {
+    get: (_t, prop) => {
+      if (prop === 'then') return undefined
+      if (prop === 'length') return 0
+      if (prop === Symbol.toPrimitive || prop === 'valueOf') return () => 0
+      if (prop === 'toString') return () => ''
+      if (prop === 'forEach' || prop === 'map' || prop === 'filter') return () => chain
+      return chain
+    },
+    apply: () => chain,
+  })
+  const cytoscape = () => chain
+  cytoscape.use = () => {}
+  return { default: cytoscape }
+})
 
 /**
  * The graph's window-level shortcuts must stand down while the user is typing.
