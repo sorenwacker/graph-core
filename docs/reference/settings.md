@@ -59,6 +59,14 @@ The radial layout uses a physics simulation. Adjust these parameters via the Gra
 
 Settings are saved per-workspace with keys like `graph-radial-repulsion-{workspace}`.
 
+### Where settings are kept
+
+In the desktop app settings live in the database, which is encrypted when [database encryption](../architecture/encryption.md) is on. A copy is also written to browser localStorage so the window can paint before the database has opened.
+
+A setting marked secret is exempt from that copy. The OpenAI API key is the only one today. localStorage is plain files in the user-data directory, outside the encrypted database, so mirroring a live credential there would hand it to anyone who can read the directory while the database protects everything else. A secret is therefore written only to the database, and a copy left in localStorage by an earlier version is deleted the first time the setting loads.
+
+In the browser there is no database and localStorage is the only store, so a secret entered there is kept by the browser as any other web app would.
+
 ### Node Position Storage
 
 Node positions in Graph view are automatically persisted:
