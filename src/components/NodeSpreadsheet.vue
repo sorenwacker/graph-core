@@ -473,6 +473,15 @@ function deleteTable() {
 function handleDocumentMouseDown(event) {
   if (event.button === 2) return
 
+  // A click away from the sheet ends the selection, exactly as a click inside
+  // it that misses a cell already does. The keyboard handler runs on document
+  // in the capture phase and claims keys while focus is on body, so a
+  // selection left behind kept answering for the rest of the app: Cmd+Backspace
+  // blanked these cells and never reached the node it was aimed at.
+  if (gridWrapper.value && !gridWrapper.value.contains(event.target)) {
+    selection.clearSelection()
+  }
+
   if (showContextMenu.value && !event.target.closest('.context-menu')) {
     showContextMenu.value = false
   }
