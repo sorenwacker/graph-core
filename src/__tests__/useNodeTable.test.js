@@ -168,7 +168,7 @@ describe('useNodeTable', () => {
 
       await saveCell(1, 0, 0, 'Hello')
 
-      expect(api.setCells).toHaveBeenCalledWith(1, [{ row_index: 0, col_index: 0, value: 'Hello' }])
+      expect(api.setCells).toHaveBeenCalledWith(1, [{ row_index: 0, col_index: 0, value: 'Hello', formula: null }])
       expect(cells.value[0]).toMatchObject({ row_index: 0, col_index: 0, value: 'Hello' })
     })
 
@@ -179,7 +179,9 @@ describe('useNodeTable', () => {
 
       await saveCell(1, 0, 0, '=SUM(A1:A5)', true)
 
-      expect(api.setCells).toHaveBeenCalledWith(1, [{ row_index: 0, col_index: 0, formula: '=SUM(A1:A5)' }])
+      expect(api.setCells).toHaveBeenCalledWith(1, [
+        { row_index: 0, col_index: 0, value: null, formula: '=SUM(A1:A5)' },
+      ])
       expect(cells.value[0]).toMatchObject({ row_index: 0, col_index: 0, formula: '=SUM(A1:A5)' })
     })
 
