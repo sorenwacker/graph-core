@@ -71,6 +71,12 @@ function runColumnMigrations(ctx) {
  * @param {Object} ctx - Database context
  */
 function seedDefaultWorkspaces(ctx) {
+  // First run only. This runs on every startup, and INSERT OR IGNORE would
+  // otherwise bring back a workspace the user deleted. The selector refuses to
+  // delete the last one, so a non-empty table means the user has been here.
+  const existing = ctx.db.exec('SELECT COUNT(*) FROM workspaces')
+  if (existing?.[0]?.values?.[0]?.[0] > 0) return
+
   const defaults = [
     { id: 'work', name: 'Work', color: '#3498db', icon: 'briefcase', sort_order: 1 },
     { id: 'private', name: 'Private', color: '#27ae60', icon: 'home', sort_order: 2 },

@@ -17,6 +17,8 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Fixed
 
+- A workspace you delete stays deleted. The two default workspaces were seeded on every startup, not only on a fresh database, so deleting one brought it back at the next launch.
+
 - Moving a node into one of its own descendants is refused instead of crashing. `moveNode` already checked, but `updateNode` reparents through the same field and did not, so the tree gained a cycle and the path rewrite ran until the stack overflowed. Both now share one check.
 - Cell styling is stored as JSON rather than as JSON wrapped in a string. The editor encoded the style and the database layer encoded whatever it was handed.
 - Sorting tasks by priority puts the most important first on the first click, not last.
