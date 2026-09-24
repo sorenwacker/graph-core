@@ -67,6 +67,29 @@ function createNodeOperations(ctx) {
   }
 
   /**
+   * Refuse a reparent that would make a node its own ancestor. Both entry
+   * points need it: the tree would gain a cycle and the path rewrite would walk
+   * it until the stack overflows.
+   * @param {number} id - The node being reparented
+   * @param {number|null|undefined} newParentId - Its proposed parent
+   * @throws {Error} When the new parent is the node itself or one of its descendants
+   * @private
+   */
+  function assertNotOwnDescendant(id, newParentId) {
+    if (newParentId == null) return
+    if (newParentId === id) throw new Error('Cannot move a node into itself')
+    const target = ops.getNode(newParentId)
+    if (!target) return
+    const ancestorIds = String(target.path || '')
+      .split('/')
+      .filter(Boolean)
+      .map(Number)
+    if (ancestorIds.includes(id)) {
+      throw new Error('Cannot move a node into its own descendant')
+    }
+  }
+
+  /**
    * Recursively updates path and depth for all descendants of a node.
    * Called after moving or reparenting operations to maintain path consistency.
    * @param {number} nodeId - ID of the node whose descendants should be updated
@@ -225,6 +248,7 @@ function createNodeOperations(ctx) {
       const current = getNodeRow(id)
       const reparenting =
         data.parent_id !== undefined && (data.parent_id ?? null) !== (current?.parent_id ?? null) && current !== null
+      if (reparenting) assertNotOwnDescendant(id, data.parent_id ?? null)
 
       for (const field of NODE_FIELDS) {
         if (data[field] !== undefined) {
@@ -311,21 +335,7 @@ function createNodeOperations(ctx) {
       const node = ops.getNode(id)
       if (!node) return null
 
-      // A node may not become its own ancestor. Without this the tree gains a
-      // cycle and updateSubtreePath below walks it until the stack overflows.
-      if (newParentId != null) {
-        if (newParentId === id) throw new Error('Cannot move a node into itself')
-        const target = ops.getNode(newParentId)
-        if (target) {
-          const ancestorIds = String(target.path || '')
-            .split('/')
-            .filter(Boolean)
-            .map(Number)
-          if (ancestorIds.includes(id)) {
-            throw new Error('Cannot move a node into its own descendant')
-          }
-        }
-      }
+      assertNotOwnDescendant(id, newParentId)
 
       return ctx._batch(() => {
         let depth = 0

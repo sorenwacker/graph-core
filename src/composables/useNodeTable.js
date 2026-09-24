@@ -168,7 +168,7 @@ export function useNodeTable() {
     const cellData = {
       row_index: rowIndex,
       col_index: colIndex,
-      style: JSON.stringify(style),
+      style,
     }
 
     // Preserve existing value and formula
@@ -181,7 +181,7 @@ export function useNodeTable() {
 
     try {
       await api.setCells(nodeId, [cellData])
-      cell.style = JSON.stringify(style)
+      cell.style = style
     } catch (err) {
       handleError(err, { context: 'Saving cell style' })
     }

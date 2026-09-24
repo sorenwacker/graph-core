@@ -209,7 +209,7 @@ describe('useNodeTable', () => {
         expect.objectContaining({
           row_index: 0,
           col_index: 0,
-          style: JSON.stringify({ bold: true, color: '#ff0000' }),
+          style: { bold: true, color: '#ff0000' },
         }),
       ])
     })

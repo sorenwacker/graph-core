@@ -172,8 +172,7 @@ const {
 })
 
 async function deleteCurrentWorkspace() {
-  const ws = workspaces.value.find(w => w.id === currentWorkspace.value)
-  if (ws && confirm(`Delete workspace "${ws.name}"?`)) await _deleteCurrentWorkspace()
+  await _deleteCurrentWorkspace()
 }
 
 // Data loading
