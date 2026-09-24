@@ -347,3 +347,38 @@ describe('cards stay wide enough to read', () => {
     expect(columnsFor(2, 2400, 900)).toBeLessThanOrEqual(2)
   })
 })
+
+/**
+ * Rows used to divide the window height between them, with a floor as low as
+ * 80px. Fourteen cards over four rows left each one too short for its own
+ * contents, so the child list was sliced through the middle. A card keeps a
+ * height it can show something in, and the view scrolls when they do not all
+ * fit - a card cut in half is worse than one below the fold.
+ */
+describe('cards keep a usable height', () => {
+  function rowsFor(count, width, height) {
+    const { cardsGridStyle } = useCardGrid({
+      items: ref(Array.from({ length: count }, (_, i) => ({ id: i + 1 }))),
+      containerWidth: ref(width),
+      containerHeight: ref(height),
+    })
+    return cardsGridStyle.value.gridAutoRows
+  }
+
+  it('does not shrink rows below a readable height when there are many cards', () => {
+    const rows = rowsFor(14, 2000, 950)
+    const min = Number((rows.match(/minmax\((\d+)px/) || [])[1])
+    expect(min, `rows could collapse to ${rows}`).toBeGreaterThanOrEqual(260)
+  })
+
+  it('keeps the same floor as the count grows', () => {
+    for (const count of [10, 17, 40]) {
+      const min = Number((rowsFor(count, 2000, 950).match(/minmax\((\d+)px/) || [])[1])
+      expect(min, `${count} cards`).toBeGreaterThanOrEqual(260)
+    }
+  })
+
+  it('still lets a small number of cards stretch to fill the window', () => {
+    expect(rowsFor(2, 2000, 950)).toMatch(/1fr\)$/)
+  })
+})

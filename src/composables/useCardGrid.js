@@ -79,9 +79,13 @@ export function useCardGrid({ items, containerWidth, containerHeight }) {
     const cols = gridColumns.value
     const gap = 10
 
-    // Calculate minimum card height based on count
-    // More cards = smaller minimum height
-    const minHeight = count <= 2 ? '200px' : count <= 4 ? '150px' : count <= 9 ? '120px' : '80px'
+    // The floor a card needs to show its header, note and a row or two of
+    // children. Rows used to divide the window between them and shrink to fit,
+    // which sliced the child list of every card in the first row. With a floor
+    // they keep their height and the view scrolls instead: a card below the
+    // fold is easier to deal with than one cut in half. `1fr` still lets a
+    // handful of cards stretch to fill the window.
+    const minHeight = count <= 2 ? '320px' : '280px'
 
     return {
       display: 'grid',
