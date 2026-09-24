@@ -230,6 +230,11 @@ watch(showDetail, isOpen => {
 watch(sidebarVisible, isOpen => {
   if (isOpen) forceHideTooltip()
 })
+// Leaving a view unmounts the row the tooltip describes without that row ever
+// sending mouseleave, so the tooltip would otherwise hang over the next view.
+// Navigating into a container replaces the rows for the same reason.
+watch(viewMode, () => forceHideTooltip())
+watch(currentContainerId, () => forceHideTooltip())
 
 // Detached window
 const {

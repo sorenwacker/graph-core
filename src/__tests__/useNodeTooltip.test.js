@@ -158,3 +158,55 @@ describe('useNodeTooltip Lock-in Feature', () => {
     })
   })
 })
+
+/**
+ * A tooltip is anchored to a element kept in document.body, not to the row that
+ * triggered it, so nothing about that row reaching the end of its life reaches
+ * the tooltip. Switch view while one is up and the row unmounts without ever
+ * sending mouseleave, and the tooltip sits over the next view until something
+ * else happens to dismiss it. These are the ways out that do not depend on the
+ * trigger still being there.
+ */
+describe('a tooltip whose trigger is gone', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.clearAllMocks()
+  })
+
+  async function shown() {
+    const { useNodeTooltip } = await import('../composables/useNodeTooltip.js')
+    const t = useNodeTooltip({ shouldShowTooltip: () => true })
+    t.showTooltip({ clientX: 10, clientY: 10 }, { id: 1, title: 'Row', type: 'group' })
+    vi.advanceTimersByTime(600)
+    return t
+  }
+
+  it('goes away when the window loses focus', async () => {
+    const t = await shown()
+    t.lockTooltip()
+    expect(t.isLocked()).toBe(true)
+
+    window.dispatchEvent(new Event('blur'))
+
+    expect(t.isLocked(), 'a blur left the tooltip up').toBe(false)
+  })
+
+  it('goes away when the pointer leaves the window', async () => {
+    const t = await shown()
+    t.lockTooltip()
+
+    document.dispatchEvent(new Event('mouseleave'))
+
+    expect(t.isLocked(), 'the pointer left the window and the tooltip stayed').toBe(false)
+  })
+
+  it('stops listening once the owner unmounts', async () => {
+    const remove = vi.spyOn(window, 'removeEventListener')
+    const { useNodeTooltip } = await import('../composables/useNodeTooltip.js')
+    useNodeTooltip({ shouldShowTooltip: () => true }).cleanup()
+
+    expect(remove).toHaveBeenCalledWith('blur', expect.any(Function))
+    remove.mockRestore()
+  })
+})
