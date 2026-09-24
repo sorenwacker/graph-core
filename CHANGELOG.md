@@ -6,6 +6,8 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Security
 
+- The OpenAI API key is no longer written to localStorage ([settings](docs/reference/settings.md#where-settings-are-kept)). Every setting was mirrored there as a pre-database fallback, so in the desktop app a live credential sat in plain files in the user-data directory, outside the database that encryption protects. Secrets now go to the database only, and a copy left by an earlier version is deleted the first time the setting loads.
+
 - A mermaid diagram that fails to render no longer injects its own source into the page as markup. The failure path put the block's text on screen with `innerHTML`, after sanitization had already run and after the text had been decoded out of the sanitized HTML, so a note containing a crafted mermaid block could execute script with the desktop app's preload API in reach. The source is now written as text. `securityLevel: 'strict'`, which sanitizes the SVG mermaid generates, is pinned in source rather than inherited from the library default, because minor dependency updates merge automatically.
 
 ### Fixed

@@ -8,6 +8,8 @@ type PersistedType = 'string' | 'boolean' | 'number' | 'nullable' | 'json'
 /** Options for persistedRef function */
 interface PersistedRefOptions {
   type?: PersistedType
+  /** Keep this value out of localStorage; the database alone holds it. */
+  secret?: boolean
 }
 
 /** Settings stored in database cache */
@@ -69,7 +71,11 @@ async function loadSettingsFromDatabase(): Promise<Record<string, string>> {
 /**
  * Create a ref that automatically persists to database (or localStorage fallback).
  */
-function persistedRef<T>(key: string, defaultValue: T, { type = 'string' }: PersistedRefOptions = {}): Ref<T> {
+function persistedRef<T>(
+  key: string,
+  defaultValue: T,
+  { type = 'string', secret = false }: PersistedRefOptions = {}
+): Ref<T> {
   // Parse stored value based on type
   function parse(stored: string | null | undefined): T {
     if (stored === null || stored === undefined) return defaultValue
@@ -113,6 +119,14 @@ function persistedRef<T>(key: string, defaultValue: T, { type = 'string' }: Pers
     initialValue = parse(localStorage.getItem(key))
   }
 
+  // A secret belongs only in the database, which encryption covers. Earlier
+  // versions mirrored every setting to localStorage, so clear what they left:
+  // leaving it is the same exposure the copy would have been
+  // (docs/reference/settings.md, "Where settings are kept").
+  if (secret && hasElectronAPI() && typeof localStorage !== 'undefined') {
+    localStorage.removeItem(key)
+  }
+
   const value = ref<T>(initialValue) as Ref<T>
 
   // Watch for changes and persist
@@ -136,8 +150,9 @@ function persistedRef<T>(key: string, defaultValue: T, { type = 'string' }: Pers
         }
       }
 
-      // Also save to localStorage as fallback/backup
-      if (typeof localStorage !== 'undefined') {
+      // Also save to localStorage so the window can paint before the database
+      // opens - except for a secret, which the database alone keeps.
+      if (typeof localStorage !== 'undefined' && !(secret && hasElectronAPI())) {
         if (serialized === null) {
           localStorage.removeItem(key)
         } else {
@@ -308,7 +323,7 @@ function createSettingsRefs(): UseSettingsReturn & { settingsReady: ShallowRef<b
 
     // OpenAI-compatible settings
     openaiEndpoint: persistedRef<string>('graphcore-openaiEndpoint', 'https://api.openai.com/v1'),
-    openaiApiKey: persistedRef<string>('graphcore-openaiApiKey', ''),
+    openaiApiKey: persistedRef<string>('graphcore-openaiApiKey', '', { secret: true }),
     openaiModel: persistedRef<string>('graphcore-openaiModel', 'gpt-4o-mini'),
     openaiSkipSslVerification: persistedRef<boolean>('graphcore-openaiSkipSslVerification', false, { type: 'boolean' }),
 
