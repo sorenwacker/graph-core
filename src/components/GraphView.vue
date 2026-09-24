@@ -20,6 +20,7 @@ import GraphControls from './GraphControls.vue'
 import GraphEditModal from './GraphEditModal.vue'
 import PromptModal from './PromptModal.vue'
 import KeyboardShortcutsModal from './KeyboardShortcutsModal.vue'
+import { ownsTextInput, ownsAllKeys } from '../utils/inputOwnership.js'
 
 const props = defineProps({
   nodes: { type: Array, default: () => [] },
@@ -61,10 +62,6 @@ const emit = defineEmits([
   'toggle-complete',
   'toggle-favorite',
   'open-link-search',
-  'go-parent',
-  'go-first-child',
-  'go-prev-sibling',
-  'go-next-sibling',
 ])
 
 const container = ref(null),
@@ -85,13 +82,6 @@ let graphControlTippyInstances = [],
 const linkModeActive = ref(false),
   deleteModeActive = ref(false),
   boxSelectModeActive = ref(false)
-const isInsideEditor = t =>
-  !t
-    ? false
-    : ['input', 'textarea'].includes(t.tagName?.toLowerCase()) ||
-      t.contentEditable === 'true' ||
-      t.closest('.cm-editor')
-
 // Derive all three modes from the current modifier state of an event. Using one
 // helper for keydown/keyup/mousemove keeps them consistent and prevents a stale
 // mode (e.g. link mode lingering while Cmd is held).
@@ -104,14 +94,14 @@ function applyModifierState(e) {
 
 // Named handlers so they can be removed on unmount (anonymous listeners leaked).
 function handleModifierKeydown(e) {
-  if (isInsideEditor(e.target)) return
+  if (ownsTextInput(e.target)) return
   applyModifierState(e)
 }
 function handleModifierKeyup(e) {
   applyModifierState(e)
 }
 function handleModifierMousemove(e) {
-  if (isInsideEditor(e.target)) return
+  if (ownsTextInput(e.target)) return
   applyModifierState(e)
 }
 
@@ -542,17 +532,14 @@ watch(
 
 function handleGlobalKeydown(e) {
   const inModal = isAnyModalVisible()
+  // Typing owns the keyboard: none of these fire from inside the notes editor,
+  // a field, or any surface that binds keys itself (utils/inputOwnership.js).
+  if (ownsTextInput(e.target) || ownsAllKeys(e.target)) return
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !inModal) {
     e.preventDefault()
     showAddNodeModal()
   }
-  if (
-    (e.metaKey || e.ctrlKey) &&
-    ['Delete', 'Backspace'].includes(e.key) &&
-    !inModal &&
-    !['INPUT', 'TEXTAREA'].includes(e.target.tagName) &&
-    cy
-  ) {
+  if ((e.metaKey || e.ctrlKey) && ['Delete', 'Backspace'].includes(e.key) && !inModal && cy) {
     const sel = cy.$('node:selected')
     if (sel.length > 0) {
       e.preventDefault()
@@ -565,32 +552,9 @@ function handleGlobalKeydown(e) {
     }
   }
   // Space or Escape key dismisses locked tooltip
-  if (
-    (e.key === ' ' || e.key === 'Escape') &&
-    !inModal &&
-    !['INPUT', 'TEXTAREA'].includes(e.target.tagName) &&
-    isTooltipLocked()
-  ) {
+  if ((e.key === ' ' || e.key === 'Escape') && !inModal && isTooltipLocked()) {
     e.preventDefault()
     forceHideTooltip()
-  }
-  if ((e.metaKey || e.ctrlKey) && !inModal && !['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
-    if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      emit('go-parent')
-    }
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      emit('go-first-child')
-    }
-    if (e.key === 'ArrowLeft') {
-      e.preventDefault()
-      emit('go-prev-sibling')
-    }
-    if (e.key === 'ArrowRight') {
-      e.preventDefault()
-      emit('go-next-sibling')
-    }
   }
 }
 

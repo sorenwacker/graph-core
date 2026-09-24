@@ -96,9 +96,6 @@ const emit = defineEmits([
   'insert-between',
   'wrap-with-parent',
   'delete-multiple',
-  'go-first-child',
-  'go-prev-sibling',
-  'go-next-sibling',
   // TasksView events
   'navigate',
   // TrashView events
@@ -241,10 +238,6 @@ defineExpose({
     @wrap-with-parent="emit('wrap-with-parent', $event)"
     @open-fullscreen="emit('open-fullscreen', $event)"
     @context-menu="emit('context-menu', $event)"
-    @go-parent="emit('go-parent')"
-    @go-first-child="emit('go-first-child')"
-    @go-prev-sibling="emit('go-prev-sibling')"
-    @go-next-sibling="emit('go-next-sibling')"
   />
 
   <!-- Timeline View -->

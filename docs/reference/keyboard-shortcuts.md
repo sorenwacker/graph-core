@@ -33,6 +33,8 @@ Complete keyboard shortcut reference for Graph Core.
 
 The modifier is required rather than using bare digits, because a bare digit would be captured while the user is typing into a surface the application does not treat as a text input. Like every other application shortcut, these do not fire while focus is inside the node spreadsheet.
 
+No application shortcut fires while focus is inside a text field, the notes editor, or any surface that binds keys itself; `utils/inputOwnership.js` holds that decision for every view, including the graph. The graph view used to test only for `input` and `textarea` elements, so Cmd/Ctrl shortcuts still reached it from the notes editor, which is neither.
+
 ## Node Operations
 
 | Shortcut | Action |

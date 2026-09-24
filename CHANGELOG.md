@@ -10,6 +10,10 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Fixed
 
+- Graph shortcuts no longer fire while you are typing a note ([reference](docs/reference/keyboard-shortcuts.md)). The graph view tested only for `input` and `textarea` elements, and the notes editor is neither, so with the detail panel open beside the graph Cmd/Ctrl+Enter opened the add-node modal mid-sentence and Cmd/Ctrl+Backspace deleted the selected node. The whole handler now defers to `utils/inputOwnership.js`, the one rule the rest of the app already uses; Cmd/Ctrl+Enter had no such check at all.
+
+- Cmd/Ctrl+Arrow navigation runs once instead of twice. The graph view carried its own copy of the shortcut that emitted to the same handlers the app-wide binding already calls.
+
 - Reloading the database from the maintenance dialog no longer breaks an encrypted database ([architecture](docs/architecture/encryption.md#where-encryption-happens)). `reload()` read the file without the deserialize step every other path uses, so with encryption on sql.js was handed ciphertext and threw - after the broken handle had already replaced the working one, which the next save would have written back over the real file. It now deserializes, and adopts the new handle only once it reads, so a file it cannot open leaves the open database untouched.
 
 ### Changed
