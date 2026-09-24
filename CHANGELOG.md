@@ -6,7 +6,8 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Changed
 
-- Cards keep a height they can show their contents in. Rows divided the window between them, with a floor as low as 80px, so a screen of cards left each one too short and the child list of every card in the top row was sliced through the middle. The view scrolls now instead of shrinking them; a handful of cards still stretch to fill the window.
+- A card grows to fit what it holds, between a floor and a cap, instead of every card taking the same height. One height was wrong both ways at once: it left most of a card holding a single child empty, and still cut the list off a card holding ten. The view scrolls when they do not all fit.
+- Card borders have more contrast. The shared hairline is nearly invisible against the near-black page, so cards now use a stronger border token, defined in both themes.
 - Cards keep a readable width ([guide](docs/guides/views.md#cards-view)). The grid chose its column count purely to make cards square, so a wide window was sliced into many narrow columns: children's names truncated to "HPC Admin C..." and notes broke mid-word. Width comes first now, and squareness decides between the counts that clear it. A window too narrow for one full-width card still gets a single column.
 - A note longer than its card fades on its last line instead of stopping flat, so a note that continues is not mistaken for a broken one.
 
