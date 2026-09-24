@@ -127,15 +127,15 @@ export function useNodeTable() {
    * @param {boolean} isFormula - Whether value is a formula
    */
   async function saveCell(nodeId, rowIndex, colIndex, value, isFormula = false) {
+    // Name both fields, always. setCells merges a payload with the stored row,
+    // so a field left unnamed keeps its old content: a cell that stopped being
+    // a formula kept the formula in the database and came back on the next
+    // load, however the in-memory copy looked.
     const cellData = {
       row_index: rowIndex,
       col_index: colIndex,
-    }
-
-    if (isFormula) {
-      cellData.formula = value
-    } else {
-      cellData.value = value
+      value: isFormula ? null : value,
+      formula: isFormula ? value : null,
     }
 
     try {

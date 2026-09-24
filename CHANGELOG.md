@@ -12,6 +12,8 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Fixed
 
+- A spreadsheet cell that stops being a formula, or becomes one, no longer keeps its old content in the database. The write named only the field it was setting, and the main process merges a cell write with the stored row on purpose, so the field left unnamed survived: the sheet looked right until it was reloaded, and then the old formula or the old literal came back. Both fields are now named on every cell write.
+
 - Graph shortcuts no longer fire while you are typing a note ([reference](docs/reference/keyboard-shortcuts.md)). The graph view tested only for `input` and `textarea` elements, and the notes editor is neither, so with the detail panel open beside the graph Cmd/Ctrl+Enter opened the add-node modal mid-sentence and Cmd/Ctrl+Backspace deleted the selected node. The whole handler now defers to `utils/inputOwnership.js`, the one rule the rest of the app already uses; Cmd/Ctrl+Enter had no such check at all.
 
 - Cmd/Ctrl+Arrow navigation runs once instead of twice. The graph view carried its own copy of the shortcut that emitted to the same handlers the app-wide binding already calls.

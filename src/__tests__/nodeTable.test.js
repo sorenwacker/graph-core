@@ -327,7 +327,9 @@ describe('Node Table Feature', () => {
       const { saveCell } = useNodeTable()
       await saveCell(123, 0, 0, 'New Value')
 
-      expect(api.setCells).toHaveBeenCalledWith(123, [{ row_index: 0, col_index: 0, value: 'New Value' }])
+      expect(api.setCells).toHaveBeenCalledWith(123, [
+        { row_index: 0, col_index: 0, value: 'New Value', formula: null },
+      ])
     })
 
     it('saveCell should handle formula cells', async () => {
@@ -336,7 +338,9 @@ describe('Node Table Feature', () => {
       const { saveCell } = useNodeTable()
       await saveCell(123, 2, 0, '=SUM(A1:A2)', true)
 
-      expect(api.setCells).toHaveBeenCalledWith(123, [{ row_index: 2, col_index: 0, formula: '=SUM(A1:A2)' }])
+      expect(api.setCells).toHaveBeenCalledWith(123, [
+        { row_index: 2, col_index: 0, value: null, formula: '=SUM(A1:A2)' },
+      ])
     })
 
     it('deleteTable should remove table', async () => {
