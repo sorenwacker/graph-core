@@ -207,7 +207,20 @@ export function useNodeTooltip(options = {}) {
     return locked
   }
 
+  // The tooltip hangs off an anchor kept in document.body, not off the row that
+  // triggered it, so a row that unmounts - a view switch, a refresh, a node
+  // moving - never sends the mouseleave that would dismiss it, and the tooltip
+  // outlives what it describes. These are the ways out that do not depend on
+  // the trigger still existing.
+  function dismissOrphan() {
+    forceHide()
+  }
+  window.addEventListener('blur', dismissOrphan)
+  document.addEventListener('mouseleave', dismissOrphan)
+
   function cleanup() {
+    window.removeEventListener('blur', dismissOrphan)
+    document.removeEventListener('mouseleave', dismissOrphan)
     locked = false
     activeNodeId = null
     if (tooltipShowTimeout) {

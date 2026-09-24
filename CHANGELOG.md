@@ -28,6 +28,8 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Fixed
 
+- A hover preview no longer hangs on screen after the thing it describes is gone. The tooltip is positioned from an anchor in the page body rather than from the row itself, so a row that disappears - switching view, opening a container, a list reloading - never sends the mouse-leave that dismisses it, and the preview stayed over whatever came next. It is now dismissed on a view change, on opening a container, when the window loses focus, and when the pointer leaves the window.
+
 - A timeline bar for a node with only a due date no longer offers an end handle. Such a bar runs from the due date to today, so its right edge is today rather than a date on the node: dragging it had nothing to write and the change was discarded, leaving the bar to spring back with no explanation.
 
 - A workspace you delete stays deleted. The two default workspaces were seeded on every startup, not only on a fresh database, so deleting one brought it back at the next launch.
