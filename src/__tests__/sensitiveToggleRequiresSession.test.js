@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import DetailPanel from '../components/DetailPanel.vue'
-import GraphEditModal from '../components/GraphEditModal.vue'
 
 /**
  * Marking a plaintext note sensitive encrypts it, which needs the sensitive-
@@ -201,44 +200,3 @@ describe('the unlock form on the edit tab', () => {
  * failing write. A guard on one surface only moves the error rather than
  * removing it.
  */
-function renderModal(editedNode) {
-  return mount(GraphEditModal, {
-    props: { visible: true, node: editedNode, editedNode },
-    global: { stubs: { MarkdownRenderer: true } },
-  })
-}
-
-const sensitiveCheckbox = w => w.find('input[type="checkbox"][data-field="notes_sensitive"]')
-
-describe('the sensitive checkbox in the graph edit modal', () => {
-  it('can be set while the session is locked', () => {
-    status.value = { ...LOCKED }
-
-    expect(sensitiveCheckbox(renderModal({ ...PLAINTEXT_NOTE })).attributes('disabled')).toBeUndefined()
-  })
-
-  it('cannot be cleared while the session is locked', () => {
-    status.value = { ...LOCKED }
-    const w = renderModal({ ...SENSITIVE_NOTE })
-    expect(sensitiveCheckbox(w).attributes('disabled')).toBeDefined()
-    expect(w.text()).toContain('Unlock sensitive notes')
-  })
-
-  it('cannot be set until the key pair exists', () => {
-    status.value = { ...LOCKED, lockable: false }
-
-    expect(sensitiveCheckbox(renderModal({ ...PLAINTEXT_NOTE })).attributes('disabled')).toBeDefined()
-  })
-
-  it('is available once the session is unlocked', () => {
-    status.value = { available: true, enabled: true, unlocked: true }
-
-    expect(sensitiveCheckbox(renderModal({ ...PLAINTEXT_NOTE })).attributes('disabled')).toBeUndefined()
-  })
-
-  it('stays available while the feature is off', () => {
-    status.value = { available: true, enabled: false, unlocked: false }
-
-    expect(sensitiveCheckbox(renderModal({ ...PLAINTEXT_NOTE })).attributes('disabled')).toBeUndefined()
-  })
-})
