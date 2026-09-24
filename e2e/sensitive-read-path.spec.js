@@ -94,3 +94,41 @@ test('the detail panel shows the text only after Show is pressed', async () => {
   await hidden.getByRole('button', { name: 'Show' }).click()
   await expect(page.getByText(SECRET).first()).toBeVisible({ timeout: 10000 })
 })
+
+/**
+ * The flow a person actually follows: write a note, then mark it sensitive.
+ * The node is already in every view's list carrying its text, so flagging it
+ * has to reach those lists, not only the panel where the lock was pressed.
+ */
+test('flagging an existing note takes it out of the cards view', async () => {
+  const page = ctx.page
+  const PLAIN = 'marmalade-3312'
+
+  await page.evaluate(
+    notes => window.electronAPI.createNode({ type: 'note', title: 'Later secret', notes, workspace_id: 'work' }),
+    PLAIN
+  )
+  await page.reload()
+  await dismissOnboarding(page)
+
+  // Cards: the note is ordinary, so its text is on the card.
+  await page.locator('body').press(`${MOD}+Digit2`)
+  await expect(page.getByText('Later secret').first()).toBeVisible({ timeout: 10000 })
+  await expect(page.locator('body')).toContainText(PLAIN)
+
+  // Mark it sensitive from the detail panel.
+  const cell = await showTable(page)
+  await cell.click()
+  await page.getByRole('cell', { name: 'Later secret' }).click()
+  await expect(page.locator('.node-row.selected')).toBeVisible()
+  await page.keyboard.press('Space')
+  const lock = page.locator('.sensitive-btn')
+  await lock.waitFor({ timeout: 10000 })
+  await lock.click()
+  await page.waitForTimeout(600)
+
+  // Back to cards: the text must be gone.
+  await page.locator('body').press(`${MOD}+Digit2`)
+  await expect(page.getByText('Later secret').first()).toBeVisible({ timeout: 10000 })
+  await expect(page.locator('body'), 'the card still shows the note after it was flagged').not.toContainText(PLAIN)
+})
