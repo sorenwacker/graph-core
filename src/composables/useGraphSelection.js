@@ -41,37 +41,3 @@ export function updateHtmlLabelsFromCySelection(cy) {
     }
   })
 }
-
-/**
- * Center the graph on a specific node.
- * @param {Object} cy - Cytoscape instance
- * @param {number} nodeId - Node ID to center on
- */
-export function centerOnNode(cy, nodeId) {
-  if (!cy) return
-  const node = cy.$(`#${nodeId}`)
-  if (node.length > 0) {
-    cy.animate({
-      center: { eles: node },
-      zoom: 1.5,
-      duration: 400,
-      easing: 'ease-out',
-    })
-    // Flash highlight effect
-    node.addClass('search-highlight')
-    setTimeout(() => {
-      node.removeClass('search-highlight')
-    }, 2000)
-  }
-}
-
-/**
- * Check if a node is currently visible in the graph.
- * @param {Object} cy - Cytoscape instance
- * @param {number} nodeId - Node ID to check
- * @returns {boolean}
- */
-export function isNodeVisible(cy, nodeId) {
-  if (!cy) return false
-  return cy.getElementById(String(nodeId)).length > 0
-}

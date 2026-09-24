@@ -63,7 +63,6 @@ function shownNotes(node) {
 
 // Setup tooltips
 const { showTooltip, hideTooltip } = useNodeTooltip({
-  onOpenDetail: nodeId => emit('open-fullscreen', nodeId),
   // The tooltip reports an id; every toggle-complete consumer takes a node, so
   // resolve it here rather than emitting a shape the handler cannot use.
   onToggleComplete: nodeId => {

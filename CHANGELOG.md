@@ -7,6 +7,7 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 ### Removed
 
 - `src/components/detail/index.js`, a barrel file nothing imported.
+- Code that could not be reached: the `cytoscape-d3-force` layout engine, registered but named by no layout; the timeline's `_getColorMap` option, accepted and passed and never read; an `onTagsUpdate` handler in each of the person and organization forms that neither template referenced; the graph's centre-on-node chain, driven by a window event nothing dispatches, along with the two helpers only it used; and the tooltip's open-detail button listener and styles, orphaned when the tooltip stopped rendering that button.
 
 ### Security
 

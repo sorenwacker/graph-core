@@ -32,7 +32,6 @@ const labelsRef = ref(null)
 const layout = useTimelineLayout({
   getNodes: () => props.nodes,
   getHideCompleted: () => props.hideCompleted,
-  _getColorMap: () => props.colorMap,
   scrollableRef,
 })
 

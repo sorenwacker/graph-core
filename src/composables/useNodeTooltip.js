@@ -5,14 +5,13 @@ import { buildTooltipHTML, tooltipOptions, getFixedTooltipReference, getTooltipP
 /**
  * Composable for handling node tooltips across all views
  * @param {Object} options - Configuration options
- * @param {Function} options.onOpenDetail - Callback when "Open Details" is clicked
  * @param {Function} options.onToggleComplete - Callback when checkbox is toggled
  * @param {Function} options.getHideSensitive - Function that returns current hideSensitive state
  * @param {Function} options.shouldShowTooltip - Function that returns whether tooltip should show for a node
  * @returns {Object} - Tooltip handlers
  */
 export function useNodeTooltip(options = {}) {
-  const { onOpenDetail, onToggleComplete, getHideSensitive = () => false, shouldShowTooltip = () => true } = options
+  const { onToggleComplete, getHideSensitive = () => false, shouldShowTooltip = () => true } = options
 
   let activeTooltip = null
   let activeNodeId = null
@@ -71,17 +70,6 @@ export function useNodeTooltip(options = {}) {
           checkbox.addEventListener('change', evt => {
             const nodeId = parseInt(evt.target.dataset.nodeId)
             onToggleComplete(nodeId)
-            if (!instance.state.isDestroyed) {
-              instance.hide()
-            }
-          })
-        }
-        // Attach open detail button listener
-        const openBtn = instance.popper.querySelector('.tt-open-detail[data-node-id]')
-        if (openBtn && onOpenDetail) {
-          openBtn.addEventListener('click', evt => {
-            const nodeId = parseInt(evt.target.dataset.nodeId)
-            onOpenDetail(nodeId)
             if (!instance.state.isDestroyed) {
               instance.hide()
             }
