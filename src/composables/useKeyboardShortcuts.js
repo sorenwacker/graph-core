@@ -147,16 +147,6 @@ export function useKeyboardShortcuts({ actions, state }) {
       }
     }
 
-    // Cmd/Ctrl+Enter - add child to selected node (cards/table view)
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      if (viewMode.value === 'cards' || viewMode.value === 'tree') {
-        e.preventDefault()
-        const parentId = selectedNode.value?.id || currentContainerId.value
-        showAddNodeModal(parentId)
-        return
-      }
-    }
-
     // Space - toggle detail panel (works in table view even when checkbox is focused)
     // Shift+Space opens in detached window (Electron only)
     if (e.key === ' ' && !isEditableElement(e.target)) {
@@ -183,6 +173,16 @@ export function useKeyboardShortcuts({ actions, state }) {
 
     // Don't trigger other shortcuts if typing in an editable element
     if (isEditableElement(e.target)) return
+
+    // Cmd/Ctrl+Enter - add child to selected node (cards/table view)
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      if (viewMode.value === 'cards' || viewMode.value === 'tree') {
+        e.preventDefault()
+        const parentId = selectedNode.value?.id || currentContainerId.value
+        showAddNodeModal(parentId)
+        return
+      }
+    }
 
     // Cmd/Ctrl + Delete/Backspace - delete selected items
     const isDeleteKey = e.key === 'Delete' || e.key === 'Backspace'

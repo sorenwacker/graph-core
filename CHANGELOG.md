@@ -17,6 +17,12 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Fixed
 
+- Moving a node into one of its own descendants is refused instead of crashing. `moveNode` already checked, but `updateNode` reparents through the same field and did not, so the tree gained a cycle and the path rewrite ran until the stack overflowed. Both now share one check.
+- Cell styling is stored as JSON rather than as JSON wrapped in a string. The editor encoded the style and the database layer encoded whatever it was handed.
+- Sorting tasks by priority puts the most important first on the first click, not last.
+- Cmd/Ctrl+Enter no longer opens the new-node dialog while the caret is in a text field; it sat above the guard the other shortcuts sit below.
+- Deleting a workspace asks once. The selector confirmed and only emitted on acceptance, and the app confirmed again with different wording.
+
 - A CSV round trip keeps a note's sensitive mark ([guide](docs/guides/import-export.md#csv-export)). The column was missing from the export, so re-importing produced a plain note and its text appeared in every view.
 - A paste into a table that the browser refuses reports the failure instead of writing to the console. Copy in the same file already did.
 

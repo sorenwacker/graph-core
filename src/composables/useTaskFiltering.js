@@ -216,7 +216,7 @@ export function useTaskFiltering({ getWorkspaceId, getContainerId }) {
       sortAsc.value = !sortAsc.value
     } else {
       sortBy.value = column
-      sortAsc.value = column === 'importance' ? false : true
+      sortAsc.value = true
     }
   }
 
