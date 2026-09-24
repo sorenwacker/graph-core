@@ -7,6 +7,8 @@ import { CreateCommand } from '../commands/CreateCommand.js'
 import { EditCommand } from '../commands/EditCommand.js'
 import { CompleteCommand } from '../commands/CompleteCommand.js'
 import { DeleteMultipleCommand } from '../commands/DeleteMultipleCommand.js'
+import { LinkCommand } from '../commands/LinkCommand.js'
+import { UnlinkCommand } from '../commands/UnlinkCommand.js'
 
 /**
  * Redoing a creation cannot reuse the original row id, because the node was
@@ -217,5 +219,53 @@ describe('switching workspace', () => {
     // in; an undo after the switch would edit a node the user cannot see.
     expect(canUndo.value).toBe(false)
     expect(canRedo.value).toBe(false)
+  })
+})
+
+/**
+ * Redoing a creation cannot reuse the row id undo hard-deleted, so every
+ * command still queued for redo is told the new id. A command that holds node
+ * ids and does not remap them keeps pointing at a row that no longer exists:
+ * LinkCommand and UnlinkCommand inherited the base no-op, so a link made to a
+ * just-created node was redone against the dead id.
+ */
+describe('commands that name two nodes', () => {
+  it('follow a recreated node to its new id', () => {
+    for (const Cmd of [LinkCommand, UnlinkCommand]) {
+      const asSource = new Cmd({ sourceId: 7, targetId: 8 })
+      asSource.remapNodeId(7, 101)
+      expect(asSource.sourceId, Cmd.name).toBe(101)
+      expect(asSource.targetId, Cmd.name).toBe(8)
+
+      const asTarget = new Cmd({ sourceId: 8, targetId: 7 })
+      asTarget.remapNodeId(7, 101)
+      expect(asTarget.targetId, Cmd.name).toBe(101)
+      expect(asTarget.sourceId, Cmd.name).toBe(8)
+    }
+  })
+
+  it('leave ids that are not the recreated one alone', () => {
+    const cmd = new LinkCommand({ sourceId: 3, targetId: 4 })
+    cmd.remapNodeId(7, 101)
+    expect([cmd.sourceId, cmd.targetId]).toEqual([3, 4])
+  })
+})
+
+/**
+ * The rule the two above broke, enforced for every command: redo hands out a
+ * new row id, so a command that stores one has to be able to follow it.
+ */
+describe('every command that stores a node id', () => {
+  it('implements remapNodeId', async () => {
+    const { readdirSync } = await import('fs')
+    const dir = join(dirname(fileURLToPath(import.meta.url)), '../commands')
+    const offenders = readdirSync(dir)
+      .filter(f => f.endsWith('.js') && !['Command.js', 'index.js', 'commandFactory.js'].includes(f))
+      .filter(f => {
+        const src = readFileSync(join(dir, f), 'utf-8')
+        const holdsId = /this\.(nodeId|sourceId|targetId|nodeIds|nodes)\s*=/.test(src)
+        return holdsId && !/remapNodeId\s*\(/.test(src)
+      })
+    expect(offenders).toEqual([])
   })
 })
