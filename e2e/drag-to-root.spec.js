@@ -22,15 +22,36 @@ test.afterAll(async () => {
 })
 
 /**
- * Double-click a table cell through raw mouse events. The row reveals its
- * action buttons on hover with an opacity transition, so Playwright's own
- * dblclick can keep finding the cell "not stable" on a loaded runner and time
- * out; the release job hit this twice under xvfb.
+ * Enter a container by double-clicking its row, and wait until one of its
+ * children is on screen.
+ *
+ * Raw mouse events rather than Playwright's dblclick: the row reveals its
+ * action buttons on hover with an opacity transition, so dblclick keeps finding
+ * the cell "not stable" on a loaded runner. And the pair of clicks only counts
+ * as a double-click if they land close enough together in time, which a busy
+ * runner does not guarantee - a release job failed here with the child never
+ * appearing. So the double-click is retried until the container opens rather
+ * than assumed to have taken the first time.
  */
-async function dblclickCell(page, cell) {
+async function enterContainer(page, containerName, childName) {
+  const cell = page.getByRole('cell', { name: containerName })
+  await cell.waitFor({ timeout: 10000 })
   await expect(cell).toBeVisible()
-  const box = await cell.boundingBox()
-  await page.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2)
+  const child = page.getByRole('cell', { name: childName })
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const box = await cell.boundingBox()
+    if (!box) break
+    await page.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2)
+    try {
+      await child.waitFor({ timeout: 3000 })
+      return child
+    } catch {
+      // The clicks were read as two separate ones; try again.
+    }
+  }
+  await child.waitFor({ timeout: 5000 })
+  return child
 }
 
 test('drags a child onto the breadcrumb home icon to move it to the top level', async () => {
@@ -52,12 +73,7 @@ test('drags a child onto the breadcrumb home icon to move it to the top level', 
 
   // Enter the parent so the child is the row being dragged.
   await page.locator('body').press(`${MOD}+Digit3`)
-  const parentCell = page.getByRole('cell', { name: 'Parent box' })
-  await parentCell.waitFor({ timeout: 10000 })
-  await dblclickCell(page, parentCell)
-
-  const childCell = page.getByRole('cell', { name: 'Nested child' })
-  await childCell.waitFor({ timeout: 10000 })
+  const childCell = await enterContainer(page, 'Parent box', 'Nested child')
   // The row is present before its drag handler settles; starting the drag on
   // that boundary produces a mousedown the table never turns into a drag.
   await expect(childCell).toBeVisible()
@@ -103,9 +119,7 @@ test('drags a graph node onto the breadcrumb home icon', async () => {
 
   // Enter the parent in table view, then switch to the graph.
   await page.locator('body').press(`${MOD}+Digit3`)
-  const parentCell = page.getByRole('cell', { name: 'Graph box' })
-  await parentCell.waitFor({ timeout: 10000 })
-  await dblclickCell(page, parentCell)
+  await enterContainer(page, 'Graph box', 'Graph child')
   await page.locator('body').press(`${MOD}+Digit1`)
 
   const label = page.locator('.node-html', { hasText: 'Graph child' }).first()
