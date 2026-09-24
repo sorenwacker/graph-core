@@ -72,7 +72,6 @@ const MAY_READ_NOTES = new Set([
   'components/detail/OrganizationDetailForm.vue',
   'components/NotesAIToolbar.vue',
   'components/CardNotes.vue',
-  'components/GraphEditModal.vue',
   'components/PersonsView.vue',
   'composables/useInlineEdit.js',
   'composables/useNodeActionsUI.ts',

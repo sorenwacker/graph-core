@@ -6,6 +6,10 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Removed
 
+- The graph's edit modal. It was rendered and wired, but nothing could open it: the function that made it visible had no caller, so it has never been reachable in the app. Editing a node from the graph goes through the detail panel, which a click, the context menu's View Details, and Open in Window all reach. Keeping a second editing surface meant every change to editing had to be made twice, and the sensitive-note work had already paid that cost once.
+
+### Removed
+
 - `src/components/detail/index.js`, a barrel file nothing imported.
 - Code that could not be reached: the `cytoscape-d3-force` layout engine, registered but named by no layout; the timeline's `_getColorMap` option, accepted and passed and never read; an `onTagsUpdate` handler in each of the person and organization forms that neither template referenced; the graph's centre-on-node chain, driven by a window event nothing dispatches, along with the two helpers only it used; and the tooltip's open-detail button listener and styles, orphaned when the tooltip stopped rendering that button.
 
@@ -16,6 +20,8 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 - A mermaid diagram that fails to render no longer injects its own source into the page as markup. The failure path put the block's text on screen with `innerHTML`, after sanitization had already run and after the text had been decoded out of the sanitized HTML, so a note containing a crafted mermaid block could execute script with the desktop app's preload API in reach. The source is now written as text. `securityLevel: 'strict'`, which sanitizes the SVG mermaid generates, is pinned in source rather than inherited from the library default, because minor dependency updates merge automatically.
 
 ### Fixed
+
+- A timeline bar for a node with only a due date no longer offers an end handle. Such a bar runs from the due date to today, so its right edge is today rather than a date on the node: dragging it had nothing to write and the change was discarded, leaving the bar to spring back with no explanation.
 
 - A workspace you delete stays deleted. The two default workspaces were seeded on every startup, not only on a fresh database, so deleting one brought it back at the next launch.
 

@@ -17,7 +17,6 @@ import { getPositionsKey, loadNodePositions, saveNodePositions } from '../compos
 import { DEBOUNCE_DELAY_MS, LAYOUT_RELAYOUT_DELAY_MS } from '../utils/settingsConstants'
 import AddNodeModal from './AddNodeModal.vue'
 import GraphControls from './GraphControls.vue'
-import GraphEditModal from './GraphEditModal.vue'
 import PromptModal from './PromptModal.vue'
 import KeyboardShortcutsModal from './KeyboardShortcutsModal.vue'
 import { ownsTextInput, ownsAllKeys } from '../utils/inputOwnership.js'
@@ -190,22 +189,11 @@ const {
   },
   getHideSensitive: () => props.hideSensitive,
   shouldShowTooltip: () => {
-    return (
-      props.hoverPreviewEnabled &&
-      !props.showDetail &&
-      !props.fullscreenDetailOpen &&
-      !editModal.value.visible &&
-      !props.sidebarVisible
-    )
+    return props.hoverPreviewEnabled && !props.showDetail && !props.fullscreenDetailOpen && !props.sidebarVisible
   },
 })
 
 const {
-  editModal,
-  hideEditModal,
-  saveEditModal,
-  goToParentFromModal,
-  wrapWithParentFromModal,
   promptModal,
   submitPrompt,
   cancelPrompt,
@@ -281,7 +269,6 @@ const events = useGraphEvents({
   getSelectedIds: () => props.selectedIds,
   emit,
   showAddNodeModal,
-  hideEditModal,
   showTooltip,
   hideTooltip,
   forceHideTooltip,
@@ -763,17 +750,6 @@ onUnmounted(() => {
     <div v-else-if="linkModeActive" class="link-mode-indicator">Link Mode — drag to another node to link</div>
 
     <KeyboardShortcutsModal :visible="showShortcuts" @close="showShortcuts = false" />
-
-    <GraphEditModal
-      :visible="editModal.visible"
-      :node="editModal.node"
-      :edited-node="editModal.editedNode"
-      @update:edited-node="Object.assign(editModal.editedNode, $event)"
-      @close="hideEditModal"
-      @save="saveEditModal"
-      @go-to-parent="goToParentFromModal"
-      @wrap-with-parent="wrapWithParentFromModal"
-    />
 
     <PromptModal
       :visible="promptModal.visible"

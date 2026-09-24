@@ -45,3 +45,33 @@ describe('the default workspaces', () => {
     ).not.toContain('private')
   })
 })
+
+/**
+ * A node with only a due date is drawn from that date to today: the bar's right
+ * edge is "now", not a field on the node. Dragging it therefore had nothing to
+ * write, and the drag handler discarded the change, so the bar sprang back with
+ * no explanation. A control that cannot do anything should not be offered
+ * (docs/guides/views.md).
+ */
+describe('the timeline bar for a node with only a due date', () => {
+  it('offers no end handle to drag', async () => {
+    const { readFileSync } = await import('fs')
+    const { join } = await import('path')
+    const source = readFileSync(join(__dirname, '../components/TimelineView.vue'), 'utf-8')
+
+    const right = source.indexOf('resize-handle-right')
+    expect(right, 'the end handle is gone entirely').toBeGreaterThan(-1)
+    // The handle is rendered conditionally, on the node having a real end date.
+    const block = source.slice(source.lastIndexOf('<div', right), right)
+    expect(block, 'the end handle renders unconditionally').toMatch(/v-if=/)
+  })
+
+  it('still offers it for a node with a real range', async () => {
+    const { readFileSync } = await import('fs')
+    const { join } = await import('path')
+    const source = readFileSync(join(__dirname, '../components/TimelineView.vue'), 'utf-8')
+    const right = source.indexOf('resize-handle-right')
+    const block = source.slice(source.lastIndexOf('<div', right), right)
+    expect(block).toMatch(/end_date|start_date|hasRange/)
+  })
+})

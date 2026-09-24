@@ -67,7 +67,6 @@ function isDescendant(parent, childId) {
  * @param {Function} options.getSelectedIds - Function returning set of selected node IDs
  * @param {Function} options.emit - Event emitter function
  * @param {Function} options.showAddNodeModal - Show add node modal
- * @param {Function} options.hideEditModal - Hide edit modal
  * @param {Function} options.showTooltip - Show tooltip
  * @param {Function} options.hideTooltip - Hide tooltip
  * @param {Function} options.forceHideTooltip - Force hide tooltip
@@ -85,7 +84,6 @@ export function useGraphEvents(options = {}) {
     getSelectedIds,
     emit,
     showAddNodeModal,
-    hideEditModal,
     showTooltip,
     hideTooltip,
     forceHideTooltip,
@@ -232,7 +230,6 @@ export function useGraphEvents(options = {}) {
 
       const node = e.target.data('nodeData')
       if (node) {
-        hideEditModal()
         emit('enter', node)
       }
     })
@@ -256,7 +253,6 @@ export function useGraphEvents(options = {}) {
       setTimeout(() => {
         if (backgroundClickPending) {
           backgroundClickPending = false
-          hideEditModal()
           if (forceHideTooltip) forceHideTooltip() // Dismiss locked tooltip on background click
           emit('select', null)
         }
@@ -461,7 +457,6 @@ export function useGraphEvents(options = {}) {
       if (nodeData) {
         e.preventDefault()
         e.stopPropagation()
-        hideEditModal()
         emit('enter', nodeData)
       }
     }

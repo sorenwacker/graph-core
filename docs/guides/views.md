@@ -242,7 +242,7 @@ Displays nodes with dates on a horizontal timeline.
 
 - Zoom in/out with Ctrl/Cmd+scroll (centered on cursor)
 - Drag bars to move dates
-- Resize handles for start/end dates
+- Resize handles for start/end dates. A node with only a due date is drawn from that date to today, so its bar has no end handle: that edge is today, not a date on the node.
 - Draggable labels column
 - Weekend shading
 - Today marker

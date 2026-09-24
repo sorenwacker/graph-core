@@ -295,8 +295,12 @@ onUnmounted(() => {
                         >{{ node.title }}</span
                       >
                     </div>
-                    <!-- Right resize handle -->
+                    <!-- Right resize handle. A node with only a due date is
+                         drawn from that date to today, so this edge is "now"
+                         and there is nothing behind it to write; the drag used
+                         to be discarded and the bar sprang back. -->
                     <div
+                      v-if="node.start_date || node.end_date"
                       class="resize-handle resize-handle-right"
                       @mousedown="handleDragStart($event, node, 'resize-end')"
                     ></div>

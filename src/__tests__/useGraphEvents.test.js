@@ -13,7 +13,6 @@ describe('useGraphEvents', () => {
   let mockLinkLine
   let mockEmit
   let mockShowAddNodeModal
-  let mockHideEditModal
   let mockShowTooltip
   let mockHideTooltip
   let mockForceHideTooltip
@@ -95,7 +94,6 @@ describe('useGraphEvents', () => {
     // Mock functions
     mockEmit = vi.fn()
     mockShowAddNodeModal = vi.fn()
-    mockHideEditModal = vi.fn()
     mockShowTooltip = vi.fn()
     mockHideTooltip = vi.fn()
     mockForceHideTooltip = vi.fn()
@@ -118,7 +116,6 @@ describe('useGraphEvents', () => {
       getSelectedIds: () => selectedIds,
       emit: mockEmit,
       showAddNodeModal: mockShowAddNodeModal,
-      hideEditModal: mockHideEditModal,
       showTooltip: mockShowTooltip,
       hideTooltip: mockHideTooltip,
       forceHideTooltip: mockForceHideTooltip,
@@ -272,8 +269,6 @@ describe('useGraphEvents', () => {
       }
 
       dbltapHandler(mockEvent)
-
-      expect(mockHideEditModal).toHaveBeenCalled()
       expect(mockEmit).toHaveBeenCalledWith('enter', { id: 1, title: 'Test' })
     })
   })
@@ -292,8 +287,6 @@ describe('useGraphEvents', () => {
 
       bgTapHandler(mockEvent)
       vi.advanceTimersByTime(200)
-
-      expect(mockHideEditModal).toHaveBeenCalled()
       expect(mockEmit).toHaveBeenCalledWith('select', null)
     })
 
@@ -943,8 +936,6 @@ describe('useGraphEvents', () => {
       }
 
       dblclickHandler(mockEvent)
-
-      expect(mockHideEditModal).toHaveBeenCalled()
       expect(mockEmit).toHaveBeenCalledWith('enter', { id: 1, title: 'Test Node' })
     })
   })

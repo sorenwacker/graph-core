@@ -9,14 +9,6 @@ export function useGraphModals(options = {}) {
   const { emit, forceHideTooltip } = options
 
   // Edit modal state
-  const editModal = ref({
-    visible: false,
-    node: null,
-    editedNode: {},
-  })
-  const showNotesPreview = ref(false)
-  const editTitleInput = ref(null)
-  const editModalEl = ref(null)
 
   // The prompt dialog is app-wide (composables/usePrompt.js) and rendered once
   // at the root; these are re-exported so the graph's existing bindings keep
@@ -37,62 +29,6 @@ export function useGraphModals(options = {}) {
     position: null,
     insertBetween: null,
   })
-
-  /**
-   * Show the edit modal for a node.
-   * @param {Object} node - Node to edit
-   */
-  function showEditModal(node) {
-    if (forceHideTooltip) forceHideTooltip()
-    editModal.value = {
-      visible: true,
-      node,
-      editedNode: { ...node },
-    }
-    showNotesPreview.value = false
-    nextTick(() => {
-      if (editTitleInput.value) {
-        editTitleInput.value.focus()
-        editTitleInput.value.select()
-      }
-    })
-  }
-
-  /**
-   * Hide the edit modal.
-   */
-  function hideEditModal() {
-    editModal.value.visible = false
-  }
-
-  /**
-   * Save changes from the edit modal.
-   */
-  function saveEditModal() {
-    if (!editModal.value.node) return
-    if (emit) emit('update', editModal.value.editedNode)
-    hideEditModal()
-  }
-
-  /**
-   * Handle keydown events in the edit modal.
-   * @param {KeyboardEvent} e - Keyboard event
-   */
-  function handleEditModalKeydown(e) {
-    if (e.key === 'Escape') {
-      hideEditModal()
-    } else if (e.key === 'Enter' && e.metaKey) {
-      saveEditModal()
-    }
-  }
-
-  /**
-   * Navigate to parent from modal and close.
-   */
-  function goToParentFromModal() {
-    hideEditModal()
-    if (emit) emit('go-parent')
-  }
 
   /**
    * Show the add node modal.
@@ -140,38 +76,14 @@ export function useGraphModals(options = {}) {
   }
 
   /**
-   * Wrap selected node with a new parent.
-   */
-  async function wrapWithParentFromModal() {
-    if (!editModal.value.node) return
-    const title = await showPrompt('New parent title', 'Enter title...')
-    if (title && emit) {
-      emit('wrap-with-parent', { nodeId: editModal.value.node.id, parentTitle: title })
-      hideEditModal()
-    }
-  }
-
-  /**
    * Check if any modal is currently visible.
    * @returns {boolean}
    */
   function isAnyModalVisible() {
-    return editModal.value.visible || promptModal.value.visible || addNodeModal.value.visible
+    return promptModal.value.visible || addNodeModal.value.visible
   }
 
   return {
-    // Edit modal
-    editModal,
-    showNotesPreview,
-    editTitleInput,
-    editModalEl,
-    showEditModal,
-    hideEditModal,
-    saveEditModal,
-    handleEditModalKeydown,
-    goToParentFromModal,
-    wrapWithParentFromModal,
-
     // Prompt modal
     promptModal,
     promptInputRef,
