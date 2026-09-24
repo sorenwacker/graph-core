@@ -131,6 +131,7 @@ Attach a spreadsheet to any node.
 - Cell color formatting (colorblind-friendly palette)
 - Copy, cut, and paste operations
 - Multi-cell selection: drag across cells, or click a column header to take the whole column
+- The selection ends when you click away from the grid, in it or outside it. It has to: while a selection stands the table answers for keys such as Cmd/Ctrl+Backspace even when focus has moved on, so a selection left behind would blank cells in place of the action you meant.
 - Columns share the available width equally, so the table always spans the panel; in fullscreen and detached mode the table section takes the full window width while Children and Metadata share a row
 
 **Formulas:**
