@@ -118,3 +118,66 @@ describe('saving from a detached window', () => {
     expect(panel(w).props('node')).toBe(before)
   })
 })
+
+/**
+ * A sensitive note's text is withheld from every node read, so the main process
+ * ignores a `notes` value unless the write says the caller actually held the
+ * text (docs/architecture/sensitive-notes.md, "Writes"). The main window sends
+ * that mark through ApplyNotesEditCommand; the detached window carries its own
+ * copy of the apply logic and did not, so an AI improvement to a sensitive note
+ * was dropped by the database while the window showed it as applied.
+ */
+describe('applying an AI note improvement from a detached window', () => {
+  beforeEach(() => {
+    updateNode.mockClear()
+    broadcastNodeUpdate.mockClear()
+  })
+
+  async function render() {
+    const w = mount(DetachedView, {
+      props: { nodeId: 7 },
+      global: {
+        stubs: {
+          NotesEditor: true,
+          NotesAIToolbar: true,
+          MarkdownRenderer: true,
+          NodeSpreadsheet: true,
+          ChildrenSection: true,
+          MetadataGridSection: true,
+          PersonDetailForm: true,
+          OrganizationDetailForm: true,
+          TagInput: true,
+        },
+      },
+    })
+    await flushPromises()
+    return w
+  }
+
+  const panel = w => w.findComponent({ name: 'DetailPanel' })
+
+  it('marks the write as one whose caller held the text', async () => {
+    const w = await render()
+
+    panel(w).vm.$emit('ai-improve-notes', { nodeId: 7, oldNotes: 'start', newNotes: 'improved', prompt: 'Improve' })
+    await flushPromises()
+
+    expect(updateNode).toHaveBeenCalledWith(7, expect.objectContaining({ notes: 'improved', notes_revealed: true }))
+  })
+
+  it('does the same for an improvement to a selected range', async () => {
+    const w = await render()
+
+    panel(w).vm.$emit('ai-improve-notes', {
+      nodeId: 7,
+      oldNotes: 'start',
+      newNotes: 'XX',
+      fullNotes: 'start',
+      selectionRange: { from: 0, to: 5 },
+      prompt: 'Improve',
+    })
+    await flushPromises()
+
+    expect(updateNode).toHaveBeenCalledWith(7, expect.objectContaining({ notes: 'XX', notes_revealed: true }))
+  })
+})
