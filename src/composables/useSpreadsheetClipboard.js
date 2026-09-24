@@ -134,7 +134,9 @@ export async function pasteSelection({ selectionBounds, columns, rowData, gridAp
   try {
     text = await navigator.clipboard.readText()
   } catch (err) {
-    console.warn('Failed to read from clipboard:', err.message)
+    // Copy in this same file reports through the shared handler; a paste that
+    // the browser refuses is just as visible to the user and must say so.
+    handleError(err, { context: 'Pasting from clipboard' })
     return
   }
 

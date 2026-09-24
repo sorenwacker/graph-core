@@ -17,6 +17,9 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Fixed
 
+- A CSV round trip keeps a note's sensitive mark ([guide](docs/guides/import-export.md#csv-export)). The column was missing from the export, so re-importing produced a plain note and its text appeared in every view.
+- A paste into a table that the browser refuses reports the failure instead of writing to the console. Copy in the same file already did.
+
 - A spreadsheet cell that stops being a formula, or becomes one, no longer keeps its old content in the database. The write named only the field it was setting, and the main process merges a cell write with the stored row on purpose, so the field left unnamed survived: the sheet looked right until it was reloaded, and then the old formula or the old literal came back. Both fields are now named on every cell write.
 - An AI note improvement made in a detached window is no longer discarded when the note is sensitive. The write did not say that its caller was holding the revealed text, so the main process dropped it, without an error: the window showed the improvement applied and the next load brought the old note back. The main window sends that mark already; the detached window carries its own copy of the apply logic and did not.
 - Redoing a link or unlink after redoing the creation of one of its nodes now follows the node to its new row. Redo cannot reuse the id undo deleted, so every command still queued is told the new one; link and unlink kept the base do-nothing version and went on naming the deleted row. A test now fails if any command that stores a node id does not implement the remap.
