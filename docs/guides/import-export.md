@@ -54,7 +54,9 @@ Exports nodes as a flat table.
 
 **Columns (in order):**
 
-`id`, `title`, `type`, `parent_id`, `workspace_id`, `notes`, `completed`, `importance`, `due_date`, `start_date`, `end_date`, `tags`, `created_at`, `updated_at`
+`id`, `title`, `type`, `parent_id`, `workspace_id`, `notes`, `notes_sensitive`, `completed`, `importance`, `due_date`, `start_date`, `end_date`, `tags`, `created_at`, `updated_at`
+
+`notes_sensitive` travels with the note it describes, so re-importing a CSV does not hand back a sensitive note unmarked, with its text on show in every view. The note itself is exported as text, as every export is.
 
 Tags are joined with semicolons. Fields containing a comma, quote, or newline are quoted and internal quotes are doubled, following RFC 4180 — so multi-line notes survive the round trip.
 
