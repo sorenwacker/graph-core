@@ -6,6 +6,7 @@ import { getInitials, getContrastColor } from '../utils/formatting.js'
 import NotesEditor from './NotesEditor.vue'
 import TagsSection from './detail/TagsSection.vue'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
+import { notesForDisplay } from '../utils/nodeDisplay.js'
 import { resolveNodeColor, DEFAULT_NODE_COLOR } from '../utils/nodeColor.js'
 import {
   personsTableColumns,
