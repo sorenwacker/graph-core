@@ -4,6 +4,11 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- Cards keep a readable width ([guide](docs/guides/views.md#cards-view)). The grid chose its column count purely to make cards square, so a wide window was sliced into many narrow columns: children's names truncated to "HPC Admin C..." and notes broke mid-word. Width comes first now, and squareness decides between the counts that clear it. A window too narrow for one full-width card still gets a single column.
+- A note longer than its card fades on its last line instead of stopping flat, so a note that continues is not mistaken for a broken one.
+
 ### Removed
 
 - The graph's edit modal. It was rendered and wired, but nothing could open it: the function that made it visible had no caller, so it has never been reachable in the app. Editing a node from the graph goes through the detail panel, which a click, the context menu's View Details, and Open in Window all reach. Keeping a second editing surface meant every change to editing had to be made twice, and the sensitive-note work had already paid that cost once.

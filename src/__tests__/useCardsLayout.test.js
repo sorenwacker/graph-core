@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
+import { useCardGrid } from '../composables/useCardGrid.js'
 import { useCardsLayout } from '../composables/useCardsLayout.js'
 
 describe('useCardsLayout', () => {
@@ -306,5 +307,43 @@ describe('useCardsLayout', () => {
         percent: 50,
       })
     })
+  })
+})
+
+/**
+ * The column count used to be chosen purely to make cards square. On a wide
+ * window that produced many narrow columns, and a card narrow enough to
+ * truncate its children's names ("HPC Admin C...") and cut its note mid-word.
+ * A card has a readable width first; squareness decides between the options
+ * that clear it.
+ */
+describe('cards stay wide enough to read', () => {
+  function columnsFor(count, width, height) {
+    const { gridColumns } = useCardGrid({
+      items: ref(Array.from({ length: count }, (_, i) => ({ id: i + 1 }))),
+      containerWidth: ref(width),
+      containerHeight: ref(height),
+    })
+    return gridColumns.value
+  }
+
+  it('does not slice a wide window into narrow columns', () => {
+    const cols = columnsFor(14, 2000, 950)
+    const cardWidth = (2000 - 10 * (cols - 1)) / cols
+    expect(cardWidth, `${cols} columns gave ${cardWidth}px cards`).toBeGreaterThanOrEqual(360)
+  })
+
+  it('holds the same floor on a laptop window', () => {
+    const cols = columnsFor(14, 1440, 800)
+    const cardWidth = (1440 - 10 * (cols - 1)) / cols
+    expect(cardWidth).toBeGreaterThanOrEqual(360)
+  })
+
+  it('still uses a single column when the window is narrower than one card', () => {
+    expect(columnsFor(6, 320, 800)).toBe(1)
+  })
+
+  it('never asks for more columns than there are cards', () => {
+    expect(columnsFor(2, 2400, 900)).toBeLessThanOrEqual(2)
   })
 })

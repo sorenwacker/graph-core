@@ -10,10 +10,15 @@ import { computed } from 'vue'
  * @param {Ref<number>} options.containerHeight - Container height in pixels
  * @returns {Object} Grid layout computeds
  */
+// The narrowest a card may be before its children's names truncate and its
+// note breaks mid-word. Squareness decides between the widths that clear it.
+const MIN_CARD_WIDTH = 360
+
 export function useCardGrid({ items, containerWidth, containerHeight }) {
   /**
    * Calculate optimal number of columns for the grid.
-   * Algorithm selects columns that make cards as close to square as possible.
+   * Cards must first be wide enough to read; among the counts that clear that,
+   * the one making cards closest to square wins.
    *
    * @param {number} count - Number of items
    * @param {number} w - Container width
@@ -25,8 +30,11 @@ export function useCardGrid({ items, containerWidth, containerHeight }) {
     const gap = 10
     let bestCols = 1
     let bestScore = Infinity
+    // How many cards fit at a readable width; at least one, however narrow the
+    // window, because one cramped card beats a column too narrow to use.
+    const maxCols = Math.max(1, Math.floor((w + gap) / (MIN_CARD_WIDTH + gap)))
 
-    for (let cols = 1; cols <= Math.min(count, 8); cols++) {
+    for (let cols = 1; cols <= Math.min(count, 8, maxCols); cols++) {
       const rows = Math.ceil(count / cols)
       const cardWidth = (w - gap * (cols - 1)) / cols
       const cardHeight = (h - gap * (rows - 1)) / rows
