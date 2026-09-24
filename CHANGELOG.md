@@ -4,10 +4,13 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Security
+
+- A mermaid diagram that fails to render no longer injects its own source into the page as markup. The failure path put the block's text on screen with `innerHTML`, after sanitization had already run and after the text had been decoded out of the sanitized HTML, so a note containing a crafted mermaid block could execute script with the desktop app's preload API in reach. The source is now written as text. `securityLevel: 'strict'`, which sanitizes the SVG mermaid generates, is pinned in source rather than inherited from the library default, because minor dependency updates merge automatically.
+
 ### Fixed
 
 - Reloading the database from the maintenance dialog no longer breaks an encrypted database ([architecture](docs/architecture/encryption.md#where-encryption-happens)). `reload()` read the file without the deserialize step every other path uses, so with encryption on sql.js was handed ciphertext and threw - after the broken handle had already replaced the working one, which the next save would have written back over the real file. It now deserializes, and adopts the new handle only once it reads, so a file it cannot open leaves the open database untouched.
-
 
 ### Changed
 

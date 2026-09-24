@@ -54,6 +54,10 @@ marked.use({ extensions: [personMentionExtension] })
 // Configure mermaid
 mermaid.initialize({
   startOnLoad: false,
+  // Pinned rather than left to mermaid's default: this is what sanitizes the
+  // generated SVG and disables HTML labels, and minor dependency bumps merge
+  // automatically here (docs/contributing/development.md).
+  securityLevel: 'strict',
   theme: 'dark',
   themeVariables: {
     primaryColor: '#1a4d7a',
@@ -184,7 +188,13 @@ async function renderMermaidBlocks(blocks) {
       handleError(e, { context: 'Rendering mermaid diagram', silent: true })
       const el = document.getElementById(block.id)
       if (el) {
-        el.innerHTML = `<pre class="mermaid-error">${block.code}\n\nError: ${e.message}</pre>`
+        // As text, not markup: block.code is note content that was decoded out
+        // of the already-sanitized HTML, so assigning it to innerHTML would put
+        // back exactly what DOMPurify removed, after sanitization has run.
+        const pre = document.createElement('pre')
+        pre.className = 'mermaid-error'
+        pre.textContent = `${block.code}\n\nError: ${e.message}`
+        el.replaceChildren(pre)
       }
     }
   }
