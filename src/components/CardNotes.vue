@@ -139,6 +139,11 @@ watch(
   overflow-y: auto;
   flex: 1;
   min-height: 0;
+  /* A note longer than the card scrolls. Fade the last line instead of cutting
+     it off flat, so it reads as "there is more" rather than as a bug. A note
+     that ends inside the card leaves the faded strip empty, so it costs
+     nothing to leave this on. */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent 100%);
 }
 
 .card-notes-display.size-child {

@@ -18,6 +18,8 @@ Shows nodes as nested cards with visual hierarchy.
 **Features:**
 
 - Nested card display up to 4 levels deep
+- Card width: the grid fits as many columns as it can while keeping each card wide enough to read, and chooses among those the count that makes cards closest to square. A window too narrow for one full-width card still gets a single column.
+- A note longer than its card scrolls, and its last line fades rather than stopping flat, so a truncated note is not mistaken for a broken one.
 - Inline notes editing: click a card's notes to edit them in place. A card with no notes yet shows a muted "Add notes..." placeholder in the same spot, so there is always something to click - without it an empty card offers no target and its notes cannot be started at all. The placeholder is not shown on `card-xs`, where notes are hidden entirely, or on nodes whose notes are marked sensitive.
 - Color inheritance from parent nodes
 - Hover tooltips for quick preview
