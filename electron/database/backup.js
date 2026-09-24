@@ -79,10 +79,26 @@ function createBackupOperations(ctx) {
       if (!fs.existsSync(ctx.dbPath)) {
         throw new Error('Database file not found')
       }
-      const buffer = fs.readFileSync(ctx.dbPath)
-      ctx.db = new ctx.SQL.Database(buffer)
-      ctx.db.run('PRAGMA foreign_keys = ON')
-      const count = ctx._query('SELECT COUNT(*) as cnt FROM nodes')[0]?.cnt || 0
+      // Through the deserialize choke point like every other read of the file
+      // (docs/architecture/encryption.md): the bytes on disk are ciphertext
+      // whenever encryption is on. Open the new handle first and only then
+      // adopt it, so a file that cannot be read leaves the working database
+      // in place instead of replacing it with a handle the next save would
+      // write back over the real file.
+      const buffer = ctx._deserialize(fs.readFileSync(ctx.dbPath))
+      const reloaded = new ctx.SQL.Database(buffer)
+      reloaded.run('PRAGMA foreign_keys = ON')
+      const previous = ctx.db
+      ctx.db = reloaded
+      let count
+      try {
+        count = ctx._query('SELECT COUNT(*) as cnt FROM nodes')[0]?.cnt || 0
+      } catch (e) {
+        ctx.db = previous
+        reloaded.close()
+        throw e
+      }
+      previous?.close()
       console.log(`Database reloaded with ${count} nodes`)
       return { success: true, nodeCount: count }
     },

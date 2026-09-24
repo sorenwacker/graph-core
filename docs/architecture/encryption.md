@@ -33,7 +33,7 @@ GCM authenticates as well as encrypts: a tampered or corrupted file, and a wrong
 
 ## Where encryption happens
 
-All database bytes pass through one serialize/deserialize choke point in `electron/database/index.js`. `_save`, `backup`, and `restoreBackup` use it, so snapshots and backups are encrypted with the same key as the main file - an encrypted database with plaintext backups would be theater. The corrupt-file preservation path copies the file bytes as they are, which for an encrypted file preserves ciphertext.
+All database bytes pass through one serialize/deserialize choke point in `electron/database/index.js`. `_save`, `backup`, `restoreBackup` and `reload` use it, so snapshots and backups are encrypted with the same key as the main file - an encrypted database with plaintext backups would be theater. A path that reads the file without it hands sql.js ciphertext; `reload` did, and left the broken handle in place for the next save to write back, so it also builds the new handle before adopting it and keeps the working database when the file cannot be read. The corrupt-file preservation path copies the file bytes as they are, which for an encrypted file preserves ciphertext.
 
 ## Unlock flow
 

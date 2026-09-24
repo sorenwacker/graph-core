@@ -4,6 +4,11 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Fixed
+
+- Reloading the database from the maintenance dialog no longer breaks an encrypted database ([architecture](docs/architecture/encryption.md#where-encryption-happens)). `reload()` read the file without the deserialize step every other path uses, so with encryption on sql.js was handed ciphertext and threw - after the broken handle had already replaced the working one, which the next save would have written back over the real file. It now deserializes, and adopts the new handle only once it reads, so a file it cannot open leaves the open database untouched.
+
+
 ### Changed
 
 - Timeline labels stay in view for every kind of bar ([guide](docs/guides/views.md#timeline-view)). When a task, event or group starts left of the visible area, its label moves to the visible edge and follows the scroll, as project box labels already did; before, a long bar scrolled into the past showed no name at all.

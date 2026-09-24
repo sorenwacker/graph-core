@@ -116,7 +116,7 @@ describe('key slots travel with the file', () => {
 })
 
 describe('Database integration', () => {
-  const { mkdtempSync, rmSync, readFileSync, readdirSync } = require('fs')
+  const { mkdtempSync, rmSync, readFileSync, readdirSync, writeFileSync } = require('fs')
   const { tmpdir } = require('os')
   const { join } = require('path')
   const Database = require('../../electron/database/index.js')
@@ -152,6 +152,48 @@ describe('Database integration', () => {
       const locked = new Database(path)
       await expect(locked.ready).rejects.toThrow(/encrypted/)
       expect(isEncrypted(readFileSync(path))).toBe(true)
+    })
+  })
+
+  // reload() re-reads the file into the live sql.js handle. It is reachable
+  // from the maintenance dialog, and it skipped the deserialize choke point
+  // that docs/architecture/encryption.md says every path uses: sql.js was
+  // handed ciphertext, threw, and left ctx.db pointing at the broken handle
+  // that the next _save() would write back over the real file.
+  it('reloads an encrypted database through the deserialize choke point', async () => {
+    await withDir(async dir => {
+      const path = join(dir, 'graph.db')
+      const key = generateDatabaseKey()
+
+      const db = new Database(path, { encryptionKey: key })
+      await db.ready
+      db.createNode({ type: 'note', title: 'secret note', workspace_id: 'work' })
+
+      expect(db.reload()).toEqual({ success: true, nodeCount: 1 })
+      expect(db.getNode(1).title).toBe('secret note')
+
+      // The reloaded handle must still write real, encrypted, readable bytes.
+      db.createNode({ type: 'note', title: 'after reload', workspace_id: 'work' })
+      expect(isEncrypted(readFileSync(path))).toBe(true)
+      const reopened = new Database(path, { encryptionKey: key })
+      await reopened.ready
+      expect(reopened.getNode(2).title).toBe('after reload')
+    })
+  })
+
+  it('keeps the working database when a reload cannot read the file', async () => {
+    await withDir(async dir => {
+      const path = join(dir, 'graph.db')
+      const key = generateDatabaseKey()
+      const db = new Database(path, { encryptionKey: key })
+      await db.ready
+      db.createNode({ type: 'note', title: 'still here', workspace_id: 'work' })
+
+      writeFileSync(path, Buffer.from('GCENC1 not really a database'))
+      expect(() => db.reload()).toThrow()
+
+      // A failed reload must not replace the live handle with a broken one.
+      expect(db.getNode(1).title).toBe('still here')
     })
   })
 
