@@ -90,9 +90,14 @@ export function useCardGrid({ items, containerWidth, containerHeight }) {
     return {
       display: 'grid',
       gridTemplateColumns: `repeat(${cols}, 1fr)`,
-      gridAutoRows: `minmax(${minHeight}, 1fr)`,
+      // Rows take the height their tallest card needs. A single height for
+      // every card is wrong both ways at once: it wasted most of a card with
+      // one child and still cut the list off a card with ten. The floor keeps
+      // a nearly empty card from becoming a sliver; the card's own max-height
+      // stops one long note from dragging its whole row down with it.
+      gridAutoRows: `minmax(${minHeight}, auto)`,
       gap: `${gap}px`,
-      alignContent: 'stretch',
+      alignContent: 'start',
     }
   })
 

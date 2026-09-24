@@ -13,6 +13,9 @@
   /* Borders */
   --border-color: rgba(0, 0, 0, 0.12);
   --border-subtle: rgba(0, 0, 0, 0.06);
+  /* For surfaces that have to read as separate objects against the page,
+     like cards on a grid, where the 0.12 hairline all but disappears. */
+  --border-strong: rgba(0, 0, 0, 0.24);
 
   /* Backgrounds */
   --bg-primary: #ffffff;

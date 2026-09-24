@@ -13,9 +13,12 @@
   flex-direction: column;
   background: var(--bg-primary);
   border-radius: 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-strong);
   overflow: hidden;
   text-align: left;
+  /* Content decides the height; this keeps one long note from dragging every
+     card in its row down with it, since grid rows share a height. */
+  max-height: 560px;
 }
 
 .empty-state {

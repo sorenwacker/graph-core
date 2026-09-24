@@ -19,7 +19,7 @@ Shows nodes as nested cards with visual hierarchy.
 
 - Nested card display up to 4 levels deep
 - Card width: the grid fits as many columns as it can while keeping each card wide enough to read, and chooses among those the count that makes cards closest to square. A window too narrow for one full-width card still gets a single column.
-- Card height: a card keeps a height it can show its header, note and a row or two of children in. When the cards do not all fit, the view scrolls rather than shrinking them, because a card below the fold is easier to deal with than one cut through the middle. A few cards still stretch to fill the window.
+- Card height: a row is as tall as the card in it that needs the most room, between a floor and a cap. A single height for every card was wrong both ways at once - it wasted most of a card holding one child and still cut the list off a card holding ten. The view scrolls when the cards do not all fit, because a card below the fold is easier to deal with than one cut through the middle. The cap stops one long note from dragging every card in its row down with it.
 - A note longer than its card scrolls, and its last line fades rather than stopping flat, so a truncated note is not mistaken for a broken one.
 - Inline notes editing: click a card's notes to edit them in place. A card with no notes yet shows a muted "Add notes..." placeholder in the same spot, so there is always something to click - without it an empty card offers no target and its notes cannot be started at all. The placeholder is not shown on `card-xs`, where notes are hidden entirely, or on nodes whose notes are marked sensitive.
 - Color inheritance from parent nodes

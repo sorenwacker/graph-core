@@ -206,7 +206,7 @@ describe('useCardsLayout', () => {
       expect(cardsGridStyle.value.display).toBe('grid')
       expect(cardsGridStyle.value.gridTemplateColumns).toMatch(/repeat\(\d+, 1fr\)/)
       expect(cardsGridStyle.value.gap).toBe('10px')
-      expect(cardsGridStyle.value.alignContent).toBe('stretch')
+      expect(cardsGridStyle.value.alignContent).toBe('start')
     })
   })
 
@@ -378,7 +378,64 @@ describe('cards keep a usable height', () => {
     }
   })
 
-  it('still lets a small number of cards stretch to fill the window', () => {
-    expect(rowsFor(2, 2000, 950)).toMatch(/1fr\)$/)
+  it('gives a couple of cards a taller floor, since there is room to spare', () => {
+    const min = Number((rowsFor(2, 2000, 950).match(/minmax\((\d+)px/) || [])[1])
+    expect(min).toBeGreaterThanOrEqual(320)
+  })
+})
+
+/**
+ * Cards hold very different amounts: one child or ten, a long note or none.
+ * A single height for all of them is wrong either way - it wasted most of a
+ * sparse card and still cut the child list off a full one. Rows take the
+ * height their tallest card needs, within bounds.
+ */
+describe('cards grow to their contents', () => {
+  function styleFor(count, width, height) {
+    const { cardsGridStyle } = useCardGrid({
+      items: ref(Array.from({ length: count }, (_, i) => ({ id: i + 1 }))),
+      containerWidth: ref(width),
+      containerHeight: ref(height),
+    })
+    return cardsGridStyle.value
+  }
+
+  it('lets a row grow past the floor when its card needs the room', () => {
+    const rows = styleFor(14, 2000, 950).gridAutoRows
+    expect(rows, `rows cannot grow: ${rows}`).toMatch(/auto\)$/)
+  })
+
+  it('keeps the floor so a nearly empty card is not a sliver', () => {
+    const min = Number((styleFor(14, 2000, 950).gridAutoRows.match(/minmax\((\d+)px/) || [])[1])
+    expect(min).toBeGreaterThanOrEqual(260)
+  })
+
+  it('packs rows from the top rather than spreading them down the window', () => {
+    expect(styleFor(14, 2000, 950).alignContent).toBe('start')
+  })
+})
+
+/**
+ * The card border has to separate one card from the next against a near-black
+ * page. The shared hairline is 0.12 alpha, which all but disappears there, so
+ * cards use a stronger token - defined in both themes, since a card on white
+ * needs the same separation.
+ */
+describe('the card border', () => {
+  it('uses the stronger token, not the hairline', async () => {
+    const { readFileSync } = await import('fs')
+    const { join } = await import('path')
+    const css = readFileSync(join(__dirname, '../components/CardsView.css'), 'utf-8')
+    const card = css.slice(css.indexOf('.node-card {'), css.indexOf('}', css.indexOf('.node-card {')))
+    expect(card).toContain('var(--border-strong)')
+  })
+
+  it('is defined in both themes', async () => {
+    const { readFileSync } = await import('fs')
+    const { join } = await import('path')
+    for (const theme of ['dark', 'light']) {
+      const css = readFileSync(join(__dirname, `../themes/${theme}.css`), 'utf-8')
+      expect(css, `${theme} has no --border-strong`).toMatch(/--border-strong:\s*rgba\([^)]+\)/)
+    }
   })
 })
