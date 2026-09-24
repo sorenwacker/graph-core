@@ -41,6 +41,9 @@ jobs:
         run: npm audit --audit-level=high
         continue-on-error: false
 
+      - name: Dead code
+        run: npm run dead-code
+
       - name: Run tests
         run: npm run test:run
 
