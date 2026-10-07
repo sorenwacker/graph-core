@@ -65,6 +65,17 @@ describe('a selection when the click goes elsewhere', () => {
     expect(selection.selectionBounds.value).toBeNull()
   })
 
+  it("is kept when the click lands on the table's own toolbar", async () => {
+    mountSheet()
+    wrapper.vm.selection.selectionStart.value = { row: 0, col: 0 }
+    wrapper.vm.selection.selectionEnd.value = { row: 1, col: 1 }
+    await wrapper.vm.$nextTick()
+
+    mousedownOn(wrapper.find('.spreadsheet-toolbar .toolbar-btn').element)
+
+    expect(wrapper.vm.selection.selectionBounds.value).not.toBeNull()
+  })
+
   it('is left to the grid when the click lands on a cell', async () => {
     mountSheet()
     const selection = wrapper.vm.selection
