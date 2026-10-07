@@ -12,6 +12,8 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 - Opening Metadata or Tasks in the detail panel no longer pushes the notes out of view ([guide](docs/guides/detail-panel.md#how-sections-share-the-panel)). The sections below the notes could not shrink, so in a short window the notes were reduced to 100px and the panel scrolled past them, which read as the notes having been deleted. Open notes now keep at least 40% of the height below the section bar and the other sections scroll within what is left. The same applies to person and organization nodes.
 
+- Copying and pasting a block of table cells works by every route ([guide](docs/guides/detail-panel.md#table-section)). Three faults, each enough to break it. The Copy and Paste buttons in the table's toolbar did nothing: the rule that ends a selection on a click outside the grid counted the toolbar as outside, so the selection, and the buttons with it, were gone before the click landed. Pasting onto a clicked cell put the whole block, tabs and line breaks included, into that one cell, because a click opens the cell's editor and the editor took the paste; a clipboard holding more than one cell is now pasted into the grid starting at that cell. And a copy taken straight after typing copied the cells as they were before the edit, because the rows were rebuilt from the saved cells, which trail an edit by a debounce and a database write.
+
 - The table section is no taller than its contents. It reserved 200px, 300px in fullscreen, which left an empty area under a short table and around the Add Table button, and in fullscreen it forced a horizontal scrollbar on the sections below the notes.
 
 ## [1.19.0] - 2026-09-24

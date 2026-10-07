@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onUnmounted, onMounted, shallowRef, watch } from 'vue'
+import { ref, reactive, computed, onUnmounted, onMounted, shallowRef, watch } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
 import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community'
 import {
@@ -8,6 +8,8 @@ import {
   deleteSelectedCells as clipboardDelete,
   fillSelectionWithValue as clipboardFill,
   pasteSelection as clipboardPaste,
+  pasteText as clipboardPasteText,
+  isMultiCellText,
 } from '../composables/useSpreadsheetClipboard.js'
 import { useSpreadsheetSelection } from '../composables/useSpreadsheetSelection.js'
 import { useSpreadsheetKeyboard } from '../composables/useSpreadsheetKeyboard.js'
@@ -90,6 +92,8 @@ const emit = defineEmits(['create', 'delete', 'cell-change', 'structure-change',
 
 const gridApi = shallowRef(null)
 const gridWrapper = ref(null)
+// The whole table: grid, toolbar and menus
+const sheetRoot = ref(null)
 const saveTimeouts = new Map()
 
 // Context menu state (cell formatting)
@@ -105,6 +109,36 @@ const columns = computed(() => {
   return props.tableData?.column_definitions || [{ name: 'A' }, { name: 'B' }, { name: 'C' }, { name: 'D' }]
 })
 
+// Edits the grid has reported that the saved cell list does not show yet,
+// keyed "row:col". A save reaches cellData only after a debounce and a write,
+// and rowData is rebuilt whenever any cell is saved: without these, the rebuild
+// showed every still-unsaved cell as it was before the edit, and a copy taken
+// straight after typing copied the old value.
+const unsavedValues = reactive(new Map())
+
+function savedValue(row, col) {
+  const cell = props.cellData.find(cl => cl.row_index === row && cl.col_index === col)
+  return cell?.value || cell?.formula || ''
+}
+
+// An edit stops being unsaved once the cell list shows it.
+watch(
+  () => props.cellData,
+  () => {
+    for (const [key, value] of unsavedValues) {
+      const [row, col] = key.split(':').map(Number)
+      if (savedValue(row, col) === value) unsavedValues.delete(key)
+    }
+  },
+  { deep: true }
+)
+
+// They belong to the node whose table was being edited.
+watch(
+  () => props.nodeId,
+  () => unsavedValues.clear()
+)
+
 // Row data
 const rowData = computed(() => {
   const rowCount = props.tableData?.row_count || 5
@@ -114,8 +148,8 @@ const rowData = computed(() => {
   for (let r = 0; r < rowCount; r++) {
     const row = { _rowIndex: r }
     cols.forEach((col, c) => {
-      const cell = props.cellData.find(cl => cl.row_index === r && cl.col_index === c)
-      row[col.name] = cell?.value || cell?.formula || ''
+      const key = `${r}:${c}`
+      row[col.name] = unsavedValues.has(key) ? unsavedValues.get(key) : savedValue(r, c)
     })
     rows.push(row)
   }
@@ -248,12 +282,37 @@ async function pasteSelection() {
   await clipboardPaste(getClipboardOptions())
 }
 
+/**
+ * Take a multi-cell paste away from an open cell editor.
+ *
+ * A click opens the cell's editor, so the cell a user clicks as a paste target
+ * is being edited when Cmd+V arrives, and the browser would put the whole
+ * block, tabs and newlines included, into that one cell. The block is pasted
+ * into the grid from that cell instead. A single value is left to the editor.
+ *
+ * @param {ClipboardEvent} event - The paste event
+ */
+function handleEditorPaste(event) {
+  const text = event.clipboardData?.getData('text/plain') ?? ''
+  if (!isMultiCellText(text)) return
+  const cell = selection.getCellFromElement(event.target)
+  if (!cell) return
+
+  event.preventDefault()
+  event.stopPropagation()
+  // Cancel, not commit: the editor's text is about to be replaced by the paste.
+  gridApi.value?.stopEditing(true)
+  clipboardPasteText({ ...getClipboardOptions(), text, startRow: cell.row, startCol: cell.col })
+}
+
 // ============================================================================
 // Keyboard Composable Setup
 // ============================================================================
 
 const keyboard = useSpreadsheetKeyboard({
-  getGridWrapper: () => gridWrapper.value,
+  // The toolbar counts: after Copy is clicked focus is on that button, and
+  // Cmd+V must still reach the table.
+  getGridWrapper: () => sheetRoot.value,
   getSelectionBounds: () => selection.selectionBounds.value,
   actions: {
     copySelection,
@@ -393,6 +452,7 @@ function onCellValueChanged(params) {
   // Debounce per cell: a shared timer would drop an earlier cell's pending
   // save when a second cell is edited within the debounce window.
   const key = `${rowIndex}:${colIndex}`
+  unsavedValues.set(key, valueStr)
   const pending = saveTimeouts.get(key)
   if (pending) clearTimeout(pending.timer)
 
@@ -473,12 +533,14 @@ function deleteTable() {
 function handleDocumentMouseDown(event) {
   if (event.button === 2) return
 
-  // A click away from the sheet ends the selection, exactly as a click inside
-  // it that misses a cell already does. The keyboard handler runs on document
+  // A click away from the table ends the selection, exactly as a click inside
+  // the grid that misses a cell already does. The toolbar and the menus are
+  // part of the table: ending the selection on their mousedown removed the
+  // Copy and Paste buttons before the click that was aimed at them landed. The keyboard handler runs on document
   // in the capture phase and claims keys while focus is on body, so a
   // selection left behind kept answering for the rest of the app: Cmd+Backspace
   // blanked these cells and never reached the node it was aimed at.
-  if (gridWrapper.value && !gridWrapper.value.contains(event.target)) {
+  if (sheetRoot.value && !sheetRoot.value.contains(event.target)) {
     selection.clearSelection()
   }
 
@@ -543,7 +605,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="node-spreadsheet" data-owns-keys tabindex="0">
+  <div ref="sheetRoot" class="node-spreadsheet" data-owns-keys tabindex="0" @paste.capture="handleEditorPaste">
     <div v-if="!tableData" class="no-table">
       <button class="create-table-btn" @click="createTable">+ Add Table</button>
     </div>

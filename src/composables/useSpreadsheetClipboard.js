@@ -118,49 +118,64 @@ export function fillSelectionWithValue({ value, selectionBounds, columns, gridAp
 }
 
 /**
- * Paste from clipboard into grid
+ * Split clipboard text into rows of cell values.
+ *
+ * Normalizes CRLF/CR line endings (Excel/Windows) and strips the trailing
+ * newline Excel appends, which would otherwise clear the row below the paste.
+ *
+ * @param {string} text - Tab- and newline-separated clipboard text
+ * @returns {string[][]} Rows of cell values
+ */
+function parseClipboardText(text) {
+  return text
+    .replace(/\r\n?/g, '\n')
+    .replace(/\n$/, '')
+    .split('\n')
+    .map(line => line.split('\t'))
+}
+
+/**
+ * Report whether clipboard text holds more than one cell.
+ *
+ * @param {string} text - Clipboard text
+ * @returns {boolean} True when the text spans several rows or columns
+ */
+export function isMultiCellText(text) {
+  if (!text) return false
+  const rows = parseClipboardText(text)
+  return rows.length > 1 || rows[0].length > 1
+}
+
+/**
+ * Write a block of clipboard text into the grid.
+ *
  * @param {Object} options
- * @param {Object} options.selectionBounds - {minRow, maxRow, minCol, maxCol} (optional)
+ * @param {string} options.text - Tab- and newline-separated text
+ * @param {number} options.startRow - Row of the block's top-left cell
+ * @param {number} options.startCol - Column of the block's top-left cell
  * @param {Array} options.columns - Column definitions
  * @param {Array} options.rowData - Row data array
  * @param {Object} options.gridApi - AG Grid API
  * @param {Function} options.emit - Vue emit function
  */
-export async function pasteSelection({ selectionBounds, columns, rowData, gridApi, emit }) {
-  const startRow = selectionBounds?.minRow ?? 0
-  const startCol = selectionBounds?.minCol ?? 0
-
-  let text
-  try {
-    text = await navigator.clipboard.readText()
-  } catch (err) {
-    // Copy in this same file reports through the shared handler; a paste that
-    // the browser refuses is just as visible to the user and must say so.
-    handleError(err, { context: 'Pasting from clipboard' })
-    return
-  }
-
+export function pasteText({ text, startRow, startCol, columns, rowData, gridApi, emit }) {
   if (!text) return
 
-  // Normalize CRLF/CR line endings (Excel/Windows) and strip the trailing
-  // newline Excel appends, which would otherwise clear the row below the paste.
-  const lines = text.replace(/\r\n?/g, '\n').replace(/\n$/, '').split('\n')
+  const rows = parseClipboardText(text)
 
-  for (let r = 0; r < lines.length; r++) {
-    const cells = lines[r].split('\t')
-    for (let c = 0; c < cells.length; c++) {
+  for (let r = 0; r < rows.length; r++) {
+    for (let c = 0; c < rows[r].length; c++) {
       const targetRow = startRow + r
       const targetCol = startCol + c
 
       if (targetRow < rowData.length && targetCol < columns.length) {
-        const value = cells[c]
-        const isFormula = value.startsWith('=')
+        const value = rows[r][c]
 
         emit('cell-change', {
           row: targetRow,
           col: targetCol,
           value: value,
-          isFormula: isFormula,
+          isFormula: value.startsWith('='),
         })
 
         if (gridApi) {
@@ -172,4 +187,37 @@ export async function pasteSelection({ selectionBounds, columns, rowData, gridAp
       }
     }
   }
+}
+
+/**
+ * Paste from the system clipboard into the grid, starting at the top-left cell
+ * of the selection.
+ *
+ * @param {Object} options
+ * @param {Object} options.selectionBounds - {minRow, maxRow, minCol, maxCol} (optional)
+ * @param {Array} options.columns - Column definitions
+ * @param {Array} options.rowData - Row data array
+ * @param {Object} options.gridApi - AG Grid API
+ * @param {Function} options.emit - Vue emit function
+ */
+export async function pasteSelection({ selectionBounds, columns, rowData, gridApi, emit }) {
+  let text
+  try {
+    text = await navigator.clipboard.readText()
+  } catch (err) {
+    // Copy in this same file reports through the shared handler; a paste that
+    // the browser refuses is just as visible to the user and must say so.
+    handleError(err, { context: 'Pasting from clipboard' })
+    return
+  }
+
+  pasteText({
+    text,
+    startRow: selectionBounds?.minRow ?? 0,
+    startCol: selectionBounds?.minCol ?? 0,
+    columns,
+    rowData,
+    gridApi,
+    emit,
+  })
 }
