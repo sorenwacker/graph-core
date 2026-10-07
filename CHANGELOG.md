@@ -4,13 +4,15 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- The detail panel has a section bar ([guide](docs/guides/detail-panel.md#section-bar)). One row of buttons under the title - Notes, Table, Tasks, Metadata; Notes and Details for persons and organizations - opens and closes the sections, and the buttons keep their order and position whatever is open, in the side panel, in fullscreen mode and in a detached window. Each section used to carry its own header, and a collapsed header was laid out among the open sections: the headers changed row, order and height depending on what was open, and an open section in fullscreen lost the width the headers beside it took. Section bodies no longer repeat a title.
+
 ### Fixed
 
-- Opening Metadata or Tasks in the detail panel no longer pushes the notes out of view ([guide](docs/guides/detail-panel.md#how-sections-share-the-panel)). The sections below the notes could not shrink, so in a short window the notes were reduced to 100px and the panel scrolled past them, which read as the notes having been deleted. Open notes now keep at least 40% of the panel's height and the sections below scroll within what is left. The same applies to person and organization nodes.
+- Opening Metadata or Tasks in the detail panel no longer pushes the notes out of view ([guide](docs/guides/detail-panel.md#how-sections-share-the-panel)). The sections below the notes could not shrink, so in a short window the notes were reduced to 100px and the panel scrolled past them, which read as the notes having been deleted. Open notes now keep at least 40% of the height below the section bar and the other sections scroll within what is left. The same applies to person and organization nodes.
 
-- Collapsed section headers in the detail panel sit on one row above the open sections, in the side panel, in fullscreen mode and in a detached window. In fullscreen an open section was placed beside the collapsed headers: the headers ended up at a different height from its own, and the open section lost the width they occupied.
-
-- Section titles in the detail panel share one left edge with each other and with the contents below them. A title was indented 6px past its section's contents, and by a further 4px once the section was open, so `METADATA` did not line up with `TABLE` above it or `TYPE` below it.
+- The table section is no taller than its contents. It reserved 200px, 300px in fullscreen, which left an empty area under a short table and around the Add Table button, and in fullscreen it forced a horizontal scrollbar on the sections below the notes.
 
 ## [1.19.0] - 2026-09-24
 

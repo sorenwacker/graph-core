@@ -32,41 +32,20 @@
 
 /* Fullscreen / wide mode: open sections may sit side by side */
 .detail-panel.fullscreen .bottom-sections {
-  --section-gap: 8px;
-  column-gap: 12px;
+  gap: 8px 12px;
 }
 
 /* Children and metadata share a row when expanded */
-.detail-panel.fullscreen .children-section:not(.collapsed),
-.detail-panel.fullscreen .meta-section:not(.collapsed) {
+.detail-panel.fullscreen .children-section,
+.detail-panel.fullscreen .meta-section {
   flex: 1 1 30%;
   min-width: 280px;
 }
 
 /* The table is the one section that needs horizontal space: give it the full
    row in fullscreen and detached mode, same as in the side panel */
-.detail-panel.fullscreen .table-section:not(.collapsed) {
+.detail-panel.fullscreen .table-section {
   flex: 1 1 100%;
-  min-width: 100%;
-  min-height: 300px;
-}
-
-/* Collapsed sections stay compact and inline */
-.detail-panel.fullscreen .table-section.collapsed,
-.detail-panel.fullscreen .children-section.collapsed,
-.detail-panel.fullscreen .meta-section.collapsed {
-  flex: 0 0 auto;
-}
-
-/* Ensure section headers look the same in fullscreen */
-.detail-panel.fullscreen .section-header {
-  padding: 2px 0;
-  line-height: 1;
-}
-
-.detail-panel.fullscreen .section-title {
-  font-size: 11px;
-  line-height: 1;
 }
 
 .detail-panel.fullscreen .children-list {
@@ -233,45 +212,6 @@
   overflow-y: auto;
 }
 
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 2px 0;
-  cursor: pointer;
-  user-select: none;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  margin: 0;
-  min-height: 0;
-  line-height: 1;
-}
-
-.section-header:hover {
-  background: var(--bg-hover);
-}
-
-.section-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  text-decoration: none;
-  border: none;
-  line-height: 1;
-  margin: 0;
-  padding: 0;
-}
-
-.section-count {
-  margin-left: 6px;
-  font-size: 11px;
-  color: var(--text-tertiary);
-  line-height: 1;
-}
-
 /* Notes section */
 .notes-section {
   display: flex;
@@ -284,82 +224,19 @@
   overflow: hidden;
 }
 
-.notes-section.collapsed {
-  flex: 0 0 auto;
-  min-height: 0;
-  /* Side padding stays, so the title does not move when the section opens */
-  padding: 0 4px;
-  background: transparent;
-}
-
-.notes-section.collapsed .section-header {
-  padding: 2px 0;
-  margin: 0;
-  background: transparent;
-  border: none;
-  line-height: 1;
-}
-
-.notes-section .section-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  text-decoration: none;
-  border: none;
-  line-height: 1;
-  margin: 0;
-  padding: 0;
-}
-
 /* Table section */
 .table-section {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   overflow: hidden;
-  min-height: 200px;
   padding: 4px;
   background: var(--bg-secondary);
   border-radius: 6px;
 }
 
-.table-section.collapsed {
-  flex: 0 0 auto;
-  min-height: 0;
-}
-
 .table-section .section-content {
   padding-top: 0;
-}
-
-.table-section .section-header {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 2px 0;
-  cursor: pointer;
-  user-select: none;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  margin: 0;
-  min-height: 0;
-  line-height: 1;
-}
-
-.table-section .section-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  text-decoration: none;
-  border: none;
-  line-height: 1;
-  margin: 0;
-  padding: 0;
 }
 
 .notes-section .section-content {
@@ -552,76 +429,25 @@
   background: var(--accent-color);
 }
 
-/* Bottom sections: collapsed headers on one row, open sections on the rows
-   below. The block takes the height its content needs, up to what the notes
-   leave, and scrolls within itself; it must be able to shrink, or an open
-   section pushes the notes out of the panel. */
+/* Bottom sections: the open sections other than the notes, in the order of
+   the section bar. The block takes the height its content needs, up to what
+   the notes leave, and scrolls within itself; it must be able to shrink, or an
+   open section pushes the notes out of the panel. */
 .bottom-sections {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
   align-items: flex-start;
-  /* Rows are spaced by a margin on the open sections, not by row-gap: the
-     element that ends the header row is a row of its own, and row-gap would
-     be counted on both sides of it. */
-  --section-gap: 4px;
-  gap: 0 8px;
+  gap: 4px 8px;
   flex: 0 1 auto;
   min-height: 0;
   overflow-y: auto;
 }
 
-.bottom-sections > .collapsed {
-  order: -1;
-  flex: 0 0 auto;
-}
-
 /* Each open section takes a full row in the side panel */
-.bottom-sections > :not(.collapsed) {
-  order: 1;
+.bottom-sections > * {
   flex: 1 1 100%;
   min-width: 0;
-  margin-top: var(--section-gap);
-}
-
-/* With no header row above them the open sections are already spaced from the
-   notes by the outer gap. */
-.bottom-sections:not(:has(> .collapsed)) {
-  margin-top: calc(-1 * var(--section-gap));
-}
-
-/* Ends the header row. Without it an open section narrower than the row - two
-   share one in fullscreen - is placed beside the collapsed headers, which then
-   sit at a different height from its own. */
-.bottom-sections:has(> .collapsed):has(> :not(.collapsed))::before {
-  content: '';
-  order: 0;
-  flex: 0 0 100%;
-}
-
-/* Collapsed sections: compact display */
-.bottom-sections .table-section.collapsed,
-.bottom-sections .children-section.collapsed,
-.bottom-sections .meta-section.collapsed {
-  padding: 0 4px;
-  background: transparent;
-}
-
-.bottom-sections .table-section.collapsed .section-header,
-.bottom-sections .children-section.collapsed .section-header,
-.bottom-sections .meta-section.collapsed .section-header {
-  padding: 2px 0;
-  margin: 0;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  line-height: 1;
-}
-
-.bottom-sections .table-section.collapsed .section-header:hover,
-.bottom-sections .children-section.collapsed .section-header:hover,
-.bottom-sections .meta-section.collapsed .section-header:hover {
-  background: var(--bg-hover);
 }
 
 /* Children section */

@@ -8,7 +8,6 @@ const props = defineProps({
   editedNode: { type: Object, required: true },
   linkedNodes: { type: Array, default: () => [] },
   workspaces: { type: Array, default: () => [] },
-  collapsed: { type: Boolean, default: false },
   // In a detached window there is no spotlight to open, so the link affordances
   // would do nothing; hide them instead of showing dead buttons.
   detached: { type: Boolean, default: false },
@@ -19,7 +18,6 @@ const linkedTags = computed(() => (props.linkedNodes || []).filter(n => n && n.t
 const linkedNonTags = computed(() => (props.linkedNodes || []).filter(n => n && n.type !== 'tag'))
 
 const emit = defineEmits([
-  'update:collapsed',
   'update:field',
   'update:color',
   'change-workspace',
@@ -34,10 +32,6 @@ const emit = defineEmits([
 
 const formattedCreatedDate = computed(() => formatDate(props.editedNode?.created_at))
 const formattedUpdatedDate = computed(() => formatDate(props.editedNode?.updated_at))
-
-function toggleCollapsed() {
-  emit('update:collapsed', !props.collapsed)
-}
 
 function setImportance(level) {
   emit('update:field', { field: 'importance', value: level })
@@ -76,11 +70,8 @@ function clearLocation() {
 </script>
 
 <template>
-  <div class="meta-section" :class="{ collapsed }">
-    <div class="section-header" @click="toggleCollapsed">
-      <span class="section-title">Metadata</span>
-    </div>
-    <div v-show="!collapsed" class="section-content">
+  <div class="meta-section">
+    <div class="section-content">
       <div class="meta-grid">
         <!-- Type -->
         <div class="meta-item">
@@ -275,44 +266,6 @@ function clearLocation() {
   padding: 4px;
   background: var(--bg-secondary);
   border-radius: 6px;
-}
-
-.meta-section.collapsed {
-  /* Side padding stays, so the title does not move when the section opens */
-  padding: 0 4px;
-  background: transparent;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 2px 0;
-  cursor: pointer;
-  user-select: none;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  margin: 0;
-  min-height: 0;
-  line-height: 1;
-}
-
-.section-header:hover {
-  background: var(--bg-hover);
-}
-
-.section-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  text-decoration: none;
-  border: none;
-  line-height: 1;
-  margin: 0;
-  padding: 0;
 }
 
 .meta-grid {

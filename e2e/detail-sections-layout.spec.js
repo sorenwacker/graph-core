@@ -2,14 +2,14 @@ import { test, expect } from '@playwright/test'
 import { launchApp, dismissOnboarding, MOD } from './helpers.js'
 
 /**
- * How the detail panel's sections share its space
- * (docs/guides/detail-panel.md#how-sections-share-the-panel).
+ * The detail panel's section bar and how the sections share the panel
+ * (docs/guides/detail-panel.md#section-bar).
  *
  * Measured in the running app, in a window short enough that an open Metadata
  * section does not fit beside the notes. The rules are geometry, so the test
- * reads rectangles rather than CSS source: collapsed headers share a row above
- * the open sections, an open section starts at the panel's left edge, and open
- * notes keep their share of the height instead of being scrolled away.
+ * reads rectangles rather than CSS source: the section buttons stay where they
+ * are whatever is open, open sections follow the order of the buttons, and
+ * open notes keep their share of the height instead of being scrolled away.
  *
  * The detached window is not driven here: it renders the same panel with the
  * same `fullscreen` class, so the fullscreen cases cover its layout.
@@ -17,6 +17,13 @@ import { launchApp, dismissOnboarding, MOD } from './helpers.js'
 
 const NOTES_MIN_SHARE = 0.4
 const PX = 1.5
+const SECTIONS = ['notes', 'table', 'tasks', 'metadata']
+const BODY = {
+  notes: '.notes-section',
+  table: '.table-section',
+  tasks: '.children-section',
+  metadata: '.meta-section',
+}
 
 let ctx
 
@@ -32,47 +39,36 @@ test.beforeAll(async () => {
   await ctx.page.locator('body').press(`${MOD}+Digit3`)
   await ctx.page.getByRole('cell', { name: 'Layout note' }).click()
   await ctx.page.keyboard.press('Space')
-  await expect(ctx.page.locator('.detail-panel .notes-section')).toBeVisible()
+  await expect(ctx.page.locator('.detail-panel .section-bar')).toBeVisible()
+  // The panel slides in; positions read during the slide are not the layout.
+  await expect
+    .poll(() =>
+      ctx.page.evaluate(() =>
+        Math.abs(innerWidth - document.querySelector('.detail-panel').getBoundingClientRect().right)
+      )
+    )
+    .toBeLessThanOrEqual(PX)
 })
 
 test.afterAll(async () => {
   await ctx.close()
 })
 
-function measure(page) {
-  return page.evaluate(() => {
-    const rect = el => {
-      const r = el.getBoundingClientRect()
-      return { top: r.top, bottom: r.bottom, left: r.left, height: r.height }
-    }
-    const section = selector => {
-      const el = document.querySelector(`.detail-panel ${selector}`)
-      if (!el) return null
-      return {
-        collapsed: el.classList.contains('collapsed'),
-        box: rect(el),
-        header: rect(el.querySelector('.section-header')),
-      }
-    }
-    const outer = document.querySelector('.detail-panel .collapsible-sections')
-    const lower = document.querySelector('.detail-panel .bottom-sections')
-    return {
-      outer: { ...rect(outer), scrollHeight: outer.scrollHeight, clientHeight: outer.clientHeight },
-      lower: lower ? rect(lower) : null,
-      notes: section('.notes-section'),
-      table: section('.table-section'),
-      tasks: section('.children-section'),
-      meta: section('.meta-section'),
-    }
-  })
+const toggle = (page, key) => page.locator(`.detail-panel .section-bar [data-section="${key}"]`)
+
+async function setOpen(page, key, open) {
+  const button = toggle(page, key)
+  if ((await button.getAttribute('aria-pressed')) !== String(open)) await button.click()
+  await expect(button).toHaveAttribute('aria-pressed', String(open))
+  if (BODY[key]) {
+    const body = page.locator(`.detail-panel ${BODY[key]}`)
+    if (open) await expect(body).toBeVisible()
+    else await expect(body).toBeHidden()
+  }
 }
 
-async function setCollapsed(page, selector, collapsed) {
-  const section = page.locator(`.detail-panel ${selector}`)
-  const isCollapsed = await section.evaluate(el => el.classList.contains('collapsed'))
-  if (isCollapsed !== collapsed) await section.locator('.section-header').first().click()
-  if (collapsed) await expect(section).toHaveClass(/collapsed/)
-  else await expect(section).not.toHaveClass(/collapsed/)
+async function setOpenSections(page, openKeys) {
+  for (const key of SECTIONS) await setOpen(page, key, openKeys.includes(key))
 }
 
 async function setFullscreen(page, fullscreen) {
@@ -83,84 +79,140 @@ async function setFullscreen(page, fullscreen) {
   else await expect(panel).not.toHaveClass(/fullscreen/)
 }
 
-function expectHeaderRowAbove(m, collapsedNames, openName) {
-  const [first, ...rest] = collapsedNames.map(name => m[name].header)
-  for (const header of rest) {
-    expect(Math.abs(header.top - first.top)).toBeLessThanOrEqual(PX)
-  }
-  for (const header of [first, ...rest]) {
-    expect(m[openName].box.top).toBeGreaterThanOrEqual(header.bottom - PX)
-  }
-  expect(Math.abs(m[openName].box.left - m.lower.left)).toBeLessThanOrEqual(PX)
+function measure(page) {
+  return page.evaluate(bodies => {
+    const rect = el => {
+      const r = el.getBoundingClientRect()
+      return { top: r.top, bottom: r.bottom, left: r.left, height: r.height, width: r.width }
+    }
+    const visible = el => el && el.getClientRects().length > 0
+    const panel = document.querySelector('.detail-panel')
+    const outer = panel.querySelector('.collapsible-sections')
+    const body = {}
+    for (const [key, selector] of Object.entries(bodies)) {
+      const el = panel.querySelector(selector)
+      body[key] = visible(el) ? rect(el) : null
+    }
+    const buttons = {}
+    for (const el of panel.querySelectorAll('.section-bar [data-section]')) buttons[el.dataset.section] = rect(el)
+    return {
+      buttons,
+      body,
+      outer: { ...rect(outer), scrollHeight: outer.scrollHeight, clientHeight: outer.clientHeight },
+    }
+  }, BODY)
 }
 
 function expectNotesKeepTheirShare(m) {
   expect(m.outer.scrollHeight).toBeLessThanOrEqual(m.outer.clientHeight + PX)
-  expect(m.notes.box.height).toBeGreaterThanOrEqual(m.outer.clientHeight * NOTES_MIN_SHARE - PX)
-  expect(m.notes.box.top).toBeGreaterThanOrEqual(m.outer.top - PX)
+  expect(m.body.notes.height).toBeGreaterThanOrEqual(m.outer.clientHeight * NOTES_MIN_SHARE - PX)
+  expect(m.body.notes.top).toBeGreaterThanOrEqual(m.outer.top - PX)
 }
 
 for (const mode of ['side panel', 'fullscreen']) {
   test.describe(mode, () => {
     test.beforeEach(async () => {
       await setFullscreen(ctx.page, mode === 'fullscreen')
-      await setCollapsed(ctx.page, '.children-section', true)
-      await setCollapsed(ctx.page, '.meta-section', true)
+      await setOpenSections(ctx.page, ['notes'])
     })
 
-    test('collapsed headers share a row above an open Metadata section', async () => {
-      await setCollapsed(ctx.page, '.meta-section', false)
-      expectHeaderRowAbove(await measure(ctx.page), ['table', 'tasks'], 'meta')
+    test('the section buttons stay in place whatever is open', async () => {
+      const baseline = (await measure(ctx.page)).buttons
+      expect(Object.keys(baseline)).toEqual(SECTIONS)
+      for (const key of SECTIONS) expect(Math.abs(baseline[key].top - baseline.notes.top)).toBeLessThanOrEqual(PX)
+
+      const combinations = [['notes', 'metadata'], ['notes', 'tasks'], ['notes', 'table'], ['metadata'], [], SECTIONS]
+      for (const open of combinations) {
+        await setOpenSections(ctx.page, open)
+        const { buttons } = await measure(ctx.page)
+        for (const key of SECTIONS) {
+          for (const side of ['left', 'top', 'width', 'height']) {
+            const moved = Math.abs(buttons[key][side] - baseline[key][side])
+            expect(moved, `${key}.${side} with [${open}] open`).toBeLessThanOrEqual(PX)
+          }
+        }
+      }
     })
 
-    test('collapsed headers share a row above an open Tasks section', async () => {
-      await setCollapsed(ctx.page, '.children-section', false)
-      expectHeaderRowAbove(await measure(ctx.page), ['table', 'meta'], 'tasks')
+    test('a button does not move under the pointer', async () => {
+      const before = (await measure(ctx.page)).buttons.table
+      await toggle(ctx.page, 'table').hover()
+      // Long enough for a hover transition to finish, so a lift would show.
+      await ctx.page.waitForTimeout(400)
+      const after = (await measure(ctx.page)).buttons.table
+      expect(Math.abs(after.top - before.top)).toBeLessThan(0.1)
+      expect(Math.abs(after.left - before.left)).toBeLessThan(0.1)
     })
 
-    test('section titles and open contents share one left edge', async () => {
-      await setCollapsed(ctx.page, '.meta-section', false)
+    test('an open section is no taller or wider than its contents need', async () => {
+      await setOpenSections(ctx.page, ['table'])
+      const m = await ctx.page.evaluate(() => {
+        const section = document.querySelector('.detail-panel .table-section')
+        const lower = document.querySelector('.detail-panel .bottom-sections')
+        const button = section.querySelector('.create-table-btn').getBoundingClientRect()
+        return {
+          spare: section.getBoundingClientRect().height - button.height,
+          sideways: lower.scrollWidth - lower.clientWidth,
+        }
+      })
+      expect(m.spare).toBeLessThan(60)
+      expect(m.sideways).toBeLessThanOrEqual(PX)
+    })
+
+    test('a section body carries no title of its own', async () => {
+      await setOpenSections(ctx.page, SECTIONS)
+      await expect(ctx.page.locator('.detail-panel .collapsible-sections .section-title')).toHaveCount(0)
+    })
+
+    test('the buttons and the contents of open sections share one left edge', async () => {
+      await setOpenSections(ctx.page, ['notes', 'metadata'])
       const lefts = await ctx.page.evaluate(() => {
         const left = selector => document.querySelector(`.detail-panel ${selector}`).getBoundingClientRect().left
         return {
-          notesTitle: left('.notes-section .section-title'),
+          firstButton: left('.section-bar [data-section]'),
           notesContent: left('.notes-section .tabs-row'),
-          tableTitle: left('.table-section .section-title'),
-          metaTitle: left('.meta-section .section-title'),
           metaContent: left('.meta-section .meta-item label'),
         }
       })
       for (const [name, value] of Object.entries(lefts)) {
-        expect(Math.abs(value - lefts.notesTitle), name).toBeLessThanOrEqual(PX)
+        expect(Math.abs(value - lefts.firstButton), name).toBeLessThanOrEqual(PX)
       }
     })
 
-    test('open Tasks and Metadata sections are placed for the mode', async () => {
-      await setCollapsed(ctx.page, '.children-section', false)
-      await setCollapsed(ctx.page, '.meta-section', false)
-      const m = await measure(ctx.page)
-      expect(m.tasks.box.top).toBeGreaterThanOrEqual(m.table.header.bottom - PX)
+    test('open sections follow the order of the buttons', async () => {
+      await setOpenSections(ctx.page, SECTIONS)
+      const { body } = await measure(ctx.page)
+      expect(body.table.top).toBeGreaterThanOrEqual(body.notes.bottom - PX)
+      expect(body.tasks.top).toBeGreaterThanOrEqual(body.table.bottom - PX)
       if (mode === 'fullscreen') {
-        // Wide enough for both: they share the row below the header.
-        expect(Math.abs(m.meta.box.top - m.tasks.box.top)).toBeLessThanOrEqual(PX)
+        // Wide enough for both: Tasks and Metadata share the row below the table.
+        expect(Math.abs(body.metadata.top - body.tasks.top)).toBeLessThanOrEqual(PX)
+        expect(body.metadata.left).toBeGreaterThan(body.tasks.left)
       } else {
-        expect(m.meta.box.top).toBeGreaterThanOrEqual(m.tasks.box.bottom - PX)
-        expect(Math.abs(m.meta.box.left - m.lower.left)).toBeLessThanOrEqual(PX)
+        expect(body.metadata.top).toBeGreaterThanOrEqual(body.tasks.bottom - PX)
       }
     })
 
     test('open notes keep their share of the height when Metadata is open', async () => {
-      await setCollapsed(ctx.page, '.meta-section', false)
+      await setOpenSections(ctx.page, ['notes', 'metadata'])
       expectNotesKeepTheirShare(await measure(ctx.page))
     })
   })
 }
 
-test('open notes keep their share of the height on a person node', async () => {
+test('a person node has the same bar and the same notes share', async () => {
   await setFullscreen(ctx.page, false)
-  await setCollapsed(ctx.page, '.meta-section', false)
+  await setOpenSections(ctx.page, ['notes', 'metadata'])
   await ctx.page.locator('.detail-panel .meta-section select').first().selectOption('person')
   await expect(ctx.page.locator('.detail-panel .person-form')).toBeVisible()
-  await setCollapsed(ctx.page, '.meta-section', false)
-  expectNotesKeepTheirShare(await measure(ctx.page))
+
+  const before = (await measure(ctx.page)).buttons
+  expect(Object.keys(before)).toEqual(['notes', 'details'])
+  await setOpen(ctx.page, 'details', true)
+  const m = await measure(ctx.page)
+  for (const key of ['notes', 'details']) {
+    expect(Math.abs(m.buttons[key].left - before[key].left)).toBeLessThanOrEqual(PX)
+    expect(Math.abs(m.buttons[key].top - before[key].top)).toBeLessThanOrEqual(PX)
+  }
+  expectNotesKeepTheirShare(m)
 })

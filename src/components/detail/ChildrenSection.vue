@@ -6,13 +6,12 @@ const props = defineProps({
   children: { type: Array, default: () => [] },
   hideCompleted: { type: Boolean, default: false },
   loadingChildren: { type: Boolean, default: false },
-  collapsed: { type: Boolean, default: false },
   parentId: { type: [Number, String], required: true },
   width: { type: Number, default: 400 },
   fullscreen: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['update:collapsed', 'select-child', 'toggle-complete', 'add-task', 'add-subtask', 'reorder'])
+const emit = defineEmits(['select-child', 'toggle-complete', 'add-task', 'add-subtask', 'reorder'])
 
 const newTaskTitle = ref('')
 
@@ -22,18 +21,10 @@ const filteredChildren = computed(() => {
   return props.children.filter(child => !child.completed)
 })
 
-const completedCount = computed(() => {
-  return props.children.filter(c => c.completed).length
-})
-
 // Drag state
 const draggedChild = ref(null)
 const dropTarget = ref(null)
 const dropPosition = ref(null)
-
-function toggleCollapsed() {
-  emit('update:collapsed', !props.collapsed)
-}
 
 function addTask() {
   const title = newTaskTitle.value.trim()
@@ -86,12 +77,8 @@ function onDragEnd() {
 </script>
 
 <template>
-  <div class="children-section" :class="{ collapsed }">
-    <div class="section-header" @click="toggleCollapsed">
-      <span class="section-title">Tasks</span>
-      <span v-if="children.length" class="section-count">{{ completedCount }}/{{ children.length }}</span>
-    </div>
-    <div v-show="!collapsed" class="section-content">
+  <div class="children-section">
+    <div class="section-content">
       <!-- Add task input -->
       <div class="add-task-row">
         <input
@@ -173,51 +160,6 @@ function onDragEnd() {
   padding: 4px;
   background: var(--bg-secondary);
   border-radius: 6px;
-}
-
-.children-section.collapsed {
-  /* Side padding stays, so the title does not move when the section opens */
-  padding: 0 4px;
-  background: transparent;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 2px 0;
-  cursor: pointer;
-  user-select: none;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  margin: 0;
-  min-height: 0;
-  line-height: 1;
-}
-
-.section-header:hover {
-  background: var(--bg-hover);
-}
-
-.section-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  text-decoration: none;
-  border: none;
-  line-height: 1;
-  margin: 0;
-  padding: 0;
-}
-
-.section-count {
-  margin-left: 6px;
-  font-size: 11px;
-  color: var(--text-tertiary);
-  line-height: 1;
 }
 
 .add-task-row {

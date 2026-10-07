@@ -46,17 +46,25 @@ Native browser dialogs are not used anywhere in the app: Electron does not imple
 
 ## Sections
 
-The detail panel contains collapsible sections:
+The detail panel is divided into sections that open and close from the section bar.
+
+### Section Bar
+
+One bar under the title holds a button for every section: Notes, Table, Tasks and Metadata for most nodes; Notes and Details for persons and organizations. The buttons keep the same order and the same position whichever sections are open, in the side panel, in fullscreen mode and in a detached window.
+
+- Clicking a button opens or closes its section. The button of an open section is highlighted.
+- The Tasks button shows the completed and total task counts when the node has tasks.
+- Open sections appear below the bar in the order of the buttons. A section body carries no title of its own; the bar is the only place a section is named.
 
 ### How Sections Share the Panel
 
 The panel does not scroll as a whole; each section scrolls within itself. The rules are the same in the side panel, in fullscreen mode, in a detached window, and for every node type, including persons and organizations.
 
-- While the notes section is open it keeps at least 40% of the panel's height, whatever is open below it. Opening Metadata, Tasks, or a table cannot push the notes out of view.
+- While the notes section is open it keeps at least 40% of the height below the section bar, whatever else is open. Opening Metadata, Tasks, or a table cannot push the notes out of view.
 - The sections below the notes take the height their content needs, up to what the notes leave, and scroll within that space when the content is taller.
-- Collapsing the notes gives the whole height to the sections below.
-- Collapsed section headers sit together on one row, on a common baseline, above the open sections. An open section never shares a row with a collapsed header, so a header is never displaced by the block next to it and an open section starts at the left edge of the panel.
-- Section titles share one left edge whether the section is collapsed or open, and the contents of an open section start at that same edge.
+- Closing the notes gives the whole height to the other sections.
+- A section other than the notes is no taller than its contents: a node without a table shows only the Add Table button, with no reserved space under it.
+- The section buttons and the contents of every open section start at the same left edge.
 - In the side panel each open section takes a full row. In fullscreen mode and in a detached window the table takes a full row, and Tasks and Metadata share one when both are open.
 
 ### Notes Section
