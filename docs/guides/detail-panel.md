@@ -56,6 +56,7 @@ The panel does not scroll as a whole; each section scrolls within itself. The ru
 - The sections below the notes take the height their content needs, up to what the notes leave, and scroll within that space when the content is taller.
 - Collapsing the notes gives the whole height to the sections below.
 - Collapsed section headers sit together on one row, on a common baseline, above the open sections. An open section never shares a row with a collapsed header, so a header is never displaced by the block next to it and an open section starts at the left edge of the panel.
+- Section titles share one left edge whether the section is collapsed or open, and the contents of an open section start at that same edge.
 - In the side panel each open section takes a full row. In fullscreen mode and in a detached window the table takes a full row, and Tasks and Metadata share one when both are open.
 
 ### Notes Section

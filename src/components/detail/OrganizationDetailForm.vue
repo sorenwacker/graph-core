@@ -263,7 +263,7 @@ defineExpose({ loadLinkedMembers, getNotesSelection })
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding: 2px 6px;
+  padding: 2px 0;
   cursor: pointer;
   user-select: none;
   background: transparent;

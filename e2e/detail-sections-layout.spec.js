@@ -118,6 +118,23 @@ for (const mode of ['side panel', 'fullscreen']) {
       expectHeaderRowAbove(await measure(ctx.page), ['table', 'meta'], 'tasks')
     })
 
+    test('section titles and open contents share one left edge', async () => {
+      await setCollapsed(ctx.page, '.meta-section', false)
+      const lefts = await ctx.page.evaluate(() => {
+        const left = selector => document.querySelector(`.detail-panel ${selector}`).getBoundingClientRect().left
+        return {
+          notesTitle: left('.notes-section .section-title'),
+          notesContent: left('.notes-section .tabs-row'),
+          tableTitle: left('.table-section .section-title'),
+          metaTitle: left('.meta-section .section-title'),
+          metaContent: left('.meta-section .meta-item label'),
+        }
+      })
+      for (const [name, value] of Object.entries(lefts)) {
+        expect(Math.abs(value - lefts.notesTitle), name).toBeLessThanOrEqual(PX)
+      }
+    })
+
     test('open Tasks and Metadata sections are placed for the mode', async () => {
       await setCollapsed(ctx.page, '.children-section', false)
       await setCollapsed(ctx.page, '.meta-section', false)

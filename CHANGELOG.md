@@ -10,6 +10,8 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 - Collapsed section headers in the detail panel sit on one row above the open sections, in the side panel, in fullscreen mode and in a detached window. In fullscreen an open section was placed beside the collapsed headers: the headers ended up at a different height from its own, and the open section lost the width they occupied.
 
+- Section titles in the detail panel share one left edge with each other and with the contents below them. A title was indented 6px past its section's contents, and by a further 4px once the section was open, so `METADATA` did not line up with `TABLE` above it or `TYPE` below it.
+
 ## [1.19.0] - 2026-09-24
 
 ### Security
