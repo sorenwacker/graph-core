@@ -933,10 +933,7 @@ defineExpose({
       <!-- Regular node layout (non-person, non-organization) -->
       <template v-else>
         <!-- Collapsible sections container -->
-        <div
-          class="collapsible-sections"
-          :class="{ 'all-collapsed': notesCollapsed && childrenCollapsed && metadataCollapsed }"
-        >
+        <div class="collapsible-sections">
           <!-- Notes Section -->
           <div class="notes-section" :class="{ collapsed: notesCollapsed }">
             <div class="section-header" @click="notesCollapsed = !notesCollapsed">
@@ -1091,10 +1088,7 @@ defineExpose({
           </div>
 
           <!-- Bottom sections (table + children + metadata) -->
-          <div
-            class="bottom-sections"
-            :class="{ 'all-collapsed': tableCollapsed && childrenCollapsed && metadataCollapsed }"
-          >
+          <div class="bottom-sections">
             <!-- Table Section -->
             <div class="table-section" :class="{ collapsed: tableCollapsed }">
               <div class="section-header" @click="tableCollapsed = !tableCollapsed">

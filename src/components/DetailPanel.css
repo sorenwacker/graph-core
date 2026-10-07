@@ -1,4 +1,7 @@
+/* --notes-min-height is the height open notes keep whatever is open below
+   them. The person and organization forms read it too. */
 .detail-panel {
+  --notes-min-height: max(100px, 40%);
   width: 400px;
   min-width: 300px;
   max-width: 90vw;
@@ -27,17 +30,10 @@
   box-sizing: border-box;
 }
 
-/* Fullscreen / wide mode: All sections side by side */
+/* Fullscreen / wide mode: open sections may sit side by side */
 .detail-panel.fullscreen .bottom-sections {
-  display: flex;
-  /* Resets the column direction the narrow side panel sets. Without this the
-     container still stacks: the flex-basis percentages below resolve against
-     the height, every section shrinks to its min-width, and the rest of the
-     window is left empty. */
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  align-items: flex-start;
+  --section-gap: 8px;
+  column-gap: 12px;
 }
 
 /* Children and metadata share a row when expanded */
@@ -281,7 +277,7 @@
   display: flex;
   flex-direction: column;
   flex: 1 1 0;
-  min-height: 100px;
+  min-height: var(--notes-min-height);
   padding: 4px;
   background: var(--bg-secondary);
   border-radius: 6px;
@@ -555,12 +551,51 @@
   background: var(--accent-color);
 }
 
-/* Bottom sections - all full width in smaller/detached mode */
+/* Bottom sections: collapsed headers on one row, open sections on the rows
+   below. The block takes the height its content needs, up to what the notes
+   leave, and scrolls within itself; it must be able to shrink, or an open
+   section pushes the notes out of the panel. */
 .bottom-sections {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex-shrink: 0;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  /* Rows are spaced by a margin on the open sections, not by row-gap: the
+     element that ends the header row is a row of its own, and row-gap would
+     be counted on both sides of it. */
+  --section-gap: 4px;
+  gap: 0 8px;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.bottom-sections > .collapsed {
+  order: -1;
+  flex: 0 0 auto;
+}
+
+/* Each open section takes a full row in the side panel */
+.bottom-sections > :not(.collapsed) {
+  order: 1;
+  flex: 1 1 100%;
+  min-width: 0;
+  margin-top: var(--section-gap);
+}
+
+/* With no header row above them the open sections are already spaced from the
+   notes by the outer gap. */
+.bottom-sections:not(:has(> .collapsed)) {
+  margin-top: calc(-1 * var(--section-gap));
+}
+
+/* Ends the header row. Without it an open section narrower than the row - two
+   share one in fullscreen - is placed beside the collapsed headers, which then
+   sit at a different height from its own. */
+.bottom-sections:has(> .collapsed):has(> :not(.collapsed))::before {
+  content: '';
+  order: 0;
+  flex: 0 0 100%;
 }
 
 /* Collapsed sections: compact display */
@@ -586,13 +621,6 @@
 .bottom-sections .children-section.collapsed .section-header:hover,
 .bottom-sections .meta-section.collapsed .section-header:hover {
   background: var(--bg-hover);
-}
-
-/* When all collapsed, show inline */
-.bottom-sections.all-collapsed {
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 2px 8px;
 }
 
 /* Children section */

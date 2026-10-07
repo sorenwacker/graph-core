@@ -4,6 +4,12 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Fixed
+
+- Opening Metadata or Tasks in the detail panel no longer pushes the notes out of view ([guide](docs/guides/detail-panel.md#how-sections-share-the-panel)). The sections below the notes could not shrink, so in a short window the notes were reduced to 100px and the panel scrolled past them, which read as the notes having been deleted. Open notes now keep at least 40% of the panel's height and the sections below scroll within what is left. The same applies to person and organization nodes.
+
+- Collapsed section headers in the detail panel sit on one row above the open sections, in the side panel, in fullscreen mode and in a detached window. In fullscreen an open section was placed beside the collapsed headers: the headers ended up at a different height from its own, and the open section lost the width they occupied.
+
 ## [1.19.0] - 2026-09-24
 
 ### Security

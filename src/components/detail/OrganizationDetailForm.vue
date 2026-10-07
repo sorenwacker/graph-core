@@ -304,7 +304,7 @@ defineExpose({ loadLinkedMembers, getNotesSelection })
   display: flex;
   flex-direction: column;
   flex: 1 1 0;
-  min-height: 100px;
+  min-height: var(--notes-min-height);
   padding: 8px;
   background: var(--bg-secondary);
   border-radius: 6px;
@@ -324,7 +324,12 @@ defineExpose({ loadLinkedMembers, getNotesSelection })
   overflow: hidden;
 }
 
+/* Takes the height its content needs, up to what the notes leave, and scrolls
+   within itself; it must be able to shrink, or it pushes the notes out. */
 .meta-section {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   padding: 8px;
   background: var(--bg-secondary);
   border-radius: 6px;
