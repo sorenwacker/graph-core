@@ -1175,7 +1175,7 @@ defineExpose({
         <button @click="moveToRoot" title="Move this node to the root level">Move to Root</button>
         <div class="export-dropdown">
           <button @click="showExportMenu = !showExportMenu" title="Export node and children">
-            Export <span class="dropdown-arrow">v</span>
+            Export<span class="dropdown-arrow" aria-hidden="true"></span>
           </button>
           <div v-if="showExportMenu" class="export-menu" @mouseleave="showExportMenu = false">
             <button @click="exportJSON">JSON (full data)</button>
@@ -1183,7 +1183,6 @@ defineExpose({
             <button @click="exportMarkdown">Markdown (text)</button>
           </div>
         </div>
-        <span class="spacer"></span>
         <button class="danger" @click="deleteNode" title="Delete this node">Delete</button>
       </div>
     </div>

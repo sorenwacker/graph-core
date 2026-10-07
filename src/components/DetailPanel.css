@@ -1129,16 +1129,17 @@ label.due-overdue {
   padding-top: 12px;
   border-top: 1px solid var(--border-color);
   display: flex;
+  /* The row wraps; a label never does. Left to shrink, the buttons broke
+     "Wrap with Parent" in two and dropped the Export arrow to its own line. */
+  flex-wrap: wrap;
   gap: 8px;
   flex-shrink: 0;
 }
 
-.detail-actions .spacer {
-  flex: 1;
-}
-
 .detail-actions button {
-  padding: 6px 12px;
+  white-space: nowrap;
+  /* Narrow enough for all four to share a row at the default panel width */
+  padding: 6px 8px;
   font-size: 12px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
@@ -1152,6 +1153,8 @@ label.due-overdue {
 }
 
 .detail-actions button.danger {
+  /* Right edge of whichever row it lands on */
+  margin-left: auto;
   background: var(--error-bg);
   border-color: var(--error-border);
   color: var(--error-color);
@@ -1166,9 +1169,16 @@ label.due-overdue {
   position: relative;
 }
 
+/* A drawn chevron: the arrow used to be the letter "v", which read as part of
+   the label. */
 .export-dropdown > button .dropdown-arrow {
-  font-size: 10px;
-  margin-left: 4px;
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
 }
 
 .export-menu {
