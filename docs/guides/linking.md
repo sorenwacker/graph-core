@@ -47,6 +47,8 @@ This method works from any view.
 
 Enable "Show External Links" in the graph toolbar to display link edges. Links appear as dashed lines (distinct from solid parent-child edges).
 
+A node that is linked to something in the current container but lives elsewhere in the hierarchy is drawn in the graph as well. It is drawn like the container's own nodes: when the graph is showing note previews, a linked node shows the preview of its notes too.
+
 ### In Detail Panel
 
 The "Linked Items" section shows all nodes linked to the current node:

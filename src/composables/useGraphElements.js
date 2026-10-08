@@ -339,6 +339,11 @@ export async function fetchLinkedNodes(options) {
 
   const existingNodeIds = new Set(elements.filter(el => !el.data.source).map(el => el.data.id))
 
+  // Whether the graph is showing note previews is decided once, for the
+  // container's own nodes. A linked node follows it: left unset, the node
+  // template read it as "no previews" and drew every linked node title-only.
+  const showDetails = elements.some(el => !el.data.source && el.data.showDetails === true)
+
   // Build a map of external node ID -> linked internal node IDs
   const externalToInternal = new Map()
   links.forEach(link => {
@@ -405,6 +410,7 @@ export async function fetchLinkedNodes(options) {
             isPerson: node.type === 'person',
             isTag: node.type === 'tag',
             isLinkedExternal: true,
+            showDetails,
             bgColor,
             borderColor: colors.border,
             textColor,
