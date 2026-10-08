@@ -5,6 +5,10 @@
  */
 
 [data-theme='light'] {
+  /* The frame drawn around a selected graph node; must stand out from the page */
+  --selection-frame: #1a1a1a;
+  --selection-glow: rgba(26, 26, 26, 0.3);
+
   /* Text */
   --text-primary: #1a1a1a;
   --text-secondary: #4a4a4a;

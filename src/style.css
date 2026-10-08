@@ -17,6 +17,10 @@
   --spacing-lg: 16px;
   --spacing-xl: 24px;
 
+  /* The frame drawn around a selected graph node; must stand out from the page */
+  --selection-frame: #ffffff;
+  --selection-glow: rgba(255, 255, 255, 0.45);
+
   --text-primary: #ffffff;
   --text-secondary: #c0c0c0;
   --text-tertiary: #888;
