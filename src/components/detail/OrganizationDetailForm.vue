@@ -1,9 +1,10 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useErrorHandler } from '../../composables/useErrorHandler.js'
 import { getInitials } from '../../utils/formatting.js'
 import { nodeTypes } from '../../utils/constants.js'
 import NotesSection from './NotesSection.vue'
+import SectionBar from './SectionBar.vue'
 import MetaInfoSection from './MetaInfoSection.vue'
 import ColorPickerSection from './ColorPickerSection.vue'
 import LinkedItemsSection from './LinkedItemsSection.vue'
@@ -43,9 +44,19 @@ const linkedMembers = ref([])
 const notesSectionRef = ref(null)
 // Revealing a flagged note is per-node and resets when the panel shows another.
 
-// Collapsible section state
+// Section state, driven by the section bar
 const notesCollapsed = ref(false)
 const metadataCollapsed = ref(true)
+
+const sections = computed(() => [
+  { key: 'notes', label: 'Notes', open: !notesCollapsed.value },
+  { key: 'details', label: 'Details', open: !metadataCollapsed.value },
+])
+
+function toggleSection(key) {
+  if (key === 'notes') notesCollapsed.value = !notesCollapsed.value
+  else metadataCollapsed.value = !metadataCollapsed.value
+}
 
 // Load members (persons linked to this organization)
 async function loadLinkedMembers() {
@@ -124,171 +135,145 @@ defineExpose({ loadLinkedMembers, getNotesSelection })
 </script>
 
 <template>
-  <div class="organization-form collapsible-sections">
-    <!-- Notes Section -->
-    <div class="notes-section" :class="{ collapsed: notesCollapsed }">
-      <div class="section-header" @click="notesCollapsed = !notesCollapsed">
-        <span class="section-title">Notes</span>
-        <span class="collapse-indicator">{{ notesCollapsed ? '+' : '-' }}</span>
+  <div class="detail-form">
+    <SectionBar :sections="sections" @toggle="toggleSection" />
+    <div class="organization-form collapsible-sections">
+      <!-- Notes Section -->
+      <div v-show="!notesCollapsed" class="notes-section">
+        <div class="section-content">
+          <NotesSection
+            ref="notesSectionRef"
+            :notes="editedNode.notes || ''"
+            :withheld="Boolean(editedNode.notes_withheld)"
+            :locked="notesLocked"
+            :touch-id="notesTouchId"
+            :reveal-error="revealError"
+            :node-id="editedNode.id"
+            :workspace-id="currentWorkspace"
+            :active-tab="activeTab"
+            css-class="org-notes"
+            @update:notes="onNotesUpdate"
+            @update:active-tab="$emit('update:activeTab', $event)"
+            @blur="saveChanges"
+            @ai-improve="$emit('ai-improve-notes', $event)"
+            @mention-inserted="$emit('reload-links')"
+            @reveal="$emit('reveal-notes')"
+            @unlock-touch-id="$emit('unlock-touch-id')"
+          />
+        </div>
       </div>
-      <div v-show="!notesCollapsed" class="section-content">
-        <NotesSection
-          ref="notesSectionRef"
-          :notes="editedNode.notes || ''"
-          :withheld="Boolean(editedNode.notes_withheld)"
-          :locked="notesLocked"
-          :touch-id="notesTouchId"
-          :reveal-error="revealError"
-          :node-id="editedNode.id"
-          :workspace-id="currentWorkspace"
-          :active-tab="activeTab"
-          css-class="org-notes"
-          @update:notes="onNotesUpdate"
-          @update:active-tab="$emit('update:activeTab', $event)"
-          @blur="saveChanges"
-          @ai-improve="$emit('ai-improve-notes', $event)"
-          @mention-inserted="$emit('reload-links')"
-          @reveal="$emit('reveal-notes')"
-          @unlock-touch-id="$emit('unlock-touch-id')"
-        />
-      </div>
-    </div>
 
-    <!-- Metadata Section -->
-    <div class="meta-section" :class="{ collapsed: metadataCollapsed }">
-      <div class="section-header" @click="metadataCollapsed = !metadataCollapsed">
-        <span class="section-title">Details</span>
-        <span class="collapse-indicator">{{ metadataCollapsed ? '+' : '-' }}</span>
-      </div>
-      <div v-show="!metadataCollapsed" class="section-content">
-        <!-- Organization header -->
-        <div class="org-header-row">
-          <div class="org-icon-large" :style="{ backgroundColor: editedNode.color || '#e67e22' }">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"
+      <!-- Metadata Section -->
+      <div v-show="!metadataCollapsed" class="meta-section">
+        <div class="section-content">
+          <!-- Organization header -->
+          <div class="org-header-row">
+            <div class="org-icon-large" :style="{ backgroundColor: editedNode.color || '#e67e22' }">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"
+                />
+              </svg>
+            </div>
+            <div class="org-quick-info">
+              <div v-if="linkedMembers.length" class="org-members-count">
+                {{ linkedMembers.length }} member{{ linkedMembers.length !== 1 ? 's' : '' }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Organization form fields -->
+          <div class="org-form-grid">
+            <div class="form-field">
+              <label>Email</label>
+              <input
+                type="email"
+                :value="editedNode.email || ''"
+                @input="updateField('email', $event.target.value)"
+                @blur="saveChanges"
+                placeholder="contact@organization.com"
               />
-            </svg>
-          </div>
-          <div class="org-quick-info">
-            <div v-if="linkedMembers.length" class="org-members-count">
-              {{ linkedMembers.length }} member{{ linkedMembers.length !== 1 ? 's' : '' }}
+            </div>
+
+            <div class="form-field">
+              <label>Website</label>
+              <input
+                type="url"
+                :value="editedNode.website || ''"
+                @input="updateField('website', $event.target.value)"
+                @blur="saveChanges"
+                placeholder="https://..."
+              />
             </div>
           </div>
-        </div>
 
-        <!-- Organization form fields -->
-        <div class="org-form-grid">
-          <div class="form-field">
-            <label>Email</label>
-            <input
-              type="email"
-              :value="editedNode.email || ''"
-              @input="updateField('email', $event.target.value)"
-              @blur="saveChanges"
-              placeholder="contact@organization.com"
-            />
-          </div>
-
-          <div class="form-field">
-            <label>Website</label>
-            <input
-              type="url"
-              :value="editedNode.website || ''"
-              @input="updateField('website', $event.target.value)"
-              @blur="saveChanges"
-              placeholder="https://..."
-            />
-          </div>
-        </div>
-
-        <!-- Members section -->
-        <div v-if="linkedMembers.length > 0" class="form-field full-width">
-          <label>Members</label>
-          <div class="member-tags">
-            <div
-              v-for="member in linkedMembers"
-              :key="member.id"
-              class="member-tag"
-              :style="{ backgroundColor: member.color || '#3498db' }"
-              @click="$emit('select-child', member.id)"
-            >
-              <span class="member-initials">{{ getInitials(member.title) }}</span>
-              <span class="member-name">{{ member.title }}</span>
-              <button class="member-remove" @click.stop="unlinkMember(member)" title="Remove">&times;</button>
+          <!-- Members section -->
+          <div v-if="linkedMembers.length > 0" class="form-field full-width">
+            <label>Members</label>
+            <div class="member-tags">
+              <div
+                v-for="member in linkedMembers"
+                :key="member.id"
+                class="member-tag"
+                :style="{ backgroundColor: member.color || '#3498db' }"
+                @click="$emit('select-child', member.id)"
+              >
+                <span class="member-initials">{{ getInitials(member.title) }}</span>
+                <span class="member-name">{{ member.title }}</span>
+                <button class="member-remove" @click.stop="unlinkMember(member)" title="Remove">&times;</button>
+              </div>
             </div>
           </div>
+
+          <!-- Color picker -->
+          <ColorPickerSection :color="editedNode.color" default-color="#e67e22" @update:color="onColorUpdate" />
+
+          <!-- Type selector -->
+          <div class="type-section">
+            <label>Convert to</label>
+            <select :value="editedNode.type" @change="onTypeChange">
+              <option v-for="t in nodeTypes" :key="t" :value="t">{{ t }}</option>
+            </select>
+          </div>
+
+          <!-- Tags -->
+          <TagsSection
+            :node-id="editedNode.id"
+            :workspace-id="editedNode.workspace_id"
+            :linked-nodes="linkedNodes"
+            @unlink="$emit('unlink-tag', $event)"
+            @refresh="$emit('reload-links')"
+          />
+
+          <!-- System info -->
+          <MetaInfoSection
+            :id="editedNode.id"
+            :created-at="editedNode.created_at"
+            :updated-at="editedNode.updated_at"
+          />
+
+          <!-- Links section -->
+          <LinkedItemsSection
+            :linked-nodes="linkedNodes"
+            :show-links="editedNode.show_links ?? 1"
+            exclude-type="person"
+            @update:show-links="onShowLinksUpdate"
+            @select="$emit('select-child', $event)"
+            @remove="$emit('remove-link', $event)"
+            @add="$emit('open-link-search')"
+          />
         </div>
-
-        <!-- Color picker -->
-        <ColorPickerSection :color="editedNode.color" default-color="#e67e22" @update:color="onColorUpdate" />
-
-        <!-- Type selector -->
-        <div class="type-section">
-          <label>Convert to</label>
-          <select :value="editedNode.type" @change="onTypeChange">
-            <option v-for="t in nodeTypes" :key="t" :value="t">{{ t }}</option>
-          </select>
-        </div>
-
-        <!-- Tags -->
-        <TagsSection
-          :node-id="editedNode.id"
-          :workspace-id="editedNode.workspace_id"
-          :linked-nodes="linkedNodes"
-          @unlink="$emit('unlink-tag', $event)"
-          @refresh="$emit('reload-links')"
-        />
-
-        <!-- System info -->
-        <MetaInfoSection :id="editedNode.id" :created-at="editedNode.created_at" :updated-at="editedNode.updated_at" />
-
-        <!-- Links section -->
-        <LinkedItemsSection
-          :linked-nodes="linkedNodes"
-          :show-links="editedNode.show_links ?? 1"
-          exclude-type="person"
-          @update:show-links="onShowLinksUpdate"
-          @select="$emit('select-child', $event)"
-          @remove="$emit('remove-link', $event)"
-          @add="$emit('open-link-search')"
-        />
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.section-header {
+.detail-form {
   display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 2px 6px;
-  cursor: pointer;
-  user-select: none;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  margin: 0;
+  flex-direction: column;
+  flex: 1;
   min-height: 0;
-  line-height: 1;
-}
-
-.section-header:hover {
-  background: var(--bg-hover);
-}
-
-.section-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  text-decoration: none;
-  border: none;
-  line-height: 1;
-  margin: 0;
-  padding: 0;
 }
 
 .organization-form {
@@ -304,16 +289,11 @@ defineExpose({ loadLinkedMembers, getNotesSelection })
   display: flex;
   flex-direction: column;
   flex: 1 1 0;
-  min-height: 100px;
+  min-height: var(--notes-min-height);
   padding: 8px;
   background: var(--bg-secondary);
   border-radius: 6px;
   overflow: hidden;
-}
-
-.notes-section.collapsed {
-  flex: 0 0 auto;
-  min-height: 0;
 }
 
 .notes-section .section-content {
@@ -324,21 +304,21 @@ defineExpose({ loadLinkedMembers, getNotesSelection })
   overflow: hidden;
 }
 
+/* Takes the height its content needs, up to what the notes leave, and scrolls
+   within itself; it must be able to shrink, or it pushes the notes out. */
 .meta-section {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   padding: 8px;
   background: var(--bg-secondary);
   border-radius: 6px;
-}
-
-.meta-section.collapsed .section-content {
-  display: none;
 }
 
 .meta-section .section-content {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding-top: 8px;
 }
 
 .org-header-row {

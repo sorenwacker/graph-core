@@ -8,6 +8,7 @@ import PersonDetailForm from './detail/PersonDetailForm.vue'
 import OrganizationDetailForm from './detail/OrganizationDetailForm.vue'
 import ChildrenSection from './detail/ChildrenSection.vue'
 import MetadataGridSection from './detail/MetadataGridSection.vue'
+import SectionBar from './detail/SectionBar.vue'
 import { api } from '../services/api'
 import { useNodeTable } from '../composables/useNodeTable.js'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
@@ -190,11 +191,22 @@ async function unlockThen(unlock) {
   }
 }
 
-// Collapsible sections
+// Section state, driven by the section bar
 const notesCollapsed = ref(false)
 const tableCollapsed = ref(true)
 const childrenCollapsed = ref(false)
 const metadataCollapsed = ref(true)
+
+const SECTION_STATE = {
+  notes: notesCollapsed,
+  table: tableCollapsed,
+  tasks: childrenCollapsed,
+  metadata: metadataCollapsed,
+}
+
+function toggleSection(key) {
+  SECTION_STATE[key].value = !SECTION_STATE[key].value
+}
 
 // Node table (spreadsheet) state
 const {
@@ -460,6 +472,18 @@ watch(
     }
   }
 )
+
+const taskCount = computed(() => {
+  if (!children.value.length) return ''
+  return `${children.value.filter(c => c.completed).length}/${children.value.length}`
+})
+
+const sections = computed(() => [
+  { key: 'notes', label: 'Notes', open: !notesCollapsed.value },
+  { key: 'table', label: 'Table', open: !tableCollapsed.value },
+  { key: 'tasks', label: 'Tasks', open: !childrenCollapsed.value, count: taskCount.value },
+  { key: 'metadata', label: 'Metadata', open: !metadataCollapsed.value },
+])
 
 async function loadChildren() {
   if (!props.node?.id) return
@@ -933,16 +957,11 @@ defineExpose({
       <!-- Regular node layout (non-person, non-organization) -->
       <template v-else>
         <!-- Collapsible sections container -->
-        <div
-          class="collapsible-sections"
-          :class="{ 'all-collapsed': notesCollapsed && childrenCollapsed && metadataCollapsed }"
-        >
+        <SectionBar :sections="sections" @toggle="toggleSection" />
+        <div class="collapsible-sections">
           <!-- Notes Section -->
-          <div class="notes-section" :class="{ collapsed: notesCollapsed }">
-            <div class="section-header" @click="notesCollapsed = !notesCollapsed">
-              <span class="section-title">Notes</span>
-            </div>
-            <div v-show="!notesCollapsed" class="section-content">
+          <div v-show="!notesCollapsed" class="notes-section">
+            <div class="section-content">
               <div class="tabs-row">
                 <NotesAIToolbar
                   v-if="!notesHidden"
@@ -1091,19 +1110,12 @@ defineExpose({
           </div>
 
           <!-- Bottom sections (table + children + metadata) -->
-          <div
-            class="bottom-sections"
-            :class="{ 'all-collapsed': tableCollapsed && childrenCollapsed && metadataCollapsed }"
-          >
-            <!-- Table Section -->
-            <div class="table-section" :class="{ collapsed: tableCollapsed }">
-              <div class="section-header" @click="tableCollapsed = !tableCollapsed">
-                <span class="section-title">Table</span>
-              </div>
-              <!-- v-if, not v-show: AG Grid measures its container when it
-                   mounts, so mounting inside a display:none section locks the
-                   flex columns to their minimum widths. -->
-              <div v-if="!tableCollapsed" class="section-content">
+          <div v-show="!(tableCollapsed && childrenCollapsed && metadataCollapsed)" class="bottom-sections">
+            <!-- Table Section. v-if, not v-show: AG Grid measures its
+                 container when it mounts, so mounting inside a display:none
+                 section locks the flex columns to their minimum widths. -->
+            <div v-if="!tableCollapsed" class="table-section">
+              <div class="section-content">
                 <NodeSpreadsheet
                   :node-id="props.node?.id"
                   :table-data="nodeTable"
@@ -1119,14 +1131,13 @@ defineExpose({
             </div>
             <!-- Children Section -->
             <ChildrenSection
+              v-show="!childrenCollapsed"
               :children="children"
               :hide-completed="hideCompleted"
               :loading-children="loadingChildren"
-              :collapsed="childrenCollapsed"
               :parent-id="props.node?.id"
               :width="width"
               :fullscreen="fullscreen"
-              @update:collapsed="childrenCollapsed = $event"
               @select-child="selectChild({ id: $event })"
               @toggle-complete="toggleChildComplete"
               @add-task="emit('add-child', $event)"
@@ -1136,12 +1147,11 @@ defineExpose({
 
             <!-- Metadata Section -->
             <MetadataGridSection
+              v-show="!metadataCollapsed"
               :detached="detached"
               :edited-node="editedNode"
               :linked-nodes="linkedNodes"
               :workspaces="workspaces"
-              :collapsed="metadataCollapsed"
-              @update:collapsed="metadataCollapsed = $event"
               @update:field="editedNode[$event.field] = $event.value"
               @update:color="editedNode.color = $event"
               @change-workspace="changeWorkspace"
