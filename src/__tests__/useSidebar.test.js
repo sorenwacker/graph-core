@@ -11,7 +11,7 @@ describe('useSidebar composable', () => {
 
     // Mock localStorage
     mockStorage = {}
-    global.localStorage = {
+    vi.stubGlobal('localStorage', {
       getItem: vi.fn(key => mockStorage[key] ?? null),
       setItem: vi.fn((key, value) => {
         mockStorage[key] = value
@@ -22,14 +22,14 @@ describe('useSidebar composable', () => {
       clear: vi.fn(() => {
         mockStorage = {}
       }),
-    }
+    })
 
     sidebar = useSidebar({ pinned: ref(false) })
   })
 
   afterEach(() => {
     vi.useRealTimers()
-    delete global.localStorage
+    vi.unstubAllGlobals()
   })
 
   describe('initial state', () => {

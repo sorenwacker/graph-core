@@ -4,6 +4,10 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Security
+
+- Dependencies are updated past the advisories `npm audit` reported at high severity or above, in `axios`, `joi`, `undici`, `braces`, `http-cache-semantics` and `shell-quote`. All of them are build and test tooling except the diagram library's bundled formula renderer. The updates include new major versions of the diagram library (mermaid 12), the test runner (vitest 5) and the dead-code tool (knip 6).
+
 ### Changed
 
 - Entering a node that has no children opens its detail panel ([guide](docs/guides/detail-panel.md#opening-the-panel)). Double-clicking such a node, or pressing Enter on it, used to land in an empty view and need a second action to reach the node's notes. Navigation is unchanged: you are still inside the node and can add a first child. Whether a node has children is read from the database, so a node whose children are all hidden by a filter does not open the panel. Going back or using the breadcrumbs does not open it either.
