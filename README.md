@@ -8,6 +8,20 @@
 
 A hierarchical node management application built with Vue 3, Vite, and Electron. Organize tasks, notes, and information in a tree structure with multiple visualization modes.
 
+## Download
+
+Builds for macOS, Windows and Linux are at **<https://sorenwacker.net/nodus/>**.
+
+The app is not code-signed, so the first launch needs one extra step:
+
+| Platform | First launch |
+|----------|--------------|
+| macOS | Run `xattr -cr "/Applications/Graph Core.app"` in Terminal, then open the app |
+| Windows | Click **More info**, then **Run anyway**, if SmartScreen warns |
+| Linux | `chmod +x Graph-Core-*.AppImage` |
+
+Building from source is only needed to develop the app; see [Development](#development).
+
 ## Documentation
 
 Full documentation is published at **<https://sorenwacker.github.io/graph-core/>**.
@@ -89,12 +103,10 @@ npm install
 ### Run Development Server
 
 ```bash
-# Web only
-npm run dev
-
-# Electron app
 npm run electron:dev
 ```
+
+`npm run dev` starts the Vite renderer alone, which `electron:dev` does for you. It is not a way to run the app: outside Electron there is no preload bridge, and the renderer refuses to start.
 
 ### Run Tests
 

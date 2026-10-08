@@ -1,5 +1,19 @@
 # Installation
 
+## Download the app
+
+Builds for macOS, Windows and Linux are at <https://sorenwacker.net/nodus/>.
+
+The app is not code-signed, so the first launch needs one extra step:
+
+| Platform | First launch |
+|----------|--------------|
+| macOS | Run `xattr -cr "/Applications/Graph Core.app"` in Terminal, then open the app |
+| Windows | Click **More info**, then **Run anyway**, if SmartScreen warns |
+| Linux | `chmod +x Graph-Core-*.AppImage` |
+
+That is all most people need. The rest of this page is for building the app from source, which is only necessary to develop it.
+
 ## Prerequisites
 
 - Node.js 22+
