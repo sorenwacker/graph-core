@@ -862,17 +862,16 @@
 
 /* Selected node - strong highlight with solid accent background */
 :global(.node-html.selected),
+/* Selection adds a white frame and a glow and repaints nothing: the border
+   colour is how the graph shows a node's type, and the background carries the
+   node's own tint. Both used to be replaced by the accent colour, so the type
+   could not be read off a selected node. */
 :global(.node-html[data-selected='true']) {
-  background:
-    linear-gradient(135deg, rgba(74, 158, 255, 0.5) 0%, rgba(74, 158, 255, 0.25) 50%, var(--bg-secondary) 100%),
-    var(--bg-secondary) !important;
-  outline: 4px solid #fff;
+  outline: 4px solid var(--selection-frame);
   outline-offset: 0;
-  border: 3px solid var(--accent-color, #4a9eff) !important;
   box-shadow:
-    0 0 0 4px var(--accent-color, #4a9eff),
-    0 0 20px rgba(74, 158, 255, 0.8),
-    0 0 40px rgba(74, 158, 255, 0.5);
+    0 0 20px var(--selection-glow),
+    0 0 40px var(--selection-glow);
 }
 
 /* When in box-select mode (Cmd held), allow clicks through to cytoscape canvas */

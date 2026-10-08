@@ -10,6 +10,8 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 - The detail panel has a section bar ([guide](docs/guides/detail-panel.md#section-bar)). One row of buttons under the title - Notes, Table, Tasks, Metadata; Notes and Details for persons and organizations - opens and closes the sections, and the buttons keep their order and position whatever is open, in the side panel, in fullscreen mode and in a detached window. Each section used to carry its own header, and a collapsed header was laid out among the open sections: the headers changed row, order and height depending on what was open, and an open section in fullscreen lost the width the headers beside it took. Section bodies no longer repeat a title.
 
+- A selected node in the graph keeps the border and background of its type and gains an outer frame ([guide](docs/guides/views.md#graph-view)). Selection used to repaint the border and the background in the accent colour, and the border colour is how the graph shows a node's type, so the type could not be read off a selected node. The frame is white in the dark theme and dark in the light theme, where a white frame would not show.
+
 ### Fixed
 
 - Opening Metadata or Tasks in the detail panel no longer pushes the notes out of view ([guide](docs/guides/detail-panel.md#how-sections-share-the-panel)). The sections below the notes could not shrink, so in a short window the notes were reduced to 100px and the panel scrolled past them, which read as the notes having been deleted. Open notes now keep at least 40% of the height below the section bar and the other sections scroll within what is left. The same applies to person and organization nodes.

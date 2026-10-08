@@ -127,7 +127,7 @@ Node positions are automatically saved to browser storage:
 
 | Action | Result |
 |--------|--------|
-| Click node | Select |
+| Click node | Select: the node gains an outer frame and a glow, white in the dark theme and dark in the light theme. Its border and background keep the colour of its type, so the type stays readable while selected |
 | Double-click node | Navigate into; a node without children also opens its [detail panel](detail-panel.md#opening-the-panel) |
 | Drag node | Reposition (position saved) |
 | Option+drag | Create link to another node |
