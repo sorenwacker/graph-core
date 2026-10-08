@@ -128,7 +128,7 @@ Node positions are automatically saved to browser storage:
 | Action | Result |
 |--------|--------|
 | Click node | Select |
-| Double-click node | Navigate into |
+| Double-click node | Navigate into; a node without children also opens its [detail panel](detail-panel.md#opening-the-panel) |
 | Drag node | Reposition (position saved) |
 | Option+drag | Create link to another node |
 | Shift+click | Multi-select toggle |

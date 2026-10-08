@@ -4,8 +4,8 @@ The detail panel provides comprehensive editing and viewing capabilities for any
 
 ## Opening the Panel
 
-- **Click** any node to open its detail panel
-- **Press Enter** with a node selected
+- **Press Space** with a node selected
+- **Enter a node that has no children**, by double-clicking it or by pressing Enter with it selected. You land inside the node as with any other, and the panel opens for it, since a node without children has nothing else to show. A node counts as having children even when a filter hides them all. Going back, or stepping there through the breadcrumbs, does not open the panel.
 - **Double-click** a node's title to open in edit mode
 
 ## Panel Modes

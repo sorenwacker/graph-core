@@ -49,6 +49,73 @@ describe('useNavigation composable', () => {
     })
   })
 
+  describe('entering a node without children', () => {
+    function navigationWithHook() {
+      const onEnteredLeaf = vi.fn()
+      const nav = useNavigation({ api: mockApi, workspace: ref('work'), onEnteredLeaf })
+      return { nav, onEnteredLeaf }
+    }
+
+    it('reports the node once it has been entered', async () => {
+      const leaf = { id: 5, title: 'Leaf', parent_id: null }
+      mockApi.getNode.mockResolvedValue(leaf)
+      mockApi.getChildren.mockResolvedValue([])
+      const { nav, onEnteredLeaf } = navigationWithHook()
+
+      nav.enterContainer({ id: 5, children: [] })
+      await flushTimersAndPromises()
+
+      expect(nav.currentContainerId.value).toBe(5)
+      expect(onEnteredLeaf).toHaveBeenCalledTimes(1)
+      expect(onEnteredLeaf).toHaveBeenCalledWith(leaf)
+    })
+
+    it('goes by the children in the database, not by the object it was handed', async () => {
+      mockApi.getNode.mockResolvedValue({ id: 5, title: 'Leaf', parent_id: null })
+      mockApi.getChildren.mockResolvedValue([])
+      const { nav, onEnteredLeaf } = navigationWithHook()
+
+      // A caller holding a stale or filtered copy that still lists a child
+      nav.enterContainer({ id: 5, children: [{ id: 6 }] })
+      await flushTimersAndPromises()
+
+      expect(onEnteredLeaf).toHaveBeenCalledTimes(1)
+    })
+
+    it('stays quiet for a node that has children', async () => {
+      const child = { id: 6, title: 'Child', parent_id: 5 }
+      mockApi.getNode.mockResolvedValue({ id: 5, title: 'Parent', parent_id: null })
+      mockApi.getChildren.mockResolvedValue([child])
+      mockApi.getDescendants.mockResolvedValue([child])
+      const { nav, onEnteredLeaf } = navigationWithHook()
+
+      nav.enterContainer({ id: 5, children: [child] })
+      await flushTimersAndPromises()
+
+      expect(onEnteredLeaf).not.toHaveBeenCalled()
+    })
+
+    it('stays quiet when the node is reached by going back', async () => {
+      mockApi.getNode.mockResolvedValue({ id: 5, title: 'Leaf', parent_id: null })
+      mockApi.getChildren.mockResolvedValue([])
+      const { nav, onEnteredLeaf } = navigationWithHook()
+
+      nav.enterContainer(5, { skipHistory: true, direction: 'back' })
+      await flushTimersAndPromises()
+
+      expect(onEnteredLeaf).not.toHaveBeenCalled()
+    })
+
+    it('stays quiet at the top level', async () => {
+      const { nav, onEnteredLeaf } = navigationWithHook()
+
+      nav.enterContainer(null)
+      await flushTimersAndPromises()
+
+      expect(onEnteredLeaf).not.toHaveBeenCalled()
+    })
+  })
+
   describe('enterContainer', () => {
     it('should update currentContainerId when entering a container', async () => {
       mockApi.getNode.mockResolvedValue({ id: 5, title: 'Container', parent_id: null })

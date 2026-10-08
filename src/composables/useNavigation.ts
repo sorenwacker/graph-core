@@ -42,6 +42,8 @@ export interface UseNavigationOptions {
   onNotFound?: (error: Error, containerId: number | null) => void | Promise<void>
   /** Called when entering a leaf node, return true to prevent enter */
   onLeafNode?: (node: TreeNode) => boolean | void
+  /** Called after a forward navigation has landed in a node that has no children */
+  onEnteredLeaf?: (node: Node) => void
   /** Called on navigation error (for non-404 errors) */
   onError?: (error: Error, containerId: number | null) => void | Promise<void>
   /** Called to select a node after navigation */
@@ -120,6 +122,7 @@ export function useNavigation({
   onTransitionEnd,
   onNotFound,
   onLeafNode,
+  onEnteredLeaf,
   onError,
   onSelectNode,
   filterByWorkspace,
@@ -366,6 +369,21 @@ export function useNavigation({
 
       if (onAfterNavigate) {
         await onAfterNavigate(nodeId, direction)
+      }
+
+      // Decided from what was just loaded, not from the object the caller
+      // passed: that one may be a stale or filtered copy. Only a forward step
+      // counts, and only if this navigation is still the current one.
+      const landed = currentContainer.value
+      if (
+        onEnteredLeaf &&
+        direction === 'forward' &&
+        landed &&
+        landed.id === nodeId &&
+        currentContainerId.value === nodeId &&
+        children.value.length === 0
+      ) {
+        onEnteredLeaf(landed)
       }
     }, SIDEBAR_HIDE_DELAY_MS)
   }

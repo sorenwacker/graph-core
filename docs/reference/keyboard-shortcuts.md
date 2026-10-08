@@ -57,7 +57,7 @@ No application shortcut fires while focus is inside a text field, the notes edit
 | `Shift + Tab` | Select previous visible node |
 | `Space` | Open/close detail panel (fullscreen if no children) |
 | `Shift + Space` | Open in detached window |
-| `Enter` | Navigate into node (view subgraph) |
+| `Enter` | Navigate into node (view subgraph); a node without children also opens its detail panel |
 | `Shift + Enter` | Navigate to parent |
 | `Shift + Click` | Range select (like Finder) |
 | `Shift + Drag` | Lasso/box select (Graph view) |
