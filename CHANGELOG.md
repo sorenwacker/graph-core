@@ -20,6 +20,8 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 - The table section is no taller than its contents. It reserved 200px, 300px in fullscreen, which left an empty area under a short table and around the Add Table button, and in fullscreen it forced a horizontal scrollbar on the sections below the notes.
 
+- A node shown in the graph because it is linked from the current container displays its note preview ([guide](docs/guides/linking.md#in-graph-view)). Linked nodes from elsewhere in the hierarchy are added to the graph by a separate code path, which left out the flag that says previews are on, so such a node showed its title only, whatever its notes held.
+
 ## [1.19.0] - 2026-09-24
 
 ### Security
