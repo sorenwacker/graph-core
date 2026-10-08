@@ -42,8 +42,10 @@ export interface UseNavigationOptions {
   onNotFound?: (error: Error, containerId: number | null) => void | Promise<void>
   /** Called when entering a leaf node, return true to prevent enter */
   onLeafNode?: (node: TreeNode) => boolean | void
-  /** Called after a forward navigation has landed in a node that has no children */
+  /** Called after a forward navigation has landed in a node that shows no children */
   onEnteredLeaf?: (node: Node) => void
+  /** Whether the view would show this child; a node whose children are all hidden counts as a leaf */
+  isShownInView?: (node: Node) => boolean
   /** Called on navigation error (for non-404 errors) */
   onError?: (error: Error, containerId: number | null) => void | Promise<void>
   /** Called to select a node after navigation */
@@ -123,6 +125,7 @@ export function useNavigation({
   onNotFound,
   onLeafNode,
   onEnteredLeaf,
+  isShownInView = () => true,
   onError,
   onSelectNode,
   filterByWorkspace,
@@ -327,7 +330,8 @@ export function useNavigation({
   let lastEnterTicket = 0
 
   /**
-   * Tell onEnteredLeaf about a node that turns out to have no children.
+   * Tell onEnteredLeaf about a node that turns out to show no children: none
+   * at all, or none that the view would show.
    *
    * Asks the database directly instead of reading the container state that
    * loadChildren fills in. That state is only written by whichever load
@@ -350,8 +354,9 @@ export function useNavigation({
         node.type === 'tag'
           ? ((await api.getLinkedNodes(nodeId)) || []).filter(n => n && n.type !== 'tag')
           : (await api.getChildren(nodeId)) || []
+      const shown = contents.filter(child => child && isShownInView(child))
       // The user may have moved on while this was being read.
-      if (contents.length === 0 && enterTicket === lastEnterTicket) onEnteredLeaf(node)
+      if (shown.length === 0 && enterTicket === lastEnterTicket) onEnteredLeaf(node)
     } catch (e) {
       handleError(e as Error, { context: 'Checking for children', silent: true })
     }

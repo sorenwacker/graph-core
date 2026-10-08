@@ -418,9 +418,12 @@ const navigation = useNavigation({
   buildChildTree,
   onBeforeNavigate: cancelDetailOpen,
   onLeafNode: () => false,
-  // A node without children has nothing to show but itself: open its detail
-  // panel (docs/guides/detail-panel.md#opening-the-panel).
+  // A node that shows no children has nothing to show but itself: open its
+  // detail panel (docs/guides/detail-panel.md#opening-the-panel). A child the
+  // view hides - completed while those are hidden, or of a filtered-out type -
+  // does not count.
   onEnteredLeaf: node => selectNode(node, { immediate: true }),
+  isShownInView: child => !(hideCompleted.value && child.completed) && filtersStore.visibleTypes.includes(child.type),
   onSelectNode: selectNode,
   onSidebarSync: rootChildren => {
     sidebarTree.value = rootChildren

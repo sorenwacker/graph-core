@@ -101,3 +101,34 @@ test('double-clicking a childless child inside a container opens its detail pane
   await page.waitForTimeout(1500)
   await expect(panel).toBeVisible()
 })
+
+test('a node whose children are all hidden opens its detail panel when entered', async () => {
+  const page = ctx.page
+  await page.keyboard.press('Escape')
+  await page.evaluate(async () => {
+    const parent = await window.electronAPI.createNode({
+      type: 'note',
+      title: 'Only done inside',
+      workspace_id: 'work',
+    })
+    await window.electronAPI.createNode({
+      type: 'task',
+      title: 'Finished task',
+      parent_id: parent.id,
+      workspace_id: 'work',
+      completed: true,
+    })
+    await window.electronAPI.setSetting('graphcore-hideCompleted', 'true')
+  })
+  await page.reload()
+  await dismissOnboarding(page)
+  await page.locator('body').press(`${MOD}+Digit3`)
+  await page.locator('.home-crumb').click()
+
+  await page.getByRole('cell', { name: 'Only done inside' }).click()
+  await page.keyboard.press('Enter')
+
+  const panel = page.locator('.detail-panel')
+  await expect(panel).toBeVisible()
+  await expect(panel.locator('.detail-title-input, textarea').first()).toHaveValue('Only done inside')
+})
