@@ -429,6 +429,9 @@ const navigation = useNavigation({
   buildChildTree,
   onBeforeNavigate: cancelDetailOpen,
   onLeafNode: () => false,
+  // A node without children has nothing to show but itself: open its detail
+  // panel (docs/guides/detail-panel.md#opening-the-panel).
+  onEnteredLeaf: node => selectNode(node, { immediate: true }),
   onSelectNode: selectNode,
   onSidebarSync: rootChildren => {
     sidebarTree.value = rootChildren

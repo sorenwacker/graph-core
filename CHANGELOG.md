@@ -6,6 +6,8 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Changed
 
+- Entering a node that has no children opens its detail panel ([guide](docs/guides/detail-panel.md#opening-the-panel)). Double-clicking such a node, or pressing Enter on it, used to land in an empty view and need a second action to reach the node's notes. Navigation is unchanged: you are still inside the node and can add a first child. Whether a node has children is read from the database, so a node whose children are all hidden by a filter does not open the panel. Going back or using the breadcrumbs does not open it either.
+
 - The detail panel has a section bar ([guide](docs/guides/detail-panel.md#section-bar)). One row of buttons under the title - Notes, Table, Tasks, Metadata; Notes and Details for persons and organizations - opens and closes the sections, and the buttons keep their order and position whatever is open, in the side panel, in fullscreen mode and in a detached window. Each section used to carry its own header, and a collapsed header was laid out among the open sections: the headers changed row, order and height depending on what was open, and an open section in fullscreen lost the width the headers beside it took. Section bodies no longer repeat a title.
 
 ### Fixed
