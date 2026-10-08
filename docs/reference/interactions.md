@@ -35,6 +35,9 @@ Hovering over a node displays a preview tooltip with the node's title, metadata,
 | Click elsewhere | Dismiss locked tooltip |
 | Switch view, or open a container | Dismiss tooltip |
 | Leave the window | Dismiss tooltip |
+| Open detail panel, sidebar, or settings | Dismiss tooltip, including a locked one |
+
+No tooltip shows while the detail panel, sidebar, or settings is open: hovering does not show one, and clicking a node does not lock one.
 
 A tooltip hangs off an anchor kept in the page body rather than off the row it describes, so it does not learn when that row goes away: switching view or reloading a list removes the row without it ever sending the mouse-leave that would dismiss the tooltip, and the tooltip would hang over whatever came next. The three rows above are the exits that do not depend on the row still being there.
 
