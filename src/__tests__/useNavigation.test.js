@@ -127,6 +127,47 @@ describe('useNavigation composable', () => {
       expect(onEnteredLeaf).not.toHaveBeenCalled()
     })
 
+    it('treats a node whose children the view hides as having none', async () => {
+      const parent = { id: 5, title: 'Parent', parent_id: null }
+      mockApi.getNode.mockResolvedValue(parent)
+      mockApi.getChildren.mockResolvedValue([
+        { id: 6, title: 'Done', parent_id: 5, completed: true },
+        { id: 7, title: 'Also done', parent_id: 5, completed: true },
+      ])
+      const onEnteredLeaf = vi.fn()
+      const nav = useNavigation({
+        api: mockApi,
+        workspace: ref('work'),
+        onEnteredLeaf,
+        isShownInView: node => !node.completed,
+      })
+
+      nav.enterContainer({ id: 5, children: [] })
+      await flushTimersAndPromises()
+
+      expect(onEnteredLeaf).toHaveBeenCalledWith(parent)
+    })
+
+    it('stays quiet when at least one child is shown', async () => {
+      mockApi.getNode.mockResolvedValue({ id: 5, title: 'Parent', parent_id: null })
+      mockApi.getChildren.mockResolvedValue([
+        { id: 6, title: 'Done', parent_id: 5, completed: true },
+        { id: 7, title: 'Open', parent_id: 5, completed: false },
+      ])
+      const onEnteredLeaf = vi.fn()
+      const nav = useNavigation({
+        api: mockApi,
+        workspace: ref('work'),
+        onEnteredLeaf,
+        isShownInView: node => !node.completed,
+      })
+
+      nav.enterContainer({ id: 5, children: [] })
+      await flushTimersAndPromises()
+
+      expect(onEnteredLeaf).not.toHaveBeenCalled()
+    })
+
     it('stays quiet for a node that has children', async () => {
       const child = { id: 6, title: 'Child', parent_id: 5 }
       mockApi.getNode.mockResolvedValue({ id: 5, title: 'Parent', parent_id: null })
