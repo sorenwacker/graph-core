@@ -322,6 +322,41 @@ export function useNavigation({
     }
   }
 
+  // Counts enterContainer calls, so a step can tell whether it is still the
+  // latest navigation the user asked for.
+  let lastEnterTicket = 0
+
+  /**
+   * Tell onEnteredLeaf about a node that turns out to have no children.
+   *
+   * Asks the database directly instead of reading the container state that
+   * loadChildren fills in. That state is only written by whichever load
+   * finishes last: when a refresh elsewhere in the app reloads the same
+   * container while the navigation's own load is in flight, the navigation's
+   * load is abandoned, and a check made on the shared state right after it saw
+   * the previous container and reported nothing. The object the caller passed
+   * is not used either: it may be a stale or filtered copy.
+   *
+   * @param nodeId - The node that was entered
+   * @param enterTicket - The navigation this check belongs to
+   */
+  async function reportIfLeaf(nodeId: number, enterTicket: number): Promise<void> {
+    if (!onEnteredLeaf) return
+    try {
+      const node = await api.getNode(nodeId)
+      if (!node) return
+      // A tag shows the nodes it is linked to in place of children.
+      const contents =
+        node.type === 'tag'
+          ? ((await api.getLinkedNodes(nodeId)) || []).filter(n => n && n.type !== 'tag')
+          : (await api.getChildren(nodeId)) || []
+      // The user may have moved on while this was being read.
+      if (contents.length === 0 && enterTicket === lastEnterTicket) onEnteredLeaf(node)
+    } catch (e) {
+      handleError(e as Error, { context: 'Checking for children', silent: true })
+    }
+  }
+
   /**
    * Navigate into a container with transition animation.
    */
@@ -331,6 +366,8 @@ export function useNavigation({
   ): Promise<void> {
     const nodeId = typeof node === 'object' && node !== null ? node.id : (node as number | null)
     const nodeObj = typeof node === 'object' ? (node as TreeNode) : null
+
+    const enterTicket = ++lastEnterTicket
 
     // Call before-navigate hook (e.g., to cancel pending detail open)
     if (onBeforeNavigate) {
@@ -371,19 +408,8 @@ export function useNavigation({
         await onAfterNavigate(nodeId, direction)
       }
 
-      // Decided from what was just loaded, not from the object the caller
-      // passed: that one may be a stale or filtered copy. Only a forward step
-      // counts, and only if this navigation is still the current one.
-      const landed = currentContainer.value
-      if (
-        onEnteredLeaf &&
-        direction === 'forward' &&
-        landed &&
-        landed.id === nodeId &&
-        currentContainerId.value === nodeId &&
-        children.value.length === 0
-      ) {
-        onEnteredLeaf(landed)
+      if (onEnteredLeaf && direction === 'forward' && nodeId !== null && nodeId !== undefined) {
+        await reportIfLeaf(nodeId, enterTicket)
       }
     }, SIDEBAR_HIDE_DELAY_MS)
   }

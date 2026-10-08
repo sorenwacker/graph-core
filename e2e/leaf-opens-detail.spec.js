@@ -55,3 +55,49 @@ test('entering a node without children opens its detail panel', async () => {
   // Still navigated in: the other top-level node is no longer listed.
   await expect(page.getByRole('cell', { name: 'Has a child' })).toBeHidden()
 })
+
+test('double-clicking a childless node in the graph opens its detail panel', async () => {
+  const page = ctx.page
+  // Back to the top level, in the graph, with the panel closed.
+  await page.keyboard.press('Escape')
+  await page.locator('body').press(`${MOD}+Digit1`)
+  await page.locator('.home-crumb').click()
+  const leaf = page.locator('.node-html', { hasText: 'Lone leaf' })
+  await expect(leaf).toBeVisible()
+  await expect(page.locator('.detail-panel')).toBeHidden()
+  await page.waitForTimeout(800)
+
+  const box = await leaf.boundingBox()
+  await page.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2)
+
+  const panel = page.locator('.detail-panel')
+  await expect(panel).toBeVisible()
+  await expect(panel.locator('.detail-title-input, textarea').first()).toHaveValue('Lone leaf')
+  // It stays open: nothing that follows the double-click closes it again.
+  await page.waitForTimeout(1500)
+  await expect(panel).toBeVisible()
+})
+
+test('double-clicking a childless child inside a container opens its detail panel', async () => {
+  const page = ctx.page
+  await page.keyboard.press('Escape')
+  await page.locator('.home-crumb').click()
+  const parent = page.locator('.node-html', { hasText: 'Has a child' })
+  await expect(parent).toBeVisible()
+  await page.waitForTimeout(800)
+  let box = await parent.boundingBox()
+  await page.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2)
+
+  const child = page.locator('.node-html', { hasText: 'The child' })
+  await expect(child).toBeVisible()
+  await expect(page.locator('.detail-panel')).toBeHidden()
+  await page.waitForTimeout(1200)
+  box = await child.boundingBox()
+  await page.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2)
+
+  const panel = page.locator('.detail-panel')
+  await expect(panel).toBeVisible()
+  await expect(panel.locator('.detail-title-input, textarea').first()).toHaveValue('The child')
+  await page.waitForTimeout(1500)
+  await expect(panel).toBeVisible()
+})

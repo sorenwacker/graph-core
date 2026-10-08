@@ -82,6 +82,51 @@ describe('useNavigation composable', () => {
       expect(onEnteredLeaf).toHaveBeenCalledTimes(1)
     })
 
+    it('still reports the node when another load of the same container overtakes this one', async () => {
+      const leaf = { id: 5, title: 'Leaf', parent_id: null }
+      mockApi.getNode.mockResolvedValue(leaf)
+      mockApi.getChildren.mockResolvedValue([])
+      const { nav, onEnteredLeaf } = navigationWithHook()
+
+      nav.enterContainer({ id: 5, children: [] })
+      // Let the navigation start its own load, then start a second one before
+      // the first has finished, as a refresh elsewhere in the app does. The
+      // first load is abandoned in favour of the second.
+      await vi.advanceTimersByTimeAsync(0)
+      vi.runOnlyPendingTimers()
+      nav.loadChildren(5, { silent: true })
+      await flushTimersAndPromises()
+
+      expect(nav.currentContainerId.value).toBe(5)
+      expect(onEnteredLeaf).toHaveBeenCalledTimes(1)
+      expect(onEnteredLeaf).toHaveBeenCalledWith(leaf)
+    })
+
+    it('reports only the last node when a second navigation follows at once', async () => {
+      mockApi.getNode.mockImplementation(async id => ({ id, title: `Node ${id}`, parent_id: null }))
+      mockApi.getChildren.mockResolvedValue([])
+      const { nav, onEnteredLeaf } = navigationWithHook()
+
+      nav.enterContainer({ id: 5, children: [] })
+      nav.enterContainer({ id: 6, children: [] })
+      await flushTimersAndPromises()
+
+      expect(onEnteredLeaf).toHaveBeenCalledTimes(1)
+      expect(onEnteredLeaf.mock.calls[0][0].id).toBe(6)
+    })
+
+    it('counts the nodes a tag is linked to as its children', async () => {
+      mockApi.getNode.mockResolvedValue({ id: 5, title: 'A tag', type: 'tag', parent_id: null })
+      mockApi.getChildren.mockResolvedValue([])
+      mockApi.getLinkedNodes = vi.fn().mockResolvedValue([{ id: 7, title: 'Tagged', type: 'note' }])
+      const { nav, onEnteredLeaf } = navigationWithHook()
+
+      nav.enterContainer({ id: 5, children: [] })
+      await flushTimersAndPromises()
+
+      expect(onEnteredLeaf).not.toHaveBeenCalled()
+    })
+
     it('stays quiet for a node that has children', async () => {
       const child = { id: 6, title: 'Child', parent_id: 5 }
       mockApi.getNode.mockResolvedValue({ id: 5, title: 'Parent', parent_id: null })
