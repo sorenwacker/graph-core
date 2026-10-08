@@ -98,7 +98,16 @@ export function useSpreadsheetSelection(options = {}) {
    * @returns {Object|null} {row, col} or null if not a valid cell
    */
   function getCellFromPoint(x, y) {
-    const element = document.elementFromPoint(x, y)
+    return getCellFromElement(document.elementFromPoint(x, y))
+  }
+
+  /**
+   * Get cell coordinates from an element inside a grid cell.
+   *
+   * @param {Element|null} element - The cell element or one of its descendants
+   * @returns {Object|null} {row, col} or null if not a valid cell
+   */
+  function getCellFromElement(element) {
     if (!element) return null
 
     const cellEl = element.closest('.ag-cell')
@@ -289,6 +298,7 @@ export function useSpreadsheetSelection(options = {}) {
     isSelectionEdge,
     clearSelection,
     getCellFromPoint,
+    getCellFromElement,
     getColumnIndexFromHeader,
     handleMouseDown,
     handleMouseMove,

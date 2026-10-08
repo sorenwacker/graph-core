@@ -148,9 +148,10 @@ Attach a spreadsheet to any node.
 - Add, remove, and rename columns
 - Edit cell values directly
 - Cell color formatting (colorblind-friendly palette)
-- Copy, cut, and paste operations
+- Copy, cut, and paste a block of cells, with the keyboard or with the Copy and Paste buttons that appear in the table's toolbar while cells are selected. Copy takes the values shown in the grid, including one typed a moment ago that is still being saved.
+- A pasted block starts at the top-left cell of the selection. With a cell editor open, a clipboard holding more than one cell is not put into that editor: the block is pasted starting at the cell being edited. A single value is pasted into the editor as text.
 - Multi-cell selection: drag across cells, or click a column header to take the whole column
-- The selection ends when you click away from the grid, in it or outside it. It has to: while a selection stands the table answers for keys such as Cmd/Ctrl+Backspace even when focus has moved on, so a selection left behind would blank cells in place of the action you meant.
+- The selection ends when you click away from the table, in the grid or outside it. The table's own toolbar and menus are part of the table: using them keeps the selection. It has to: while a selection stands the table answers for keys such as Cmd/Ctrl+Backspace even when focus has moved on, so a selection left behind would blank cells in place of the action you meant.
 - Columns share the available width equally, so the table always spans the panel; in fullscreen and detached mode the table section takes the full window width while Children and Metadata share a row
 
 **Formulas:**
