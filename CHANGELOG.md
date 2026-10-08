@@ -14,6 +14,8 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 - Copying and pasting a block of table cells works by every route ([guide](docs/guides/detail-panel.md#table-section)). Three faults, each enough to break it. The Copy and Paste buttons in the table's toolbar did nothing: the rule that ends a selection on a click outside the grid counted the toolbar as outside, so the selection, and the buttons with it, were gone before the click landed. Pasting onto a clicked cell put the whole block, tabs and line breaks included, into that one cell, because a click opens the cell's editor and the editor took the paste; a clipboard holding more than one cell is now pasted into the grid starting at that cell. And a copy taken straight after typing copied the cells as they were before the edit, because the rows were rebuilt from the saved cells, which trail an edit by a debounce and a database write.
 
+- The action row at the bottom of the detail panel keeps each label on one line, and the Export button's arrow is a drawn chevron ([guide](docs/guides/detail-panel.md#action-row)). The arrow was the letter "v": in a narrow panel the buttons shrank, "Wrap with Parent" broke in two and the "v" dropped to a line of its own under "Export".
+
 - The table section is no taller than its contents. It reserved 200px, 300px in fullscreen, which left an empty area under a short table and around the Add Table button, and in fullscreen it forced a horizontal scrollbar on the sections below the notes.
 
 ## [1.19.0] - 2026-09-24

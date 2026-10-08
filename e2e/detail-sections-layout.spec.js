@@ -200,6 +200,26 @@ for (const mode of ['side panel', 'fullscreen']) {
   })
 }
 
+test('action labels stay on one line, and on one row at the default panel width', async () => {
+  await setFullscreen(ctx.page, false)
+  const m = await ctx.page.evaluate(() => {
+    const actions = document.querySelector('.detail-panel .detail-actions')
+    const buttons = [...actions.querySelectorAll(':scope > button, :scope > .export-dropdown > button')]
+    const rect = actions.getBoundingClientRect()
+    return {
+      tops: buttons.map(b => b.getBoundingClientRect().top),
+      heights: buttons.map(b => b.getBoundingClientRect().height),
+      labels: buttons.map(b => b.textContent.trim()),
+      overflow: Math.max(...buttons.map(b => b.getBoundingClientRect().right)) - rect.right,
+    }
+  })
+  expect(m.labels).toEqual(['Wrap with Parent', 'Move to Root', 'Export', 'Delete'])
+  for (const height of m.heights) expect(Math.abs(height - m.heights[3])).toBeLessThanOrEqual(PX)
+  expect(m.overflow).toBeLessThanOrEqual(PX)
+  // At the default panel width all four share one row.
+  for (const top of m.tops) expect(Math.abs(top - m.tops[0])).toBeLessThanOrEqual(PX)
+})
+
 test('a person node has the same bar and the same notes share', async () => {
   await setFullscreen(ctx.page, false)
   await setOpenSections(ctx.page, ['notes', 'metadata'])

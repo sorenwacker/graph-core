@@ -44,6 +44,10 @@ Creates a new item and moves the current one under it. The panel asks for the ne
 
 Native browser dialogs are not used anywhere in the app: Electron does not implement `window.prompt`, so it returns nothing without showing anything, and a feature built on it fails silently. The dialog is rendered once at the app root and shared through `composables/usePrompt.js`, so any component can ask for a value without adding one of its own.
 
+## Action Row
+
+The row at the bottom of the panel holds Wrap with Parent, Move to Root, Export and Delete. At the default panel width the four share one row. A label is never broken across lines: when the panel is dragged too narrow for all four buttons, the row wraps and Delete moves to a second row, still at the right edge. Export opens a menu of formats and is marked with a chevron.
+
 ## Sections
 
 The detail panel is divided into sections that open and close from the section bar.
