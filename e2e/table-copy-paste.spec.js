@@ -62,7 +62,7 @@ test.beforeAll(async () => {
   await fill(page, 0, 'B', 'b1')
   await fill(page, 1, 'A', 'a2')
   await fill(page, 1, 'B', 'b2')
-  await page.locator('.spreadsheet-toolbar .table-name').click()
+  await page.locator('.spreadsheet-toolbar .table-title').click()
   await expect.poll(() => block(page, [0, 1], ['A', 'B'])).toEqual(SOURCE)
 })
 
@@ -86,7 +86,7 @@ test('the keyboard pastes a copied block starting at a clicked cell', async () =
   await page.keyboard.press(`${MOD}+c`)
   await cell(page, 2, 'A').click()
   await page.keyboard.press(`${MOD}+v`)
-  await page.locator('.spreadsheet-toolbar .table-name').click()
+  await page.locator('.spreadsheet-toolbar .table-title').click()
   await expect.poll(() => block(page, [2, 3], ['A', 'B'])).toEqual(SOURCE)
 })
 

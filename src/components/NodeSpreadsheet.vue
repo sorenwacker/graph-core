@@ -139,6 +139,30 @@ watch(
   () => unsavedValues.clear()
 )
 
+// Every table is stored with a name, "Table" unless one was given. That
+// default is the same word the section bar already shows, so it is treated as
+// "no title" rather than displayed.
+const UNTITLED_TABLE_NAME = 'Table'
+
+const tableTitle = computed(() => {
+  const name = props.tableData?.name || ''
+  return name === UNTITLED_TABLE_NAME ? '' : name
+})
+
+function saveTableTitle(event) {
+  const title = event.target.value.trim()
+  event.target.value = title
+  if (title === tableTitle.value) return
+  emit('structure-change', { type: 'name', value: title || UNTITLED_TABLE_NAME })
+}
+
+// Escape abandons the edit. The key stops here: the detail panel closes on
+// Escape, and an abandoned title edit should not take the panel with it.
+function restoreTableTitle(event) {
+  event.target.value = tableTitle.value
+  event.target.blur()
+}
+
 // Row data
 const rowData = computed(() => {
   const rowCount = props.tableData?.row_count || 5
@@ -611,7 +635,16 @@ onUnmounted(() => {
     </div>
     <div v-else class="spreadsheet-container">
       <div class="spreadsheet-toolbar">
-        <span class="table-name">{{ tableData.name || 'Table' }}</span>
+        <input
+          class="table-title"
+          type="text"
+          :value="tableTitle"
+          placeholder="Add a title"
+          aria-label="Table title"
+          @change="saveTableTitle"
+          @keydown.enter="$event.target.blur()"
+          @keydown.escape.stop="restoreTableTitle"
+        />
         <div class="toolbar-actions">
           <template v-if="selection.selectionBounds.value">
             <span class="selection-info">

@@ -898,10 +898,6 @@
   color: var(--text-primary);
 }
 
-[data-theme='light'] .table-name {
-  color: var(--text-secondary);
-}
-
 [data-theme='light'] .selection-info {
   color: var(--text-secondary);
   background: rgba(0, 0, 0, 0.05);
