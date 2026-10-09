@@ -40,10 +40,35 @@
   border-bottom: 1px solid var(--border-color);
 }
 
-.table-name {
+/* Reads as a label until it is hovered or focused */
+.table-title {
+  flex: 1 1 8rem;
+  min-width: 4rem;
+  margin-right: 0.5rem;
+  padding: 0.125rem 0.25rem;
+  font: inherit;
   font-size: 0.75rem;
-  color: var(--text-secondary);
   font-weight: 500;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  text-overflow: ellipsis;
+}
+
+.table-title::placeholder {
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
+.table-title:hover {
+  border-color: var(--border-color);
+}
+
+.table-title:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  background: var(--bg-primary);
 }
 
 .toolbar-actions {

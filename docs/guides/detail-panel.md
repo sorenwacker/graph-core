@@ -149,6 +149,7 @@ Attach a spreadsheet to any node.
 **Features:**
 
 - Create and delete tables
+- Give the table a title: type in the title field at the left of the table's toolbar. Enter or clicking away saves it; Escape puts back what was there. A table without a title shows the placeholder "Add a title" there; the section is already named in the section bar, so the toolbar does not repeat the word "Table"
 - Add, remove, and rename columns
 - Edit cell values directly
 - Cell color formatting (colorblind-friendly palette)
