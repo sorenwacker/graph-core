@@ -663,6 +663,9 @@ defineExpose({
 
 onMounted(() => {
   initGraph()
+  // The container outlives every cytoscape instance initGraph creates, so one
+  // watch covers them all; it asks for the current instance on each change.
+  layout.watchCardSizes(container.value)
   window.addEventListener('keydown', handleGlobalKeydown)
   document.addEventListener('keydown', handleModifierKeydown)
   document.addEventListener('keyup', handleModifierKeyup)

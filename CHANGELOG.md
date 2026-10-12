@@ -20,6 +20,8 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Fixed
 
+- An edge in the graph ends at the border of the card it points to ([guide](docs/guides/views.md#graph-view)). Edges are drawn to a node box separate from the visible card, and the box was sized to the card only when the graph opened or a layout ran, so a card that grew or shrank afterwards, when its note preview appeared or its title wrapped, left the arrowhead floating in space or hidden under the card. The box now follows the card's size. The sizing also looked up cards across the whole page, where the table view marks its rows with the same attribute, and is now confined to the graph.
+
 - The detail panel opens for a childless node even when the app reloads the container during the navigation. Whether the node had children was read from the container state right after the navigation's own load, but that state is written by whichever load finishes last: a refresh of the same container made the navigation's load give way, and the check then looked at the previous container and did nothing. The check now asks the database directly.
 
 - Opening Metadata or Tasks in the detail panel no longer pushes the notes out of view ([guide](docs/guides/detail-panel.md#how-sections-share-the-panel)). The sections below the notes could not shrink, so in a short window the notes were reduced to 100px and the panel scrolled past them, which read as the notes having been deleted. Open notes now keep at least 40% of the height below the section bar and the other sections scroll within what is left. The same applies to person and organization nodes.

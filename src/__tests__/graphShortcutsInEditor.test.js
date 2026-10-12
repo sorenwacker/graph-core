@@ -25,6 +25,16 @@ vi.mock('cytoscape', () => {
   return { default: cytoscape }
 })
 
+// jsdom has no ResizeObserver; the graph watches its cards with one.
+vi.stubGlobal(
+  'ResizeObserver',
+  class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+)
+
 /**
  * The graph's window-level shortcuts must stand down while the user is typing.
  * They guarded only INPUT and TEXTAREA, but the notes editor is CodeMirror

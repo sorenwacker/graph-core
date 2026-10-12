@@ -10,6 +10,16 @@ import { createPinia } from 'pinia'
  * too. One test per view, so a new view cannot quietly opt out.
  */
 
+// jsdom has no ResizeObserver; the graph watches its cards with one.
+vi.stubGlobal(
+  'ResizeObserver',
+  class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+)
+
 vi.mock('ag-grid-vue3', () => ({
   AgGridVue: { name: 'AgGridVue', inheritAttrs: false, setup: () => () => null },
 }))
