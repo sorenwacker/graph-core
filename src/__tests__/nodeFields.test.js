@@ -112,3 +112,12 @@ describe('nodeFields', () => {
     })
   })
 })
+
+describe('the in-progress mark the Tasks board writes', () => {
+  // The renderer forwards only whitelisted fields to the database. Done worked
+  // and In progress did not because the mark was missing from that list.
+  it('is carried through the update field list', () => {
+    expect(NODE_UPDATE_FIELDS).toContain('in_progress')
+    expect(pickNodeFields({ in_progress: true }).in_progress).toBe(true)
+  })
+})

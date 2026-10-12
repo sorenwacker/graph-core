@@ -1,69 +1,59 @@
 import { describe, it, expect } from 'vitest'
 import { BOARD_COLUMNS, boardColumn, boardChanges } from '../utils/taskBoard.js'
 
-/**
- * The Tasks board derives a task's column from fields it already has and
- * writes those fields back when a card is moved (docs/guides/views.md,
- * "Board").
- */
-
 const TODAY = '2026-10-12'
+
+/**
+ * The Tasks board places a task by its completion and its in-progress mark,
+ * and writes those back when a card is moved (docs/guides/views.md, "Board").
+ * The start date plays no part: every task receives one at creation.
+ */
 
 describe('boardColumn', () => {
   it('names three columns in order', () => {
     expect(BOARD_COLUMNS.map(c => c.id)).toEqual(['todo', 'in-progress', 'done'])
   })
 
-  it('puts a completed task in Done whatever its dates', () => {
-    expect(boardColumn({ completed: 1, start_date: '2020-01-01' }, TODAY)).toBe('done')
-    expect(boardColumn({ completed: true }, TODAY)).toBe('done')
+  it('puts a completed task in Done even while it is still marked in progress', () => {
+    expect(boardColumn({ completed: 1, in_progress: 1 })).toBe('done')
+    expect(boardColumn({ completed: true })).toBe('done')
   })
 
-  it('puts an unstarted task in To do', () => {
-    expect(boardColumn({ completed: 0 }, TODAY)).toBe('todo')
-    expect(boardColumn({ completed: 0, start_date: null }, TODAY)).toBe('todo')
+  it('puts a marked task in In progress', () => {
+    expect(boardColumn({ completed: 0, in_progress: 1 })).toBe('in-progress')
   })
 
-  it('treats a start date in the future as not started', () => {
-    expect(boardColumn({ completed: 0, start_date: '2026-10-13' }, TODAY)).toBe('todo')
-  })
-
-  it('puts a task started today or earlier in In progress', () => {
-    expect(boardColumn({ completed: 0, start_date: '2026-10-12' }, TODAY)).toBe('in-progress')
-    expect(boardColumn({ completed: 0, start_date: '2026-09-01' }, TODAY)).toBe('in-progress')
+  it('puts an unmarked task in To do whatever its start date', () => {
+    expect(boardColumn({ completed: 0, in_progress: 0, start_date: '2020-01-01' })).toBe('todo')
+    expect(boardColumn({ completed: 0 })).toBe('todo')
   })
 })
 
 describe('boardChanges', () => {
   it('writes nothing for a drop on the column the task is already in', () => {
     expect(boardChanges({ completed: 0 }, 'todo', TODAY)).toBeNull()
+    expect(boardChanges({ completed: 0, in_progress: 1 }, 'in-progress', TODAY)).toBeNull()
     expect(boardChanges({ completed: 1 }, 'done', TODAY)).toBeNull()
   })
 
-  it('completes a task dropped on Done', () => {
-    expect(boardChanges({ completed: 0, start_date: '2026-09-01' }, 'done', TODAY)).toEqual({ completed: true })
-  })
-
-  it('starts a task today when dropped on In progress without a start date', () => {
-    expect(boardChanges({ completed: 0 }, 'in-progress', TODAY)).toEqual({ completed: false, start_date: TODAY })
-  })
-
-  it('pulls a future start date back to today when dropped on In progress', () => {
-    expect(boardChanges({ completed: 0, start_date: '2026-11-01' }, 'in-progress', TODAY)).toEqual({
-      completed: false,
-      start_date: TODAY,
+  it('completes a task dropped on Done and clears its mark', () => {
+    expect(boardChanges({ completed: 0, in_progress: 1 }, 'done', TODAY)).toEqual({
+      completed: true,
+      in_progress: false,
     })
   })
 
-  it('reopens a completed task dropped on In progress and keeps its start date', () => {
-    expect(boardChanges({ completed: 1, start_date: '2026-09-01' }, 'in-progress', TODAY)).toEqual({ completed: false })
+  it('marks a task dropped on In progress and starts it today, reopening it if it was done', () => {
+    const started = { completed: false, in_progress: true, start_date: TODAY }
+    expect(boardChanges({ completed: 0, start_date: '2020-01-01' }, 'in-progress', TODAY)).toEqual(started)
+    expect(boardChanges({ completed: 1 }, 'in-progress', TODAY)).toEqual(started)
   })
 
-  it('clears the start date and reopens a task dropped on To do', () => {
-    expect(boardChanges({ completed: 0, start_date: '2026-09-01' }, 'todo', TODAY)).toEqual({
+  it('clears the mark and reopens a task dropped on To do, leaving its dates alone', () => {
+    expect(boardChanges({ completed: 0, in_progress: 1 }, 'todo', TODAY)).toEqual({
       completed: false,
-      start_date: null,
+      in_progress: false,
     })
-    expect(boardChanges({ completed: 1 }, 'todo', TODAY)).toEqual({ completed: false, start_date: null })
+    expect(boardChanges({ completed: 1 }, 'todo', TODAY)).toEqual({ completed: false, in_progress: false })
   })
 })

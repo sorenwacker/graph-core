@@ -32,13 +32,13 @@ Shows nodes as nested cards with visual hierarchy.
 
 Cards automatically receive size classes based on available space:
 
-| Class | Title Font | Notes | Features Hidden |
-|-------|-----------|-------|-----------------|
-| `card-xl` | 22px | 250px max | None |
-| `card-lg` | 18px | 180px max | None |
-| `card-md` | 16px | 150px max | None |
-| `card-sm` | 14px | Compact | Type text, tags, some contact details |
-| `card-xs` | 12px | Hidden | Drag handle, tags, notes preview |
+| Class     | Title Font | Notes     | Features Hidden                       |
+| --------- | ---------- | --------- | ------------------------------------- |
+| `card-xl` | 22px       | 250px max | None                                  |
+| `card-lg` | 18px       | 180px max | None                                  |
+| `card-md` | 16px       | 150px max | None                                  |
+| `card-sm` | 14px       | Compact   | Type text, tags, some contact details |
+| `card-xs` | 12px       | Hidden    | Drag handle, tags, notes preview      |
 
 Smaller cards progressively hide less important information to maintain readability.
 
@@ -63,13 +63,13 @@ Each node is drawn as a card, and an edge ends at the visible border of the card
 
 ### Layout Modes
 
-| Layout | Description |
-|--------|-------------|
-| Tree | Vertical hierarchical layout (top to bottom) |
-| Horizontal | Left-to-right hierarchical layout |
-| Radial | Circular layout with physics simulation |
-| Grid | Grid-based positioning |
-| Circle | Nodes arranged in a circle |
+| Layout     | Description                                  |
+| ---------- | -------------------------------------------- |
+| Tree       | Vertical hierarchical layout (top to bottom) |
+| Horizontal | Left-to-right hierarchical layout            |
+| Radial     | Circular layout with physics simulation      |
+| Grid       | Grid-based positioning                       |
+| Circle     | Nodes arranged in a circle                   |
 
 Change layouts using the layout selector in the Graph toolbar.
 
@@ -77,23 +77,23 @@ Change layouts using the layout selector in the Graph toolbar.
 
 The radial layout uses a physics simulation (cose-bilkent algorithm) with configurable parameters. Access these via the settings panel in Graph view:
 
-| Parameter | Default | Range | Description |
-|-----------|---------|-------|-------------|
-| Node Repulsion | 5000 | 100-10000 | Force pushing nodes apart |
-| Edge Length | 100 | 20-1000 | Ideal distance between connected nodes |
-| Elasticity | 0.5 | 0.1-1.5 | Edge tension/stiffness |
-| Gravity | 10000 | 0-50000 | Pull toward graph center |
-| Iterations | 2500 | 1000-500000 | Simulation steps (higher = smoother) |
+| Parameter      | Default | Range       | Description                            |
+| -------------- | ------- | ----------- | -------------------------------------- |
+| Node Repulsion | 5000    | 100-10000   | Force pushing nodes apart              |
+| Edge Length    | 100     | 20-1000     | Ideal distance between connected nodes |
+| Elasticity     | 0.5     | 0.1-1.5     | Edge tension/stiffness                 |
+| Gravity        | 10000   | 0-50000     | Pull toward graph center               |
+| Iterations     | 2500    | 1000-500000 | Simulation steps (higher = smoother)   |
 
 Click "Apply" after adjusting sliders to restart the layout with new parameters. Settings are saved per-workspace.
 
 ### Graph Controls
 
-| Control | Single Click | Double Click |
-|---------|--------------|--------------|
+| Control      | Single Click         | Double Click           |
+| ------------ | -------------------- | ---------------------- |
 | Relax Layout | Run one physics pass | Toggle continuous mode |
-| Fit to View | Fit once | Toggle auto-fit mode |
-| Reset Layout | Randomize positions | - |
+| Fit to View  | Fit once             | Toggle auto-fit mode   |
+| Reset Layout | Randomize positions  | -                      |
 
 **Relax uses a different engine to the radial layout.** Radial runs cose-bilkent, which has a true repulsion force. Relax and continuous relax run cola, which has none: its only spacing controls are `nodeSpacing`, a padding added to each node's bounding box for overlap avoidance, and `edgeLength`.
 
@@ -118,28 +118,28 @@ Node positions are automatically saved to browser storage:
 
 ### Display Options
 
-| Option | Description |
-|--------|-------------|
+| Option              | Description                                    |
+| ------------------- | ---------------------------------------------- |
 | Show External Links | Display non-parent-child relationships (links) |
-| Show Root Node | Toggle parent node visibility |
-| Type Filtering | Show/hide specific node types |
-| Show Type Borders | Colored borders indicating node type |
+| Show Root Node      | Toggle parent node visibility                  |
+| Type Filtering      | Show/hide specific node types                  |
+| Show Type Borders   | Colored borders indicating node type           |
 
 ### Interactions
 
-| Action | Result |
-|--------|--------|
-| Click node | Select: the node gains an outer frame and a glow, white in the dark theme and dark in the light theme. Its border and background keep the colour of its type, so the type stays readable while selected |
-| Double-click node | Navigate into; a node without children also opens its [detail panel](detail-panel.md#opening-the-panel) |
-| Drag node | Reposition (position saved) |
-| Option+drag | Create link to another node |
-| Shift+click | Multi-select toggle |
-| Shift+drag | Lasso select multiple nodes |
-| Scroll wheel | Zoom in/out |
-| Drag background | Pan view |
-| Cmd/Ctrl+click node | Add child node |
-| Cmd/Ctrl+click edge | Insert node between |
-| Opt+Cmd/Ctrl+click edge | Delete edge |
+| Action                  | Result                                                                                                                                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Click node              | Select: the node gains an outer frame and a glow, white in the dark theme and dark in the light theme. Its border and background keep the colour of its type, so the type stays readable while selected |
+| Double-click node       | Navigate into; a node without children also opens its [detail panel](detail-panel.md#opening-the-panel)                                                                                                 |
+| Drag node               | Reposition (position saved)                                                                                                                                                                             |
+| Option+drag             | Create link to another node                                                                                                                                                                             |
+| Shift+click             | Multi-select toggle                                                                                                                                                                                     |
+| Shift+drag              | Lasso select multiple nodes                                                                                                                                                                             |
+| Scroll wheel            | Zoom in/out                                                                                                                                                                                             |
+| Drag background         | Pan view                                                                                                                                                                                                |
+| Cmd/Ctrl+click node     | Add child node                                                                                                                                                                                          |
+| Cmd/Ctrl+click edge     | Insert node between                                                                                                                                                                                     |
+| Opt+Cmd/Ctrl+click edge | Delete edge                                                                                                                                                                                             |
 
 ### Insert Between Nodes
 
@@ -150,12 +150,14 @@ Insert a new node in the middle of an existing relationship:
 3. The new node is inserted between the connected nodes
 
 **For parent-child edges:**
+
 ```
 Before: Parent → Child
 After:  Parent → NewNode → Child
 ```
 
 **For link edges:**
+
 ```
 Before: NodeA ⟷ NodeB
 After:  NodeA ⟷ NewNode ⟷ NodeB
@@ -212,6 +214,7 @@ The table displays hierarchy using Unicode box-drawing characters:
 ```
 
 Characters used:
+
 - `├─` Junction for non-last children
 - `└─` Corner for last child
 - `│ ` Vertical continuation line
@@ -228,12 +231,12 @@ Drag column borders to resize. Widths are persisted to browser storage:
 
 **Default column widths:**
 
-| Column | Width |
-|--------|-------|
-| Title | 300px |
-| Notes | 200px |
-| Due Date | 90px |
-| Type | 60px |
+| Column   | Width |
+| -------- | ----- |
+| Title    | 300px |
+| Notes    | 200px |
+| Due Date | 90px  |
+| Type     | 60px  |
 
 **Best for:** Browsing hierarchies, organizing projects, data management, bulk operations
 
@@ -267,31 +270,36 @@ Displays nodes with dates on a horizontal timeline.
 
 ## Tasks View
 
-Shows the task-type nodes of the current container and its descendants, in one of two layouts switched in the view's toolbar. The choice is remembered per workspace.
+A Kanban board of the task-type nodes of the current container and its descendants.
 
 ![Tasks view showing the Demo workspace](../assets/screenshots/view-tasks.png)
 
-**Filters** apply to both layouts: Show completed, and a minimum priority. The footer counts the tasks shown.
+**Filters:** Show completed, and a minimum priority. The footer counts the tasks shown.
 
-### List
+### Columns
 
-A table with one row per task: a completion checkbox, title, project path, created date, due date and priority. Clicking a column header sorts by it; clicking again reverses the order. Overdue rows and rows due soon are tinted. Clicking a row opens the task.
+| Column      | Tasks shown                                           |
+| ----------- | ----------------------------------------------------- |
+| To do       | Not completed and not marked in progress              |
+| In progress | Not completed, marked in progress by dragging it here |
+| Done        | Completed                                             |
 
-### Board
+Being in progress is a mark of its own, stored on the task and set only by the board. It is not derived from the start date, which every task receives at creation.
 
-A Kanban board with three columns. A task's column is derived from fields it already has, so the board introduces no new state:
+### Moving a card
 
-| Column | Tasks shown |
-|--------|-------------|
-| To do | Not completed, with no start date or a start date in the future |
-| In progress | Not completed, with a start date of today or earlier |
-| Done | Completed |
+Dragging a card to another column writes what puts it there, and stamps the date of the move:
 
-Dragging a card to another column writes the field that puts it there: into In progress sets the start date to today when the task has none or one in the future; into To do clears the start date; into Done marks the task complete, which stamps the end date as completing elsewhere does; out of Done reopens it. A move can be undone like any other edit.
+- Into In progress: sets the mark and sets the start date to today.
+- Into Done: marks the task complete and clears the mark. Completing stamps the end date, as it does from anywhere else.
+- Into To do: clears the mark and reopens the task. Its dates are left as they are.
+- Out of Done: reopens the task into the column it was dropped on.
 
-The board shows its three columns even when no task matches the filters; only the list replaces itself with an empty message. The Done column is always present as a drop target. Its cards are the completed tasks, which are loaded only while Show completed is on; otherwise the column says that completed tasks are hidden, and a card dropped there leaves the board, as a task checked off in the list does.
+A move can be undone like any other edit. A task completed from a checkbox keeps its mark, so reopening it returns it to In progress.
 
-Each card shows the checkbox, title, due date with the overdue and due-soon colours of the list, priority and project path, and carries the colour the task inherits from its ancestors. Clicking a card opens the task.
+The board shows its three columns even when no task matches the filters. The Done column is always present as a drop target. Its cards are the completed tasks, which are loaded only while Show completed is on; otherwise the column says that completed tasks are hidden, and a card dropped there leaves the board.
+
+Within a column, cards are ordered by due date, earliest first and undated last, then by priority. Each card shows a completion checkbox, the title, the due date with overdue and due-soon colours, the priority and the project path, and carries the colour the task inherits from its ancestors. Clicking a card opens the task.
 
 ## People View
 
@@ -327,14 +335,13 @@ Browse and manage deleted items.
 
 Access via the settings panel:
 
-| Setting | Affects |
-|---------|---------|
-| Detail threshold | Graph view node limit before details are abbreviated |
-| Max depth | Graph view hierarchy depth (`0` = all levels, stored per workspace) |
-| Notes preview | Characters of note text shown on a graph node |
-| Hide completed | All views (toolbar toggle) |
-| Sort alphabetically | Cards, Graph views (toolbar toggle) |
-| Tasks layout | Tasks view: List or Board, chosen in the view's toolbar and stored per workspace |
+| Setting             | Affects                                                             |
+| ------------------- | ------------------------------------------------------------------- |
+| Detail threshold    | Graph view node limit before details are abbreviated                |
+| Max depth           | Graph view hierarchy depth (`0` = all levels, stored per workspace) |
+| Notes preview       | Characters of note text shown on a graph node                       |
+| Hide completed      | All views (toolbar toggle)                                          |
+| Sort alphabetically | Cards, Graph views (toolbar toggle)                                 |
 
 ## See Also
 

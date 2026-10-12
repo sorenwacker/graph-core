@@ -70,20 +70,6 @@ describe('cell style storage', () => {
 })
 
 /**
- * Priority sort. The importance comparator already puts the highest first, so
- * starting the column descending negated it and the first click showed the
- * least important work at the top.
- */
-describe('sorting tasks by priority', () => {
-  it('puts the most important first on the first click', async () => {
-    const { useTaskFiltering } = await import('../composables/useTaskFiltering.js')
-    const t = useTaskFiltering({ getTasks: () => [] })
-    t.toggleSort('importance')
-    expect(t.sortAsc.value, 'importance starts reversed').toBe(true)
-  })
-})
-
-/**
  * Cmd/Ctrl+Enter opened the add-node dialog from inside a text field: the
  * branch sits above the editable guard that the later shortcuts sit below.
  */

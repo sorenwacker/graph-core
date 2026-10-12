@@ -27,8 +27,8 @@ export const viewModes = [
     id: 'tasks',
     label: 'Tasks',
     icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <rect x="3" y="5" width="4" height="4" rx="1"/><line x1="10" y1="7" x2="21" y2="7"/>
-      <rect x="3" y="15" width="4" height="4" rx="1"/><line x1="10" y1="17" x2="21" y2="17"/>
+      <rect x="3" y="3" width="5" height="18" rx="1"/><rect x="9.5" y="3" width="5" height="12" rx="1"/>
+      <rect x="16" y="3" width="5" height="8" rx="1"/>
     </svg>`,
   },
   {

@@ -19,8 +19,6 @@ export function useTaskFiltering({ getWorkspaceId, getContainerId }) {
   // State
   const tasks = ref([])
   const loading = ref(true)
-  const sortBy = ref('due_date') // due_date, importance, created_at, title, project, completed
-  const sortAsc = ref(true)
   const showCompleted = ref(false)
   const filterImportance = ref(0) // 0 = all
 
@@ -159,81 +157,27 @@ export function useTaskFiltering({ getWorkspaceId, getContainerId }) {
     return { path: [], isDirectChild: false }
   }
 
-  /**
-   * Computed sorted tasks based on current sort settings.
-   */
-  const sortedTasks = computed(() => {
-    const sorted = [...tasks.value]
-
-    sorted.sort((a, b) => {
-      let cmp = 0
-
-      switch (sortBy.value) {
-        case 'due_date':
-          // Nulls last
-          if (!a.due_date && !b.due_date) cmp = 0
-          else if (!a.due_date) cmp = 1
-          else if (!b.due_date) cmp = -1
-          else cmp = a.due_date.localeCompare(b.due_date)
-          break
-        case 'importance':
-          // Higher importance first (descending by default)
-          cmp = (b.importance || 0) - (a.importance || 0)
-          break
-        case 'created_at':
-          cmp = (a.created_at || '').localeCompare(b.created_at || '')
-          break
-        case 'title':
-          cmp = (a.title || '').localeCompare(b.title || '')
-          break
-        case 'project': {
-          // Sort by joined path string
-          const pathA = (a.parentPath || []).join(' / ')
-          const pathB = (b.parentPath || []).join(' / ')
-          // Empty paths last
-          if (!pathA && !pathB) cmp = 0
-          else if (!pathA) cmp = 1
-          else if (!pathB) cmp = -1
-          else cmp = pathA.localeCompare(pathB)
-          break
-        }
-        case 'completed':
-          cmp = (a.completed ? 1 : 0) - (b.completed ? 1 : 0)
-          break
-      }
-
-      return sortAsc.value ? cmp : -cmp
-    })
-
-    return sorted
-  })
-
-  /**
-   * Toggle sort column. Clicking same column toggles direction.
-   */
-  function toggleSort(column) {
-    if (sortBy.value === column) {
-      sortAsc.value = !sortAsc.value
-    } else {
-      sortBy.value = column
-      sortAsc.value = true
+  /** Due date first, earliest first and undated last; then higher priority first; then title. */
+  function compareTasks(a, b) {
+    if (a.due_date !== b.due_date) {
+      if (!a.due_date) return 1
+      if (!b.due_date) return -1
+      return a.due_date.localeCompare(b.due_date)
     }
+    const byImportance = (b.importance || 0) - (a.importance || 0)
+    if (byImportance !== 0) return byImportance
+    return (a.title || '').localeCompare(b.title || '')
   }
 
   /**
-   * Get sort indicator for column header.
+   * The tasks in the order the board shows them within a column.
    */
-  function getSortIcon(column) {
-    if (sortBy.value !== column) return ''
-    return sortAsc.value ? ' \u25B2' : ' \u25BC'
-  }
+  const sortedTasks = computed(() => [...tasks.value].sort(compareTasks))
 
   return {
     // State
     tasks,
     loading,
-    sortBy,
-    sortAsc,
     showCompleted,
     filterImportance,
 
@@ -242,8 +186,6 @@ export function useTaskFiltering({ getWorkspaceId, getContainerId }) {
 
     // Methods
     loadTasks,
-    toggleSort,
-    getSortIcon,
   }
 }
 
