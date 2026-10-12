@@ -102,7 +102,6 @@ export interface UseNavigationReturn {
   goToSibling: (direction: number) => Promise<void>
   goToPrevSibling: () => Promise<void>
   goToNextSibling: () => Promise<void>
-  navigateToNode: (node: Node) => Promise<void>
 }
 
 /**
@@ -501,18 +500,6 @@ export function useNavigation({
    */
   const goToNextSibling = (): Promise<void> => goToSibling(1)
 
-  /**
-   * Navigate to a node's parent container and select the node.
-   * @param node - Node to navigate to
-   */
-  async function navigateToNode(node: Node): Promise<void> {
-    const parentId = node.parent_id
-    await loadChildren(parentId)
-    if (onSelectNode) {
-      onSelectNode(node)
-    }
-  }
-
   return {
     // State
     currentContainerId,
@@ -538,6 +525,5 @@ export function useNavigation({
     goToSibling,
     goToPrevSibling,
     goToNextSibling,
-    navigateToNode,
   }
 }

@@ -6,6 +6,8 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Changed
 
+- A card on the Tasks board answers the mouse as cards do elsewhere ([guide](docs/guides/views.md#tasks-view)): a click selects it and a double click navigates into it. A click used to open the task outright, which no other view does.
+
 - The Tasks board follows the main toolbar's completed toggle instead of carrying a Show completed switch of its own, which duplicated it ([guide](docs/guides/views.md#tasks-view)). While completed items are hidden the board has To do, In progress and Blocked; showing them adds the Done column. Blocked is new: a mark stored on the task, set by dragging a card there, kept through a CSV export and import, and cleared by a move to any other column.
 
 ## [1.20.0] - 2026-10-12

@@ -341,11 +341,6 @@ watch(selectedNode, node => {
 // Clicking a task in the Tasks view loads its context, selects it, and opens
 // the detail panel - the list is a flat set of actionable items, so a click is
 // expected to reveal the task rather than only select it.
-async function openTaskDetail(node) {
-  await navigateToNode(node)
-  showDetail.value = true
-}
-
 // Card drag
 const {
   dropTarget,
@@ -462,7 +457,6 @@ const {
   goToFirstChild,
   goToPrevSibling,
   goToNextSibling,
-  navigateToNode,
 } = navigation
 
 // Search
@@ -1029,7 +1023,6 @@ useAppLifecycle({
               @update="updateNode"
               @delete-multiple="deleteMultipleNodes"
               @wrap-with-parent="wrapWithParent"
-              @navigate="openTaskDetail"
               @empty-all="emptyAllTrash"
               @restore="restoreFromTrash"
             />

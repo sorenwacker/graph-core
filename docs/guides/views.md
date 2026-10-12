@@ -303,7 +303,9 @@ A move can be undone like any other edit. A task completed from its card's check
 
 While completed items are hidden, the board has three columns and a card can only be completed from its checkbox, which takes it off the board. Showing completed items adds the Done column as a drop target and lists the completed tasks there.
 
-Within a column, cards are ordered by due date, earliest first and undated last, then by priority. Each card shows a completion checkbox, the title, the due date with overdue and due-soon colours, the priority and the project path, and carries the colour the task inherits from its ancestors. Clicking a card opens the task.
+Within a column, cards are ordered by due date, earliest first and undated last, then by priority. Each card shows a completion checkbox, the title, the due date with overdue and due-soon colours, the priority and the project path, and carries the colour the task inherits from its ancestors.
+
+A card answers the mouse as a card in the other views does: a click selects it, framing it in the accent colour, and a double click navigates into it, which for a task without children opens its [detail panel](detail-panel.md#opening-the-panel). Space opens the details of the selected card.
 
 ## People View
 
