@@ -97,7 +97,6 @@ const emit = defineEmits([
   'wrap-with-parent',
   'delete-multiple',
   // TasksView events
-  'navigate',
   // TrashView events
   'empty-all',
   'restore',
@@ -278,7 +277,9 @@ defineExpose({
     :container-id="currentContainerId"
     :container-title="containerTitle"
     :color-map="colorMap"
-    @navigate="emit('navigate', $event)"
+    :selected-id="selectedNode?.id"
+    @select="emit('select', $event)"
+    @enter="emit('enter', $event)"
     @toggle-complete="emit('toggle-complete', $event)"
     @update="emit('update', $event)"
   />

@@ -11,9 +11,10 @@ const props = defineProps({
   containerId: { type: Number, default: null }, // Current subgraph root
   containerTitle: { type: String, default: null },
   colorMap: { type: Object, default: () => ({}) },
+  selectedId: { type: Number, default: null },
 })
 
-const emit = defineEmits(['select', 'navigate', 'toggle-complete', 'update'])
+const emit = defineEmits(['select', 'enter', 'toggle-complete', 'update'])
 
 const { loading, sortedTasks, filterImportance, loadTasks } = useTaskFiltering({
   getWorkspaceId: () => props.workspaceId,
@@ -61,7 +62,9 @@ defineExpose({ loadTasks })
       :tasks="sortedTasks"
       :show-completed="!hideCompleted"
       :color-map="colorMap"
-      @navigate="emit('navigate', $event)"
+      :selected-id="selectedId"
+      @select="emit('select', $event)"
+      @enter="emit('enter', $event)"
       @toggle-complete="emit('toggle-complete', $event)"
       @move="onBoardMove"
     />

@@ -7,9 +7,10 @@ const props = defineProps({
   tasks: { type: Array, default: () => [] },
   showCompleted: { type: Boolean, default: false },
   colorMap: { type: Object, default: () => ({}) },
+  selectedId: { type: Number, default: null },
 })
 
-const emit = defineEmits(['navigate', 'toggle-complete', 'move'])
+const emit = defineEmits(['select', 'enter', 'toggle-complete', 'move'])
 
 const { isOverdue, isDueSoon, formatRelativeDate, getImportanceLabel, getImportanceClass, getTaskColor } =
   useTaskDisplayUtils()
@@ -55,6 +56,7 @@ function onCheckbox(task, event) {
 function cardClasses(task) {
   return {
     dragging: draggingId.value === task.id,
+    selected: props.selectedId === task.id,
     completed: Boolean(task.completed),
     blocked: !task.completed && Boolean(task.blocked),
     overdue: !task.completed && isOverdue(task.due_date),
@@ -94,7 +96,8 @@ function cardStyle(task) {
         draggable="true"
         @dragstart="onDragStart($event, task)"
         @dragend="onDragEnd"
-        @click="emit('navigate', task)"
+        @click="emit('select', task)"
+        @dblclick="emit('enter', task)"
       >
         <input
           type="checkbox"
@@ -186,6 +189,11 @@ function cardStyle(task) {
 
 .board-card.dragging {
   opacity: 0.5;
+}
+
+.board-card.selected {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 1px var(--accent-color);
 }
 
 .board-card.blocked {

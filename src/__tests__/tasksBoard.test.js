@@ -51,12 +51,21 @@ describe('TaskBoard', () => {
     expect(w.emitted('move')).toEqual([[tasks[0], 'blocked']])
   })
 
-  it('opens a task on click and toggles it from its checkbox', async () => {
+  it('selects a card on click, enters it on double click, and toggles it from its checkbox', async () => {
     const w = mount(TaskBoard, { props: { tasks, showCompleted: true } })
     await w.find('[data-task-id="2"]').trigger('click')
-    expect(w.emitted('navigate')).toEqual([[tasks[1]]])
+    expect(w.emitted('select')).toEqual([[tasks[1]]])
+    await w.find('[data-task-id="2"]').trigger('dblclick')
+    expect(w.emitted('enter')).toEqual([[tasks[1]]])
     await w.find('[data-task-id="2"] input[type="checkbox"]').trigger('click')
     expect(w.emitted('toggle-complete')).toEqual([[tasks[1]]])
+    expect(w.emitted('select')).toHaveLength(1)
+  })
+
+  it('frames the selected card', () => {
+    const w = mount(TaskBoard, { props: { tasks, showCompleted: true, selectedId: 3 } })
+    expect(w.find('[data-task-id="3"]').classes()).toContain('selected')
+    expect(w.find('[data-task-id="2"]').classes()).not.toContain('selected')
   })
 })
 
@@ -97,5 +106,15 @@ describe('TasksView', () => {
     const w = await open({ hideCompleted: false })
     w.findComponent(TaskBoard).vm.$emit('move', tasks[0], 'done')
     expect(w.emitted('update')).toEqual([[{ id: 1, completed: true, in_progress: false, blocked: false }]])
+  })
+
+  it('passes selection and entering through to the app', async () => {
+    const w = await open({ selectedId: 2 })
+    expect(w.find('[data-task-id="2"]').classes()).toContain('selected')
+    const board = w.findComponent(TaskBoard)
+    board.vm.$emit('select', tasks[0])
+    board.vm.$emit('enter', tasks[0])
+    expect(w.emitted('select')).toEqual([[tasks[0]]])
+    expect(w.emitted('enter')).toEqual([[tasks[0]]])
   })
 })

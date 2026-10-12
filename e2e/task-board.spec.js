@@ -116,3 +116,18 @@ test('a task added from the bar appears in To do at once', async () => {
   await page.getByRole('button', { name: 'Add', exact: true }).click()
   await expect(inColumn(page, 'todo', 'Fresh task')).toBeVisible()
 })
+
+test('a click selects a card and a double click opens the task', async () => {
+  const page = ctx.page
+  const card = inColumn(page, 'todo', 'Fresh task')
+  await card.click()
+  await expect(card).toHaveClass(/selected/)
+  await expect(page.locator('.board-card.selected')).toHaveCount(1)
+  await expect(page.locator('.detail-panel')).toBeHidden()
+
+  await card.dblclick()
+  const panel = page.locator('.detail-panel')
+  await expect(panel).toBeVisible()
+  await expect(panel.locator('.title-input').first()).toHaveValue('Fresh task')
+  await page.keyboard.press('Escape')
+})
