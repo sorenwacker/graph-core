@@ -1,23 +1,25 @@
 /**
  * The Tasks board: which column a task belongs in, and what to write when a
- * card is dropped on another column (docs/guides/views.md, "Board"). Done is
- * completion; In progress is a mark stored on the task that only the board
- * sets. Dates play no part: every task receives a start date at creation.
+ * card is dropped on another column (docs/guides/views.md, "Tasks View"). Done
+ * is completion; In progress and Blocked are marks stored on the task that only
+ * the board sets. Dates play no part: every task receives a start date at creation.
  */
 
 export const BOARD_COLUMNS = [
   { id: 'todo', label: 'To do' },
   { id: 'in-progress', label: 'In progress' },
+  { id: 'blocked', label: 'Blocked' },
   { id: 'done', label: 'Done' },
 ]
 
 /**
  * The column a task belongs in.
  * @param {Object} task - A task node
- * @returns {'todo'|'in-progress'|'done'}
+ * @returns {'todo'|'in-progress'|'blocked'|'done'}
  */
 export function boardColumn(task) {
   if (task.completed) return 'done'
+  if (task.blocked) return 'blocked'
   return task.in_progress ? 'in-progress' : 'todo'
 }
 
@@ -40,7 +42,11 @@ function todayLocalIso() {
  */
 export function boardChanges(task, columnId, today = todayLocalIso()) {
   if (boardColumn(task) === columnId) return null
-  const changes = { completed: columnId === 'done', in_progress: columnId === 'in-progress' }
+  const changes = {
+    completed: columnId === 'done',
+    in_progress: columnId === 'in-progress',
+    blocked: columnId === 'blocked',
+  }
   if (columnId === 'in-progress') changes.start_date = today
   return changes
 }

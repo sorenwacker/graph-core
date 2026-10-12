@@ -7,7 +7,7 @@ import { createTestDatabase, createNodeFactory } from './helpers/testDatabase.js
  * export and import. Runs the real database module against a throwaway file.
  */
 
-describe('a task marked in progress', () => {
+describe('the marks the Tasks board stores', () => {
   let db, factory
 
   beforeEach(async () => {
@@ -17,9 +17,12 @@ describe('a task marked in progress', () => {
 
   afterEach(() => db.close())
 
-  it('starts unmarked and keeps the mark once set', () => {
+  it('starts unmarked and keeps the marks once set', () => {
     const task = factory.task({ title: 'Mark me' })
     expect(task.in_progress).toBe(false)
+    expect(task.blocked).toBe(false)
+    db.updateNode(task.id, { blocked: true })
+    expect(db.getNode(task.id).blocked).toBe(true)
     db.updateNode(task.id, { in_progress: true })
     expect(db.getNode(task.id).in_progress).toBe(true)
     db.updateNode(task.id, { in_progress: false })
@@ -30,12 +33,16 @@ describe('a task marked in progress', () => {
     const parent = factory.task({ title: 'Source' })
     const task = factory.task({ title: 'Carried over', parent_id: parent.id })
     db.updateNode(task.id, { in_progress: true })
+    const stuck = factory.task({ title: 'Stuck too', parent_id: parent.id })
+    db.updateNode(stuck.id, { blocked: true })
     const { csv, headers } = db.exportCSV(parent.id)
     expect(headers).toContain('in_progress')
+    expect(headers).toContain('blocked')
 
     const target = factory.task({ title: 'Target' })
     db.importCSV(csv, target.id, 'work')
     const imported = db.getDescendants(target.id).find(n => n.title === 'Carried over')
     expect(imported.in_progress).toBe(true)
+    expect(db.getDescendants(target.id).find(n => n.title === 'Stuck too').blocked).toBe(true)
   })
 })

@@ -274,32 +274,34 @@ A Kanban board of the task-type nodes of the current container and its descendan
 
 ![Tasks view showing the Demo workspace](../assets/screenshots/view-tasks.png)
 
-**Filters:** Show completed, and a minimum priority. The footer counts the tasks shown.
+**Filters:** a minimum priority in the view's toolbar. Whether completed tasks are shown follows the main toolbar's completed toggle, the same one every other view uses; the board has no switch of its own. The footer counts the tasks shown.
 
 A task added from the Add new bar while the board is open appears in To do at once.
 
 ### Columns
 
-| Column      | Tasks shown                                           |
-| ----------- | ----------------------------------------------------- |
-| To do       | Not completed and not marked in progress              |
-| In progress | Not completed, marked in progress by dragging it here |
-| Done        | Completed                                             |
+| Column      | Tasks shown                                                   |
+| ----------- | ------------------------------------------------------------- |
+| To do       | Not completed and carrying no mark                            |
+| In progress | Not completed, marked in progress by dragging it here         |
+| Blocked     | Not completed, marked blocked by dragging it here             |
+| Done        | Completed. Shown only while the toolbar shows completed items |
 
-Being in progress is a mark of its own, stored on the task and set only by the board. It is not derived from the start date, which every task receives at creation.
+In progress and Blocked are marks of their own, stored on the task and set only by the board; a task carries at most one. They are not derived from the start date, which every task receives at creation.
 
 ### Moving a card
 
 Dragging a card to another column writes what puts it there, and stamps the date of the move:
 
 - Into In progress: sets the mark and sets the start date to today.
-- Into Done: marks the task complete and clears the mark. Completing stamps the end date, as it does from anywhere else.
+- Into Blocked: sets the mark. Dates are left as they are.
+- Into Done: marks the task complete and clears any mark. Completing stamps the end date, as it does from anywhere else.
 - Into To do: clears the mark and reopens the task. Its dates are left as they are.
 - Out of Done: reopens the task into the column it was dropped on.
 
-A move can be undone like any other edit. A task completed from a checkbox keeps its mark, so reopening it returns it to In progress.
+A move can be undone like any other edit. A task completed from its card's checkbox keeps its mark, so reopening it returns it to the column it was in.
 
-The board shows its three columns even when no task matches the filters. The Done column is always present as a drop target. Its cards are the completed tasks, which are loaded only while Show completed is on; otherwise the column says that completed tasks are hidden, and a card dropped there leaves the board.
+While completed items are hidden, the board has three columns and a card can only be completed from its checkbox, which takes it off the board. Showing completed items adds the Done column as a drop target and lists the completed tasks there.
 
 Within a column, cards are ordered by due date, earliest first and undated last, then by priority. Each card shows a completion checkbox, the title, the due date with overdue and due-soon colours, the priority and the project path, and carries the colour the task inherits from its ancestors. Clicking a card opens the task.
 

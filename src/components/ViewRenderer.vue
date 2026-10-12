@@ -274,6 +274,7 @@ defineExpose({
     ref="tasksViewRef"
     :workspace-id="workspace"
     :hide-sensitive="hideSensitive"
+    :hide-completed="hideCompleted"
     :container-id="currentContainerId"
     :container-title="containerTitle"
     :color-map="colorMap"

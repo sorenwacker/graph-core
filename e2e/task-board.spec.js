@@ -4,8 +4,9 @@ import { launchApp, dismissOnboarding } from './helpers.js'
 /**
  * The Tasks view is a Kanban board (docs/guides/views.md, "Tasks View"): a
  * new task starts in To do despite the start date it is given at creation,
- * dragging it to In progress stores a mark and today's start date that
- * outlive a reload, and dragging it to Done completes it.
+ * dragging it to In progress or Blocked stores a mark that outlives a reload
+ * (In progress also stamps today's start date), the Done column follows the
+ * toolbar's completed toggle, and dragging a task there completes it.
  */
 
 let ctx
@@ -14,7 +15,7 @@ const ids = {}
 test.beforeAll(async () => {
   ctx = await launchApp()
   await dismissOnboarding(ctx.page)
-  for (const title of ['Board task', 'Started task']) {
+  for (const title of ['Board task', 'Started task', 'Stuck task']) {
     ids[title] = (
       await ctx.page.evaluate(
         title => window.electronAPI.createNode({ type: 'task', title, workspace_id: 'work' }),
@@ -74,20 +75,37 @@ test('dragging a task to In progress marks it and starts it today, and that outl
   await expect(page.locator('[data-column="todo"]')).not.toContainText('Started task')
 })
 
-test('dragging a task to Done completes it', async () => {
+test('dragging a task to Blocked marks it, and that outlives a reload', async () => {
   const page = ctx.page
-  const card = inColumn(page, 'todo', 'Board task')
-  await expect(card).toBeVisible()
-  await dragTo(page, card, page.locator('[data-column="done"]'))
+  await dragTo(page, inColumn(page, 'todo', 'Stuck task'), page.locator('[data-column="blocked"]'))
+  await expect(inColumn(page, 'blocked', 'Stuck task')).toBeVisible()
+  const saved = await page.evaluate(id => window.electronAPI.getNode(id), ids['Stuck task'])
+  expect(saved.blocked).toBe(true)
 
-  // Completed tasks are hidden by default, so the card leaves the board...
-  await expect(card).toBeHidden()
-  // ...and is in Done once they are shown.
-  await page.getByLabel('Show completed').check()
+  await page.reload()
+  await dismissOnboarding(page)
+  await openTasks(page)
+  await expect(inColumn(page, 'blocked', 'Stuck task')).toBeVisible()
+})
+
+test('the Done column follows the toolbar toggle, and dragging a task there completes it', async () => {
+  const page = ctx.page
+  const columns = page.locator('[data-column]')
+  await expect(columns).toHaveCount(3)
+  await expect(page.locator('[data-column="done"]')).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Toggle completed items visibility' }).click()
+  await expect(page.locator('[data-column="done"]')).toBeVisible()
+  await expect(columns).toHaveCount(4)
+
+  await dragTo(page, inColumn(page, 'todo', 'Board task'), page.locator('[data-column="done"]'))
   await expect(inColumn(page, 'done', 'Board task')).toBeVisible()
   const saved = await page.evaluate(id => window.electronAPI.getNode(id), ids['Board task'])
   expect(saved.completed).toBe(true)
   expect(saved.end_date).toBe(localToday())
+
+  await page.getByRole('button', { name: 'Toggle completed items visibility' }).click()
+  await expect(columns).toHaveCount(3)
 })
 
 test('a task added from the bar appears in To do at once', async () => {

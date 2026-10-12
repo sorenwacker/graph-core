@@ -7,6 +7,7 @@ import TaskBoard from './TaskBoard.vue'
 const props = defineProps({
   workspaceId: { type: String, default: 'work' },
   hideSensitive: { type: Boolean, default: false },
+  hideCompleted: { type: Boolean, default: false }, // The main toolbar's completed toggle
   containerId: { type: Number, default: null }, // Current subgraph root
   containerTitle: { type: String, default: null },
   colorMap: { type: Object, default: () => ({}) },
@@ -14,9 +15,10 @@ const props = defineProps({
 
 const emit = defineEmits(['select', 'navigate', 'toggle-complete', 'update'])
 
-const { loading, sortedTasks, showCompleted, filterImportance, loadTasks } = useTaskFiltering({
+const { loading, sortedTasks, filterImportance, loadTasks } = useTaskFiltering({
   getWorkspaceId: () => props.workspaceId,
   getContainerId: () => props.containerId,
+  getShowCompleted: () => !props.hideCompleted,
 })
 
 /** A card dropped on another board column: write the fields that put it there. */
@@ -27,7 +29,7 @@ function onBoardMove(task, columnId) {
 
 watch(() => props.workspaceId, loadTasks)
 watch(() => props.containerId, loadTasks)
-watch(showCompleted, loadTasks)
+watch(() => props.hideCompleted, loadTasks)
 watch(filterImportance, loadTasks)
 
 onMounted(loadTasks)
@@ -42,10 +44,6 @@ defineExpose({ loadTasks })
         Tasks<span v-if="containerTitle" class="container-scope"> in {{ containerTitle }}</span>
       </h2>
       <div class="tasks-filters">
-        <label class="filter-checkbox">
-          <input type="checkbox" v-model="showCompleted" />
-          Show completed
-        </label>
         <select v-model="filterImportance" class="filter-select">
           <option :value="0">All priorities</option>
           <option :value="5">Critical</option>
@@ -61,7 +59,7 @@ defineExpose({ loadTasks })
     <TaskBoard
       v-else
       :tasks="sortedTasks"
-      :show-completed="showCompleted"
+      :show-completed="!hideCompleted"
       :color-map="colorMap"
       @navigate="emit('navigate', $event)"
       @toggle-complete="emit('toggle-complete', $event)"
@@ -70,7 +68,7 @@ defineExpose({ loadTasks })
 
     <div class="tasks-footer">
       {{ sortedTasks.length }} task{{ sortedTasks.length !== 1 ? 's' : '' }}
-      <span v-if="!showCompleted"> (hiding completed)</span>
+      <span v-if="hideCompleted"> (hiding completed)</span>
     </div>
   </div>
 </template>
@@ -108,19 +106,6 @@ defineExpose({ loadTasks })
   display: flex;
   gap: 16px;
   align-items: center;
-}
-
-.filter-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-
-.filter-checkbox input {
-  cursor: pointer;
 }
 
 .filter-select {

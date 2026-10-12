@@ -21,6 +21,7 @@ export interface GetTasksParams {
   workspaceId?: WorkspaceId | null
   completed?: boolean
   in_progress?: boolean
+  blocked?: boolean
   dueDateFrom?: string
   dueDateTo?: string
   importance?: number

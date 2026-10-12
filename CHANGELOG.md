@@ -2,6 +2,12 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
+## [Unreleased]
+
+### Changed
+
+- The Tasks board follows the main toolbar's completed toggle instead of carrying a Show completed switch of its own, which duplicated it ([guide](docs/guides/views.md#tasks-view)). While completed items are hidden the board has To do, In progress and Blocked; showing them adds the Done column. Blocked is new: a mark stored on the task, set by dragging a card there, kept through a CSV export and import, and cleared by a move to any other column.
+
 ## [1.20.0] - 2026-10-12
 
 ### Security

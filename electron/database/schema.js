@@ -43,6 +43,7 @@ const NODE_FIELDS = [
   'graph_physics',
   'collapsed',
   'in_progress',
+  'blocked',
 ]
 
 /**

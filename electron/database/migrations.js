@@ -48,6 +48,7 @@ function runColumnMigrations(ctx) {
     { table: 'nodes', column: 'graph_physics', def: 'TEXT DEFAULT NULL' },
     { table: 'nodes', column: 'collapsed', def: 'INTEGER DEFAULT 0' },
     { table: 'nodes', column: 'in_progress', def: 'INTEGER DEFAULT 0' },
+    { table: 'nodes', column: 'blocked', def: 'INTEGER DEFAULT 0' },
     { table: 'workspaces', column: 'show_external_links', def: 'INTEGER DEFAULT 1' },
   ]
 

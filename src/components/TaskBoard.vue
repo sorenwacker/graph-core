@@ -14,8 +14,13 @@ const emit = defineEmits(['navigate', 'toggle-complete', 'move'])
 const { isOverdue, isDueSoon, formatRelativeDate, getImportanceLabel, getImportanceClass, getTaskColor } =
   useTaskDisplayUtils()
 
+// Done exists only while completed items are shown: its cards are the
+// completed tasks, which are not loaded otherwise.
 const columns = computed(() =>
-  BOARD_COLUMNS.map(column => ({ ...column, tasks: props.tasks.filter(task => boardColumn(task) === column.id) }))
+  BOARD_COLUMNS.filter(column => column.id !== 'done' || props.showCompleted).map(column => ({
+    ...column,
+    tasks: props.tasks.filter(task => boardColumn(task) === column.id),
+  }))
 )
 
 const draggingId = ref(null)
@@ -51,6 +56,7 @@ function cardClasses(task) {
   return {
     dragging: draggingId.value === task.id,
     completed: Boolean(task.completed),
+    blocked: !task.completed && Boolean(task.blocked),
     overdue: !task.completed && isOverdue(task.due_date),
     'due-soon': !task.completed && !isOverdue(task.due_date) && isDueSoon(task.due_date),
   }
@@ -78,7 +84,6 @@ function cardStyle(task) {
         {{ column.label }}
         <span class="board-count">{{ column.tasks.length }}</span>
       </header>
-      <p v-if="column.id === 'done' && !showCompleted" class="board-hint">Completed tasks are hidden</p>
       <article
         v-for="task in column.tasks"
         :key="task.id"
@@ -163,13 +168,6 @@ function cardStyle(task) {
   color: var(--text-tertiary);
 }
 
-.board-hint {
-  margin: 0;
-  color: var(--text-tertiary);
-  font-size: 0.85rem;
-  font-style: italic;
-}
-
 .board-card {
   display: flex;
   gap: 8px;
@@ -188,6 +186,11 @@ function cardStyle(task) {
 
 .board-card.dragging {
   opacity: 0.5;
+}
+
+.board-card.blocked {
+  border-style: dashed;
+  border-left-style: solid;
 }
 
 .board-card.completed .board-card-title {
