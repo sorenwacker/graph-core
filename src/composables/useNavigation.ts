@@ -48,7 +48,6 @@ export interface UseNavigationOptions {
   isShownInView?: (node: Node) => boolean
   /** Called on navigation error (for non-404 errors) */
   onError?: (error: Error, containerId: number | null) => void | Promise<void>
-  /** Called to select a node after navigation */
   /** Custom filter function for workspace filtering */
   filterByWorkspace?: (node: Node, workspaceId: WorkspaceId | null) => boolean
   /** External buildChildTree function (from useDataLoading) */

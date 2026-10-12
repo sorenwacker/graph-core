@@ -116,7 +116,7 @@ This only affects your own machine. Released builds are unsigned for everyone el
 import { ref, computed } from 'vue'
 
 const props = defineProps({
-  node: { type: Object, required: true }
+  node: { type: Object, required: true },
 })
 
 const emit = defineEmits(['select', 'update'])
@@ -240,7 +240,7 @@ When you add a feature that changes startup, navigation, or data persistence, ex
 
 `npm run dead-code` runs [knip](https://knip.dev) and fails when a source file is not reachable from any entry point: the renderer, the Electron main process, the preload script, the build scripts, or the test and e2e suites. It is a CI step, so a module nobody imports cannot sit in the tree unnoticed. `knip.json` lists those entry points; a new one has to be added there.
 
-The gate covers whole files only. knip also reports unused *exports* and *exported types*, and both are noisy here: the Electron code is CommonJS and knip does not see a namespace call such as `wikipedia.search(...)` as a use, so it reports live functions as dead. Turning those categories on would mean either a wall of false positives or an ignore list long enough to hide real findings. Unused exports are still worth removing when you touch a file; they are simply not gated.
+The gate covers whole files only. knip also reports unused _exports_ and _exported types_, and both are noisy here: the Electron code is CommonJS and knip does not see a namespace call such as `wikipedia.search(...)` as a use, so it reports live functions as dead. Turning those categories on would mean either a wall of false positives or an ignore list long enough to hide real findings. Unused exports are still worth removing when you touch a file; they are simply not gated.
 
 ## Documentation
 
@@ -296,6 +296,8 @@ See [Standards](standards.md#commit-conventions).
 
 Type-checking is part of the job because neither the unit suite nor eslint runs the TypeScript compiler, so a dependency that breaks type-checking passes both. The TypeScript 7 bump (PR #102) is the case that proved it: TypeScript 7 removed the `./lib/tsc` subpath from its package exports, `vue-tsc` resolves exactly that path, and `npm run type-check` failed outright while CI stayed green. Dependabot auto-merge polls this same `test` check by name, so a gap here is a gap in the merge gate.
 
+The type check is also the dead-code gate for TypeScript files: eslint ignores `.ts` files, so `noUnusedLocals` and `noUnusedParameters` in `tsconfig.json` are what fail the build on an import, local or option that nothing reads. The `onSelectNode` navigation option is the case that showed the gap: it was declared, destructured and never called, and nothing noticed until a review did. A parameter that must stay for its position gets an underscore prefix, which the compiler exempts.
+
 `src/__tests__/ciWorkflow.test.js` gates the job: it fails if any of those checks is dropped.
 
 ## Dependencies
@@ -346,9 +348,9 @@ RELEASE-EXCEPTION: security
 
 The accepted reasons are `critical` and `security`, and the claim must be the whole line - `RELEASE-EXCEPTION: security patch` claims nothing. A malformed claim is reported as such rather than silently ignored, so a real security patch is never blocked by a typo with a message about monthly cadence.
 
-Only an annotated tag can claim an exception, because only an annotated tag has a message of its own. This has to be read deliberately: `git tag -l --format=%(contents)` follows a *lightweight* tag through to its commit and returns the commit message, so a commit whose message happened to contain the marker would claim the exception without anyone tagging deliberately. The wrapper checks the ref is a tag object before reading its message.
+Only an annotated tag can claim an exception, because only an annotated tag has a message of its own. This has to be read deliberately: `git tag -l --format=%(contents)` follows a _lightweight_ tag through to its commit and returns the commit message, so a commit whose message happened to contain the marker would claim the exception without anyone tagging deliberately. The wrapper checks the ref is a tag object before reading its message.
 
-The month of a previous release is the date GitHub published it (`publishedAt`), not `createdAt`, which is the tagged *commit's* date and can fall in an earlier month than the release itself: `v1.18.0` and `v1.18.0-rc.1` share a `createdAt` because they share a commit. Drafts are excluded, since an abandoned draft in the current month would otherwise block a legitimate release.
+The month of a previous release is the date GitHub published it (`publishedAt`), not `createdAt`, which is the tagged _commit's_ date and can fall in an earlier month than the release itself: `v1.18.0` and `v1.18.0-rc.1` share a `createdAt` because they share a commit. Drafts are excluded, since an abandoned draft in the current month would otherwise block a legitimate release.
 
 The `release-policy` job enforces this before anything is built or published: it reads the pushed tag, the tag's message, and the publication dates of previous full releases, and fails the workflow when a second full release is attempted in a month without an exception. A rejected tag is deleted by the existing `cleanup-invalid` job, which deletes the ref through the API: the job has no checkout, so the `git push --delete` it used before ran in an empty workspace and failed silently, leaving rejected tags on the remote where a re-push of the same tag would not retrigger the workflow.
 
@@ -356,7 +358,7 @@ The `release-policy` job enforces this before anything is built or published: it
 
 ### Release creation is idempotent
 
-The step that creates the release reuses an existing release for the tag rather than creating a new one. This matters because a draft release is not bound to its tag: `gh release create` will happily create a *second* draft for a tag that already has a release, so a re-run or a retried job silently produces duplicates. Four such duplicate pairs accumulated on the repository before this was enforced (v1.10.1, v1.10.1-rc.1, v1.10.3, v1.10.3-beta.1), each an empty draft shadowing the real published release.
+The step that creates the release reuses an existing release for the tag rather than creating a new one. This matters because a draft release is not bound to its tag: `gh release create` will happily create a _second_ draft for a tag that already has a release, so a re-run or a retried job silently produces duplicates. Four such duplicate pairs accumulated on the repository before this was enforced (v1.10.1, v1.10.1-rc.1, v1.10.3, v1.10.3-beta.1), each an empty draft shadowing the real published release.
 
 `src/__tests__/releaseWorkflow.test.js` executes the step's script against a stubbed `gh` and fails if a second release is created when one already exists.
 

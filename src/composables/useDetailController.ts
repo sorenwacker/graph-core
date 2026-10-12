@@ -1,4 +1,4 @@
-import { ref, type Ref, type ComponentPublicInstance } from 'vue'
+import { ref, type Ref } from 'vue'
 import { useDetailResize } from './useDetailResize.js'
 
 /**
