@@ -67,6 +67,8 @@ export interface Node {
   workspace_id: WorkspaceId | null
   /** Whether the node is completed (tasks/projects) */
   completed: boolean
+  /** Whether a task is marked in progress on the Tasks board */
+  in_progress: boolean
   /** Whether the node is marked as favorite */
   favorite: boolean
   /** Rich text notes content */
@@ -169,6 +171,7 @@ export interface UpdateNodeData {
   /** Set by the notes editor after getNodeNotes; without it, notes sent for a sensitive node are ignored */
   notes_revealed?: boolean
   completed?: boolean
+  in_progress?: boolean
   favorite?: boolean
   due_date?: string | null
   start_date?: string | null

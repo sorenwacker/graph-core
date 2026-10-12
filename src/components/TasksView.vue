@@ -1,6 +1,6 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
-import { useTaskFiltering, useTaskDisplayUtils } from '../composables/useTaskFiltering.js'
+import { onMounted, watch } from 'vue'
+import { useTaskFiltering } from '../composables/useTaskFiltering.js'
 import { boardChanges } from '../utils/taskBoard.js'
 import TaskBoard from './TaskBoard.vue'
 
@@ -14,30 +14,10 @@ const props = defineProps({
 
 const emit = defineEmits(['select', 'navigate', 'toggle-complete', 'update'])
 
-// Task filtering composable
-const { loading, sortedTasks, showCompleted, filterImportance, loadTasks, toggleSort, getSortIcon } = useTaskFiltering({
+const { loading, sortedTasks, showCompleted, filterImportance, loadTasks } = useTaskFiltering({
   getWorkspaceId: () => props.workspaceId,
   getContainerId: () => props.containerId,
 })
-
-// Display utility functions
-const { isOverdue, isDueSoon, formatDate, formatRelativeDate, getImportanceLabel, getImportanceClass, getTaskColor } =
-  useTaskDisplayUtils()
-
-// List or Board, remembered per workspace.
-const LAYOUT_KEY = 'tasks-layout'
-
-function storedLayout(workspaceId) {
-  if (typeof localStorage === 'undefined') return 'list'
-  return localStorage.getItem(`${LAYOUT_KEY}-${workspaceId}`) === 'board' ? 'board' : 'list'
-}
-
-const layout = ref(storedLayout(props.workspaceId))
-
-function setLayout(value) {
-  layout.value = value
-  if (typeof localStorage !== 'undefined') localStorage.setItem(`${LAYOUT_KEY}-${props.workspaceId}`, value)
-}
 
 /** A card dropped on another board column: write the fields that put it there. */
 function onBoardMove(task, columnId) {
@@ -45,30 +25,7 @@ function onBoardMove(task, columnId) {
   if (changes) emit('update', { id: task.id, ...changes })
 }
 
-function onTaskClick(task) {
-  emit('navigate', task)
-}
-
-function getTaskRowStyle(task) {
-  const color = getTaskColor(task, props.colorMap)
-  if (color && color !== '#0f4c75') {
-    return { background: `linear-gradient(90deg, ${color}55 0%, transparent 50%)` }
-  }
-  return {}
-}
-
-function onCheckboxClick(task, event) {
-  event.stopPropagation()
-  emit('toggle-complete', task)
-}
-
-watch(
-  () => props.workspaceId,
-  workspaceId => {
-    layout.value = storedLayout(workspaceId)
-    loadTasks()
-  }
-)
+watch(() => props.workspaceId, loadTasks)
 watch(() => props.containerId, loadTasks)
 watch(showCompleted, loadTasks)
 watch(filterImportance, loadTasks)
@@ -85,14 +42,6 @@ defineExpose({ loadTasks })
         Tasks<span v-if="containerTitle" class="container-scope"> in {{ containerTitle }}</span>
       </h2>
       <div class="tasks-filters">
-        <div class="layout-switch" role="group" aria-label="Layout">
-          <button type="button" data-layout="list" :class="{ active: layout === 'list' }" @click="setLayout('list')">
-            List
-          </button>
-          <button type="button" data-layout="board" :class="{ active: layout === 'board' }" @click="setLayout('board')">
-            Board
-          </button>
-        </div>
         <label class="filter-checkbox">
           <input type="checkbox" v-model="showCompleted" />
           Show completed
@@ -109,71 +58,15 @@ defineExpose({ loadTasks })
 
     <div v-if="loading" class="loading">Loading tasks...</div>
 
-    <div v-else-if="sortedTasks.length === 0 && layout === 'list'" class="empty-state">No tasks found</div>
-
     <TaskBoard
-      v-else-if="layout === 'board'"
+      v-else
       :tasks="sortedTasks"
       :show-completed="showCompleted"
       :color-map="colorMap"
-      @navigate="onTaskClick"
+      @navigate="emit('navigate', $event)"
       @toggle-complete="emit('toggle-complete', $event)"
       @move="onBoardMove"
     />
-
-    <table v-else class="tasks-table">
-      <thead>
-        <tr>
-          <th class="col-checkbox sortable" @click="toggleSort('completed')">
-            {{ getSortIcon('completed') }}
-          </th>
-          <th class="col-title sortable" @click="toggleSort('title')">Task{{ getSortIcon('title') }}</th>
-          <th class="col-project sortable" @click="toggleSort('project')">
-            Project / Path{{ getSortIcon('project') }}
-          </th>
-          <th class="col-created sortable" @click="toggleSort('created_at')">Created{{ getSortIcon('created_at') }}</th>
-          <th class="col-due sortable" @click="toggleSort('due_date')">Due{{ getSortIcon('due_date') }}</th>
-          <th class="col-importance sortable" @click="toggleSort('importance')">
-            Priority{{ getSortIcon('importance') }}
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr
-          v-for="task in sortedTasks"
-          :key="task.id"
-          class="task-row"
-          :class="{
-            completed: task.completed,
-            overdue: !task.completed && isOverdue(task.due_date),
-            'due-soon': !task.completed && !isOverdue(task.due_date) && isDueSoon(task.due_date),
-          }"
-          :style="getTaskRowStyle(task)"
-          @click="onTaskClick(task)"
-        >
-          <td class="col-checkbox">
-            <input type="checkbox" :checked="task.completed" @click="onCheckboxClick(task, $event)" />
-          </td>
-          <td class="col-title">
-            <span class="task-title">{{ task.title }}</span>
-          </td>
-          <td class="col-project">
-            <span v-if="task.parentPath && task.parentPath.length > 0" class="parent-path">
-              {{ task.parentPath.join(' / ') }}
-            </span>
-            <span v-else-if="task.isDirectChild" class="direct-child">(here)</span>
-            <span v-else class="no-project">-</span>
-          </td>
-          <td class="col-created">{{ formatDate(task.created_at) }}</td>
-          <td class="col-due" :class="{ overdue: isOverdue(task.due_date), 'due-soon': isDueSoon(task.due_date) }">
-            {{ formatRelativeDate(task.due_date) }}
-          </td>
-          <td class="col-importance" :class="getImportanceClass(task.importance)">
-            {{ getImportanceLabel(task.importance) }}
-          </td>
-        </tr>
-      </tbody>
-    </table>
 
     <div class="tasks-footer">
       {{ sortedTasks.length }} task{{ sortedTasks.length !== 1 ? 's' : '' }}
@@ -217,27 +110,6 @@ defineExpose({ loadTasks })
   align-items: center;
 }
 
-.layout-switch {
-  display: flex;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.layout-switch button {
-  background: var(--bg-secondary);
-  border: none;
-  color: var(--text-secondary);
-  padding: 6px 12px;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-
-.layout-switch button.active {
-  background: var(--accent-color);
-  color: #fff;
-}
-
 .filter-checkbox {
   display: flex;
   align-items: center;
@@ -258,183 +130,19 @@ defineExpose({ loadTasks })
   padding: 6px 10px;
   border-radius: 4px;
   font-size: 0.9rem;
+  cursor: pointer;
 }
 
-.loading,
-.empty-state {
+.loading {
   color: var(--text-secondary);
-  text-align: center;
   padding: 40px;
-}
-
-.tasks-table {
-  width: 100%;
-  border-collapse: collapse;
-  display: block;
-  flex: 1;
-  overflow-y: auto;
-}
-
-.tasks-table thead,
-.tasks-table tbody,
-.tasks-table tr {
-  display: table;
-  width: 100%;
-  table-layout: fixed;
-}
-
-.tasks-table thead {
-  position: sticky;
-  top: 0;
-  background: var(--bg-primary);
-  z-index: 1;
-}
-
-.tasks-table th {
-  text-align: left;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  font-weight: 500;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  height: 40px;
-}
-
-.tasks-table th.sortable {
-  cursor: pointer;
-  user-select: none;
-}
-
-.tasks-table th.sortable:hover {
-  color: var(--text-primary);
-}
-
-.tasks-table td {
-  padding: 12px;
-  border-bottom: 1px solid var(--border-color);
-  vertical-align: middle;
-  height: 44px;
-  max-height: 44px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.task-row {
-  cursor: pointer;
-  transition: background 0.15s;
-  height: 44px;
-}
-
-.task-row:hover {
-  background: #1a1a2e;
-}
-
-.task-row.completed {
-  opacity: 0.5;
-}
-
-.task-row.completed .task-title {
-  text-decoration: line-through;
-}
-
-.task-row.overdue {
-  background: rgba(231, 76, 60, 0.1);
-}
-
-.task-row.due-soon {
-  background: rgba(241, 196, 15, 0.1);
-}
-
-.col-checkbox {
-  width: 50px;
   text-align: center;
-}
-
-.col-checkbox.sortable {
-  cursor: pointer;
-}
-
-.col-checkbox input {
-  cursor: pointer;
-  width: 16px;
-  height: 16px;
-}
-
-.col-title {
-  width: 30%;
-}
-
-.task-title {
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.col-project {
-  width: 25%;
-}
-
-.parent-path {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  display: block;
-}
-
-.no-project {
-  color: var(--text-tertiary);
-}
-
-.direct-child {
-  color: var(--text-tertiary);
-  font-style: italic;
-}
-
-.col-created,
-.col-due {
-  width: 12%;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-.col-due.overdue {
-  color: var(--error-color);
-  font-weight: 500;
-}
-
-.col-due.due-soon {
-  color: var(--warning-color);
-}
-
-.col-importance {
-  width: 10%;
-  font-size: 0.85rem;
-}
-
-.importance-low {
-  color: var(--text-secondary);
-}
-.importance-medium {
-  color: var(--accent-color);
-}
-.importance-high {
-  color: var(--warning-color);
-}
-.importance-critical {
-  color: var(--error-color);
-  font-weight: 600;
 }
 
 .tasks-footer {
-  margin-top: 16px;
+  flex-shrink: 0;
   padding-top: 12px;
-  border-top: 1px solid var(--border-subtle);
   color: var(--text-tertiary);
   font-size: 0.85rem;
-  flex-shrink: 0;
 }
 </style>

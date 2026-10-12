@@ -42,6 +42,7 @@ const NODE_FIELDS = [
   'graph_fit_locked',
   'graph_physics',
   'collapsed',
+  'in_progress',
 ]
 
 /**

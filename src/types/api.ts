@@ -20,6 +20,7 @@ export interface GetNodesParams {
 export interface GetTasksParams {
   workspaceId?: WorkspaceId | null
   completed?: boolean
+  in_progress?: boolean
   dueDateFrom?: string
   dueDateTo?: string
   importance?: number

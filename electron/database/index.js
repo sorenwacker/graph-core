@@ -498,6 +498,7 @@ class Database {
       has_table: 'has_table' in row ? Boolean(row.has_table) : undefined,
       notes_sensitive: Boolean(row.notes_sensitive),
       collapsed: Boolean(row.collapsed),
+      in_progress: Boolean(row.in_progress),
       tags,
       graph_type_filter,
       graph_physics,
