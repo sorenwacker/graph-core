@@ -419,7 +419,6 @@ const navigation = useNavigation({
   // does not count.
   onEnteredLeaf: node => selectNode(node, { immediate: true }),
   isShownInView: child => !(hideCompleted.value && child.completed) && filtersStore.visibleTypes.includes(child.type),
-  onSelectNode: selectNode,
   onSidebarSync: rootChildren => {
     sidebarTree.value = rootChildren
   },
