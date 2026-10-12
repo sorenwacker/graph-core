@@ -2,18 +2,6 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
-## [Unreleased]
-
-### Added
-
-- The Tasks view is a Kanban board ([guide](docs/guides/views.md#tasks-view)), replacing its table. Done holds the completed tasks; In progress holds tasks marked so by dragging them there, a mark stored on the task and kept through a CSV export and import. A drag into In progress also sets the start date to today, and a drag into Done completes the task, which stamps the end date as completing elsewhere does. Moves can be undone.
-
-### Fixed
-
-- Undoing a delete shows the restored node at once. Repeated loads of one container are coalesced by a short debounce, and the refresh after the undo fell inside that window right after the delete's own refresh, so it was skipped and the node reappeared only after the next navigation. Refreshes after a change now bypass the debounce.
-
-- A task added from the Add new bar while the Tasks view is open appears on the board at once. The view keeps its own task list, and adding from the bar reloaded the tree but not that list, so the new task showed up only after a view switch.
-
 ## [1.20.0] - 2026-10-12
 
 ### Security
@@ -32,6 +20,10 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Fixed
 
+- Undoing a delete shows the restored node at once. Repeated loads of one container are coalesced by a short debounce, and the refresh after the undo fell inside that window right after the delete's own refresh, so it was skipped and the node reappeared only after the next navigation. Refreshes after a change now bypass the debounce.
+
+- A task added from the Add new bar while the Tasks view is open appears on the board at once. The view keeps its own task list, and adding from the bar reloaded the tree but not that list, so the new task showed up only after a view switch.
+
 - An edge in the graph ends at the border of the card it points to ([guide](docs/guides/views.md#graph-view)). Edges are drawn to a node box separate from the visible card, and the box was sized to the card only when the graph opened or a layout ran, so a card that grew or shrank afterwards, when its note preview appeared or its title wrapped, left the arrowhead floating in space or hidden under the card. The box now follows the card's size. The sizing also looked up cards across the whole page, where the table view marks its rows with the same attribute, and is now confined to the graph.
 
 - The detail panel opens for a childless node even when the app reloads the container during the navigation. Whether the node had children was read from the container state right after the navigation's own load, but that state is written by whichever load finishes last: a refresh of the same container made the navigation's load give way, and the check then looked at the previous container and did nothing. The check now asks the database directly.
@@ -45,6 +37,10 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 - The table section is no taller than its contents. It reserved 200px, 300px in fullscreen, which left an empty area under a short table and around the Add Table button, and in fullscreen it forced a horizontal scrollbar on the sections below the notes.
 
 - A node shown in the graph because it is linked from the current container displays its note preview ([guide](docs/guides/linking.md#in-graph-view)). Linked nodes from elsewhere in the hierarchy are added to the graph by a separate code path, which left out the flag that says previews are on, so such a node showed its title only, whatever its notes held.
+
+### Added
+
+- The Tasks view is a Kanban board ([guide](docs/guides/views.md#tasks-view)), replacing its table. Done holds the completed tasks; In progress holds tasks marked so by dragging them there, a mark stored on the task and kept through a CSV export and import. A drag into In progress also sets the start date to today, and a drag into Done completes the task, which stamps the end date as completing elsewhere does. Moves can be undone.
 
 ## [1.19.0] - 2026-09-24
 
