@@ -12,14 +12,14 @@ import { formatDate as formatDateShared, daysFromToday, isOverdue, isDueSoon } f
  * @param {Object} options
  * @param {Function} options.getWorkspaceId - Function returning current workspace ID
  * @param {Function} options.getContainerId - Function returning current container ID (or null)
+ * @param {Function} options.getShowCompleted - Whether completed tasks are shown (the toolbar's toggle)
  */
-export function useTaskFiltering({ getWorkspaceId, getContainerId }) {
+export function useTaskFiltering({ getWorkspaceId, getContainerId, getShowCompleted = () => false }) {
   const { handleError } = useErrorHandler()
 
   // State
   const tasks = ref([])
   const loading = ref(true)
-  const showCompleted = ref(false)
   const filterImportance = ref(0) // 0 = all
 
   /**
@@ -40,7 +40,7 @@ export function useTaskFiltering({ getWorkspaceId, getContainerId }) {
 
       const params = {
         workspaceId,
-        completed: showCompleted.value ? undefined : false,
+        completed: getShowCompleted() ? undefined : false,
       }
       if (filterImportance.value > 0) {
         params.importance = filterImportance.value
@@ -178,7 +178,6 @@ export function useTaskFiltering({ getWorkspaceId, getContainerId }) {
     // State
     tasks,
     loading,
-    showCompleted,
     filterImportance,
 
     // Computed

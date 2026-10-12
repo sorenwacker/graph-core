@@ -499,6 +499,7 @@ class Database {
       notes_sensitive: Boolean(row.notes_sensitive),
       collapsed: Boolean(row.collapsed),
       in_progress: Boolean(row.in_progress),
+      blocked: Boolean(row.blocked),
       tags,
       graph_type_filter,
       graph_physics,

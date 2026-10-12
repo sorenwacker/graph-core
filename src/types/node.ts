@@ -69,6 +69,8 @@ export interface Node {
   completed: boolean
   /** Whether a task is marked in progress on the Tasks board */
   in_progress: boolean
+  /** Whether a task is marked blocked on the Tasks board */
+  blocked: boolean
   /** Whether the node is marked as favorite */
   favorite: boolean
   /** Rich text notes content */
@@ -172,6 +174,7 @@ export interface UpdateNodeData {
   notes_revealed?: boolean
   completed?: boolean
   in_progress?: boolean
+  blocked?: boolean
   favorite?: boolean
   due_date?: string | null
   start_date?: string | null

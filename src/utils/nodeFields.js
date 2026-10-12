@@ -11,6 +11,7 @@ export const NODE_UPDATE_FIELDS = [
   'notes_sensitive',
   'completed',
   'in_progress',
+  'blocked',
   'favorite',
   'due_date',
   'start_date',
