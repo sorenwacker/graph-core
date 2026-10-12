@@ -276,6 +276,8 @@ A Kanban board of the task-type nodes of the current container and its descendan
 
 **Filters:** Show completed, and a minimum priority. The footer counts the tasks shown.
 
+A task added from the Add new bar while the board is open appears in To do at once.
+
 ### Columns
 
 | Column      | Tasks shown                                           |

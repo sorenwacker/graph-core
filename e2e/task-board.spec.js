@@ -89,3 +89,12 @@ test('dragging a task to Done completes it', async () => {
   expect(saved.completed).toBe(true)
   expect(saved.end_date).toBe(localToday())
 })
+
+test('a task added from the bar appears in To do at once', async () => {
+  const page = ctx.page
+  await page.locator('.type-select').selectOption('task')
+  const input = page.getByPlaceholder('Add new...')
+  await input.fill('Fresh task')
+  await page.getByRole('button', { name: 'Add', exact: true }).click()
+  await expect(inColumn(page, 'todo', 'Fresh task')).toBeVisible()
+})
