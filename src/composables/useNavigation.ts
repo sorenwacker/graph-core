@@ -209,8 +209,10 @@ export function useNavigation({
     const now = Date.now()
     const timeSinceLastLoad = now - lastLoadTime
 
-    // Debounce: skip if called within delay for same container
-    if (debounce.enabled && timeSinceLastLoad < debounce.delay && lastLoadedContainerId === containerId) {
+    // Debounce repeated navigations to the same container. A silent load is a
+    // refresh after a change (an undo right after a delete, a toggled task) and
+    // must run even inside that window, or the view keeps showing stale rows.
+    if (debounce.enabled && !silent && timeSinceLastLoad < debounce.delay && lastLoadedContainerId === containerId) {
       return
     }
 

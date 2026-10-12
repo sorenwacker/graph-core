@@ -22,6 +22,7 @@
  * @param {Function} deps.loadSidebarTree - Reload sidebar tree
  * @param {Function} deps.refreshAfterChange - Refresh after a change
  * @param {Function} deps.hideTooltip - Hide the node tooltip
+ * @param {Function} deps.loadTasks - Reload the Tasks view's own list
  * @param {import('vue').Ref<Set<number>>} deps.expandedIds - Expanded tree node IDs
  * @returns {Object} Node-creation handlers
  */
@@ -41,6 +42,7 @@ export function useNodeCreation({
   refreshAfterChange,
   hideTooltip,
   expandedIds,
+  loadTasks,
 }) {
   async function createNode() {
     if (!newNodeTitle.value.trim()) return
@@ -58,6 +60,8 @@ export function useNodeCreation({
       newNodeTitle.value = ''
       addChildParentId.value = null
       await loadChildren(currentContainerId.value, { silent: true })
+      // The Tasks view keeps its own list, which the tree reload does not touch.
+      loadTasks()
     }
   }
 

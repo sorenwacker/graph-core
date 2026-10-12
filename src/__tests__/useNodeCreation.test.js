@@ -23,6 +23,7 @@ describe('useNodeCreation', () => {
       loadSidebarTree: vi.fn().mockResolvedValue(undefined),
       refreshAfterChange: vi.fn().mockResolvedValue(undefined),
       hideTooltip: vi.fn(),
+      loadTasks: vi.fn(),
       expandedIds: ref(new Set()),
     }
   })
@@ -161,5 +162,32 @@ describe('useNodeCreation', () => {
       expect(deps.detailPanelRef.value.loadChildren).toHaveBeenCalled()
       expect(deps.addNodeModal.value.visible).toBe(false)
     })
+  })
+})
+
+describe('adding from the bar while the Tasks view is open', () => {
+  // The Tasks view keeps its own list; without a reload the new task showed
+  // up only after a view switch (docs/guides/views.md, "Tasks View").
+  it('reloads the tasks after creating the node', async () => {
+    const deps = {
+      newNodeTitle: ref('Board task'),
+      newNodeType: ref('task'),
+      addChildParentId: ref(null),
+      currentContainerId: ref(7),
+      showDetail: ref(false),
+      addNodeModal: ref({ visible: false, parentId: null }),
+      detailPanelRef: ref(null),
+      nodeOps: { createNode: vi.fn().mockResolvedValue({ id: 42, title: 'Board task' }) },
+      addChildNode: vi.fn(),
+      selectNode: vi.fn(),
+      loadChildren: vi.fn().mockResolvedValue(undefined),
+      loadSidebarTree: vi.fn().mockResolvedValue(undefined),
+      refreshAfterChange: vi.fn().mockResolvedValue(undefined),
+      hideTooltip: vi.fn(),
+      expandedIds: ref(new Set()),
+      loadTasks: vi.fn(),
+    }
+    await useNodeCreation(deps).createNode()
+    expect(deps.loadTasks).toHaveBeenCalled()
   })
 })

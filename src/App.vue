@@ -697,6 +697,7 @@ const { createNode, createNodeAtPosition, addChildFromDetail, showAddNodeModal, 
     refreshAfterChange,
     hideTooltip,
     expandedIds,
+    loadTasks: () => viewRendererRef.value?.loadTasks?.(),
   })
 
 const handleDetach = node => node && openDetachedWindow(node.id, node.title)

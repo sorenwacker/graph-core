@@ -8,6 +8,12 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 - The Tasks view is a Kanban board ([guide](docs/guides/views.md#tasks-view)), replacing its table. Done holds the completed tasks; In progress holds tasks marked so by dragging them there, a mark stored on the task and kept through a CSV export and import. A drag into In progress also sets the start date to today, and a drag into Done completes the task, which stamps the end date as completing elsewhere does. Moves can be undone.
 
+### Fixed
+
+- Undoing a delete shows the restored node at once. Repeated loads of one container are coalesced by a short debounce, and the refresh after the undo fell inside that window right after the delete's own refresh, so it was skipped and the node reappeared only after the next navigation. Refreshes after a change now bypass the debounce.
+
+- A task added from the Add new bar while the Tasks view is open appears on the board at once. The view keeps its own task list, and adding from the bar reloaded the tree but not that list, so the new task showed up only after a view switch.
+
 ## [1.20.0] - 2026-10-12
 
 ### Security
