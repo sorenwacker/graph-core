@@ -41,6 +41,7 @@ describe('useGraphLayout', () => {
         unlock: vi.fn(),
       }),
       batch: vi.fn(fn => fn()),
+      container: vi.fn().mockReturnValue(document.createElement('div')),
       fit: vi.fn(),
       animate: vi.fn(),
       zoom: vi.fn().mockReturnValue(1),

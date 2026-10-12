@@ -7,33 +7,74 @@ const NODE_SPACING_DIVISOR = 50
 
 const GRID_GAP = 15 // Gap between nodes in grid
 
+/** The rendered cards the label plugin places over graph nodes. */
+const CARD_SELECTOR = '.node-html[data-node-id], .node-person[data-node-id]'
+
 /**
- * Sync cytoscape node dimensions with actual HTML label sizes.
- * This ensures layouts respect the real visual size of nodes.
+ * Size a node's box to its rendered card, so edges end at the card's border.
+ * Layout sizes (offsetWidth/offsetHeight) are unaffected by the zoom transform
+ * on the label container, so no zoom correction is needed. A box that already
+ * matches is left alone: writing a style emits a style event even when nothing
+ * changed, and the label plugin rebuilds the card on every such event, which
+ * would re-trigger this sync without end.
+ * @param {Object} cy - Cytoscape instance
+ * @param {HTMLElement} card - The card element carrying data-node-id
+ */
+function fitNodeToCard(cy, card) {
+  const node = cy.getElementById(card.dataset.nodeId)
+  if (!node || node.length === 0) return
+  const width = card.offsetWidth
+  const height = card.offsetHeight
+  if (width <= 0 || height <= 0) return
+  if (Math.abs(node.width() - width) < 1 && Math.abs(node.height() - height) < 1) return
+  node.style({ width, height })
+}
+
+/**
+ * Sync every node box with its rendered card, so layouts respect the real
+ * visual size of nodes. Only cards inside the graph are measured: the table
+ * view marks its rows with the same attribute.
  * @param {Object} cy - Cytoscape instance
  */
 function syncNodeDimensions(cy) {
   if (!cy) return
-
-  // Get current zoom level to adjust for scaled dimensions
-  const zoom = cy.zoom()
-
   cy.batch(() => {
-    cy.nodes().forEach(node => {
-      const nodeId = node.id()
-      const htmlLabel = document.querySelector(`[data-node-id="${nodeId}"]`)
-
-      if (htmlLabel) {
-        const rect = htmlLabel.getBoundingClientRect()
-        if (rect.width > 0 && rect.height > 0) {
-          // Divide by zoom to get unscaled dimensions - match exact visual size
-          const width = rect.width / zoom
-          const height = rect.height / zoom
-          node.style({ width, height })
-        }
-      }
-    })
+    cy.container()
+      .querySelectorAll(CARD_SELECTOR)
+      .forEach(card => fitNodeToCard(cy, card))
   })
+}
+
+/**
+ * Keep node boxes in step with their cards as the cards render and change
+ * size. A card changes size when its note preview appears or disappears, its
+ * title wraps differently, or the preview length changes, and the plugin
+ * replaces the card element on every data or style event, so new cards are
+ * picked up as they appear.
+ * @param {HTMLElement} container - The graph container the cards live in
+ * @param {Function} getCy - Returns the current cytoscape instance
+ * @returns {Function} Stops watching
+ */
+function watchCardSizes(container, getCy) {
+  const resize = new ResizeObserver(entries => {
+    const cy = getCy()
+    if (!cy) return
+    for (const entry of entries) fitNodeToCard(cy, entry.target)
+  })
+  const cardsIn = el =>
+    el.nodeType === 1 ? [...(el.matches(CARD_SELECTOR) ? [el] : []), ...el.querySelectorAll(CARD_SELECTOR)] : []
+  cardsIn(container).forEach(card => resize.observe(card))
+  const mutation = new MutationObserver(records => {
+    for (const record of records) {
+      record.removedNodes.forEach(el => cardsIn(el).forEach(card => resize.unobserve(card)))
+      record.addedNodes.forEach(el => cardsIn(el).forEach(card => resize.observe(card)))
+    }
+  })
+  mutation.observe(container, { childList: true, subtree: true })
+  return () => {
+    resize.disconnect()
+    mutation.disconnect()
+  }
 }
 
 /**
@@ -42,9 +83,12 @@ function syncNodeDimensions(cy) {
  * @returns {Object} { width, height }
  */
 function getNodeDimensions(node) {
-  // Try to get dimensions from the rendered HTML label
-  const nodeId = node.id()
-  const htmlLabel = document.querySelector(`[data-node-id="${nodeId}"]`)
+  // Try to get dimensions from the rendered card, looked up inside the graph
+  // only: the table view marks its rows with the same attribute.
+  const htmlLabel = node
+    .cy()
+    .container()
+    .querySelector(`.node-html[data-node-id="${node.id()}"], .node-person[data-node-id="${node.id()}"]`)
 
   if (htmlLabel) {
     const rect = htmlLabel.getBoundingClientRect()
@@ -328,6 +372,7 @@ export function useGraphLayout(options = {}) {
   // Continuous layout state
   let continuousLayout = null
   let continuousFitInterval = null
+  let stopCardWatch = null
 
   /**
    * Get layout options for the current mode.
@@ -794,6 +839,8 @@ export function useGraphLayout(options = {}) {
   function cleanup() {
     stopContinuousRelax()
     stopContinuousFit()
+    if (stopCardWatch) stopCardWatch()
+    stopCardWatch = null
   }
 
   /**
@@ -847,6 +894,10 @@ export function useGraphLayout(options = {}) {
 
     // Node dimension sync
     syncNodeDimensions: () => syncNodeDimensions(getCy ? getCy() : null),
+    watchCardSizes: container => {
+      if (stopCardWatch) stopCardWatch()
+      stopCardWatch = watchCardSizes(container, () => (getCy ? getCy() : null))
+    },
 
     // Continuous relax
     startContinuousRelax,

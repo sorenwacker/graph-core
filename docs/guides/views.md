@@ -59,6 +59,8 @@ Force-directed graph visualization using Cytoscape.js.
 
 ![Graph view showing the Demo workspace](../assets/screenshots/view-graph.png)
 
+Each node is drawn as a card, and an edge ends at the visible border of the card it points to. Cytoscape draws edges to a node box that is separate from the card, so the box is resized to the card whenever the card is rendered or changes size: when its note preview appears or disappears, its title wraps differently, or the preview length changes. Arrowheads therefore neither stop short of a card nor disappear beneath one.
+
 ### Layout Modes
 
 | Layout | Description |

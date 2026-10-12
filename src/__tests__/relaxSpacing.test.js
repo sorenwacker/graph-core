@@ -58,6 +58,7 @@ function fakeCy(captured) {
   return {
     zoom: () => 1,
     batch: fn => fn(),
+    container: () => document.createElement('div'),
     nodes: () => ({ forEach: () => {} }),
     animate: () => {},
     layout: opts => {
