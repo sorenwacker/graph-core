@@ -103,3 +103,16 @@ describe('recovering from a missing container', () => {
     expect(api.getRoots).toHaveBeenCalled()
   })
 })
+
+describe('a refresh after a change', () => {
+  // Repeated navigations to one container are coalesced by a short debounce.
+  // The refresh after an undo lands inside that window right after the
+  // delete's own refresh, so it was skipped and the restored row never showed.
+  it('is not dropped by the debounce that coalesces repeated navigations', async () => {
+    const api = makeApi()
+    const nav = setup(api, { debounce: { enabled: true, delay: 200 } })
+    await nav.loadChildren(null)
+    await nav.loadChildren(null, { silent: true })
+    expect(api.getRoots).toHaveBeenCalledTimes(2)
+  })
+})

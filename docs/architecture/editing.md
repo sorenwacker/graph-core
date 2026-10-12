@@ -23,3 +23,7 @@ The notes autosave fires on every pause in typing. A full save also reloads the 
 Saves therefore carry their intent. `saveChanges({ refresh: false })` writes and nothing more; `updateNode` skips `refreshAfterChange`, and a detached window skips its broadcast. The reload happens once, on the save that ends the edit: the editor is left, another tab is chosen, another node is opened, or the panel closes. `flushPendingSave` covers those exits, and also writes text still sitting on the autosave timer - closing the panel used to drop it.
 
 The consequence is intended: while a note is being written, the graph shows the text as of the last completed edit, not the current keystroke.
+
+## A refresh after a change is never coalesced away
+
+Repeated navigations to the same container within 200ms are coalesced: only the first loads. A refresh after a change, requested as a silent load, is exempt, because it carries new data the view does not have. Undoing a delete is the case that found this: its refresh followed the delete's own refresh inside the window, was dropped, and the restored node appeared only on the next navigation. `src/__tests__/navigationConcurrency.test.js` holds the rule.
