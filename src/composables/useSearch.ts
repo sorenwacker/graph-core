@@ -1,6 +1,6 @@
 import { ref, nextTick, type Ref } from 'vue'
 import { useErrorHandler } from './useErrorHandler'
-import type { Node, SearchOptions } from '../types'
+import type { Node } from '../types'
 
 const SEARCH_PAGE_SIZE = 50
 

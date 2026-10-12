@@ -1,15 +1,7 @@
 import { ApplyNotesEditCommand, ReorderCommand } from '../commands/index.js'
 import { useAppContext } from './useAppContext'
-import type { Ref } from 'vue'
-import type { Api, Node, Command, NodeType, WorkspaceId } from '../types'
-import type {
-  NodeOperations,
-  CreateNodeParams,
-  DeleteResult,
-  DeleteMultipleResult,
-  MoveNodeParams,
-  MoveMultipleParams,
-} from './useAppContext'
+import type { Node, Command, NodeType, WorkspaceId } from '../types'
+import type { NodeOperations, MoveNodeParams, MoveMultipleParams } from './useAppContext'
 
 /**
  * Options for useNodeActionsUI composable.
