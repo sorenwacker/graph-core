@@ -423,6 +423,9 @@ export function useNodeActionsUI({
       const success = await nodeOps.updateNode(updatedNode, { trackUndo })
       if (success && refresh) {
         await refreshAfterChange({ favorites: true })
+        // The Tasks view keeps its own list; a board move or any other edit
+        // has to show there without a view switch.
+        ;(viewRendererRef.value as ViewRendererRef)?.loadTasks?.()
       }
       return success
     } catch (e) {

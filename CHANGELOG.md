@@ -2,6 +2,12 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
+## [Unreleased]
+
+### Added
+
+- The Tasks view has a Board layout beside the List ([guide](docs/guides/views.md#board)). The board is a Kanban with To do, In progress and Done columns derived from the fields a task already has: a start date of today or earlier puts it in progress, completion puts it in Done. Dragging a card to another column writes that field, and the move can be undone. The layout is chosen in the view's toolbar and remembered per workspace.
+
 ## [1.20.0] - 2026-10-12
 
 ### Security

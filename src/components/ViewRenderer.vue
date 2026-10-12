@@ -279,6 +279,7 @@ defineExpose({
     :color-map="colorMap"
     @navigate="emit('navigate', $event)"
     @toggle-complete="emit('toggle-complete', $event)"
+    @update="emit('update', $event)"
   />
 
   <!-- Trash View -->

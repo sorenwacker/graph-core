@@ -267,38 +267,31 @@ Displays nodes with dates on a horizontal timeline.
 
 ## Tasks View
 
-Filtered view showing task-type nodes from the current container and its descendants.
+Shows the task-type nodes of the current container and its descendants, in one of two layouts switched in the view's toolbar. The choice is remembered per workspace.
 
 ![Tasks view showing the Demo workspace](../assets/screenshots/view-tasks.png)
 
-**Grouping:**
+**Filters** apply to both layouts: Show completed, and a minimum priority. The footer counts the tasks shown.
 
-- Overdue
-- Today
-- This Week
-- Later
-- No Date
-- Completed (when visible)
+### List
 
-**Sorting Options:**
+A table with one row per task: a completion checkbox, title, project path, created date, due date and priority. Clicking a column header sorts by it; clicking again reverses the order. Overdue rows and rows due soon are tinted. Clicking a row opens the task.
 
-| Sort | Description |
-|------|-------------|
-| Due Date | By deadline proximity |
-| Importance | Critical to Trivial |
-| Created | Most recent first |
-| Title | Alphabetical |
+### Board
 
-**Features:**
+A Kanban board with three columns. A task's column is derived from fields it already has, so the board introduces no new state:
 
-- One-click completion toggle
-- Urgency indicators with countdown
-- Filter by importance level (1-5)
-- Show/hide completed tasks
-- Path breadcrumbs showing ancestry
-- Completion percentage for groups
+| Column | Tasks shown |
+|--------|-------------|
+| To do | Not completed, with no start date or a start date in the future |
+| In progress | Not completed, with a start date of today or earlier |
+| Done | Completed |
 
-**Best for:** Daily task management, GTD workflows
+Dragging a card to another column writes the field that puts it there: into In progress sets the start date to today when the task has none or one in the future; into To do clears the start date; into Done marks the task complete, which stamps the end date as completing elsewhere does; out of Done reopens it. A move can be undone like any other edit.
+
+The board shows its three columns even when no task matches the filters; only the list replaces itself with an empty message. The Done column is always present as a drop target. Its cards are the completed tasks, which are loaded only while Show completed is on; otherwise the column says that completed tasks are hidden, and a card dropped there leaves the board, as a task checked off in the list does.
+
+Each card shows the checkbox, title, due date with the overdue and due-soon colours of the list, priority and project path, and carries the colour the task inherits from its ancestors. Clicking a card opens the task.
 
 ## People View
 
@@ -341,6 +334,7 @@ Access via the settings panel:
 | Notes preview | Characters of note text shown on a graph node |
 | Hide completed | All views (toolbar toggle) |
 | Sort alphabetically | Cards, Graph views (toolbar toggle) |
+| Tasks layout | Tasks view: List or Board, chosen in the view's toolbar and stored per workspace |
 
 ## See Also
 
