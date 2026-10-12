@@ -1,6 +1,8 @@
 <script setup>
-import { onMounted, watch } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useTaskFiltering, useTaskDisplayUtils } from '../composables/useTaskFiltering.js'
+import { boardChanges } from '../utils/taskBoard.js'
+import TaskBoard from './TaskBoard.vue'
 
 const props = defineProps({
   workspaceId: { type: String, default: 'work' },
@@ -10,7 +12,7 @@ const props = defineProps({
   colorMap: { type: Object, default: () => ({}) },
 })
 
-const emit = defineEmits(['select', 'navigate', 'toggle-complete'])
+const emit = defineEmits(['select', 'navigate', 'toggle-complete', 'update'])
 
 // Task filtering composable
 const { loading, sortedTasks, showCompleted, filterImportance, loadTasks, toggleSort, getSortIcon } = useTaskFiltering({
@@ -19,32 +21,36 @@ const { loading, sortedTasks, showCompleted, filterImportance, loadTasks, toggle
 })
 
 // Display utility functions
-const { isOverdue, isDueSoon, formatDate, formatRelativeDate, getImportanceLabel, getImportanceClass } =
+const { isOverdue, isDueSoon, formatDate, formatRelativeDate, getImportanceLabel, getImportanceClass, getTaskColor } =
   useTaskDisplayUtils()
+
+// List or Board, remembered per workspace.
+const LAYOUT_KEY = 'tasks-layout'
+
+function storedLayout(workspaceId) {
+  if (typeof localStorage === 'undefined') return 'list'
+  return localStorage.getItem(`${LAYOUT_KEY}-${workspaceId}`) === 'board' ? 'board' : 'list'
+}
+
+const layout = ref(storedLayout(props.workspaceId))
+
+function setLayout(value) {
+  layout.value = value
+  if (typeof localStorage !== 'undefined') localStorage.setItem(`${LAYOUT_KEY}-${props.workspaceId}`, value)
+}
+
+/** A card dropped on another board column: write the fields that put it there. */
+function onBoardMove(task, columnId) {
+  const changes = boardChanges(task, columnId)
+  if (changes) emit('update', { id: task.id, ...changes })
+}
 
 function onTaskClick(task) {
   emit('navigate', task)
 }
 
-// Get inherited color for a task by checking its ancestors
-function getTaskColor(task) {
-  // Check task's own color first
-  if (props.colorMap[task.id]) {
-    return props.colorMap[task.id]
-  }
-  // Check ancestors (ordered from root to parent)
-  if (task.ancestorIds) {
-    // Check from closest ancestor to furthest for the first color
-    for (let i = task.ancestorIds.length - 1; i >= 0; i--) {
-      const color = props.colorMap[task.ancestorIds[i]]
-      if (color) return color
-    }
-  }
-  return null
-}
-
 function getTaskRowStyle(task) {
-  const color = getTaskColor(task)
+  const color = getTaskColor(task, props.colorMap)
   if (color && color !== '#0f4c75') {
     return { background: `linear-gradient(90deg, ${color}55 0%, transparent 50%)` }
   }
@@ -56,7 +62,13 @@ function onCheckboxClick(task, event) {
   emit('toggle-complete', task)
 }
 
-watch(() => props.workspaceId, loadTasks)
+watch(
+  () => props.workspaceId,
+  workspaceId => {
+    layout.value = storedLayout(workspaceId)
+    loadTasks()
+  }
+)
 watch(() => props.containerId, loadTasks)
 watch(showCompleted, loadTasks)
 watch(filterImportance, loadTasks)
@@ -73,6 +85,14 @@ defineExpose({ loadTasks })
         Tasks<span v-if="containerTitle" class="container-scope"> in {{ containerTitle }}</span>
       </h2>
       <div class="tasks-filters">
+        <div class="layout-switch" role="group" aria-label="Layout">
+          <button type="button" data-layout="list" :class="{ active: layout === 'list' }" @click="setLayout('list')">
+            List
+          </button>
+          <button type="button" data-layout="board" :class="{ active: layout === 'board' }" @click="setLayout('board')">
+            Board
+          </button>
+        </div>
         <label class="filter-checkbox">
           <input type="checkbox" v-model="showCompleted" />
           Show completed
@@ -89,7 +109,17 @@ defineExpose({ loadTasks })
 
     <div v-if="loading" class="loading">Loading tasks...</div>
 
-    <div v-else-if="sortedTasks.length === 0" class="empty-state">No tasks found</div>
+    <div v-else-if="sortedTasks.length === 0 && layout === 'list'" class="empty-state">No tasks found</div>
+
+    <TaskBoard
+      v-else-if="layout === 'board'"
+      :tasks="sortedTasks"
+      :show-completed="showCompleted"
+      :color-map="colorMap"
+      @navigate="onTaskClick"
+      @toggle-complete="emit('toggle-complete', $event)"
+      @move="onBoardMove"
+    />
 
     <table v-else class="tasks-table">
       <thead>
@@ -185,6 +215,27 @@ defineExpose({ loadTasks })
   display: flex;
   gap: 16px;
   align-items: center;
+}
+
+.layout-switch {
+  display: flex;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.layout-switch button {
+  background: var(--bg-secondary);
+  border: none;
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.layout-switch button.active {
+  background: var(--accent-color);
+  color: #fff;
 }
 
 .filter-checkbox {

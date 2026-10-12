@@ -254,6 +254,20 @@ export function useTaskFiltering({ getWorkspaceId, getContainerId }) {
  */
 export function useTaskDisplayUtils() {
   /**
+   * The colour a task carries: its own, else the nearest ancestor's.
+   * @param {Object} task - A task with ancestorIds, root first
+   * @param {Object} colorMap - Node id to colour
+   * @returns {string|null}
+   */
+  function getTaskColor(task, colorMap) {
+    if (colorMap[task.id]) return colorMap[task.id]
+    for (const id of [...(task.ancestorIds || [])].reverse()) {
+      if (colorMap[id]) return colorMap[id]
+    }
+    return null
+  }
+
+  /**
    * Format date as YYYY-MM-DD ('-' for missing dates).
    */
   function formatDate(dateStr) {
@@ -283,5 +297,6 @@ export function useTaskDisplayUtils() {
     formatRelativeDate,
     getImportanceLabel,
     getImportanceClass,
+    getTaskColor,
   }
 }
