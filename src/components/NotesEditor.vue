@@ -9,6 +9,7 @@ import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } f
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
 import { insertNewlineTightList, minimalReplacement } from '../utils/markdownEditing.js'
+import { markdownHighlighting } from '../utils/markdownHighlight.js'
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
 import MentionDropdown from './MentionDropdown.vue'
 import { useMentions } from '../composables/useMentions.js'
@@ -212,6 +213,7 @@ function setupEditor() {
         highlightSelectionMatches(),
         history(),
         markdown(),
+        markdownHighlighting,
         // markdown() already binds Enter and Backspace at Prec.high; only Enter
         // is overridden here, to keep lists tight.
         Prec.highest(keymap.of([{ key: 'Enter', run: insertNewlineTightList }])),
@@ -342,5 +344,47 @@ defineExpose({ getSelection, replaceSelection, getScrollElement, getScrollInfo, 
 
 .cm-container :deep(.cm-activeLine) {
   background: var(--bg-hover);
+}
+
+/* Markdown source highlighting; class names come from utils/markdownHighlight.js. */
+.cm-container :deep(.md-strong) {
+  font-weight: 700;
+}
+
+.cm-container :deep(.md-emphasis) {
+  font-style: italic;
+}
+
+.cm-container :deep(.md-strikethrough) {
+  text-decoration: line-through;
+}
+
+.cm-container :deep(.md-heading) {
+  font-weight: 700;
+}
+
+.cm-container :deep(.md-code) {
+  font-family: 'SF Mono', Monaco, monospace;
+  font-size: 0.92em;
+}
+
+.cm-container :deep(.md-link),
+.cm-container :deep(.md-url) {
+  color: var(--accent-color);
+}
+
+.cm-container :deep(.md-url) {
+  text-decoration: underline;
+}
+
+/* Markers are dimmed so markup and content are told apart; without this the
+   proportional font's light asterisk glyph reads as a stray style. A marker
+   inside bold or heading text carries that class too, so this rule comes last
+   and resets weight and style: the ** around a bold word are not themselves bold. */
+.cm-container :deep(.md-marker) {
+  color: var(--text-tertiary);
+  font-weight: 400;
+  font-style: normal;
+  text-decoration: none;
 }
 </style>

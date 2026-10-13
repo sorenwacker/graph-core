@@ -83,11 +83,14 @@ The notes section supports full Markdown editing.
 | Preview | Rendered Markdown output |
 | Split | Side-by-side edit and preview; drag the divider to change the ratio, double-click it to reset |
 
+**Syntax highlighting in Edit and Split mode:**
+
+The editor shows the Markdown source, never a rendered substitute for it, and styles the source so that markup and content are told apart at a glance. Marker characters (`**`, `*`, `#`, `-`, `>`, backticks, link brackets, table pipes) are dimmed to the tertiary text colour. Bold text is bold, italic text italic, headings bold, inline and fenced code monospace, link text and URLs in the accent colour. Without this, `**Goals**` reads as four asterisks around a word in the editor's proportional font, where the asterisk glyph is lighter than the letters and looks like a stray style rather than markup.
+
 **Features:**
 
-- Markdown syntax highlighting
 - External links open in browser
-- Code blocks with syntax highlighting
+- Fenced code blocks render as monospace blocks in Preview, without language-specific colouring; a `mermaid` block renders as a diagram
 - Tables and lists support
 
 **Lists and Enter:**
