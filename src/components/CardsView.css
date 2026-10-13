@@ -604,19 +604,23 @@
   filter: blur(3px);
 }
 
-/* Adaptive card sizes */
+/* Adaptive card sizes. --card-pad-x is the horizontal padding the title row
+   and the note share, so note text starts at the title's left edge. */
 .node-card.card-xl {
+  --card-pad-x: 20px;
   padding: 0;
+}
+
+.node-card.card-lg {
+  --card-pad-x: 16px;
+}
+
+.node-card.card-md {
+  --card-pad-x: 14px;
 }
 
 .node-card.card-xl .node-card-title {
   font-size: 22px;
-}
-
-.node-card.card-xl .node-card-notes {
-  font-size: 15px;
-  padding: 0 20px 16px 20px;
-  max-height: none;
 }
 
 .node-card.card-lg .node-card-title {
@@ -627,12 +631,8 @@
   font-size: 16px;
 }
 
-.node-card.card-md .node-card-notes {
-  font-size: 13px;
-  padding: 0 14px 12px 14px;
-}
-
 .node-card.card-sm {
+  --card-pad-x: 10px;
   padding: 0;
 }
 
@@ -645,6 +645,7 @@
 }
 
 .node-card.card-xs {
+  --card-pad-x: 8px;
   padding: 0;
 }
 
@@ -986,23 +987,23 @@ input.grandchild-check {
 }
 
 .node-card.card-xl .node-card-title-row {
-  padding: 16px 20px 10px 20px;
+  padding: 16px var(--card-pad-x) 10px;
 }
 
 .node-card.card-lg .node-card-title-row {
-  padding: 14px 16px 8px 16px;
+  padding: 14px var(--card-pad-x) 8px;
 }
 
 .node-card.card-md .node-card-title-row {
-  padding: 10px 14px 6px 14px;
+  padding: 10px var(--card-pad-x) 6px;
 }
 
 .node-card.card-sm .node-card-title-row {
-  padding: 6px 10px;
+  padding: 6px var(--card-pad-x);
 }
 
 .node-card.card-xs .node-card-title-row {
-  padding: 4px 8px;
+  padding: 4px var(--card-pad-x);
 }
 
 /* Card checkbox */

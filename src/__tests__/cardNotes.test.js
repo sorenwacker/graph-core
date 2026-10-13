@@ -99,3 +99,43 @@ describe('CardNotes when notes are sensitive', () => {
     expect(wrapper.find('.card-notes-display').classes()).not.toContain('empty')
   })
 })
+
+describe('CardNotes alignment with the card title', () => {
+  const here = dirname(fileURLToPath(import.meta.url))
+  const notesSource = readFileSync(join(here, '../components/CardNotes.vue'), 'utf-8')
+  const cardsCss = readFileSync(join(here, '../components/CardsView.css'), 'utf-8')
+
+  it('takes its horizontal padding from the per-size card padding the title row uses', () => {
+    // The note used to be padded 24px on the left while the title row used the
+    // card size's own padding, so note text sat visibly right of the title.
+    const normalRule = notesSource.match(/\.card-notes-display\.size-normal\s*\{([^}]*)\}/s)
+    expect(normalRule).not.toBeNull()
+    expect(normalRule[1]).toMatch(/padding:\s*0 var\(--card-pad-x/)
+  })
+
+  it('defines the shared padding for every card size and spends it on the title row', () => {
+    for (const size of ['xl', 'lg', 'md', 'sm', 'xs']) {
+      const sizeRule = cardsCss.match(new RegExp(`\\.node-card\\.card-${size}\\s*\\{([^}]*)\\}`, 's'))
+      expect(sizeRule, `card-${size} defines --card-pad-x`).not.toBeNull()
+      expect(sizeRule[1]).toMatch(/--card-pad-x:\s*\d+px/)
+
+      const titleRule = cardsCss.match(
+        new RegExp(`\\.node-card\\.card-${size} \\.node-card-title-row\\s*\\{([^}]*)\\}`, 's')
+      )
+      expect(titleRule, `card-${size} title row uses --card-pad-x`).not.toBeNull()
+      expect(titleRule[1]).toMatch(/var\(--card-pad-x\)/)
+    }
+  })
+
+  it('keeps ordered-list numbers inside the note box', () => {
+    // A line such as "260720. The root disk ..." is an ordered list in Markdown.
+    // With the marker outside the box, a six-digit number is far wider than the
+    // list indent and hangs past the card's left edge.
+    const wrapper = mountNotes({ notes: '260720. The root disk reached 97 percent.' })
+    expect(wrapper.find('ol').attributes('start')).toBe('260720')
+
+    const olRule = notesSource.match(/\.markdown-content :deep\(ol\)\s*\{([^}]*)\}/s)
+    expect(olRule).not.toBeNull()
+    expect(olRule[1]).toMatch(/list-style-position:\s*inside/)
+  })
+})

@@ -135,7 +135,9 @@ watch(
 .card-notes-display.size-normal {
   font-size: 11px;
   line-height: 1.5;
-  padding: 0 16px 0 24px;
+  /* Same horizontal padding as the card's title row, so the note text starts
+     at the title's left edge. The fallback covers a card without a size class. */
+  padding: 0 var(--card-pad-x, 16px);
   overflow-y: auto;
   flex: 1;
   min-height: 0;
@@ -250,9 +252,17 @@ watch(
   font-size: 1em;
 }
 
-.markdown-content :deep(ul),
-.markdown-content :deep(ol) {
+.markdown-content :deep(ul) {
   padding-left: 1.2em;
+  margin: 0.3em 0;
+}
+
+/* Numbers sit inside the box: a wide marker such as "260720." (a date-led
+   line is an ordered list in Markdown) would otherwise hang past the card's
+   left edge, since no fixed indent can fit every number. */
+.markdown-content :deep(ol) {
+  list-style-position: inside;
+  padding-left: 0;
   margin: 0.3em 0;
 }
 
