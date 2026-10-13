@@ -2,14 +2,6 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
-## [Unreleased]
-
-### Changed
-
-- A card on the Tasks board answers the mouse as cards do elsewhere ([guide](docs/guides/views.md#tasks-view)): a click selects it and a double click navigates into it. A click used to open the task outright, which no other view does.
-
-- The Tasks board follows the main toolbar's completed toggle instead of carrying a Show completed switch of its own, which duplicated it ([guide](docs/guides/views.md#tasks-view)). While completed items are hidden the board has To do, In progress and Blocked; showing them adds the Done column. Blocked is new: a mark stored on the task, set by dragging a card there, kept through a CSV export and import, and cleared by a move to any other column.
-
 ## [1.20.0] - 2026-10-12
 
 ### Security
@@ -17,6 +9,10 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 - Dependencies are updated past the advisories `npm audit` reported at high severity or above, in `axios`, `joi`, `undici`, `braces`, `http-cache-semantics` and `shell-quote`. All of them are build and test tooling except the diagram library's bundled formula renderer. The updates include new major versions of the diagram library (mermaid 12), the test runner (vitest 5) and the dead-code tool (knip 6).
 
 ### Changed
+
+- A card on the Tasks board answers the mouse as cards do elsewhere ([guide](docs/guides/views.md#tasks-view)): a click selects it and a double click navigates into it. A click used to open the task outright, which no other view does.
+
+- The Tasks board follows the main toolbar's completed toggle instead of carrying a Show completed switch of its own, which duplicated it ([guide](docs/guides/views.md#tasks-view)). While completed items are hidden the board has To do, In progress and Blocked; showing them adds the Done column. Blocked is new: a mark stored on the task, set by dragging a card there, kept through a CSV export and import, and cleared by a move to any other column.
 
 - A table has an editable title in its toolbar ([guide](docs/guides/detail-panel.md#table-section)). The toolbar showed the table's name as fixed text, and every table is created with the name "Table", so it repeated the word the section is already labelled with and could not be changed. An untitled table now shows the placeholder "Add a title"; Enter or clicking away saves, Escape puts back what was there.
 
@@ -27,6 +23,10 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 - A selected node in the graph keeps the border and background of its type and gains an outer frame ([guide](docs/guides/views.md#graph-view)). Selection used to repaint the border and the background in the accent colour, and the border colour is how the graph shows a node's type, so the type could not be read off a selected node. The frame is white in the dark theme and dark in the light theme, where a white frame would not show.
 
 ### Fixed
+
+- Note text on a card starts at the same left edge as the title ([guide](docs/guides/views.md#cards-view)). The note was padded 24px on the left while the title row used the card size's own padding, so the note sat visibly right of the title. Both now take their horizontal padding from one per-size value. Ordered-list numbers in a card note render inside the note box: a line such as `260720. The root disk ...` is an ordered list in Markdown, and with the marker outside the box a six-digit number hung past the card's left edge.
+
+- The notes editor highlights Markdown markup ([guide](docs/guides/detail-panel.md#notes-section)). The guide promised syntax highlighting in Edit and Split mode, but the editor registered no highlight style, so every character rendered plain and `**Goals**` read as four oddly styled asterisks around a word. Markers are now dimmed, bold text is bold, italic italic, headings bold, code monospace, links in the accent colour.
 
 - Undoing a delete shows the restored node at once. Repeated loads of one container are coalesced by a short debounce, and the refresh after the undo fell inside that window right after the delete's own refresh, so it was skipped and the node reappeared only after the next navigation. Refreshes after a change now bypass the debounce.
 
