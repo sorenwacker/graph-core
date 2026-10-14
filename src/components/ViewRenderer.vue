@@ -100,6 +100,7 @@ const emit = defineEmits([
   // TrashView events
   'empty-all',
   'restore',
+  'delete-permanently',
 ])
 
 // Component refs exposed to parent
@@ -290,7 +291,7 @@ defineExpose({
     :items="trashedItems"
     @empty-all="emit('empty-all')"
     @restore="emit('restore', $event)"
-    @delete="emit('delete', $event)"
+    @delete-permanently="emit('delete-permanently', $event)"
   />
 </template>
 

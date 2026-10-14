@@ -3,7 +3,7 @@ defineProps({
   items: { type: Array, default: () => [] },
 })
 
-const emit = defineEmits(['empty-all', 'restore', 'delete'])
+const emit = defineEmits(['empty-all', 'restore', 'delete-permanently'])
 </script>
 
 <template>
@@ -29,7 +29,7 @@ const emit = defineEmits(['empty-all', 'restore', 'delete'])
           <td>{{ item.deleted_at?.split('T')[0] }}</td>
           <td class="trash-actions">
             <button class="small" @click="emit('restore', item)">Restore</button>
-            <button class="small danger" @click="emit('delete', item)">Delete</button>
+            <button class="small danger" @click="emit('delete-permanently', item)">Delete</button>
           </td>
         </tr>
       </tbody>

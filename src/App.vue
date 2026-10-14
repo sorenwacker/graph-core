@@ -193,6 +193,7 @@ const {
   invalidateSidebarCache,
   clearRecent,
   restoreFromTrash,
+  permanentlyDelete,
   emptyAllTrash,
   moveToRoot,
   deleteOrphanedNode,
@@ -1024,6 +1025,7 @@ useAppLifecycle({
               @wrap-with-parent="wrapWithParent"
               @empty-all="emptyAllTrash"
               @restore="restoreFromTrash"
+              @delete-permanently="permanentlyDelete"
             />
           </div>
         </div>
