@@ -54,7 +54,12 @@ function createBackupOperations(ctx) {
     },
 
     /**
-     * Restore from backup.
+     * Restore from backup and upgrade it to the current schema.
+     *
+     * The snapshot is opened and queried before it is adopted, so an
+     * unreadable file leaves the working database in place (sql.js accepts
+     * any bytes and only fails on the first query). Snapshots taken before a
+     * migration are then brought up to date by the same schema init as startup.
      * @param {string} backupPath - Path to backup file
      * @returns {Object} Success status
      */
@@ -62,10 +67,20 @@ function createBackupOperations(ctx) {
       if (!fs.existsSync(backupPath)) {
         throw new Error(`Backup file not found: ${backupPath}`)
       }
-      this.backup('-pre-restore')
       const buffer = ctx._deserialize(fs.readFileSync(backupPath))
-      ctx.db = new ctx.SQL.Database(buffer)
-      ctx.db.run('PRAGMA foreign_keys = ON')
+      const restored = new ctx.SQL.Database(buffer)
+      try {
+        restored.exec('SELECT COUNT(*) FROM nodes')
+      } catch (e) {
+        restored.close()
+        throw e
+      }
+      restored.run('PRAGMA foreign_keys = ON')
+      this.backup('-pre-restore')
+      const previous = ctx.db
+      ctx.db = restored
+      previous?.close()
+      ctx._initSchema()
       ctx._save()
       console.log(`Database restored from: ${backupPath}`)
       return { success: true, restoredFrom: backupPath }

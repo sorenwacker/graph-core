@@ -154,6 +154,8 @@ Snapshots are written next to the main database (`graph.db`) as `graph-backup-{t
 
 A snapshot is also taken automatically before a destructive migration (`-pre-workspace-migration`, `-pre-tag-migration`) and before restoring another snapshot (`-pre-restore`).
 
+Restoring a snapshot upgrades it to the current schema, running the same table creation, migrations and indexes as startup, so a snapshot taken before a migration is usable without a restart. The snapshot is opened and read before it replaces the working database; if it cannot be read, the working database stays in place. The previous connection is closed after the switch, and the upgrade runs on the restored database.
+
 ### Database Operations
 
 | Action | Description |
