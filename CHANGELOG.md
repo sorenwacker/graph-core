@@ -2,6 +2,18 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
+## [Unreleased]
+
+### Fixed
+
+- The graph shows the node you entered whenever Show root node is on ([guide](docs/guides/views.md#display-options)). A completed node while completed nodes were hidden, or a node of a filtered-out type, was left out as the root, so entering such a leaf gave an empty graph. The filters apply to the children only.
+
+- Show root node is honoured at a leaf. A node with no visible children was always drawn as the root, so turning the toggle off there did nothing. With the root hidden and nothing else to draw, the empty view now says the root is hidden and how to show it. The "This view is empty" message no longer covers a leaf that is drawn as the root.
+
+- The graph no longer gets stuck on the previous view after entering a node. The container is set before its children load, and when entering it also rebuilt the graph (a different root-node or filter setting), the children's update arrived during the rebuild and was dropped, so the old view stayed until another change or a reload. It is now applied once the rebuild finishes. A failed rebuild no longer blocks every later update, and layout timers of a replaced graph no longer touch the destroyed instance.
+
+- Entering a node no longer stores the workspace's Show root node default on it as that node's own setting, which made later changes to the default skip every node visited in between.
+
 ## [1.20.0] - 2026-10-12
 
 ### Security

@@ -175,6 +175,9 @@ export function useGraphInit(options = {}) {
 
     if (!hasPos && cy.nodes().length > 0) {
       setTimeout(() => {
+        // The graph may have been rebuilt meanwhile; the newer instance runs
+        // its own layout, and touching a destroyed one throws.
+        if (cy.destroyed()) return
         // Sync node dimensions with HTML labels before running layout
         if (layout?.syncNodeDimensions) layout.syncNodeDimensions()
 
@@ -189,6 +192,7 @@ export function useGraphInit(options = {}) {
         } else {
           cy.layout(layoutOptions).run()
           setTimeout(() => {
+            if (cy.destroyed()) return
             cy.fit(50)
             if (savePositions) savePositions()
             if (onInitComplete) onInitComplete()
