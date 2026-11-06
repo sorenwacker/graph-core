@@ -8,6 +8,18 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 - Entering a node that shows no children opens its detail panel without navigating into it ([guide](docs/guides/detail-panel.md#opening-the-panel)). Double-clicking such a node, pressing Enter on it, or picking it in search used to land inside it and open the panel there; closing the panel, in fullscreen especially, then left a view with only that node or none at all, which read as a broken graph or a wrong location. The view now stays where the node is visible - the current view when it lists the node, otherwise its parent - so closing the panel returns to it. A first child is added from the panel or the context menu. Going back and the breadcrumbs still enter such a node.
 
+### Fixed
+
+- The graph shows the node you entered whenever Show root node is on ([guide](docs/guides/views.md#display-options)). A completed node while completed nodes were hidden, or a node of a filtered-out type, was left out as the root, so entering such a leaf gave an empty graph. The filters apply to the children only.
+
+- Show root node is honoured at a leaf. A node with no visible children was always drawn as the root, so turning the toggle off there did nothing. With the root hidden and nothing else to draw, the empty view now says the root is hidden and how to show it. The "This view is empty" message no longer covers a leaf that is drawn as the root.
+
+- The graph no longer gets stuck on the previous view after entering a node. The container is set before its children load, and when entering it also rebuilt the graph (a different root-node or filter setting), the children's update arrived during the rebuild and was dropped, so the old view stayed until another change or a reload. It is now applied once the rebuild finishes. A failed rebuild no longer blocks every later update, and layout timers of a replaced graph no longer touch the destroyed instance.
+
+- Entering a node no longer stores the workspace's Show root node default on it as that node's own setting, which made later changes to the default skip every node visited in between.
+
+- Search no longer finds nodes the graph cannot show. Changing a node's workspace, from the detail panel or the context menu, moved that node alone: its descendants stayed in the old workspace, where search still found them, while no graph showed them because every tree query follows the workspace of the node it starts from. A moved child also kept its parent in the old workspace and so appeared in neither. The whole subtree now moves along, trashed members included, and a child taken out of its parent's workspace becomes a root there. Moving a node under a parent from another workspace takes the subtree into that workspace. Nodes already stranded this way show up in Lost & Found, from where they can be moved to the root.
+
 ## [1.20.0] - 2026-10-12
 
 ### Security

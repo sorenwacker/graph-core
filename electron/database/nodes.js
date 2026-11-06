@@ -136,6 +136,46 @@ function createNodeOperations(ctx) {
     updateDescendantPaths(nodeId)
   }
 
+  /**
+   * Put a node and its whole subtree, trashed members included, in one
+   * workspace. Every tree query filters by the workspace of the node it starts
+   * from, so a descendant left in another workspace is dropped from the tree
+   * while search, which filters each row on its own, still finds it.
+   * @param {number} nodeId - Root of the subtree
+   * @param {string|null} workspaceId - Target workspace
+   */
+  function setSubtreeWorkspace(nodeId, workspaceId) {
+    const node = getNodeRow(nodeId)
+    if (!node) return
+    const prefix = node.path ? `${node.path}/${nodeId}` : `${nodeId}`
+    ctx._run('UPDATE nodes SET workspace_id = ? WHERE id = ? OR path = ? OR path LIKE ?', [
+      workspaceId,
+      nodeId,
+      prefix,
+      `${prefix}/%`,
+    ])
+  }
+
+  const sameWorkspace = (a, b) => (a ?? null) === (b ?? null) || String(a) === String(b)
+
+  const workspaceOf = id => ctx._get('SELECT workspace_id FROM nodes WHERE id = ?', [id])?.workspace_id ?? null
+
+  /** Whether an update moves an existing node to a different workspace. */
+  function isWorkspaceChange(id, current, data) {
+    return current != null && data.workspace_id !== undefined && !sameWorkspace(data.workspace_id, workspaceOf(id))
+  }
+
+  /**
+   * A node moved to another workspace cannot stay under a parent that is not
+   * there: it would be shown in neither workspace. It goes to the root of its
+   * new workspace unless the update names a parent itself.
+   */
+  function detachFromForeignParent(current, data) {
+    if (data.parent_id !== undefined || !current.parent_id) return data
+    if (sameWorkspace(workspaceOf(current.parent_id), data.workspace_id)) return data
+    return { ...data, parent_id: null }
+  }
+
   const ops = {
     /**
      * Retrieves nodes with optional filtering by type, parent, and workspace.
@@ -246,6 +286,9 @@ function createNodeOperations(ctx) {
       const values = []
 
       const current = getNodeRow(id)
+      const changingWorkspace = isWorkspaceChange(id, current, data)
+      if (changingWorkspace) data = detachFromForeignParent(current, data)
+
       const reparenting =
         data.parent_id !== undefined && (data.parent_id ?? null) !== (current?.parent_id ?? null) && current !== null
       if (reparenting) assertNotOwnDescendant(id, data.parent_id ?? null)
@@ -272,14 +315,16 @@ function createNodeOperations(ctx) {
 
       const sql = `UPDATE nodes SET ${updates.join(', ')} WHERE id = ?`
 
-      if (!reparenting) {
+      if (!reparenting && !changingWorkspace) {
         ctx._run(sql, values)
         return ops.getNode(id)
       }
 
       return ctx._batch(() => {
         ctx._run(sql, values)
-        updateSubtreePath(id)
+        if (reparenting) updateSubtreePath(id)
+        // The descendants follow the node, so the subtree stays visible.
+        if (changingWorkspace) setSubtreeWorkspace(id, data.workspace_id)
         return ops.getNode(id)
       })
     },
@@ -356,6 +401,14 @@ function createNodeOperations(ctx) {
         ])
 
         updateDescendantPaths(id)
+
+        // Moving under a parent in another workspace (a linked node shown from
+        // there) takes the subtree into that workspace; otherwise it would sit
+        // under a parent its workspace's tree never loads.
+        if (newParentId) {
+          const parentWorkspace = workspaceOf(newParentId)
+          if (!sameWorkspace(parentWorkspace, node.workspace_id)) setSubtreeWorkspace(id, parentWorkspace)
+        }
 
         return ops.getNode(id)
       })

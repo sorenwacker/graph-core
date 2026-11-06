@@ -119,12 +119,12 @@ Node positions are automatically saved to browser storage:
 
 ### Display Options
 
-| Option              | Description                                    |
-| ------------------- | ---------------------------------------------- |
-| Show External Links | Display non-parent-child relationships (links) |
-| Show Root Node      | Toggle parent node visibility                  |
-| Type Filtering      | Show/hide specific node types                  |
-| Show Type Borders   | Colored borders indicating node type           |
+| Option              | Description                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------- |
+| Show External Links | Display non-parent-child relationships (links)                                              |
+| Show Root Node      | Draw the node you are inside. Saved per node; the type and completed filters do not hide it |
+| Type Filtering      | Show/hide specific node types                                                               |
+| Show Type Borders   | Colored borders indicating node type                                                        |
 
 ### Interactions
 
