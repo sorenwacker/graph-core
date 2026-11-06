@@ -414,11 +414,12 @@ const navigation = useNavigation({
   buildChildTree,
   onBeforeNavigate: cancelDetailOpen,
   onLeafNode: () => false,
-  // A node that shows no children has nothing to show but itself: open its
-  // detail panel (docs/guides/detail-panel.md#opening-the-panel). A child the
-  // view hides - completed while those are hidden, or of a filtered-out type -
-  // does not count.
-  onEnteredLeaf: node => selectNode(node, { immediate: true }),
+  // A node that shows no children has nothing to show but itself: it is not
+  // entered, its detail panel opens where it is visible
+  // (docs/guides/detail-panel.md#opening-the-panel), so closing the panel
+  // leaves the view as it was. A child the view hides - completed while those
+  // are hidden, or of a filtered-out type - does not count.
+  onOpenLeaf: node => selectNode(node, { immediate: true }),
   isShownInView: child => !(hideCompleted.value && child.completed) && filtersStore.visibleTypes.includes(child.type),
   onSidebarSync: rootChildren => {
     sidebarTree.value = rootChildren
@@ -510,9 +511,15 @@ const {
     await moveNodeToRoot(sourceId)
     if (selectedNode.value?.id === sourceId) selectedNode.value = await api.getNode(sourceId)
   },
+  // A result with children is entered; a leaf opens in its parent's view,
+  // as entering a leaf does anywhere else.
   onNavigate: async node => {
-    if (currentContainerId.value !== node.id) await loadChildren(node.id)
-    selectNode(node)
+    if (currentContainerId.value === node.id) {
+      selectNode(node)
+      return
+    }
+    const result = await enterContainer(node)
+    if (result === 'entered') selectNode(node)
   },
   getAncestors: api.getAncestors,
   getWorkspace: () => currentWorkspace.value,

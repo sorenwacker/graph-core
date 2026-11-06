@@ -2,9 +2,9 @@ import { test, expect } from '@playwright/test'
 import { launchApp, dismissOnboarding, MOD } from './helpers.js'
 
 /**
- * Entering a node that has no children opens its detail panel
- * (docs/guides/detail-panel.md#opening-the-panel). Entering one that has
- * children does not: there the children are what the view shows.
+ * Entering a node that has no children opens its detail panel in place
+ * (docs/guides/detail-panel.md#opening-the-panel) instead of navigating into
+ * it. Entering one that has children navigates as usual.
  */
 
 let ctx
@@ -44,7 +44,7 @@ test('entering a node with children shows the children and leaves the panel clos
   await expect(page.getByRole('cell', { name: 'Lone leaf' })).toBeVisible()
 })
 
-test('entering a node without children opens its detail panel', async () => {
+test('entering a node without children opens its detail panel in place', async () => {
   const page = ctx.page
   await page.getByRole('cell', { name: 'Lone leaf' }).click()
   await page.keyboard.press('Enter')
@@ -52,8 +52,9 @@ test('entering a node without children opens its detail panel', async () => {
   const panel = page.locator('.detail-panel')
   await expect(panel).toBeVisible()
   await expect(panel.locator('.detail-title-input, textarea').first()).toHaveValue('Lone leaf')
-  // Still navigated in: the other top-level node is no longer listed.
-  await expect(page.getByRole('cell', { name: 'Has a child' })).toBeHidden()
+  // Not navigated in: the view still lists the other top-level node, so
+  // closing the panel leaves the user where they were.
+  await expect(page.getByRole('cell', { name: 'Has a child' })).toBeVisible()
 })
 
 test('double-clicking a childless node in the graph opens its detail panel', async () => {
@@ -76,6 +77,12 @@ test('double-clicking a childless node in the graph opens its detail panel', asy
   // It stays open: nothing that follows the double-click closes it again.
   await page.waitForTimeout(1500)
   await expect(panel).toBeVisible()
+
+  // Closing it leaves the graph as it was, with both top-level nodes drawn.
+  await page.keyboard.press('Escape')
+  await expect(panel).toBeHidden()
+  await expect(leaf).toBeVisible()
+  await expect(page.locator('.node-html', { hasText: 'Has a child' })).toBeVisible()
 })
 
 test('double-clicking a childless child inside a container opens its detail panel', async () => {

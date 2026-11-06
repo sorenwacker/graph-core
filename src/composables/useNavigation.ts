@@ -42,8 +42,13 @@ export interface UseNavigationOptions {
   onNotFound?: (error: Error, containerId: number | null) => void | Promise<void>
   /** Called when entering a leaf node, return true to prevent enter */
   onLeafNode?: (node: TreeNode) => boolean | void
-  /** Called after a forward navigation has landed in a node that shows no children */
-  onEnteredLeaf?: (node: Node) => void
+  /**
+   * Called instead of navigating when a forward navigation targets a node that
+   * shows no children. The view stays where the node is visible (its parent
+   * when it is not in the current view), so closing its detail panel later
+   * leaves the user where they were rather than inside an empty node.
+   */
+  onOpenLeaf?: (node: Node) => void
   /** Whether the view would show this child; a node whose children are all hidden counts as a leaf */
   isShownInView?: (node: Node) => boolean
   /** Called on navigation error (for non-404 errors) */
@@ -53,6 +58,12 @@ export interface UseNavigationOptions {
   /** External buildChildTree function (from useDataLoading) */
   buildChildTree?: (flatNodes: Node[], parentId: number, parentCompleted?: boolean) => TreeNode[]
 }
+
+/**
+ * What enterContainer did: navigated into the node, opened it as a leaf in
+ * place, or gave way to a newer navigation.
+ */
+export type EnterResult = 'entered' | 'leaf' | 'superseded'
 
 /**
  * Options for enterContainer function.
@@ -92,7 +103,7 @@ export interface UseNavigationReturn {
 
   // Methods
   loadChildren: (containerId?: number | null, options?: LoadChildrenOptions) => Promise<void>
-  enterContainer: (node: Node | TreeNode | number | null, options?: EnterContainerOptions) => Promise<void>
+  enterContainer: (node: Node | TreeNode | number | null, options?: EnterContainerOptions) => Promise<EnterResult>
   navigateBack: () => void
   navigateToBreadcrumb: (index: number) => Promise<void>
   goToParent: () => void
@@ -121,7 +132,7 @@ export function useNavigation({
   onTransitionEnd,
   onNotFound,
   onLeafNode,
-  onEnteredLeaf,
+  onOpenLeaf,
   isShownInView = () => true,
   onError,
   filterByWorkspace,
@@ -328,63 +339,46 @@ export function useNavigation({
   let lastEnterTicket = 0
 
   /**
-   * Tell onEnteredLeaf about a node that turns out to show no children: none
-   * at all, or none that the view would show.
+   * Return the node when it shows no children (none at all, or none the view
+   * would show), otherwise null.
    *
-   * Asks the database directly instead of reading the container state that
-   * loadChildren fills in. That state is only written by whichever load
-   * finishes last: when a refresh elsewhere in the app reloads the same
-   * container while the navigation's own load is in flight, the navigation's
-   * load is abandoned, and a check made on the shared state right after it saw
-   * the previous container and reported nothing. The object the caller passed
-   * is not used either: it may be a stale or filtered copy.
+   * Asks the database directly rather than trusting the object the caller
+   * passed, which may be a stale or depth-filtered copy.
    *
-   * @param nodeId - The node that was entered
-   * @param enterTicket - The navigation this check belongs to
+   * @param nodeId - The node about to be entered
    */
-  async function reportIfLeaf(nodeId: number, enterTicket: number): Promise<void> {
-    if (!onEnteredLeaf) return
+  async function findLeaf(nodeId: number): Promise<Node | null> {
     try {
       const node = await api.getNode(nodeId)
-      if (!node) return
+      if (!node) return null
       // A tag shows the nodes it is linked to in place of children.
       const contents =
         node.type === 'tag'
           ? ((await api.getLinkedNodes(nodeId)) || []).filter(n => n && n.type !== 'tag')
           : (await api.getChildren(nodeId)) || []
-      const shown = contents.filter(child => child && isShownInView(child))
-      // The user may have moved on while this was being read.
-      if (shown.length === 0 && enterTicket === lastEnterTicket) onEnteredLeaf(node)
+      return contents.some(child => child && isShownInView(child)) ? null : node
     } catch (e) {
       handleError(e as Error, { context: 'Checking for children', silent: true })
+      return null
     }
   }
 
+  /** Whether the node is part of what the current view lists, at any depth. */
+  function isInCurrentView(nodeId: number): boolean {
+    const visit = (list: TreeNode[] | undefined): boolean =>
+      (list || []).some(n => n && (n.id === nodeId || visit(n.children)))
+    return currentContainerId.value === nodeId || visit(children.value)
+  }
+
   /**
-   * Navigate into a container with transition animation.
+   * Load a container with the transition animation and history entry.
+   * Resolves once the container is loaded.
    */
-  async function enterContainer(
-    node: Node | TreeNode | number | null,
-    { skipHistory = false, direction = 'forward' }: EnterContainerOptions = {}
+  async function navigateTo(
+    nodeId: number | null,
+    skipHistory: boolean,
+    direction: NavigationDirection
   ): Promise<void> {
-    const nodeId = typeof node === 'object' && node !== null ? node.id : (node as number | null)
-    const nodeObj = typeof node === 'object' ? (node as TreeNode) : null
-
-    const enterTicket = ++lastEnterTicket
-
-    // Call before-navigate hook (e.g., to cancel pending detail open)
-    if (onBeforeNavigate) {
-      await onBeforeNavigate(nodeId, direction)
-    }
-
-    // If node has no children (leaf node), delegate to callback
-    if (nodeObj && (!nodeObj.children || nodeObj.children.length === 0)) {
-      if (onLeafNode) {
-        const handled = onLeafNode(nodeObj)
-        if (handled !== false) return
-      }
-    }
-
     // Push current location to history before navigating
     if (!skipHistory && currentContainerId.value !== nodeId) {
       navigationHistory.value.push(currentContainerId.value)
@@ -400,21 +394,70 @@ export function useNavigation({
     }
 
     await nextTick()
-    setTimeout(async () => {
-      await loadChildren(nodeId ?? null)
+    await new Promise<void>(resolve => {
+      setTimeout(async () => {
+        try {
+          await loadChildren(nodeId)
 
-      if (onTransitionEnd) {
-        onTransitionEnd()
-      }
+          if (onTransitionEnd) {
+            onTransitionEnd()
+          }
 
-      if (onAfterNavigate) {
-        await onAfterNavigate(nodeId, direction)
-      }
+          if (onAfterNavigate) {
+            await onAfterNavigate(nodeId, direction)
+          }
+        } finally {
+          resolve()
+        }
+      }, SIDEBAR_HIDE_DELAY_MS)
+    })
+  }
 
-      if (onEnteredLeaf && direction === 'forward' && nodeId !== null && nodeId !== undefined) {
-        await reportIfLeaf(nodeId, enterTicket)
+  /**
+   * Navigate into a container with transition animation.
+   * A forward navigation to a node that shows no children does not enter it:
+   * the node is opened through onOpenLeaf where it is visible instead.
+   */
+  async function enterContainer(
+    node: Node | TreeNode | number | null,
+    { skipHistory = false, direction = 'forward' }: EnterContainerOptions = {}
+  ): Promise<EnterResult> {
+    const nodeId = typeof node === 'object' && node !== null ? node.id : (node as number | null)
+    const nodeObj = typeof node === 'object' ? (node as TreeNode) : null
+
+    const enterTicket = ++lastEnterTicket
+    const isCurrentEnter = () => enterTicket === lastEnterTicket
+
+    // Call before-navigate hook (e.g., to cancel pending detail open)
+    if (onBeforeNavigate) {
+      await onBeforeNavigate(nodeId, direction)
+    }
+
+    if (onOpenLeaf && direction === 'forward' && nodeId !== null && nodeId !== undefined) {
+      const leaf = await findLeaf(nodeId)
+      if (!isCurrentEnter()) return 'superseded'
+      if (leaf) {
+        // Show the leaf where it lives: stay when the current view lists it,
+        // otherwise go to its parent.
+        if (!isInCurrentView(nodeId)) {
+          await navigateTo(leaf.parent_id ?? null, skipHistory, direction)
+          if (!isCurrentEnter()) return 'superseded'
+        }
+        onOpenLeaf(leaf)
+        return 'leaf'
       }
-    }, SIDEBAR_HIDE_DELAY_MS)
+    }
+
+    // If node has no children (leaf node), delegate to callback
+    if (nodeObj && (!nodeObj.children || nodeObj.children.length === 0)) {
+      if (onLeafNode) {
+        const handled = onLeafNode(nodeObj)
+        if (handled !== false) return 'leaf'
+      }
+    }
+
+    await navigateTo(nodeId ?? null, skipHistory, direction)
+    return isCurrentEnter() ? 'entered' : 'superseded'
   }
 
   /**
