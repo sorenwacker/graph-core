@@ -183,8 +183,10 @@ function createTreeOperations(ctx) {
     },
 
     /**
-     * Finds orphaned nodes whose parent no longer exists.
-     * Orphans can occur when a parent is deleted without reassigning children.
+     * Finds orphaned nodes: their parent no longer exists, or lives in another
+     * workspace. Either way no workspace's tree shows them, while search still
+     * finds them. The second kind came from changing a node's workspace, which
+     * used to leave its descendants and its parent behind.
      * @returns {Node[]} Array of orphaned nodes ordered by updated_at descending
      */
     getOrphanedNodes() {
@@ -198,6 +200,7 @@ function createTreeOperations(ctx) {
             SELECT 1 FROM nodes p
             WHERE p.id = n.parent_id
               AND p.deleted_at IS NULL
+              AND p.workspace_id IS n.workspace_id
           )
         ORDER BY n.updated_at DESC
       `
