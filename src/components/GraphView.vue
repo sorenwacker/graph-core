@@ -71,7 +71,15 @@ let graphControlTippyInstances = [],
   cy = null,
   isInitializing = false,
   lastKnownParentId = props.parent?.id,
-  updateDebounceTimer = null
+  updateDebounceTimer = null,
+  // An update requested while the graph is (re)initializing. initGraph builds
+  // from the props as they were when it started, so data that arrives during
+  // the build (a container's children land after the container itself) must be
+  // applied once the build completes, not dropped.
+  updatePending = false,
+  // Set when the parent watcher syncs showRootNode from the newly entered
+  // container, so that sync is not written back into the node as its setting.
+  syncingShowRootNode = false
 
 // Graph interaction modes, driven by held modifier keys. They are mutually
 // exclusive so the on-screen hints and behaviour never contradict each other:
@@ -168,6 +176,9 @@ const radialSettings = ref(
   props.parent?.graph_physics ? { ..._radialSettings, ...props.parent.graph_physics } : { ..._radialSettings }
 )
 const showShortcuts = ref(false)
+// Nodes drawn in the graph; drives the empty-state message, which used to key
+// off the child list and so covered a leaf node that was drawn as the root.
+const renderedNodeCount = ref(-1)
 
 const { handleError } = useErrorHandler()
 
@@ -343,6 +354,10 @@ watch(layoutMode, m => {
   }
 })
 watch(showRootNode, v => {
+  if (syncingShowRootNode) {
+    syncingShowRootNode = false
+    return
+  }
   if (props.parent?.id) {
     saveNodeSetting(props.parent.id, 'show_root_node', v ? 1 : 0, 'show root node')
   } else {
@@ -427,8 +442,12 @@ watch(
     if (n !== lastKnownParentId) {
       lastKnownParentId = n
       layoutMode.value = props.parent?.graph_layout || _layoutMode.value
-      showRootNode.value =
+      const nextShowRootNode =
         props.parent?.show_root_node != null ? Boolean(props.parent.show_root_node) : _showRootNode.value
+      if (showRootNode.value !== nextShowRootNode) {
+        syncingShowRootNode = true
+        showRootNode.value = nextShowRootNode
+      }
       showExternalLinks.value =
         props.parent?.show_external_links != null ? Boolean(props.parent.show_external_links) : _showExternalLinks.value
       // maxDepth and visibleTypes are managed by the shared filter store (synced in App.vue)
@@ -550,10 +569,13 @@ async function initGraph() {
   const ticket = ++initTicket
   isInitializing = true
 
+  updatePending = false
+
   const savedPos = _loadPos()
   const elements = await graphUpdate.buildElementsWithLinks(savedPos)
   if (ticket !== initTicket) return
   const hasPos = Object.keys(savedPos).length > 0
+  renderedNodeCount.value = elements.filter(e => !e.data.source).length
 
   // Destroy whatever is mounted before replacing the reference, so an instance
   // is never orphaned with its listeners still attached.
@@ -562,7 +584,15 @@ async function initGraph() {
     cy = null
   }
 
-  cy = graphInit.createCytoscapeInstance(elements, hasPos)
+  try {
+    cy = graphInit.createCytoscapeInstance(elements, hasPos)
+  } catch (e) {
+    // A failed build must not leave isInitializing set: every later update
+    // would be skipped and the graph would stay frozen until a reload.
+    isInitializing = false
+    handleError(e, { context: 'Building graph', silent: true })
+    return
+  }
   if (!cy) {
     isInitializing = false
     return
@@ -574,7 +604,12 @@ async function initGraph() {
   wheel.setupWheelHandler()
   events.setupEvents()
   graphInit.applyInitialLayout(cy, hasPos, () => {
+    if (ticket !== initTicket) return
     isInitializing = false
+    if (updatePending) {
+      updatePending = false
+      updateGraph()
+    }
   })
   if (collapseAttachTimer) clearTimeout(collapseAttachTimer)
   collapseAttachTimer = setTimeout(() => attachCollapseHandlers(), 300)
@@ -584,7 +619,13 @@ async function initGraph() {
  * Update the graph with current data.
  */
 async function updateGraph() {
-  await graphUpdate.updateGraph(cy, isInitializing, initGraph, attachCollapseHandlers)
+  if (isInitializing) {
+    updatePending = true
+    return
+  }
+  await graphUpdate.updateGraph(cy, isInitializing, initGraph, attachCollapseHandlers, count => {
+    renderedNodeCount.value = count
+  })
 }
 
 const setLayout = m => {
@@ -731,8 +772,11 @@ onUnmounted(() => {
       />
     </Teleport>
     <div class="graph-container" :class="{ 'box-select-mode': boxSelectModeActive }" ref="container">
-      <div v-if="nodes.length === 0" class="graph-empty">
+      <div v-if="renderedNodeCount === 0" class="graph-empty">
         <div class="graph-empty-title">This view is empty</div>
+        <div v-if="parent && !showRootNode" class="graph-empty-hint">
+          The root node is hidden. Turn on <strong>Show root node</strong> in the graph controls to see this node.
+        </div>
         <div class="graph-empty-hint">
           Press <kbd>n</kbd> to create a node — or type a title in the <strong>Add new…</strong> bar above and click
           <strong>Add</strong>.

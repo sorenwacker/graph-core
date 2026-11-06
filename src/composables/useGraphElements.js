@@ -115,18 +115,10 @@ export function buildElements(options) {
   const filteredList = sortAlphabetically ? sortNodesRecursively(typeFiltered) : typeFiltered
   const flat = flattenNodes(filteredList, [], false, maxDepth)
 
-  // Include parent unless hidden by settings, completed when hiding completed, or type is filtered out.
-  // The type filter targets the children listing, not the container being viewed: a tag is intentionally
-  // excluded from visibleTypes, but the tag container must still render as the root node when navigated into.
-  // Always include the parent when it has no children, so a leaf node still shows itself when navigated into.
-  const parentTypeVisible = !parentNode || parentNode.type === 'tag' || visibleTypes.includes(parentNode.type)
-  const hasNoChildren = flat.length === 0
-  const includeParent =
-    parentNode &&
-    parentNode.id &&
-    (hasNoChildren || showRootNode) &&
-    parentTypeVisible &&
-    !(hideCompleted && parentNode.completed)
+  // The show-root-node toggle alone decides whether the container being viewed is drawn. The type and
+  // completed filters apply to the children listing, not to the node the user navigated into: filtering
+  // the container out left a completed or filtered-type leaf with an empty graph.
+  const includeParent = Boolean(parentNode && parentNode.id && showRootNode)
   const allNodes = (includeParent ? [{ ...parentNode, children: filteredList }, ...flat] : flat).filter(n => n && n.id)
   const totalNodes = allNodes.length
   const showDetails = totalNodes <= detailThreshold

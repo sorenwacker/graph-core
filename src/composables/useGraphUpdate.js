@@ -212,9 +212,10 @@ export function useGraphUpdate(options = {}) {
    * @param {boolean} isInitializing - Whether graph is currently initializing
    * @param {Function} initGraph - Function to initialize graph if cy is null
    * @param {Function} attachCollapseHandlers - Function to attach collapse handlers after update
+   * @param {Function} [onRendered] - Called with the number of nodes the update draws
    * @returns {Promise<void>}
    */
-  async function updateGraph(cy, isInitializing, initGraph, attachCollapseHandlers) {
+  async function updateGraph(cy, isInitializing, initGraph, attachCollapseHandlers, onRendered) {
     if (isInitializing) return
     if (!cy) {
       await initGraph()
@@ -223,6 +224,9 @@ export function useGraphUpdate(options = {}) {
 
     const { savedZoom, savedPan, savedPos, existingIds } = collectCurrentState()
     const elements = await buildElementsWithLinks(savedPos)
+    // The instance can be replaced or destroyed while links are fetched.
+    if (cy !== getCy() || cy.destroyed()) return
+    if (onRendered) onRendered(elements.filter(e => !e.data.source).length)
     const diffResult = diffAndApply(elements, existingIds, savedPos)
 
     // If diffAndApply returned null, only data updates were needed
