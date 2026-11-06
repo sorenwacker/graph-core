@@ -14,6 +14,8 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 - Entering a node no longer stores the workspace's Show root node default on it as that node's own setting, which made later changes to the default skip every node visited in between.
 
+- Search no longer finds nodes the graph cannot show. Changing a node's workspace, from the detail panel or the context menu, moved that node alone: its descendants stayed in the old workspace, where search still found them, while no graph showed them because every tree query follows the workspace of the node it starts from. A moved child also kept its parent in the old workspace and so appeared in neither. The whole subtree now moves along, trashed members included, and a child taken out of its parent's workspace becomes a root there. Moving a node under a parent from another workspace takes the subtree into that workspace. Nodes already stranded this way show up in Lost & Found, from where they can be moved to the root.
+
 ## [1.20.0] - 2026-10-12
 
 ### Security
