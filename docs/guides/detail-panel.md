@@ -5,7 +5,7 @@ The detail panel provides comprehensive editing and viewing capabilities for any
 ## Opening the Panel
 
 - **Press Space** with a node selected
-- **Enter a node that shows no children**, by double-clicking it or by pressing Enter with it selected. You land inside the node as with any other, and the panel opens for it, since the view has nothing else to show. What counts is what the view would show: a node whose children are all hidden, because they are completed and completed nodes are hidden, or because their type is filtered out, opens the panel just like a node with no children at all. Going back, or stepping there through the breadcrumbs, does not open the panel.
+- **Enter a node that shows no children**, by double-clicking it, pressing Enter with it selected, or picking it in search. Such a node is not entered: the panel opens for it while the view stays where the node is visible - the current view when it lists the node, otherwise the node's parent. Closing the panel leaves you there, not inside an empty node. What counts is what the view would show: a node whose children are all hidden, because they are completed and completed nodes are hidden, or because their type is filtered out, opens the panel just like a node with no children at all. To give such a node its first child, use Add child in the panel or the context menu. Going back, or stepping there through the breadcrumbs, still enters the node.
 - **Double-click** a node's title to open in edit mode
 
 ## Panel Modes
@@ -77,11 +77,11 @@ The notes section supports full Markdown editing.
 
 **View Modes:**
 
-| Mode | Description |
-|------|-------------|
-| Edit | Raw Markdown editor with syntax highlighting |
-| Preview | Rendered Markdown output |
-| Split | Side-by-side edit and preview; drag the divider to change the ratio, double-click it to reset |
+| Mode    | Description                                                                                   |
+| ------- | --------------------------------------------------------------------------------------------- |
+| Edit    | Raw Markdown editor with syntax highlighting                                                  |
+| Preview | Rendered Markdown output                                                                      |
+| Split   | Side-by-side edit and preview; drag the divider to change the ratio, double-click it to reset |
 
 **Syntax highlighting in Edit and Split mode:**
 
@@ -112,12 +112,12 @@ In Preview and Split mode the mention renders as a `@Name` chip rather than raw 
 
 **Keyboard navigation:**
 
-| Key | Action |
-|-----|--------|
-| `Arrow Down` | Next suggestion |
-| `Arrow Up` | Previous suggestion |
+| Key             | Action                  |
+| --------------- | ----------------------- |
+| `Arrow Down`    | Next suggestion         |
+| `Arrow Up`      | Previous suggestion     |
 | `Enter` / `Tab` | Insert selected mention |
-| `Escape` | Close dropdown |
+| `Escape`        | Close dropdown          |
 
 While the dropdown is open these keys belong to it, so Enter inserts a mention instead of a newline. When it is closed they behave normally.
 
@@ -184,15 +184,15 @@ The table also keeps the application-wide shortcuts from firing whenever the gri
 
 **Table-level shortcuts** (no cell editor open — select a range by dragging across cells or by clicking a column header):
 
-| Key | Action |
-|-----|--------|
-| `Delete` / `Backspace` | Clear the selected cells |
-| Any character | Type the same value into every selected cell |
-| `Cmd/Ctrl + C` | Copy selection |
-| `Cmd/Ctrl + V` | Paste |
-| `Cmd/Ctrl + X` | Cut selection |
-| `Cmd/Ctrl + B` / `Cmd/Ctrl + I` | Bold / italic the selection |
-| `Escape` | Close the open menu, or clear the selection |
+| Key                             | Action                                       |
+| ------------------------------- | -------------------------------------------- |
+| `Delete` / `Backspace`          | Clear the selected cells                     |
+| Any character                   | Type the same value into every selected cell |
+| `Cmd/Ctrl + C`                  | Copy selection                               |
+| `Cmd/Ctrl + V`                  | Paste                                        |
+| `Cmd/Ctrl + X`                  | Cut selection                                |
+| `Cmd/Ctrl + B` / `Cmd/Ctrl + I` | Bold / italic the selection                  |
+| `Escape`                        | Close the open menu, or clear the selection  |
 
 **Editor stability:**
 

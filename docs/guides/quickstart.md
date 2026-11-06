@@ -14,7 +14,7 @@ Get up and running with Graph Core in minutes.
 ### Basic Navigation
 
 - **Single click**: Select a node and open detail panel
-- **Double click**: Navigate into the node (enter its subgraph)
+- **Double click**: Navigate into the node (enter its subgraph); a node without children opens its details instead
 - **Breadcrumbs**: Click to navigate back up the hierarchy
 
 ### Keyboard Navigation
@@ -47,15 +47,15 @@ For the complete list of keyboard shortcuts, see [Keyboard Shortcuts](../referen
 
 Use the view switcher in the toolbar:
 
-| View | Description |
-|------|-------------|
-| Graph | Force-directed graph visualization |
-| Cards | Nested card layout |
-| Table | Spreadsheet-like view carrying the tree hierarchy |
-| Tasks | Filtered task list |
-| Timeline | Date-based timeline |
-| People | Contact management |
-| Trash | Deleted items (restore or delete permanently) |
+| View     | Description                                       |
+| -------- | ------------------------------------------------- |
+| Graph    | Force-directed graph visualization                |
+| Cards    | Nested card layout                                |
+| Table    | Spreadsheet-like view carrying the tree hierarchy |
+| Tasks    | Filtered task list                                |
+| Timeline | Date-based timeline                               |
+| People   | Contact management                                |
+| Trash    | Deleted items (restore or delete permanently)     |
 
 They are listed here in the order the switcher shows them.
 

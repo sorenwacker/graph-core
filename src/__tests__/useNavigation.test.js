@@ -50,81 +50,86 @@ describe('useNavigation composable', () => {
   })
 
   describe('entering a node without children', () => {
-    function navigationWithHook() {
-      const onEnteredLeaf = vi.fn()
-      const nav = useNavigation({ api: mockApi, workspace: ref('work'), onEnteredLeaf })
-      return { nav, onEnteredLeaf }
+    function navigationWithHook(extra = {}) {
+      const onOpenLeaf = vi.fn()
+      const nav = useNavigation({ api: mockApi, workspace: ref('work'), onOpenLeaf, ...extra })
+      return { nav, onOpenLeaf }
     }
 
-    it('reports the node once it has been entered', async () => {
+    // Put the navigation at the top level, listing the given nodes.
+    async function atTopLevel(nav, roots) {
+      mockApi.getRoots.mockResolvedValue(roots)
+      nav.enterContainer(null)
+      await flushTimersAndPromises()
+    }
+
+    it('opens a leaf the current view lists without navigating into it', async () => {
       const leaf = { id: 5, title: 'Leaf', parent_id: null }
+      const { nav, onOpenLeaf } = navigationWithHook()
+      await atTopLevel(nav, [leaf])
       mockApi.getNode.mockResolvedValue(leaf)
       mockApi.getChildren.mockResolvedValue([])
-      const { nav, onEnteredLeaf } = navigationWithHook()
 
-      nav.enterContainer({ id: 5, children: [] })
+      const result = await nav.enterContainer({ id: 5, children: [] })
       await flushTimersAndPromises()
 
-      expect(nav.currentContainerId.value).toBe(5)
-      expect(onEnteredLeaf).toHaveBeenCalledTimes(1)
-      expect(onEnteredLeaf).toHaveBeenCalledWith(leaf)
+      expect(result).toBe('leaf')
+      expect(nav.currentContainerId.value).toBe(null)
+      expect(onOpenLeaf).toHaveBeenCalledTimes(1)
+      expect(onOpenLeaf).toHaveBeenCalledWith(leaf)
+    })
+
+    it('goes to the parent of a leaf that the current view does not list', async () => {
+      const leaf = { id: 5, title: 'Leaf', parent_id: 3 }
+      mockApi.getNode.mockImplementation(async id => (id === 5 ? leaf : { id, title: `Node ${id}`, parent_id: null }))
+      mockApi.getChildren.mockImplementation(async id => (id === 3 ? [leaf] : []))
+      const { nav, onOpenLeaf } = navigationWithHook()
+
+      const pending = nav.enterContainer(5)
+      await flushTimersAndPromises()
+
+      expect(await pending).toBe('leaf')
+      expect(nav.currentContainerId.value).toBe(3)
+      expect(onOpenLeaf).toHaveBeenCalledWith(leaf)
     })
 
     it('goes by the children in the database, not by the object it was handed', async () => {
+      const { nav, onOpenLeaf } = navigationWithHook()
       mockApi.getNode.mockResolvedValue({ id: 5, title: 'Leaf', parent_id: null })
       mockApi.getChildren.mockResolvedValue([])
-      const { nav, onEnteredLeaf } = navigationWithHook()
 
       // A caller holding a stale or filtered copy that still lists a child
       nav.enterContainer({ id: 5, children: [{ id: 6 }] })
       await flushTimersAndPromises()
 
-      expect(onEnteredLeaf).toHaveBeenCalledTimes(1)
+      expect(onOpenLeaf).toHaveBeenCalledTimes(1)
+      expect(nav.currentContainerId.value).not.toBe(5)
     })
 
-    it('still reports the node when another load of the same container overtakes this one', async () => {
-      const leaf = { id: 5, title: 'Leaf', parent_id: null }
-      mockApi.getNode.mockResolvedValue(leaf)
-      mockApi.getChildren.mockResolvedValue([])
-      const { nav, onEnteredLeaf } = navigationWithHook()
-
-      nav.enterContainer({ id: 5, children: [] })
-      // Let the navigation start its own load, then start a second one before
-      // the first has finished, as a refresh elsewhere in the app does. The
-      // first load is abandoned in favour of the second.
-      await vi.advanceTimersByTimeAsync(0)
-      vi.runOnlyPendingTimers()
-      nav.loadChildren(5, { silent: true })
-      await flushTimersAndPromises()
-
-      expect(nav.currentContainerId.value).toBe(5)
-      expect(onEnteredLeaf).toHaveBeenCalledTimes(1)
-      expect(onEnteredLeaf).toHaveBeenCalledWith(leaf)
-    })
-
-    it('reports only the last node when a second navigation follows at once', async () => {
+    it('opens only the last node when a second navigation follows at once', async () => {
       mockApi.getNode.mockImplementation(async id => ({ id, title: `Node ${id}`, parent_id: null }))
       mockApi.getChildren.mockResolvedValue([])
-      const { nav, onEnteredLeaf } = navigationWithHook()
+      const { nav, onOpenLeaf } = navigationWithHook()
 
       nav.enterContainer({ id: 5, children: [] })
       nav.enterContainer({ id: 6, children: [] })
       await flushTimersAndPromises()
 
-      expect(onEnteredLeaf).toHaveBeenCalledTimes(1)
-      expect(onEnteredLeaf.mock.calls[0][0].id).toBe(6)
+      expect(onOpenLeaf).toHaveBeenCalledTimes(1)
+      expect(onOpenLeaf.mock.calls[0][0].id).toBe(6)
     })
 
     it('counts the nodes a tag is linked to as its children', async () => {
       mockApi.getNode.mockResolvedValue({ id: 5, title: 'A tag', type: 'tag', parent_id: null })
       mockApi.getChildren.mockResolvedValue([])
       mockApi.getLinkedNodes = vi.fn().mockResolvedValue([{ id: 7, title: 'Tagged', type: 'note' }])
-      const { nav, onEnteredLeaf } = navigationWithHook()
+      const { nav, onOpenLeaf } = navigationWithHook()
 
       nav.enterContainer({ id: 5, children: [] })
       await flushTimersAndPromises()
 
-      expect(onEnteredLeaf).not.toHaveBeenCalled()
+      expect(onOpenLeaf).not.toHaveBeenCalled()
+      expect(nav.currentContainerId.value).toBe(5)
     })
 
     it('treats a node whose children the view hides as having none', async () => {
@@ -134,71 +139,63 @@ describe('useNavigation composable', () => {
         { id: 6, title: 'Done', parent_id: 5, completed: true },
         { id: 7, title: 'Also done', parent_id: 5, completed: true },
       ])
-      const onEnteredLeaf = vi.fn()
-      const nav = useNavigation({
-        api: mockApi,
-        workspace: ref('work'),
-        onEnteredLeaf,
-        isShownInView: node => !node.completed,
-      })
+      const { nav, onOpenLeaf } = navigationWithHook({ isShownInView: node => !node.completed })
 
       nav.enterContainer({ id: 5, children: [] })
       await flushTimersAndPromises()
 
-      expect(onEnteredLeaf).toHaveBeenCalledWith(parent)
+      expect(onOpenLeaf).toHaveBeenCalledWith(parent)
     })
 
-    it('stays quiet when at least one child is shown', async () => {
+    it('enters a node when at least one child is shown', async () => {
       mockApi.getNode.mockResolvedValue({ id: 5, title: 'Parent', parent_id: null })
       mockApi.getChildren.mockResolvedValue([
         { id: 6, title: 'Done', parent_id: 5, completed: true },
         { id: 7, title: 'Open', parent_id: 5, completed: false },
       ])
-      const onEnteredLeaf = vi.fn()
-      const nav = useNavigation({
-        api: mockApi,
-        workspace: ref('work'),
-        onEnteredLeaf,
-        isShownInView: node => !node.completed,
-      })
+      const { nav, onOpenLeaf } = navigationWithHook({ isShownInView: node => !node.completed })
 
       nav.enterContainer({ id: 5, children: [] })
       await flushTimersAndPromises()
 
-      expect(onEnteredLeaf).not.toHaveBeenCalled()
+      expect(onOpenLeaf).not.toHaveBeenCalled()
+      expect(nav.currentContainerId.value).toBe(5)
     })
 
-    it('stays quiet for a node that has children', async () => {
+    it('enters a node that has children', async () => {
       const child = { id: 6, title: 'Child', parent_id: 5 }
       mockApi.getNode.mockResolvedValue({ id: 5, title: 'Parent', parent_id: null })
       mockApi.getChildren.mockResolvedValue([child])
       mockApi.getDescendants.mockResolvedValue([child])
-      const { nav, onEnteredLeaf } = navigationWithHook()
+      const { nav, onOpenLeaf } = navigationWithHook()
 
-      nav.enterContainer({ id: 5, children: [child] })
+      const pending = nav.enterContainer({ id: 5, children: [child] })
       await flushTimersAndPromises()
 
-      expect(onEnteredLeaf).not.toHaveBeenCalled()
+      expect(await pending).toBe('entered')
+      expect(onOpenLeaf).not.toHaveBeenCalled()
+      expect(nav.currentContainerId.value).toBe(5)
     })
 
-    it('stays quiet when the node is reached by going back', async () => {
+    it('still enters a leaf reached by going back', async () => {
       mockApi.getNode.mockResolvedValue({ id: 5, title: 'Leaf', parent_id: null })
       mockApi.getChildren.mockResolvedValue([])
-      const { nav, onEnteredLeaf } = navigationWithHook()
+      const { nav, onOpenLeaf } = navigationWithHook()
 
       nav.enterContainer(5, { skipHistory: true, direction: 'back' })
       await flushTimersAndPromises()
 
-      expect(onEnteredLeaf).not.toHaveBeenCalled()
+      expect(onOpenLeaf).not.toHaveBeenCalled()
+      expect(nav.currentContainerId.value).toBe(5)
     })
 
     it('stays quiet at the top level', async () => {
-      const { nav, onEnteredLeaf } = navigationWithHook()
+      const { nav, onOpenLeaf } = navigationWithHook()
 
       nav.enterContainer(null)
       await flushTimersAndPromises()
 
-      expect(onEnteredLeaf).not.toHaveBeenCalled()
+      expect(onOpenLeaf).not.toHaveBeenCalled()
     })
   })
 
