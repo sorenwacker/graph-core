@@ -10,6 +10,8 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Fixed
 
+- A cleared start date on a task or project no longer comes back after a restart. One-off data migrations now run once per database, tracked in `PRAGMA user_version`, instead of on every launch.
+- CSV import turns the `tags` column into linked tag nodes, reusing existing tags, and CSV export writes each node's linked tags. Imported tags used to stay as old-style strings that only showed as chips, and exports had an empty tags column.
 - The graph shows the node you entered whenever Show root node is on ([guide](docs/guides/views.md#display-options)). A completed node while completed nodes were hidden, or a node of a filtered-out type, was left out as the root, so entering such a leaf gave an empty graph. The filters apply to the children only.
 
 - Show root node is honoured at a leaf. A node with no visible children was always drawn as the root, so turning the toggle off there did nothing. With the root hidden and nothing else to draw, the empty view now says the root is hidden and how to show it. The "This view is empty" message no longer covers a leaf that is drawn as the root.
