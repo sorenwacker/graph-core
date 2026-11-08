@@ -99,17 +99,57 @@ function seedDefaultWorkspaces(ctx) {
 }
 
 /**
- * Run all data migrations.
+ * Version of the data migrations, stored in the file via PRAGMA user_version.
+ * Bump it together with a new entry in DATA_MIGRATIONS.
+ */
+const DATA_VERSION = 1
+
+/**
+ * One-off data migrations, keyed by the version that introduced them. Each
+ * runs once per database: re-running them on every launch used to undo user
+ * edits, e.g. a cleared start date was refilled at the next start.
+ */
+const DATA_MIGRATIONS = [
+  {
+    version: 1,
+    // Everything written before versioning existed, in its original order
+    steps: [
+      migrateUnassignedNodesToWork,
+      migrateOrganizationTextToLinks,
+      migratePersonsOrgsToWorkWorkspace,
+      migrateTasksProjectsStartDate,
+      migrateStringTagsToTagNodes,
+    ],
+  },
+]
+
+/**
+ * Read the data-migration version stamped in the database file.
+ * @param {Object} ctx - Database context
+ * @returns {number} 0 for files from before versioning
+ */
+function getDataVersion(ctx) {
+  return ctx._query('PRAGMA user_version')[0]?.user_version ?? 0
+}
+
+/**
+ * Run repairs and pending one-off data migrations.
  * @param {Object} ctx - Database context
  */
 function runDataMigrations(ctx) {
-  migrateUnassignedNodesToWork(ctx)
+  // Repairs: safe to run on every startup, they never undo a user's edit
   fixRootNodePaths(ctx)
-  migrateOrganizationTextToLinks(ctx)
-  migratePersonsOrgsToWorkWorkspace(ctx)
-  migrateTasksProjectsStartDate(ctx)
   migrateShowLinksDefault(ctx)
-  migrateStringTagsToTagNodes(ctx)
+
+  const fileVersion = getDataVersion(ctx)
+  if (fileVersion >= DATA_VERSION) return
+
+  for (const { version, steps } of DATA_MIGRATIONS) {
+    if (version <= fileVersion) continue
+    for (const step of steps) step(ctx)
+  }
+  ctx.db.run(`PRAGMA user_version = ${DATA_VERSION}`)
+  ctx._save()
 }
 
 /**
@@ -394,6 +434,8 @@ function migrateStringTagsToTagNodes(ctx) {
 }
 
 module.exports = {
+  DATA_VERSION,
+  getDataVersion,
   runMigrations,
   runColumnMigrations,
   seedDefaultWorkspaces,

@@ -220,6 +220,22 @@ function createExportOperations(ctx) {
         'updated_at',
       ]
 
+      // Tags are tag nodes linked to the node; the legacy string column is
+      // only read for rows written before the tag-node migration.
+      const tagNamesOf = node => {
+        const linked = ctx
+          ._query(
+            `SELECT DISTINCT t.title FROM node_links nl
+             JOIN nodes t ON t.id = CASE WHEN nl.source_id = ? THEN nl.target_id ELSE nl.source_id END
+             WHERE (nl.source_id = ? OR nl.target_id = ?) AND t.type = 'tag' AND t.deleted_at IS NULL
+             ORDER BY t.title`,
+            [node.id, node.id, node.id]
+          )
+          .map(r => r.title)
+        const legacy = (node.tags || []).filter(t => !linked.some(l => l.toLowerCase() === t.toLowerCase()))
+        return [...linked, ...legacy]
+      }
+
       const escapeCSV = val => {
         if (val === null || val === undefined) return ''
         const str = String(val)
@@ -232,7 +248,7 @@ function createExportOperations(ctx) {
       const rows = nodes.map(node =>
         headers
           .map(h => {
-            if (h === 'tags') return escapeCSV(node.tags?.join(';') || '')
+            if (h === 'tags') return escapeCSV(tagNamesOf(node).join(';'))
             return escapeCSV(node[h])
           })
           .join(',')
@@ -414,6 +430,15 @@ function createExportOperations(ctx) {
             parentId = idMap.get(oldParentId)
           }
 
+          // A tag row reuses an existing tag of that name instead of adding a
+          // duplicate next to the one created for another row's tags
+          if (row.type === 'tag') {
+            const tag = ctx.getOrCreateTagNode(row.title, workspaceId)
+            if (oldId) idMap.set(oldId, tag.id)
+            importedCount++
+            continue
+          }
+
           const newNode = ctx.createNode({
             title: row.title.trim(),
             type: row.type || 'note',
@@ -428,8 +453,13 @@ function createExportOperations(ctx) {
             due_date: row.due_date || null,
             start_date: row.start_date || null,
             end_date: row.end_date || null,
-            tags: row.tags ? row.tags.split(';').filter(Boolean) : null,
           })
+
+          // Tags become linked tag nodes, as everywhere else in the app
+          for (const name of (row.tags || '').split(';')) {
+            if (!name.trim()) continue
+            ctx.linkNodes(newNode.id, ctx.getOrCreateTagNode(name, workspaceId).id)
+          }
 
           if (oldId) {
             idMap.set(oldId, newNode.id)
