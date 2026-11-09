@@ -12,7 +12,7 @@ import { dirname, join } from 'path'
  */
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '../..')
-const DOWNLOAD_URL = 'https://sorenwacker.net/nodus/'
+const DOWNLOAD_URL = 'https://sorenwacker.net/graph-core/'
 
 const ENTRY_POINTS = [
   { name: 'README.md', path: 'README.md' },

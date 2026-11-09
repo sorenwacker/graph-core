@@ -2,7 +2,7 @@
 
 ## Download the app
 
-Builds for macOS, Windows and Linux are at <https://sorenwacker.net/nodus/>.
+Builds for macOS, Windows and Linux are at <https://sorenwacker.net/graph-core/>.
 
 The app is not code-signed, so the first launch needs one extra step:
 
