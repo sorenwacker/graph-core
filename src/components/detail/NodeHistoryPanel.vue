@@ -11,6 +11,7 @@
 import { ref, watch, computed } from 'vue'
 import MarkdownRenderer from '../MarkdownRenderer.vue'
 import { api } from '../../services/api'
+import { notesForDisplay } from '../../utils/nodeDisplay.js'
 
 const props = defineProps({
   nodeId: { type: Number, required: true },
@@ -63,9 +64,11 @@ async function select(version) {
 
 watch(() => props.nodeId, load, { immediate: true })
 
+// A version's text comes from the one display function, like every view's;
+// a withheld version's text is what getNodeVersionNotes handed out
 const selectedNotes = computed(() => {
   if (!selected.value) return null
-  return selected.value.notes_withheld ? fetchedNotes.value : selected.value.notes
+  return selected.value.notes_withheld ? fetchedNotes.value : notesForDisplay(selected.value).text
 })
 
 // The notes are at hand, or the version never had any
