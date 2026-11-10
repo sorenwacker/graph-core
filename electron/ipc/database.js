@@ -14,6 +14,8 @@ const {
   DB_GET_NODES,
   DB_GET_NODE,
   DB_GET_NODE_NOTES,
+  DB_GET_NODE_HISTORY,
+  DB_GET_NODE_VERSION_NOTES,
   DB_CREATE_NODE,
   DB_UPDATE_NODE,
   DB_DELETE_NODE,
@@ -102,6 +104,9 @@ function registerDatabaseHandlers(ipcMain, db) {
   ipcMain.handle(DB_GET_NODE, (_event, id) => db.getNode(id))
   // The one channel that returns sensitive note content (docs/architecture/sensitive-notes.md).
   ipcMain.handle(DB_GET_NODE_NOTES, (_event, id) => db.getNodeNotes(id))
+  // Earlier versions; a version's notes leave under the same rule as getNodeNotes
+  ipcMain.handle(DB_GET_NODE_HISTORY, (_event, id) => db.getNodeHistory(id))
+  ipcMain.handle(DB_GET_NODE_VERSION_NOTES, (_event, versionId) => db.getNodeVersionNotes(versionId))
   ipcMain.handle(DB_CREATE_NODE, (_event, data) => db.createNode(data))
   ipcMain.handle(DB_UPDATE_NODE, (_event, id, data) => db.updateNode(id, data))
   ipcMain.handle(DB_DELETE_NODE, (_event, id, hard) => db.deleteNode(id, hard))

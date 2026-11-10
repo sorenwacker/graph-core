@@ -5,6 +5,7 @@
  */
 
 const { NODE_FIELDS } = require('./schema')
+const { historySource } = require('./history')
 
 /**
  * @typedef {Object} Node
@@ -281,7 +282,11 @@ function createNodeOperations(ctx) {
      * @returns {Node} The updated node object
      */
     updateNode(id, data) {
-      data = ctx._encodeNotesForWrite(id, ctx._dropUnrevealedNotes(id, data))
+      // A restore names itself so the history keeps the state it replaces at
+      // once; the flag is never stored (database/history.js)
+      const { history_source: namedSource, ...fields } = data
+      const source = historySource(namedSource)
+      data = ctx._encodeNotesForWrite(id, ctx._dropUnrevealedNotes(id, fields))
       const updates = []
       const values = []
 
@@ -315,12 +320,9 @@ function createNodeOperations(ctx) {
 
       const sql = `UPDATE nodes SET ${updates.join(', ')} WHERE id = ?`
 
-      if (!reparenting && !changingWorkspace) {
-        ctx._run(sql, values)
-        return ops.getNode(id)
-      }
-
+      // One batch, so the kept version and the write reach the disk together
       return ctx._batch(() => {
+        ctx.recordNodeVersion(id, data, source)
         ctx._run(sql, values)
         if (reparenting) updateSubtreePath(id)
         // The descendants follow the node, so the subtree stays visible.

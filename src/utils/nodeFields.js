@@ -59,5 +59,7 @@ export function pickNodeFields(node, fields = NODE_UPDATE_FIELDS) {
     result[field] = Array.isArray(value) ? [...toRaw(value)] : value
   }
   if ('notes' in result && rawNode.notes_revealed) result.notes_revealed = true
+  // A restore names itself so the history keeps the state it replaces at once
+  if (rawNode.history_source === 'restore') result.history_source = 'restore'
   return result
 }

@@ -97,6 +97,14 @@ The editor shows the Markdown source, never a rendered substitute for it, and st
 
 Pressing `Enter` inside a list or blockquote continues it with the next marker, renumbering ordered lists as it goes. Lists are kept tight: `Enter` never inserts a blank line between items, whether or not the list already contains one. Pressing `Enter` on an empty list item ends the list and removes the marker.
 
+### Version history
+
+The **History** button in the notes tab row lists the earlier versions of the node's title and notes, newest first. Each entry gives the time it was replaced and by what: an edit, or a restore. Selecting an entry shows that version's notes rendered; **Restore this version** makes its title and notes current again. The restore is one undo step, and the state it replaced is itself kept as a version.
+
+A version is kept whenever the title or notes change after a pause of ten minutes or more, so a stretch of typing leaves one version, not one per keystroke. A hundred versions per node are kept.
+
+For a node whose notes are sensitive, the versions' notes stay hidden until the node's own notes are shown; while the session is locked they cannot be read or restored ([sensitive notes](../architecture/sensitive-notes.md)).
+
 ### Mentions
 
 Type `@` in the notes editor (Edit or Split mode) to mention and link to person nodes:

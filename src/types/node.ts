@@ -172,6 +172,8 @@ export interface UpdateNodeData {
   notes_sensitive?: boolean
   /** Set by the notes editor after getNodeNotes; without it, notes sent for a sensitive node are ignored */
   notes_revealed?: boolean
+  /** Set by a restore, so the history keeps the state it replaces at once; never stored */
+  history_source?: 'restore'
   completed?: boolean
   in_progress?: boolean
   blocked?: boolean
@@ -221,6 +223,24 @@ export interface NodeNotes {
   notes: string | null
   /** True when the content is ciphertext the current session cannot decrypt */
   locked: boolean
+}
+
+/**
+ * An earlier state of a node, kept by the write that replaced it
+ * (docs/architecture/database.md, "node_history").
+ */
+export interface NodeVersion {
+  id: number
+  node_id: number
+  title: string
+  /** The notes as they were; null when withheld, fetch them with getNodeVersionNotes */
+  notes: string | null
+  /** True when the notes are withheld because the node's notes are sensitive */
+  notes_withheld: boolean
+  /** The write that replaced this version: 'app', or 'restore' for a restore */
+  source: 'app' | 'restore' | string
+  /** Unix milliseconds */
+  saved_at: number
 }
 
 export interface NodeLink {

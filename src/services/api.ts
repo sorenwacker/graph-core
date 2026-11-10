@@ -11,6 +11,7 @@ import type {
   TreeNode,
   NodeLink,
   NodeNotes,
+  NodeVersion,
   Workspace,
   WorkspaceId,
   CreateWorkspaceData,
@@ -72,6 +73,8 @@ interface ElectronAPI {
   getNodes(params?: GetNodesParams): Promise<(Node | null)[]>
   getNode(id: number): Promise<Node | null>
   getNodeNotes(id: number): Promise<NodeNotes>
+  getNodeHistory(id: number): Promise<NodeVersion[]>
+  getNodeVersionNotes(versionId: number): Promise<NodeNotes>
   createNode(data: CreateNodeData): Promise<Node>
   updateNode(id: number, data: UpdateNodeData): Promise<Node>
   deleteNode(id: number, hard?: boolean): Promise<void>
@@ -234,6 +237,14 @@ const webApi: Api = {
 
   async getNodeNotes(id: number): Promise<NodeNotes> {
     return request<NodeNotes>(`/nodes/${id}/notes`)
+  },
+
+  async getNodeHistory(id: number): Promise<NodeVersion[]> {
+    return request<NodeVersion[]>(`/nodes/${id}/history`)
+  },
+
+  async getNodeVersionNotes(versionId: number): Promise<NodeNotes> {
+    return request<NodeNotes>(`/node-versions/${versionId}/notes`)
   },
 
   async createNode(data: CreateNodeData): Promise<Node> {
@@ -713,6 +724,10 @@ const electronApi: Api = {
   getNode: (id: number): Promise<Node | null> => window.electronAPI!.getNode(id),
 
   getNodeNotes: (id: number): Promise<NodeNotes> => window.electronAPI!.getNodeNotes(id),
+
+  getNodeHistory: (id: number): Promise<NodeVersion[]> => window.electronAPI!.getNodeHistory(id),
+
+  getNodeVersionNotes: (versionId: number): Promise<NodeNotes> => window.electronAPI!.getNodeVersionNotes(versionId),
 
   createNode: async (data: CreateNodeData): Promise<Node> => {
     const plainData = JSON.parse(JSON.stringify(data))

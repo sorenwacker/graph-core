@@ -4,6 +4,10 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- Version history for a node's title and notes ([guide](docs/guides/detail-panel.md#version-history)). The History button in the detail panel's notes row lists the earlier versions, shows each one rendered, and restores the chosen one as a single undo step. A version is kept by every write that replaces the title or notes, from the editor, the AI toolbar, undo or an import alike; writes within ten minutes of the last kept version extend it, a restore is always kept, and a hundred versions per node are kept. Sensitive notes stay hidden in the history until the node's own notes are shown.
+
 ### Changed
 
 - Entering a node that shows no children opens its detail panel without navigating into it ([guide](docs/guides/detail-panel.md#opening-the-panel)). Double-clicking such a node, pressing Enter on it, or picking it in search used to land inside it and open the panel there; closing the panel, in fullscreen especially, then left a view with only that node or none at all, which read as a broken graph or a wrong location. The view now stays where the node is visible - the current view when it lists the node, otherwise its parent - so closing the panel returns to it. A first child is added from the panel or the context menu. Going back and the breadcrumbs still enter such a node.
