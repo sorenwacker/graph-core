@@ -11,6 +11,8 @@
 const DB_GET_NODES = 'db:getNodes'
 const DB_GET_NODE = 'db:getNode'
 const DB_GET_NODE_NOTES = 'db:getNodeNotes'
+const DB_GET_NODE_HISTORY = 'db:getNodeHistory'
+const DB_GET_NODE_VERSION_NOTES = 'db:getNodeVersionNotes'
 const DB_CREATE_NODE = 'db:createNode'
 const DB_UPDATE_NODE = 'db:updateNode'
 const DB_DELETE_NODE = 'db:deleteNode'
@@ -209,6 +211,8 @@ module.exports = {
   // Database - Node CRUD
   DB_GET_NODES,
   DB_GET_NODE,
+  DB_GET_NODE_HISTORY,
+  DB_GET_NODE_VERSION_NOTES,
   DB_GET_NODE_NOTES,
   DB_CREATE_NODE,
   DB_UPDATE_NODE,

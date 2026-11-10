@@ -163,6 +163,20 @@ function createTables(db) {
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `)
+
+  // Earlier versions of a node's title and notes: the state each write
+  // replaced (database/history.js). Notes are stored as the node stores them,
+  // so a sensitive note's version is its sealed ciphertext.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS node_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      node_id INTEGER NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      notes TEXT,
+      source TEXT NOT NULL,
+      saved_at INTEGER NOT NULL
+    )
+  `)
 }
 
 /**
@@ -179,6 +193,7 @@ function createIndexes(db) {
   db.run(`CREATE INDEX IF NOT EXISTS idx_workspaces_sort ON workspaces(sort_order)`)
   db.run(`CREATE INDEX IF NOT EXISTS idx_node_tables_node_id ON node_tables(node_id)`)
   db.run(`CREATE INDEX IF NOT EXISTS idx_node_table_cells_table_id ON node_table_cells(table_id)`)
+  db.run(`CREATE INDEX IF NOT EXISTS idx_node_history_node ON node_history(node_id, saved_at)`)
 
   // Composite indexes for common query patterns
   db.run(`CREATE INDEX IF NOT EXISTS idx_nodes_workspace_parent ON nodes(workspace_id, parent_id)`)

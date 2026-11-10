@@ -18,6 +18,7 @@ const { createExportOperations } = require('./export')
 const { createBackupOperations } = require('./backup')
 const { createTableOperations } = require('./tables')
 const { createSettingsOperations } = require('./settings')
+const { createHistoryOperations } = require('./history')
 const {
   SENSITIVE_MARKER,
   LEGACY_SENSITIVE_MARKER,
@@ -123,6 +124,12 @@ class Database {
     const backupOps = createBackupOperations(this)
     const tableOps = createTableOperations(this)
     const settingsOps = createSettingsOperations(this)
+    const historyOps = createHistoryOperations(this)
+
+    // Node history: bound before the node operations, which record through it
+    this.recordNodeVersion = historyOps.recordNodeVersion.bind(historyOps)
+    this.getNodeHistory = historyOps.getNodeHistory.bind(historyOps)
+    this.getNodeVersionNotes = historyOps.getNodeVersionNotes.bind(historyOps)
 
     // Bind all operations to this instance
     // Workspaces

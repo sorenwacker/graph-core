@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getNodes: params => ipcRenderer.invoke(C.DB_GET_NODES, params),
   getNode: id => ipcRenderer.invoke(C.DB_GET_NODE, id),
   getNodeNotes: id => ipcRenderer.invoke(C.DB_GET_NODE_NOTES, id),
+  getNodeHistory: id => ipcRenderer.invoke(C.DB_GET_NODE_HISTORY, id),
+  getNodeVersionNotes: versionId => ipcRenderer.invoke(C.DB_GET_NODE_VERSION_NOTES, versionId),
   createNode: data => ipcRenderer.invoke(C.DB_CREATE_NODE, data),
   updateNode: (id, data) => ipcRenderer.invoke(C.DB_UPDATE_NODE, id, data),
   deleteNode: (id, hard) => ipcRenderer.invoke(C.DB_DELETE_NODE, id, hard),

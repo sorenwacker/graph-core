@@ -38,6 +38,23 @@ Primary data table storing all node information.
 
 Columns after `deleted_at` in the base schema (`workspace_id`, `tags`, `collapsed`, the `graph_*` set) are added by migrations on existing databases, so their physical order varies between installs. Always select by name.
 
+### node_history
+
+Earlier versions of a node's title and notes: the state each write replaced. The current state is the node row.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER | Primary key, auto-increment |
+| node_id | INTEGER | The node, `REFERENCES nodes(id) ON DELETE CASCADE` |
+| title | TEXT | The title as it was |
+| notes | TEXT | The notes as they were stored; a sensitive note's version is its sealed ciphertext |
+| source | TEXT | The write that replaced this state: `app`, or `restore` for a version made current again |
+| saved_at | INTEGER | Unix milliseconds |
+
+`updateNode` records the version inside the same batch as the write, so no writer can forget and both reach the disk together (`electron/database/history.js`). A write that changes neither title nor notes keeps nothing. Writes from the same source within ten minutes of the last kept version extend it, so the autosaving notes editor leaves one version per stretch of work rather than one per keystroke; a restore is its own source, so the state it replaces is always kept. A hundred versions per node are kept; older ones go.
+
+`getNodeHistory` withholds a version's notes whenever a node read would withhold the node's; `getNodeVersionNotes` returns them under the same rule as `getNodeNotes` ([sensitive notes](sensitive-notes.md)).
+
 ### workspaces
 
 Workspace definitions for organizing nodes.

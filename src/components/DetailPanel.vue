@@ -9,6 +9,7 @@ import OrganizationDetailForm from './detail/OrganizationDetailForm.vue'
 import ChildrenSection from './detail/ChildrenSection.vue'
 import MetadataGridSection from './detail/MetadataGridSection.vue'
 import SectionBar from './detail/SectionBar.vue'
+import NodeHistoryPanel from './detail/NodeHistoryPanel.vue'
 import { api } from '../services/api'
 import { useNodeTable } from '../composables/useNodeTable.js'
 import { useErrorHandler } from '../composables/useErrorHandler.js'
@@ -60,6 +61,31 @@ const linkedNodes = ref([])
 
 // Tab state for notes
 const activeTab = ref('edit')
+// Earlier versions in place of the notes (docs/guides/detail-panel.md, "Version history")
+const showHistory = ref(false)
+
+/**
+ * Make an earlier version the current title and notes. The panel's one save
+ * path writes it, so it is one undo step; the write names itself a restore, so
+ * the history keeps the state it replaces at once.
+ * @param {{title: string, notes: string|null}} version - What to bring back
+ */
+function restoreVersion({ title, notes }) {
+  editedNode.value = {
+    ...editedNode.value,
+    title,
+    notes: notes ?? '',
+    notes_withheld: false,
+    notes_revealed: true,
+    history_source: 'restore',
+  }
+  locallyEdited.add('title')
+  locallyEdited.add('notes')
+  saveChanges()
+  // The emit above copied the flag; later saves are ordinary edits
+  delete editedNode.value.history_source
+  showHistory.value = false
+}
 // Sensitive-notes reveal (docs/architecture/sensitive-notes.md). A node read
 // withholds sensitive notes; the panel fetches them through getNodeNotes when
 // the user asks, and holds them only until it shows something else or the
@@ -414,6 +440,7 @@ watch(
 
     // Always show notes expanded by default
     notesCollapsed.value = false
+    showHistory.value = false
     // Set tab based on whether notes exist
     activeTab.value = newNode.notes?.trim() || newNode.notes_withheld ? 'preview' : 'edit'
     // Reset links
@@ -974,6 +1001,14 @@ defineExpose({
                   <button :class="{ active: activeTab === 'edit' }" @click="activeTab = 'edit'">Edit</button>
                   <button :class="{ active: activeTab === 'preview' }" @click="activeTab = 'preview'">Preview</button>
                   <button :class="{ active: activeTab === 'split' }" @click="activeTab = 'split'">Split</button>
+                  <button
+                    class="history-tab"
+                    :class="{ active: showHistory }"
+                    title="Earlier versions of the title and notes"
+                    @click="showHistory = !showHistory"
+                  >
+                    History
+                  </button>
                 </div>
                 <button
                   class="sensitive-btn"
@@ -1021,7 +1056,13 @@ defineExpose({
                    here until the user asks for it. One placeholder stands in
                    for every tab: an editor on an absent text would look empty
                    and its edits would be discarded by the main process. -->
-              <div v-if="notesLocked" class="sensitive-hidden">
+              <NodeHistoryPanel
+                v-if="showHistory"
+                :node-id="editedNode.id"
+                :notes-withheld="notesHidden"
+                @restore="restoreVersion"
+              />
+              <div v-else-if="notesLocked" class="sensitive-hidden">
                 <p>Sensitive notes are locked</p>
                 <form class="sensitive-unlock-form" @submit.prevent="revealSensitive">
                   <input
