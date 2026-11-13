@@ -2,6 +2,13 @@ import { ref, computed, nextTick, type Ref, type ComputedRef } from 'vue'
 import { MAX_HISTORY_SIZE, SIDEBAR_HIDE_DELAY_MS } from '../utils/uiConstants.js'
 import { useErrorHandler } from './useErrorHandler.js'
 import type { Api, Node, TreeNode, WorkspaceId } from '../types'
+import { makeTypeListing, typeOfListing } from '../utils/typeListings'
+
+/**
+ * What navigation can be inside: a node's id, null for the top level, or a
+ * type listing's string id (`type:person`, see utils/typeListings.ts).
+ */
+export type ContainerId = number | string | null
 
 /**
  * Debounce configuration.
@@ -27,9 +34,9 @@ export interface UseNavigationOptions {
   /** Debounce configuration */
   debounce?: DebounceConfig
   /** Called before navigation starts */
-  onBeforeNavigate?: (nodeId: number | null, direction: NavigationDirection) => void | Promise<void>
+  onBeforeNavigate?: (nodeId: ContainerId, direction: NavigationDirection) => void | Promise<void>
   /** Called after navigation completes */
-  onAfterNavigate?: (nodeId: number | null, direction: NavigationDirection) => void | Promise<void>
+  onAfterNavigate?: (nodeId: ContainerId, direction: NavigationDirection) => void | Promise<void>
   /** Called after breadcrumbs are built (for sidebar expansion) */
   onBreadcrumbsBuilt?: (breadcrumbs: Node[]) => void
   /** Called with root children to sync sidebar tree */
@@ -39,7 +46,7 @@ export interface UseNavigationOptions {
   /** Called when transition animation ends */
   onTransitionEnd?: () => void
   /** Called when container not found (404), receives error and containerId */
-  onNotFound?: (error: Error, containerId: number | null) => void | Promise<void>
+  onNotFound?: (error: Error, containerId: ContainerId) => void | Promise<void>
   /** Called when entering a leaf node, return true to prevent enter */
   onLeafNode?: (node: TreeNode) => boolean | void
   /**
@@ -52,7 +59,7 @@ export interface UseNavigationOptions {
   /** Whether the view would show this child; a node whose children are all hidden counts as a leaf */
   isShownInView?: (node: Node) => boolean
   /** Called on navigation error (for non-404 errors) */
-  onError?: (error: Error, containerId: number | null) => void | Promise<void>
+  onError?: (error: Error, containerId: ContainerId) => void | Promise<void>
   /** Custom filter function for workspace filtering */
   filterByWorkspace?: (node: Node, workspaceId: WorkspaceId | null) => boolean
   /** External buildChildTree function (from useDataLoading) */
@@ -88,10 +95,10 @@ export interface LoadChildrenOptions {
  */
 export interface UseNavigationReturn {
   // State
-  currentContainerId: Ref<number | null>
+  currentContainerId: Ref<ContainerId>
   currentContainer: Ref<Node | null>
   breadcrumbs: Ref<Node[]>
-  navigationHistory: Ref<(number | null)[]>
+  navigationHistory: Ref<ContainerId[]>
   children: Ref<TreeNode[]>
   loading: Ref<boolean>
   error: Ref<string | null>
@@ -102,8 +109,8 @@ export interface UseNavigationReturn {
   canGoUp: ComputedRef<boolean>
 
   // Methods
-  loadChildren: (containerId?: number | null, options?: LoadChildrenOptions) => Promise<void>
-  enterContainer: (node: Node | TreeNode | number | null, options?: EnterContainerOptions) => Promise<EnterResult>
+  loadChildren: (containerId?: ContainerId, options?: LoadChildrenOptions) => Promise<void>
+  enterContainer: (node: Node | TreeNode | ContainerId, options?: EnterContainerOptions) => Promise<EnterResult>
   navigateBack: () => void
   navigateToBreadcrumb: (index: number) => Promise<void>
   goToParent: () => void
@@ -141,10 +148,10 @@ export function useNavigation({
   const { handleError } = useErrorHandler()
 
   // Core navigation state
-  const currentContainerId = ref<number | null>(null)
+  const currentContainerId = ref<ContainerId>(null)
   const currentContainer = ref<Node | null>(null)
   const breadcrumbs = ref<Node[]>([])
-  const navigationHistory = ref<(number | null)[]>([])
+  const navigationHistory = ref<ContainerId[]>([])
   const children = ref<TreeNode[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -155,7 +162,7 @@ export function useNavigation({
   // newest one is allowed to publish its result.
   let loadTicket = 0
   let lastLoadTime = 0
-  let lastLoadedContainerId: number | null = null
+  let lastLoadedContainerId: ContainerId = null
 
   /**
    * Build a nested tree from flat descendants (internal version).
@@ -210,7 +217,7 @@ export function useNavigation({
    * @param options - Load options
    */
   async function loadChildren(
-    containerId: number | null = null,
+    containerId: ContainerId = null,
     { silent = false }: LoadChildrenOptions = {}
   ): Promise<void> {
     const now = Date.now()
@@ -268,15 +275,28 @@ export function useNavigation({
         if (onSidebarSync) {
           onSidebarSync(validRoots)
         }
+      } else if (typeOfListing(containerId)) {
+        // A type listing: every node of the type in the workspace, flat, the
+        // way a tag shows the nodes linked to it. The container is virtual.
+        const listedType = typeOfListing(containerId)!
+        const container = makeTypeListing(listedType)
+        const nodes = await api.getNodesOfType(listedType, workspace?.value ?? null)
+        if (!isCurrent()) return
+        currentContainer.value = container
+        children.value = applyWorkspaceFilter(nodes).map(n => ({ ...n, children: [] }) as TreeNode)
+        breadcrumbs.value = [container]
+        if (onBreadcrumbsBuilt) {
+          onBreadcrumbsBuilt(breadcrumbs.value)
+        }
       } else {
         // Get container first to check its type
-        const container = await api.getNode(containerId)
+        const container = await api.getNode(containerId as number)
         if (!isCurrent()) return
         currentContainer.value = container
 
         // Tag nodes show linked nodes instead of children
         if (container?.type === 'tag') {
-          const linkedNodes = await api.getLinkedNodes(containerId)
+          const linkedNodes = await api.getLinkedNodes(containerId as number)
           if (!isCurrent()) return
           // Convert linked nodes to tree nodes (flat, no nested children for tags)
           children.value = (linkedNodes || [])
@@ -284,15 +304,15 @@ export function useNavigation({
             .map(n => ({ ...n, children: [] }) as TreeNode)
         } else {
           // Regular container - get children
-          const containerChildren = await api.getChildren(containerId)
+          const containerChildren = await api.getChildren(containerId as number)
           // Build children with nested structure for tree view
-          const descendants = await api.getDescendants(containerId)
+          const descendants = await api.getDescendants(containerId as number)
           if (!isCurrent()) return
           children.value = buildTree(containerChildren, descendants)
         }
 
         // Build breadcrumbs
-        const ancestors = await api.getAncestors(containerId)
+        const ancestors = await api.getAncestors(containerId as number)
         if (!isCurrent()) return
         // Filter out any null entries and any ancestor that has same id as container
         breadcrumbs.value = (ancestors || []).filter(a => a && a.id !== container?.id)
@@ -347,7 +367,8 @@ export function useNavigation({
    *
    * @param nodeId - The node about to be entered
    */
-  async function findLeaf(nodeId: number): Promise<Node | null> {
+  async function findLeaf(nodeId: number | string): Promise<Node | null> {
+    if (typeof nodeId !== 'number') return null
     try {
       const node = await api.getNode(nodeId)
       if (!node) return null
@@ -364,7 +385,7 @@ export function useNavigation({
   }
 
   /** Whether the node is part of what the current view lists, at any depth. */
-  function isInCurrentView(nodeId: number): boolean {
+  function isInCurrentView(nodeId: number | string): boolean {
     const visit = (list: TreeNode[] | undefined): boolean =>
       (list || []).some(n => n && (n.id === nodeId || visit(n.children)))
     return currentContainerId.value === nodeId || visit(children.value)
@@ -374,11 +395,7 @@ export function useNavigation({
    * Load a container with the transition animation and history entry.
    * Resolves once the container is loaded.
    */
-  async function navigateTo(
-    nodeId: number | null,
-    skipHistory: boolean,
-    direction: NavigationDirection
-  ): Promise<void> {
+  async function navigateTo(nodeId: ContainerId, skipHistory: boolean, direction: NavigationDirection): Promise<void> {
     // Push current location to history before navigating
     if (!skipHistory && currentContainerId.value !== nodeId) {
       navigationHistory.value.push(currentContainerId.value)
@@ -419,10 +436,10 @@ export function useNavigation({
    * the node is opened through onOpenLeaf where it is visible instead.
    */
   async function enterContainer(
-    node: Node | TreeNode | number | null,
+    node: Node | TreeNode | ContainerId,
     { skipHistory = false, direction = 'forward' }: EnterContainerOptions = {}
   ): Promise<EnterResult> {
-    const nodeId = typeof node === 'object' && node !== null ? node.id : (node as number | null)
+    const nodeId: ContainerId = typeof node === 'object' && node !== null ? node.id : (node as ContainerId)
     const nodeObj = typeof node === 'object' ? (node as TreeNode) : null
 
     const enterTicket = ++lastEnterTicket

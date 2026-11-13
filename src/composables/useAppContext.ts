@@ -1,5 +1,6 @@
 import { provide, inject, type InjectionKey, type Ref } from 'vue'
 import type { Api, Node, Command, WorkspaceId } from '../types'
+import type { ContainerId } from './useNavigation'
 
 /**
  * Application context interface.
@@ -16,8 +17,8 @@ export interface AppContext {
   getWorkspaceIdForNode: (type: string) => WorkspaceId | null | undefined
   /** Current workspace ID */
   currentWorkspace: Ref<WorkspaceId | null>
-  /** Current container ID */
-  currentContainerId: Ref<number | null>
+  /** Current container ID: a node id, null at the top level, or a type listing's id */
+  currentContainerId: Ref<ContainerId>
   /** Currently selected node */
   selectedNode: Ref<Node | null>
   /** Set of selected node IDs */
@@ -39,7 +40,7 @@ export interface AppContext {
   /** Current error message */
   error: Ref<string | null>
   /** Navigate into a container */
-  enterContainer: (node: Node | { id: number }) => void | Promise<void>
+  enterContainer: (node: Node | { id: number } | string) => void | Promise<void>
   /** Navigate back */
   navigateBack: () => void | Promise<void>
   /** Refresh after data change */
@@ -60,7 +61,7 @@ export interface AppContext {
   /** Load favorite items */
   loadFavorites: () => void | Promise<void>
   /** Load children nodes */
-  loadChildren: (containerId?: number | null, options?: { silent?: boolean }) => void | Promise<void>
+  loadChildren: (containerId?: ContainerId, options?: { silent?: boolean }) => void | Promise<void>
   /** Invalidate sidebar cache */
   invalidateSidebarCache: () => void
   /** Load recent items */

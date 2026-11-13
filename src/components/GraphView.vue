@@ -333,7 +333,8 @@ const debouncedUpdateGraph = debounce(() => updateGraph(), DEBOUNCE_DELAY_MS)
 
 // Helper for saving node settings with consistent error handling
 function saveNodeSetting(nodeId, field, value, errorContext) {
-  if (!nodeId) return
+  // A type listing is not a stored node; its settings are not kept
+  if (typeof nodeId !== 'number') return
   api
     .updateNode(nodeId, { [field]: value })
     .catch(e => handleError(e, { context: `Saving ${errorContext}`, silent: true }))

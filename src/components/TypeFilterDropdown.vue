@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import tippy from 'tippy.js'
 import { useFiltersStore } from '../stores/filters.js'
 import { DEFAULT_VISIBLE_TYPES } from '../composables/useGraphSettings'
+import { getTypePlural } from '../utils/constants.js'
 
 const filtersStore = useFiltersStore()
 
@@ -10,24 +11,11 @@ const dropdownRef = ref(null)
 const buttonRef = ref(null)
 const showDropdown = ref(false)
 
-// Type display configuration
-const typeConfig = {
-  task: { label: 'Tasks', color: 'var(--type-task-text)' },
-  note: { label: 'Notes', color: 'var(--type-note-text)' },
-  project: { label: 'Projects', color: 'var(--type-project-text)' },
-  milestone: { label: 'Milestones', color: 'var(--type-milestone-text)' },
-  topic: { label: 'Topics', color: 'var(--type-topic-text)' },
-  component: { label: 'Components', color: 'var(--type-component-text)' },
-  group: { label: 'Groups', color: 'var(--type-group-text)' },
-  event: { label: 'Events', color: 'var(--type-event-text)' },
-  person: { label: 'People', color: 'var(--type-person-text)' },
-  organization: { label: 'Organizations', color: 'var(--type-organization-text)' },
-}
-
 const availableTypes = computed(() => {
   return DEFAULT_VISIBLE_TYPES.map(type => ({
     type,
-    ...typeConfig[type],
+    label: getTypePlural(type),
+    color: `var(--type-${type}-text)`,
     visible: filtersStore.visibleTypes.includes(type),
   }))
 })

@@ -2,7 +2,7 @@ import { ref, type Ref } from 'vue'
 import { api as apiService } from '../services/api.js'
 import { handleError } from './useErrorHandler.js'
 import { createNodeCache } from '../services/nodeCache.js'
-import type { Node, WorkspaceId } from '../types'
+import type { NodeTypeCount, Node, WorkspaceId } from '../types'
 
 // Cast api to any to allow flexible method calls until api.js is converted to TypeScript
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -37,6 +37,8 @@ export interface UseDataLoadingReturn {
   favoriteItems: Ref<Node[]>
   /** All tag nodes in workspace */
   allTags: Ref<Node[]>
+  /** How many nodes of each type the workspace holds, for the legend */
+  typeCounts: Ref<NodeTypeCount[]>
   /** Trashed items list */
   trashedItems: Ref<Node[]>
   /** Orphaned nodes (lost & found) */
@@ -51,7 +53,7 @@ export interface UseDataLoadingReturn {
   loadRecentItems: () => Promise<void>
   /** Load favorites */
   loadFavorites: () => Promise<void>
-  /** Load all tags */
+  /** Load all tags, and the type counts shown with them */
   loadTags: () => Promise<void>
   /** Load trashed items */
   loadTrashedItems: () => Promise<void>
@@ -90,6 +92,7 @@ export function useDataLoading(currentWorkspace: Ref<WorkspaceId | null>): UseDa
   const recentItems = ref<Node[]>([])
   const favoriteItems = ref<Node[]>([])
   const allTags = ref<Node[]>([])
+  const typeCounts = ref<NodeTypeCount[]>([])
   const trashedItems = ref<Node[]>([])
   const orphanedNodes = ref<Node[]>([])
   const showLostFound = ref(false)
@@ -235,8 +238,21 @@ export function useDataLoading(currentWorkspace: Ref<WorkspaceId | null>): UseDa
     }
   }
 
-  // Tags (first-class tag nodes)
+  // Tags (first-class tag nodes), and the node types, which double as tags
+  // (utils/typeListings.ts): both change with the same writes
   async function loadTags(): Promise<void> {
+    await Promise.all([loadTagNodes(), loadTypeCounts()])
+  }
+
+  async function loadTypeCounts(): Promise<void> {
+    try {
+      typeCounts.value = await api.getNodeTypeCounts(currentWorkspace.value)
+    } catch {
+      typeCounts.value = []
+    }
+  }
+
+  async function loadTagNodes(): Promise<void> {
     const sortByTitle = (a: Node, b: Node) =>
       (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' })
 
@@ -346,6 +362,7 @@ export function useDataLoading(currentWorkspace: Ref<WorkspaceId | null>): UseDa
     recentItems,
     favoriteItems,
     allTags,
+    typeCounts,
     trashedItems,
     orphanedNodes,
     showLostFound,

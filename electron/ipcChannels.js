@@ -95,6 +95,8 @@ const DB_GET_TAG_NODES = 'db:getTagNodes'
 const DB_GET_OR_CREATE_TAG_NODE = 'db:getOrCreateTagNode'
 const DB_GET_NODES_LINKED_TO_TAG = 'db:getNodesLinkedToTag'
 const DB_SEARCH_TAG_NODES = 'db:searchTagNodes'
+const DB_GET_NODES_OF_TYPE = 'db:getNodesOfType'
+const DB_GET_NODE_TYPE_COUNTS = 'db:getNodeTypeCounts'
 
 // ===========================================
 // DATABASE - Workspaces
@@ -274,6 +276,8 @@ module.exports = {
   DB_GET_OR_CREATE_TAG_NODE,
   DB_GET_NODES_LINKED_TO_TAG,
   DB_SEARCH_TAG_NODES,
+  DB_GET_NODES_OF_TYPE,
+  DB_GET_NODE_TYPE_COUNTS,
 
   // Database - Workspaces
   DB_GET_WORKSPACES,
