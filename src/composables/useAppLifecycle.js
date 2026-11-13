@@ -1,4 +1,5 @@
 import { onMounted, onUnmounted } from 'vue'
+import { typeOfListing } from '../utils/typeListings'
 
 /**
  * Composable for App.vue lifecycle management.
@@ -134,7 +135,9 @@ export function useAppLifecycle({
     await loadWorkspaces()
 
     // Restore last container or start at root
-    const initialContainerId = savedContainerId.value ? parseInt(savedContainerId.value, 10) : null
+    // A saved id is a node id, or a type listing's string id (utils/typeListings.ts)
+    const saved = savedContainerId.value
+    const initialContainerId = typeOfListing(saved) ? saved : saved ? parseInt(saved, 10) : null
     try {
       await loadChildren(initialContainerId)
     } catch {

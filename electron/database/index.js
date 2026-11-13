@@ -13,6 +13,7 @@ const { createNodeOperations } = require('./nodes')
 const { createLinkOperations } = require('./links')
 const { createSearchOperations } = require('./search')
 const { createTagOperations } = require('./tags')
+const { createTypeListingOperations } = require('./typeListings')
 const { createTreeOperations } = require('./tree')
 const { createExportOperations } = require('./export')
 const { createBackupOperations } = require('./backup')
@@ -175,6 +176,11 @@ class Database {
     this.getOrCreateTagNode = tagOps.getOrCreateTagNode
     this.getNodesLinkedToTag = tagOps.getNodesLinkedToTag
     this.searchTagNodes = tagOps.searchTagNodes
+
+    // Node types as tags
+    const typeListingOps = createTypeListingOperations(this)
+    this.getNodesOfType = typeListingOps.getNodesOfType
+    this.getNodeTypeCounts = typeListingOps.getNodeTypeCounts
 
     // Tree
     this.getRoots = treeOps.getRoots.bind(treeOps)

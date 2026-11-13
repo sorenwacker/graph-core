@@ -20,6 +20,12 @@ Graph Core supports multiple node types for organizing different kinds of inform
 
 Every type is created in the current workspace; see [Workspaces](../guides/workspaces.md).
 
+## Every type is also a list
+
+A type works like a tag. The legend at the bottom of the sidebar shows, next to each type, how many nodes of it the current workspace holds, and clicking a type with nodes opens a list of all of them in one place: every person, every organization, wherever each one is filed in the hierarchy. The list is flat and behaves like the view of a tag: it has its own breadcrumb, works in every view, and Back leaves it. It is not a node, so nothing can be moved into it, and a node added while it is open goes to the top level, as the listed type.
+
+Types with no nodes stay plain legend entries, and tags keep their own sidebar section.
+
 ## Type Details
 
 ### Task
@@ -224,7 +230,7 @@ Tag nodes are the label nodes behind the tag system. They are ordinary nodes wit
 **Special Behaviors:**
 
 - Hidden from node lists whenever a type filter is active, so tags do not appear alongside content nodes
-- Reached through the sidebar rather than by browsing the hierarchy
+- Reached through the sidebar rather than by browsing the hierarchy, as every type's list is ([above](#every-type-is-also-a-list))
 - Selectable in every type picker, so an existing node can be converted to a tag
 - Deleting one goes through the standard node deletion: it is undoable and lands in Trash
 
