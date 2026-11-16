@@ -11,6 +11,7 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Changed
 
+- macOS builds are ad-hoc signed by electron-builder itself (`identity: "-"`) instead of by an afterPack hook that ran `codesign` by hand and logged, rather than failed on, a signing error. The release workflow now verifies the signature of the packaged app, and CI packages the macOS app on every pull request to check it.
 - Entering a node that shows no children opens its detail panel without navigating into it ([guide](docs/guides/detail-panel.md#opening-the-panel)). Double-clicking such a node, pressing Enter on it, or picking it in search used to land inside it and open the panel there; closing the panel, in fullscreen especially, then left a view with only that node or none at all, which read as a broken graph or a wrong location. The view now stays where the node is visible - the current view when it lists the node, otherwise its parent - so closing the panel returns to it. A first child is added from the panel or the context menu. Going back and the breadcrumbs still enter such a node.
 
 ### Fixed

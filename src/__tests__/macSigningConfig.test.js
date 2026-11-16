@@ -4,17 +4,19 @@ import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
 /**
- * Local macOS builds are ad-hoc signed, which gives the app a designated
- * requirement that is a bare hash of the binary. macOS ties a keychain
- * "Always Allow" to that requirement, so every rebuild invalidates the grant
- * and the app asks for keychain access again at boot.
+ * macOS builds are ad-hoc signed by electron-builder itself (`identity: "-"`),
+ * which needs no certificate and so works in CI; an afterPack hook used to run
+ * `codesign --deep --sign -` by hand and swallow its failures. An ad-hoc
+ * signature gives the app a designated requirement that is a bare hash of the
+ * binary. macOS ties a keychain "Always Allow" to that requirement, so every
+ * rebuild invalidates the grant and the app asks for keychain access again at
+ * boot.
  *
  * `make install-mac-signed` fixes that by re-signing the installed app with a
- * stable identity. The signing is deliberately not handed to electron-builder,
+ * stable identity. That signing is deliberately not handed to electron-builder,
  * which requires a Team ID it can read from the certificate - only an Apple
  * issued Developer ID has one, and it retries the whole bundle for many minutes
- * before failing on a self-signed certificate. The committed config must also
- * stay unsigned: CI has no certificate at all.
+ * before failing on a self-signed certificate.
  * See docs/contributing/development.md.
  */
 
@@ -29,8 +31,16 @@ function target(name) {
 }
 
 describe('macOS signing configuration', () => {
-  it('keeps the committed build config unsigned, since CI has no certificate', () => {
-    expect(pkg.build.mac.identity).toBeNull()
+  it('lets electron-builder sign ad hoc, which needs no certificate in CI', () => {
+    expect(pkg.build.mac.identity).toBe('-')
+    // Ad-hoc signing with the hardened runtime would reject Electron's own
+    // frameworks, which carry a different Team ID.
+    expect(pkg.build.mac.hardenedRuntime).toBe(false)
+  })
+
+  it('has no signing hook of its own', () => {
+    expect(pkg.build.afterPack).toBeUndefined()
+    expect(pkg.build.afterSign).toBeUndefined()
   })
 
   it('offers a signed local install', () => {
