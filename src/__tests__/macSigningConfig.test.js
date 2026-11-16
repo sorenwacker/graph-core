@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
@@ -41,6 +41,17 @@ describe('macOS signing configuration', () => {
   it('has no signing hook of its own', () => {
     expect(pkg.build.afterPack).toBeUndefined()
     expect(pkg.build.afterSign).toBeUndefined()
+  })
+
+  it('keeps the App Store sandbox entitlements away from the direct-download build', () => {
+    // electron-builder applies build/entitlements.mac.plist to every mac
+    // build if the file exists. The sandbox entitlement in it makes the
+    // signer look up a Team ID, which an ad-hoc identity has not, and the
+    // downloadable app is not meant to be sandboxed anyway; only the mas
+    // target uses these files.
+    expect(existsSync(join(repoRoot, 'build/entitlements.mac.plist'))).toBe(false)
+    expect(pkg.build.mac.entitlements).toBeUndefined()
+    expect(pkg.build.mas.entitlements).toBe('build/entitlements.mas.plist')
   })
 
   it('offers a signed local install', () => {
