@@ -71,6 +71,9 @@ jobs:
           npx electron-builder --mac --dir --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          # electron-builder skips signing on pull-request builds unless told
+          # otherwise; ad-hoc signing uses no secret, so it is safe to force.
+          CSC_FOR_PULL_REQUEST: true
       - name: Verify macOS signature
         run: |
           codesign --verify --deep --strict --verbose=2 release/mac*/*.app
