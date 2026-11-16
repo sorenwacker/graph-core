@@ -93,6 +93,24 @@ describe('useNavigation composable', () => {
       expect(onOpenLeaf).toHaveBeenCalledWith(leaf)
     })
 
+    it('goes to the parent of a leaf the current view holds only as a deeper descendant', async () => {
+      const leaf = { id: 5, title: 'Leaf', parent_id: 3 }
+      const { nav, onOpenLeaf } = navigationWithHook()
+      // Top level lists node 3, whose loaded descendants include the leaf
+      mockApi.getDescendants.mockImplementation(async id => (id === 3 ? [leaf] : []))
+      await atTopLevel(nav, [{ id: 3, title: 'Parent', parent_id: null }])
+      expect(nav.children.value[0].children.map(c => c.id)).toEqual([5])
+      mockApi.getNode.mockImplementation(async id => (id === 5 ? leaf : { id, title: `Node ${id}`, parent_id: null }))
+      mockApi.getChildren.mockImplementation(async id => (id === 3 ? [leaf] : []))
+
+      const pending = nav.enterContainer(5)
+      await flushTimersAndPromises()
+
+      expect(await pending).toBe('leaf')
+      expect(nav.currentContainerId.value).toBe(3)
+      expect(onOpenLeaf).toHaveBeenCalledWith(leaf)
+    })
+
     it('goes by the children in the database, not by the object it was handed', async () => {
       const { nav, onOpenLeaf } = navigationWithHook()
       mockApi.getNode.mockResolvedValue({ id: 5, title: 'Leaf', parent_id: null })

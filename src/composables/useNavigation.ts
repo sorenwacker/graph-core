@@ -383,14 +383,6 @@ export function useNavigation({
       return null
     }
   }
-
-  /** Whether the node is part of what the current view lists, at any depth. */
-  function isInCurrentView(nodeId: number | string): boolean {
-    const visit = (list: TreeNode[] | undefined): boolean =>
-      (list || []).some(n => n && (n.id === nodeId || visit(n.children)))
-    return currentContainerId.value === nodeId || visit(children.value)
-  }
-
   /**
    * Load a container with the transition animation and history entry.
    * Resolves once the container is loaded.
@@ -454,9 +446,10 @@ export function useNavigation({
       const leaf = await findLeaf(nodeId)
       if (!isCurrentEnter()) return 'superseded'
       if (leaf) {
-        // Show the leaf where it lives: stay when the current view lists it,
-        // otherwise go to its parent.
-        if (!isInCurrentView(nodeId)) {
+        // Show the leaf where it lives: stay only when the current view is its
+        // parent. A deeper descendant is loaded into the tree but the graph draws
+        // a limited depth, so it may not be on screen (docs/guides/search.md).
+        if ((leaf.parent_id ?? null) !== (currentContainerId.value ?? null)) {
           await navigateTo(leaf.parent_id ?? null, skipHistory, direction)
           if (!isCurrentEnter()) return 'superseded'
         }

@@ -16,6 +16,7 @@ The default mode for finding and navigating to nodes.
 
 - Type to search node titles and notes
 - Press Enter to navigate to the selected result
+- A result with children is entered. A result without children (a leaf) is shown where it lives: the view goes to the leaf's parent, unless the current view already is that parent, and the leaf is selected with its detail panel open. A leaf that is only a deeper descendant of the current view counts as elsewhere, because the graph draws a limited depth and the leaf may not be on screen.
 - Results show breadcrumb paths for context
 
 ### Link Mode
