@@ -1,4 +1,5 @@
 import { handleError } from './useErrorHandler.js'
+import { typeListingId } from '../utils/typeListings'
 
 /**
  * Tag interaction actions for the main view: searching by a legacy hashtag,
@@ -10,7 +11,7 @@ import { handleError } from './useErrorHandler.js'
  * @param {Function} deps.onSearchInput - Trigger a search with the current query.
  * @param {Function} deps.enterContainer - Navigate into a node container.
  * @param {Function} deps.deleteNode - Shared node-delete action (undo command, refreshes, navigation).
- * @returns {{selectTag: Function, navigateToTag: Function, deleteTag: Function}}
+ * @returns {{selectTag: Function, navigateToTag: Function, navigateToType: Function, deleteTag: Function}}
  */
 export function useTagActions({ searchQuery, showSearch, onSearchInput, enterContainer, deleteNode }) {
   // For legacy string tags, search by hashtag.
@@ -43,5 +44,11 @@ export function useTagActions({ searchQuery, showSearch, onSearchInput, enterCon
     }
   }
 
-  return { selectTag, navigateToTag, deleteTag }
+  // Every type is also a tag: open the listing of every node of that type
+  // (utils/typeListings.ts).
+  const navigateToType = async type => {
+    await enterContainer(typeListingId(type))
+  }
+
+  return { selectTag, navigateToTag, navigateToType, deleteTag }
 }

@@ -65,6 +65,8 @@ const {
   DB_GET_OR_CREATE_TAG_NODE,
   DB_GET_NODES_LINKED_TO_TAG,
   DB_SEARCH_TAG_NODES,
+  DB_GET_NODES_OF_TYPE,
+  DB_GET_NODE_TYPE_COUNTS,
   // Workspaces
   DB_GET_WORKSPACES,
   DB_GET_WORKSPACE,
@@ -181,6 +183,10 @@ function registerDatabaseHandlers(ipcMain, db) {
   ipcMain.handle(DB_SEARCH_TAG_NODES, (_event, query, workspaceId, limit) =>
     db.searchTagNodes(query, workspaceId, limit)
   )
+
+  // Node types as tags
+  ipcMain.handle(DB_GET_NODES_OF_TYPE, (_event, type, workspaceId) => db.getNodesOfType(type, workspaceId))
+  ipcMain.handle(DB_GET_NODE_TYPE_COUNTS, (_event, workspaceId) => db.getNodeTypeCounts(workspaceId))
 
   // Workspaces
   ipcMain.handle(DB_GET_WORKSPACES, () => db.getWorkspaces())

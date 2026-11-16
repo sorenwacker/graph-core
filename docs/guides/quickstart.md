@@ -16,6 +16,7 @@ Get up and running with Graph Core in minutes.
 - **Single click**: Select a node and open detail panel
 - **Double click**: Navigate into the node (enter its subgraph); a node without children opens its details instead
 - **Breadcrumbs**: Click to navigate back up the hierarchy
+- **Legend**: Click a type at the bottom of the sidebar to list every node of that type in the workspace, wherever it is filed; see [Node Types](../reference/node-types.md#every-type-is-also-a-list)
 
 ### Keyboard Navigation
 

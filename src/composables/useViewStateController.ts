@@ -1,5 +1,6 @@
 import { ref, watch, type Ref } from 'vue'
 import type { Node, ViewMode } from '../types'
+import type { ContainerId } from './useNavigation'
 
 // Re-export the canonical ViewMode (defined in types/settings.ts) for
 // existing consumers that import it from this module.
@@ -21,7 +22,7 @@ export interface NavigationComposable {
   /** Current container node */
   currentContainer: Ref<Node | null>
   /** Current container ID */
-  currentContainerId: Ref<number | null>
+  currentContainerId: Ref<ContainerId>
 }
 
 /**
@@ -57,7 +58,7 @@ export interface UseViewStateControllerReturn {
   /** End the current navigation transition */
   endTransition: () => void
   /** Current container ID */
-  currentContainerId: Ref<number | null>
+  currentContainerId: Ref<ContainerId>
   /** Current container node */
   currentContainer: Ref<Node | null>
   /** Current breadcrumb path */
@@ -89,7 +90,7 @@ export function useViewStateController(options: UseViewStateControllerOptions = 
   const transitionDirection = ref<TransitionDirection>('forward')
 
   // Navigation state refs (synced from navigation composable)
-  const currentContainerId = ref<number | null>(null)
+  const currentContainerId = ref<ContainerId>(null)
   const currentContainer = ref<Node | null>(null)
   const breadcrumbs = ref<Node[]>([])
   const children = ref<Node[]>([])

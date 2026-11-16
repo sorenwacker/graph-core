@@ -20,6 +20,7 @@
  * @param {Function} deps.selectNode - Select a node
  * @param {Function} deps.loadChildren - Reload children
  * @param {Function} deps.loadSidebarTree - Reload sidebar tree
+ * @param {Function} deps.loadTags - Reload the tags and the type counts in the legend
  * @param {Function} deps.refreshAfterChange - Refresh after a change
  * @param {Function} deps.hideTooltip - Hide the node tooltip
  * @param {Function} deps.loadTasks - Reload the Tasks view's own list
@@ -39,6 +40,7 @@ export function useNodeCreation({
   selectNode,
   loadChildren,
   loadSidebarTree,
+  loadTags,
   refreshAfterChange,
   hideTooltip,
   expandedIds,
@@ -60,6 +62,8 @@ export function useNodeCreation({
       newNodeTitle.value = ''
       addChildParentId.value = null
       await loadChildren(currentContainerId.value, { silent: true })
+      // The legend counts the nodes of each type (utils/typeListings.ts)
+      loadTags?.()
       // The Tasks view keeps its own list, which the tree reload does not touch.
       loadTasks()
     }

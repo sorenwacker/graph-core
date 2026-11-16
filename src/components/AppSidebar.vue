@@ -1,11 +1,12 @@
 <script setup>
-import { ref, watch } from 'vue'
-import { getTypeIcon, typeConfig, nodeTypes, getGraphColors } from '../utils/constants.js'
+import { ref, computed, watch } from 'vue'
+import { getTypeIcon, getTypePlural, typeConfig, nodeTypes, getGraphColors } from '../utils/constants.js'
+import { typeListingId } from '../utils/typeListings'
 import SidebarTreeItem from './SidebarTreeItem.vue'
 
 const appVersion = ref(__APP_VERSION__)
 
-defineProps({
+const props = defineProps({
   visible: { type: Boolean, default: true },
   pinned: { type: Boolean, default: true },
   hovered: { type: Boolean, default: false },
@@ -14,6 +15,8 @@ defineProps({
   sidebarTree: { type: Array, default: () => [] },
   favoriteItems: { type: Array, default: () => [] },
   allTags: { type: Array, default: () => [] },
+  /** [{ type, count }] for the types the workspace holds nodes of */
+  typeCounts: { type: Array, default: () => [] },
   expandedIds: { type: Set, default: () => new Set() },
 })
 
@@ -24,11 +27,28 @@ const emit = defineEmits([
   'toggle-expand',
   'select-tag',
   'navigate-tag',
+  'navigate-type',
   'delete-tag',
   'navigate-root',
   'mouseenter',
   'mouseleave',
 ])
+
+// Every type is also a tag: the legend doubles as the list of types, and a
+// type with nodes opens the listing of all of them (utils/typeListings.ts).
+// Tags keep their own section, so the tag entry stays a plain legend row.
+const countByType = computed(() => Object.fromEntries(props.typeCounts.map(c => [c.type, c.count])))
+const legendEntries = computed(() =>
+  nodeTypes.map(t => {
+    const count = countByType.value[t] || 0
+    return {
+      type: t,
+      count,
+      listable: t !== 'tag' && count > 0,
+      active: props.currentContainerId === typeListingId(t),
+    }
+  })
+)
 
 function getTagColor(tagId) {
   const colors = getGraphColors('tag', tagId)
@@ -152,14 +172,25 @@ watch(legendCollapsed, val => localStorage.setItem('sidebar-legend-collapsed', S
         <span>Legend</span>
       </div>
       <div v-show="!legendCollapsed" class="legend-items">
-        <div v-for="t in nodeTypes" :key="t" class="legend-item">
+        <button
+          v-for="entry in legendEntries"
+          :key="entry.type"
+          type="button"
+          class="legend-item"
+          :class="{ listable: entry.listable, active: entry.active }"
+          :disabled="!entry.listable"
+          :title="entry.listable ? `Show all ${getTypePlural(entry.type).toLowerCase()}` : undefined"
+          :aria-label="entry.listable ? `Show all ${getTypePlural(entry.type).toLowerCase()}` : undefined"
+          @click="entry.listable && emit('navigate-type', entry.type)"
+        >
           <span
             class="legend-badge"
-            :style="{ background: typeConfig[t]?.bg, color: typeConfig[t]?.text }"
-            v-html="getTypeIcon(t)"
+            :style="{ background: typeConfig[entry.type]?.bg, color: typeConfig[entry.type]?.text }"
+            v-html="getTypeIcon(entry.type)"
           ></span>
-          {{ typeConfig[t]?.label || t }}
-        </div>
+          <span class="legend-label">{{ typeConfig[entry.type]?.label || entry.type }}</span>
+          <span v-if="entry.count" class="legend-count">{{ entry.count }}</span>
+        </button>
       </div>
       <div v-if="appVersion" class="app-version">v{{ appVersion }}</div>
     </div>
@@ -205,6 +236,51 @@ watch(legendCollapsed, val => localStorage.setItem('sidebar-legend-collapsed', S
   gap: 8px;
   font-size: 11px;
   color: var(--text-secondary);
+  /* A button so a listing can be opened from the keyboard; styled as the row it was */
+  border: none;
+  background: transparent;
+  padding: 2px 4px;
+  margin: 0 -4px;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 11px;
+  text-align: left;
+  min-width: 0;
+}
+
+.legend-item:disabled {
+  cursor: default;
+}
+
+.legend-item.listable {
+  cursor: pointer;
+}
+
+.legend-item.listable:hover,
+.legend-item.active {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.legend-item:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: -2px;
+}
+
+.legend-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.legend-count {
+  font-size: 0.65rem;
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  padding: 1px 5px;
+  border-radius: 8px;
+  flex-shrink: 0;
 }
 
 .legend-badge {

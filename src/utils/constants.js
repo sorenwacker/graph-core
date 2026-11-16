@@ -18,6 +18,7 @@ export const nodeTypes = [
 export const typeConfig = {
   project: {
     label: 'Project',
+    plural: 'Projects',
     cssClass: 'project',
     bg: '#1e3a5f', // Deep blue - structure, planning
     text: '#60a5fa',
@@ -25,6 +26,7 @@ export const typeConfig = {
   },
   task: {
     label: 'Task',
+    plural: 'Tasks',
     cssClass: 'task',
     bg: '#4a3f1a', // Amber - action, attention
     text: '#fbbf24',
@@ -32,6 +34,7 @@ export const typeConfig = {
   },
   note: {
     label: 'Note',
+    plural: 'Notes',
     cssClass: 'note',
     bg: '#1a4025', // Green - information, growth
     text: '#4ade80',
@@ -39,6 +42,7 @@ export const typeConfig = {
   },
   milestone: {
     label: 'Milestone',
+    plural: 'Milestones',
     cssClass: 'milestone',
     bg: '#3d1a5a', // Violet - achievement, special
     text: '#a78bfa',
@@ -46,6 +50,7 @@ export const typeConfig = {
   },
   group: {
     label: 'Group',
+    plural: 'Groups',
     cssClass: 'group',
     bg: '#2d3748', // Slate - neutral, organizational
     text: '#94a3b8',
@@ -53,6 +58,7 @@ export const typeConfig = {
   },
   person: {
     label: 'Person',
+    plural: 'People',
     cssClass: 'person',
     bg: '#4a2c1a', // Warm orange - human, friendly
     text: '#fb923c',
@@ -60,6 +66,7 @@ export const typeConfig = {
   },
   event: {
     label: 'Event',
+    plural: 'Events',
     cssClass: 'event',
     bg: '#4a1a2e', // Rose - time-sensitive, important
     text: '#fb7185',
@@ -67,6 +74,7 @@ export const typeConfig = {
   },
   topic: {
     label: 'Topic',
+    plural: 'Topics',
     cssClass: 'topic',
     bg: '#1a4a4a', // Teal - discussion, knowledge
     text: '#2dd4bf',
@@ -74,6 +82,7 @@ export const typeConfig = {
   },
   organization: {
     label: 'Organization',
+    plural: 'Organizations',
     cssClass: 'organization',
     bg: '#2a2a5a', // Indigo - corporate, formal
     text: '#818cf8',
@@ -81,6 +90,7 @@ export const typeConfig = {
   },
   component: {
     label: 'Component',
+    plural: 'Components',
     cssClass: 'component',
     bg: '#1a3a3a', // Cyan - technical, modular
     text: '#22d3d3',
@@ -88,6 +98,7 @@ export const typeConfig = {
   },
   tag: {
     label: 'Tag',
+    plural: 'Tags',
     cssClass: 'tag',
     bg: '#1a3a4a', // Blue-teal - categorization, labeling
     text: '#5dade2',
@@ -124,6 +135,11 @@ export function getTypeIcon(type) {
   const config = typeConfig[type]
   if (!config) return `<span>${type?.[0]?.toUpperCase() || '?'}</span>`
   return config.icon
+}
+
+/** The plural a list of this type is headed with: 'People', 'Organizations' */
+export function getTypePlural(type) {
+  return typeConfig[type]?.plural || getTypeLabel(type)
 }
 
 export function getTypeLabel(type) {

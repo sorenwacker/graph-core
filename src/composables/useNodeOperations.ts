@@ -12,6 +12,7 @@ import {
 } from '../commands/index.js'
 import { pickNodeFields, NODE_UPDATE_FIELDS } from '../utils/nodeFields.js'
 import type { Api, Node, NodeType, Command, WorkspaceId } from '../types'
+import { parentForCreation } from '../utils/typeListings'
 
 /**
  * Options for useNodeOperations composable.
@@ -54,7 +55,8 @@ export type OperationResult =
 export interface CreateNodeParams {
   title: string
   type?: NodeType | string
-  parentId?: number | null
+  /** The parent, or a type listing's id, which means the top level */
+  parentId?: number | string | null
   x?: number
   y?: number
 }
@@ -184,9 +186,12 @@ export function useNodeOperations({
   /**
    * Create a new node.
    */
-  async function createNode({ title, type, parentId, x, y }: CreateNodeParams): Promise<Node | null> {
+  async function createNode({ title, type, parentId: requestedParent, x, y }: CreateNodeParams): Promise<Node | null> {
     return withProcessing(async () => {
       const nodeType = type || 'task'
+      // Inside a type listing there is no container to add to: the node goes
+      // to the top level (utils/typeListings.ts)
+      const parentId = parentForCreation(requestedParent) as number | null | undefined
       const today = new Date().toISOString().split('T')[0]
       const trimmedTitle = typeof title === 'string' ? title.trim() : title
       const nodeData = {

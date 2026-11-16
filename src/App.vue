@@ -34,6 +34,7 @@ import DetailPanel from './components/DetailPanel.vue'
 import ViewRenderer from './components/ViewRenderer.vue'
 import NodeContextMenu from './components/NodeContextMenu.vue'
 import AddNodeModal from './components/AddNodeModal.vue'
+import { typeOfListing } from './utils/typeListings'
 import ToastContainer from './components/ToastContainer.vue'
 import PromptModal from './components/PromptModal.vue'
 import { usePrompt } from './composables/usePrompt.js'
@@ -181,6 +182,7 @@ const {
   recentItems,
   favoriteItems,
   allTags,
+  typeCounts,
   trashedItems,
   orphanedNodes,
   buildChildTree,
@@ -296,9 +298,9 @@ const { expandedIds, toggleExpand, expandAll, collapseAll, expandAncestors, load
   flatChildren,
 })
 
-// Auto-expand tree to show current container
+// Auto-expand tree to show current container (a type listing is not in the tree)
 watch(currentContainerId, newId => {
-  if (newId) {
+  if (typeof newId === 'number') {
     expandAncestors(newId)
     expandedIds.value.add(newId) // Also expand the current node to show its children
     expandedIds.value = new Set(expandedIds.value) // Trigger reactivity
@@ -404,6 +406,10 @@ watch(currentContainer, container => {
     maxDepth: graphMaxDepth.value,
     visibleTypes: workspaceGraphSettings.visibleTypes.value,
   })
+  // Inside a type listing the add bar offers that type: a node added from the
+  // list of people is a person (utils/typeListings.ts)
+  const listedType = typeOfListing(container?.id)
+  if (listedType) newNodeType.value = listedType
 })
 
 // Navigation
@@ -672,7 +678,7 @@ const {
 // deletes behave like every other node deletion: undo command,
 // view/sidebar/tags refresh, and navigation away when the deleted tag (or an
 // ancestor) is the current container.
-const { selectTag, navigateToTag, deleteTag } = useTagActions({
+const { selectTag, navigateToTag, navigateToType, deleteTag } = useTagActions({
   searchQuery,
   showSearch,
   onSearchInput,
@@ -695,6 +701,7 @@ const { createNode, createNodeAtPosition, addChildFromDetail, showAddNodeModal, 
     selectNode,
     loadChildren,
     loadSidebarTree,
+    loadTags,
     refreshAfterChange,
     hideTooltip,
     expandedIds,
@@ -871,6 +878,7 @@ useAppLifecycle({
       :sidebar-tree="sidebarTree"
       :favorite-items="favoriteItems"
       :all-tags="allTags"
+      :type-counts="typeCounts"
       :expanded-ids="sidebarExpandedIds"
       @toggle-pin="sidebarPinned = !sidebarPinned"
       @enter="enterContainer"
@@ -878,6 +886,7 @@ useAppLifecycle({
       @toggle-expand="toggleSidebarExpand"
       @select-tag="selectTag"
       @navigate-tag="navigateToTag"
+      @navigate-type="navigateToType"
       @delete-tag="deleteTag"
       @navigate-root="navigateToBreadcrumb(-1)"
       @mouseenter="onSidebarEnter"

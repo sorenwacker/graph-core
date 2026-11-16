@@ -2,7 +2,7 @@
  * API interface definitions for graph-core.
  */
 
-import type { Node, CreateNodeData, UpdateNodeData, TreeNode, NodeLink, NodeNotes, NodeVersion } from './node'
+import type { Node, NodeType, CreateNodeData, UpdateNodeData, TreeNode, NodeLink, NodeNotes, NodeVersion } from './node'
 import type { Workspace, WorkspaceId, CreateWorkspaceData, UpdateWorkspaceData } from './workspace'
 
 /**
@@ -42,6 +42,12 @@ export interface SearchOptions {
  */
 export interface GetNodesByTagOptions {
   hideCompleted?: boolean
+}
+
+/** How many nodes of one type a workspace holds; types with none are absent. */
+export interface NodeTypeCount {
+  type: NodeType
+  count: number
 }
 
 /**
@@ -260,6 +266,10 @@ export interface Api {
   getOrCreateTagNode?(name: string, workspaceId?: WorkspaceId | null): Promise<Node>
   getNodesLinkedToTag?(tagNodeId: number, options?: GetNodesByTagOptions): Promise<Node[]>
   searchTagNodes?(query: string, workspaceId?: WorkspaceId | null, limit?: number): Promise<Node[]>
+
+  // Node types as tags (docs/reference/node-types.md, "Every type is also a list")
+  getNodesOfType(type: NodeType, workspaceId?: WorkspaceId | null): Promise<Node[]>
+  getNodeTypeCounts(workspaceId?: WorkspaceId | null): Promise<NodeTypeCount[]>
 
   // Workspaces
   getWorkspaces(): Promise<Workspace[]>

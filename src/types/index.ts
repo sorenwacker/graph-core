@@ -23,6 +23,7 @@ export type {
   GetTasksParams,
   SearchOptions,
   GetNodesByTagOptions,
+  NodeTypeCount,
   ConnectionTestResult,
   OllamaGenerateOptions,
   OpenAIGenerateOptions,

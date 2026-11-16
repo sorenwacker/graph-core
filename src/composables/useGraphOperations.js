@@ -1,4 +1,5 @@
 import { useErrorHandler } from './useErrorHandler.js'
+import { parentForCreation } from '../utils/typeListings'
 
 /**
  * Composable for graph-specific operations like inserting nodes between edges
@@ -67,7 +68,7 @@ export function useGraphOperations({
         const newNode = await api.createNode({
           title,
           type: nodeType,
-          parent_id: currentContainerId.value,
+          parent_id: parentForCreation(currentContainerId.value),
           workspace_id: getWorkspaceIdForNode(nodeType),
         })
         await api.linkNodes(parentId, newNode.id)

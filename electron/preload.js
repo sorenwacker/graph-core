@@ -74,6 +74,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getOrCreateTagNode: (name, workspaceId) => ipcRenderer.invoke(C.DB_GET_OR_CREATE_TAG_NODE, name, workspaceId),
   getNodesLinkedToTag: (tagNodeId, options) => ipcRenderer.invoke(C.DB_GET_NODES_LINKED_TO_TAG, tagNodeId, options),
   searchTagNodes: (query, workspaceId, limit) => ipcRenderer.invoke(C.DB_SEARCH_TAG_NODES, query, workspaceId, limit),
+  getNodesOfType: (type, workspaceId) => ipcRenderer.invoke(C.DB_GET_NODES_OF_TYPE, type, workspaceId),
+  getNodeTypeCounts: workspaceId => ipcRenderer.invoke(C.DB_GET_NODE_TYPE_COUNTS, workspaceId),
 
   // Workspaces
   getWorkspaces: () => ipcRenderer.invoke(C.DB_GET_WORKSPACES),

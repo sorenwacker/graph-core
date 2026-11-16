@@ -6,6 +6,8 @@
 
 import type {
   Node,
+  NodeType,
+  NodeTypeCount,
   CreateNodeData,
   UpdateNodeData,
   TreeNode,
@@ -123,6 +125,8 @@ interface ElectronAPI {
   getOrCreateTagNode(name: string, workspaceId?: WorkspaceId | null): Promise<Node>
   getNodesLinkedToTag(tagNodeId: number, options?: GetNodesByTagOptions): Promise<(Node | null)[]>
   searchTagNodes(query: string, workspaceId?: WorkspaceId | null, limit?: number): Promise<(Node | null)[]>
+  getNodesOfType(type: NodeType, workspaceId?: WorkspaceId | null): Promise<(Node | null)[]>
+  getNodeTypeCounts(workspaceId?: WorkspaceId | null): Promise<NodeTypeCount[]>
   getWorkspaces(): Promise<(Workspace | null)[]>
   getWorkspace(id: WorkspaceId): Promise<Workspace | null>
   createWorkspace(data: CreateWorkspaceData): Promise<Workspace>
@@ -527,6 +531,14 @@ const webApi: Api = {
     return []
   },
 
+  async getNodesOfType(): Promise<Node[]> {
+    return []
+  },
+
+  async getNodeTypeCounts(): Promise<NodeTypeCount[]> {
+    return []
+  },
+
   // Workspaces
   async getWorkspaces(): Promise<Workspace[]> {
     return request<Workspace[]>('/workspaces')
@@ -890,6 +902,14 @@ const electronApi: Api = {
   async searchTagNodes(query: string, workspaceId?: WorkspaceId | null, limit?: number): Promise<Node[]> {
     return filterNulls(await window.electronAPI!.searchTagNodes(query, workspaceId, limit))
   },
+
+  // Node types as tags
+  async getNodesOfType(type: NodeType, workspaceId?: WorkspaceId | null): Promise<Node[]> {
+    return filterNulls(await window.electronAPI!.getNodesOfType(type, workspaceId))
+  },
+
+  getNodeTypeCounts: (workspaceId?: WorkspaceId | null): Promise<NodeTypeCount[]> =>
+    window.electronAPI!.getNodeTypeCounts(workspaceId),
 
   // Workspaces
   async getWorkspaces(): Promise<Workspace[]> {

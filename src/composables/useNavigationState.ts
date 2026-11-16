@@ -1,5 +1,6 @@
 import { ref, watch, type Ref } from 'vue'
 import type { Node, TreeNode } from '../types/node'
+import type { ContainerId } from './useNavigation'
 
 /**
  * Navigation composable interface for syncing state.
@@ -8,7 +9,7 @@ export interface NavigationComposable {
   children: Ref<TreeNode[]>
   breadcrumbs: Ref<Node[]>
   currentContainer: Ref<Node | null>
-  currentContainerId: Ref<number | null>
+  currentContainerId: Ref<ContainerId>
 }
 
 /**
@@ -16,7 +17,7 @@ export interface NavigationComposable {
  */
 export interface UseNavigationStateReturn {
   /** Current container ID (null for root) */
-  currentContainerId: Ref<number | null>
+  currentContainerId: Ref<ContainerId>
   /** Current container node */
   currentContainer: Ref<Node | null>
   /** Breadcrumb path from root to current container */
@@ -36,7 +37,7 @@ export interface UseNavigationStateReturn {
  * @returns Navigation state refs and utilities
  */
 export function useNavigationState(): UseNavigationStateReturn {
-  const currentContainerId = ref<number | null>(null)
+  const currentContainerId = ref<ContainerId>(null)
   const currentContainer = ref<Node | null>(null)
   const breadcrumbs = ref<Node[]>([])
   const children = ref<TreeNode[]>([])

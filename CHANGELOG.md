@@ -6,6 +6,7 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 
 ### Added
 
+- Every node type is also a tag ([reference](docs/reference/node-types.md#every-type-is-also-a-list)). The sidebar legend shows how many nodes of each type the workspace holds, and clicking a type lists all of them in one place, so every person or every organization can be seen together however they are filed. The list is a virtual container: it has a breadcrumb, works in every view, and a node added while it is open goes to the top level as that type.
 - Version history for a node's title and notes ([guide](docs/guides/detail-panel.md#version-history)). The History button in the detail panel's notes row lists the earlier versions, shows each one rendered, and restores the chosen one as a single undo step. A version is kept by every write that replaces the title or notes, from the editor, the AI toolbar, undo or an import alike; writes within ten minutes of the last kept version extend it, a restore is always kept, and a hundred versions per node are kept. Sensitive notes stay hidden in the history until the node's own notes are shown.
 
 ### Changed
