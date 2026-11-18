@@ -47,11 +47,11 @@ const notesSectionRef = ref(null)
 
 // Section state, driven by the section bar
 const notesCollapsed = ref(false)
-const metadataCollapsed = ref(true)
+const metadataCollapsed = ref(false) // a person opens on its details (docs/guides/detail-panel.md)
 
 const sections = computed(() => [
-  { key: 'notes', label: 'Notes', open: !notesCollapsed.value },
   { key: 'details', label: 'Details', open: !metadataCollapsed.value },
+  { key: 'notes', label: 'Notes', open: !notesCollapsed.value },
 ])
 
 function toggleSection(key) {
@@ -202,31 +202,6 @@ defineExpose({ loadLinkedOrganizations, getNotesSelection })
   <div class="detail-form">
     <SectionBar :sections="sections" @toggle="toggleSection" />
     <div class="person-form collapsible-sections">
-      <!-- Notes Section -->
-      <div v-show="!notesCollapsed" class="notes-section">
-        <div class="section-content">
-          <NotesSection
-            ref="notesSectionRef"
-            :notes="editedNode.notes || ''"
-            :withheld="Boolean(editedNode.notes_withheld)"
-            :locked="notesLocked"
-            :touch-id="notesTouchId"
-            :reveal-error="revealError"
-            :node-id="editedNode.id"
-            :workspace-id="currentWorkspace"
-            :active-tab="activeTab"
-            css-class="person-notes"
-            @update:notes="onNotesUpdate"
-            @update:active-tab="$emit('update:activeTab', $event)"
-            @blur="saveChanges"
-            @ai-improve="$emit('ai-improve-notes', $event)"
-            @mention-inserted="$emit('reload-links')"
-            @reveal="$emit('reveal-notes')"
-            @unlock-touch-id="$emit('unlock-touch-id')"
-          />
-        </div>
-      </div>
-
       <!-- Metadata Section -->
       <div v-show="!metadataCollapsed" class="meta-section">
         <div class="section-content">
@@ -340,6 +315,31 @@ defineExpose({ loadLinkedOrganizations, getNotesSelection })
             :id="editedNode.id"
             :created-at="editedNode.created_at"
             :updated-at="editedNode.updated_at"
+          />
+        </div>
+      </div>
+
+      <!-- Notes Section -->
+      <div v-show="!notesCollapsed" class="notes-section">
+        <div class="section-content">
+          <NotesSection
+            ref="notesSectionRef"
+            :notes="editedNode.notes || ''"
+            :withheld="Boolean(editedNode.notes_withheld)"
+            :locked="notesLocked"
+            :touch-id="notesTouchId"
+            :reveal-error="revealError"
+            :node-id="editedNode.id"
+            :workspace-id="currentWorkspace"
+            :active-tab="activeTab"
+            css-class="person-notes"
+            @update:notes="onNotesUpdate"
+            @update:active-tab="$emit('update:activeTab', $event)"
+            @blur="saveChanges"
+            @ai-improve="$emit('ai-improve-notes', $event)"
+            @mention-inserted="$emit('reload-links')"
+            @reveal="$emit('reveal-notes')"
+            @unlock-touch-id="$emit('unlock-touch-id')"
           />
         </div>
       </div>

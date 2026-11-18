@@ -54,7 +54,7 @@ The detail panel is divided into sections that open and close from the section b
 
 ### Section Bar
 
-One bar under the title holds a button for every section: Notes, Table, Tasks and Metadata for most nodes; Notes and Details for persons and organizations. The buttons keep the same order and the same position whichever sections are open, in the side panel, in fullscreen mode and in a detached window.
+One bar under the title holds a button for every section: Notes, Table, Tasks and Metadata for most nodes; Notes and Details for organizations; Details and Notes for persons. A person opens with both sections open, Details on top and Notes beneath, so the contact data is the first thing shown. The buttons keep the same order and the same position whichever sections are open, in the side panel, in fullscreen mode and in a detached window.
 
 - Clicking a button opens or closes its section. The button of an open section is highlighted.
 - The Tasks button shows the completed and total task counts when the node has tasks.
