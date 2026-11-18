@@ -109,17 +109,16 @@
       "icon": "resources/icon.icns",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "identity": null,
+      "identity": "-",
       "target": [
         "dmg",
         "zip"
       ]
     },
-    "afterPack": "scripts/sign-mac.js",
     "mas": {
       "category": "public.app-category.productivity",
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.inherit.plist",
+      "entitlements": "build/entitlements.mas.plist",
+      "entitlementsInherit": "build/entitlements.mas.inherit.plist",
       "hardenedRuntime": false
     },
     "dmg": {

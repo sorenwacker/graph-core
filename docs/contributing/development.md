@@ -75,7 +75,7 @@ npm run electron:build
 
 `make install-mac` builds a DMG and copies the app into `/Applications`. This is how work is tried out between releases; it is not a release.
 
-Those builds are ad-hoc signed, because `build.mac.identity` is `null` in `package.json` and must stay that way - CI has no signing certificate, and setting one there would break the release workflow. An ad-hoc signature has no certificate behind it, so the app's designated requirement is a bare hash of the binary:
+Those builds are ad-hoc signed by electron-builder, because `build.mac.identity` is `"-"` in `package.json` and must stay that way - CI has no signing certificate, and setting one there would break the release workflow. An ad-hoc signature has no certificate behind it, so the app's designated requirement is a bare hash of the binary:
 
 ```
 codesign -d -r- "/Applications/Graph Core.app"
