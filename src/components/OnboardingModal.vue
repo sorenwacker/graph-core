@@ -62,8 +62,7 @@
             </div>
 
             <p class="tip">
-              Press <kbd>{{ modifierKey }}</kbd
-              ><kbd>/</kbd> anytime to see all shortcuts.
+              Press <kbd>{{ modifierKey }}</kbd><kbd>/</kbd> anytime to see all shortcuts.
             </p>
 
             <!-- Demo workspace option -->
