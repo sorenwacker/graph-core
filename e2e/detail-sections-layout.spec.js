@@ -226,8 +226,11 @@ test('a person node has the same bar and the same notes share', async () => {
   await ctx.page.locator('.detail-panel .meta-section select').first().selectOption('person')
   await expect(ctx.page.locator('.detail-panel .person-form')).toBeVisible()
 
+  // A person opens on its details, notes beneath (docs/guides/detail-panel.md);
+  // close them so opening them below can be measured.
+  await setOpen(ctx.page, 'details', false)
   const before = (await measure(ctx.page)).buttons
-  expect(Object.keys(before)).toEqual(['notes', 'details'])
+  expect(Object.keys(before)).toEqual(['details', 'notes'])
   await setOpen(ctx.page, 'details', true)
   const m = await measure(ctx.page)
   for (const key of ['notes', 'details']) {
