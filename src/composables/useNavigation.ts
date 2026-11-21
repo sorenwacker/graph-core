@@ -167,6 +167,22 @@ export function useNavigation({
   /**
    * Build a nested tree from flat descendants (internal version).
    */
+  /**
+   * Each node with its own subtree beneath it, as the top level shows each
+   * root: used by a tag view and a type listing, whose rows are not children
+   * of the container but still have children of their own. Tag nodes stay
+   * hidden among them.
+   */
+  async function withSubtrees(nodes: Node[]): Promise<TreeNode[]> {
+    const buildFn = externalBuildChildTree || internalBuildChildTree
+    return Promise.all(
+      nodes.map(async node => {
+        const descendants = ((await api.getDescendants(node.id)) || []).filter(d => d && d.type !== 'tag') as Node[]
+        return { ...node, children: buildFn(descendants, node.id) } as TreeNode
+      })
+    )
+  }
+
   function internalBuildChildTree(flatNodes: Node[], parentId: number, parentCompleted = false): TreeNode[] {
     if (!flatNodes) return []
     const childNodes = flatNodes.filter(n => n && n.parent_id === parentId)
@@ -281,9 +297,10 @@ export function useNavigation({
         const listedType = typeOfListing(containerId)!
         const container = makeTypeListing(listedType)
         const nodes = await api.getNodesOfType(listedType, workspace?.value ?? null)
+        const rows = await withSubtrees(applyWorkspaceFilter(nodes))
         if (!isCurrent()) return
         currentContainer.value = container
-        children.value = applyWorkspaceFilter(nodes).map(n => ({ ...n, children: [] }) as TreeNode)
+        children.value = rows
         breadcrumbs.value = [container]
         if (onBreadcrumbsBuilt) {
           onBreadcrumbsBuilt(breadcrumbs.value)
@@ -297,11 +314,9 @@ export function useNavigation({
         // Tag nodes show linked nodes instead of children
         if (container?.type === 'tag') {
           const linkedNodes = await api.getLinkedNodes(containerId as number)
+          const rows = await withSubtrees((linkedNodes || []).filter(n => n && n.type !== 'tag'))
           if (!isCurrent()) return
-          // Convert linked nodes to tree nodes (flat, no nested children for tags)
-          children.value = (linkedNodes || [])
-            .filter(n => n && n.type !== 'tag') // Exclude other tags
-            .map(n => ({ ...n, children: [] }) as TreeNode)
+          children.value = rows
         } else {
           // Regular container - get children
           const containerChildren = await api.getChildren(containerId as number)
