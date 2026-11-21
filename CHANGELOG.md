@@ -2,39 +2,27 @@
 
 All notable changes to Graph Core are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow semantic versioning. Releases are tag-driven: only tagged versions ship.
 
-## [Unreleased]
+## [1.20.0] - 2026-10-12
 
 ### Added
 
 - Every node type is also a tag ([reference](docs/reference/node-types.md#every-type-is-also-a-list)). The sidebar legend shows how many nodes of each type the workspace holds, and clicking a type lists all of them in one place, so every person or every organization can be seen together however they are filed. The list is a virtual container: it has a breadcrumb, works in every view, and a node added while it is open goes to the top level as that type.
 - Version history for a node's title and notes ([guide](docs/guides/detail-panel.md#version-history)). The History button in the detail panel's notes row lists the earlier versions, shows each one rendered, and restores the chosen one as a single undo step. A version is kept by every write that replaces the title or notes, from the editor, the AI toolbar, undo or an import alike; writes within ten minutes of the last kept version extend it, a restore is always kept, and a hundred versions per node are kept. Sensitive notes stay hidden in the history until the node's own notes are shown.
 
-### Changed
-
-- macOS builds are ad-hoc signed by electron-builder itself (`identity: "-"`) instead of by an afterPack hook that ran `codesign` by hand and logged, rather than failed on, a signing error. The Mac App Store sandbox entitlements moved to `build/entitlements.mas.plist`, so that only the App Store target applies them; electron-builder had been applying them to the download build as well. The release workflow now verifies the signature of the packaged app, and CI packages the macOS app on every pull request to check it.
-- Entering a node that shows no children opens its detail panel without navigating into it ([guide](docs/guides/detail-panel.md#opening-the-panel)). Double-clicking such a node, pressing Enter on it, or picking it in search used to land inside it and open the panel there; closing the panel, in fullscreen especially, then left a view with only that node or none at all, which read as a broken graph or a wrong location. The view now stays where the node is visible - the current view when it lists the node, otherwise its parent - so closing the panel returns to it. A first child is added from the panel or the context menu. Going back and the breadcrumbs still enter such a node.
-
-### Fixed
-
-- A cleared start date on a task or project no longer comes back after a restart. One-off data migrations now run once per database, tracked in `PRAGMA user_version`, instead of on every launch.
-- CSV import turns the `tags` column into linked tag nodes, reusing existing tags, and CSV export writes each node's linked tags. Imported tags used to stay as old-style strings that only showed as chips, and exports had an empty tags column.
-- The graph shows the node you entered whenever Show root node is on ([guide](docs/guides/views.md#display-options)). A completed node while completed nodes were hidden, or a node of a filtered-out type, was left out as the root, so entering such a leaf gave an empty graph. The filters apply to the children only.
-
-- Show root node is honoured at a leaf. A node with no visible children was always drawn as the root, so turning the toggle off there did nothing. With the root hidden and nothing else to draw, the empty view now says the root is hidden and how to show it. The "This view is empty" message no longer covers a leaf that is drawn as the root.
-
-- The graph no longer gets stuck on the previous view after entering a node. The container is set before its children load, and when entering it also rebuilt the graph (a different root-node or filter setting), the children's update arrived during the rebuild and was dropped, so the old view stayed until another change or a reload. It is now applied once the rebuild finishes. A failed rebuild no longer blocks every later update, and layout timers of a replaced graph no longer touch the destroyed instance.
-
-- Entering a node no longer stores the workspace's Show root node default on it as that node's own setting, which made later changes to the default skip every node visited in between.
-
-- Search no longer finds nodes the graph cannot show. Changing a node's workspace, from the detail panel or the context menu, moved that node alone: its descendants stayed in the old workspace, where search still found them, while no graph showed them because every tree query follows the workspace of the node it starts from. A moved child also kept its parent in the old workspace and so appeared in neither. The whole subtree now moves along, trashed members included, and a child taken out of its parent's workspace becomes a root there. Moving a node under a parent from another workspace takes the subtree into that workspace. Nodes already stranded this way show up in Lost & Found, from where they can be moved to the root.
-
-## [1.20.0] - 2026-10-12
+- The Tasks view is a Kanban board ([guide](docs/guides/views.md#tasks-view)), replacing its table. Done holds the completed tasks; In progress holds tasks marked so by dragging them there, a mark stored on the task and kept through a CSV export and import. A drag into In progress also sets the start date to today, and a drag into Done completes the task, which stamps the end date as completing elsewhere does. Moves can be undone.
 
 ### Security
 
 - Dependencies are updated past the advisories `npm audit` reported at high severity or above, in `axios`, `joi`, `undici`, `braces`, `http-cache-semantics` and `shell-quote`. All of them are build and test tooling except the diagram library's bundled formula renderer. The updates include new major versions of the diagram library (mermaid 12), the test runner (vitest 5) and the dead-code tool (knip 6).
 
 ### Changed
+
+- A tag view and a type list show each node with its own children beneath it, as the top level does ([reference](docs/reference/node-types.md#every-type-is-also-a-list)). Both used to list every node as a bare row, so its child nodes could not be seen. Tag nodes stay hidden among the children.
+
+- A person opens on its Details, with the Notes beneath ([guide](docs/guides/detail-panel.md)). The notes came first and the details were collapsed.
+
+- macOS builds are ad-hoc signed by electron-builder itself (`identity: "-"`) instead of by an afterPack hook that ran `codesign` by hand and logged, rather than failed on, a signing error. The Mac App Store sandbox entitlements moved to `build/entitlements.mas.plist`, so that only the App Store target applies them; electron-builder had been applying them to the download build as well. The release workflow now verifies the signature of the packaged app, and CI packages the macOS app on every pull request to check it.
+- Entering a node that shows no children opens its detail panel without navigating into it ([guide](docs/guides/detail-panel.md#opening-the-panel)). Double-clicking such a node, pressing Enter on it, or picking it in search used to land inside it and open the panel there; closing the panel, in fullscreen especially, then left a view with only that node or none at all, which read as a broken graph or a wrong location. The view now stays where the node is visible - the current view when it lists the node, otherwise its parent - so closing the panel returns to it. A first child is added from the panel or the context menu. Going back and the breadcrumbs still enter such a node.
 
 - A card on the Tasks board answers the mouse as cards do elsewhere ([guide](docs/guides/views.md#tasks-view)): a click selects it and a double click navigates into it. A click used to open the task outright, which no other view does.
 
@@ -49,6 +37,18 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 - A selected node in the graph keeps the border and background of its type and gains an outer frame ([guide](docs/guides/views.md#graph-view)). Selection used to repaint the border and the background in the accent colour, and the border colour is how the graph shows a node's type, so the type could not be read off a selected node. The frame is white in the dark theme and dark in the light theme, where a white frame would not show.
 
 ### Fixed
+
+- A cleared start date on a task or project no longer comes back after a restart. One-off data migrations now run once per database, tracked in `PRAGMA user_version`, instead of on every launch.
+- CSV import turns the `tags` column into linked tag nodes, reusing existing tags, and CSV export writes each node's linked tags. Imported tags used to stay as old-style strings that only showed as chips, and exports had an empty tags column.
+- The graph shows the node you entered whenever Show root node is on ([guide](docs/guides/views.md#display-options)). A completed node while completed nodes were hidden, or a node of a filtered-out type, was left out as the root, so entering such a leaf gave an empty graph. The filters apply to the children only.
+
+- Show root node is honoured at a leaf. A node with no visible children was always drawn as the root, so turning the toggle off there did nothing. With the root hidden and nothing else to draw, the empty view now says the root is hidden and how to show it. The "This view is empty" message no longer covers a leaf that is drawn as the root.
+
+- The graph no longer gets stuck on the previous view after entering a node. The container is set before its children load, and when entering it also rebuilt the graph (a different root-node or filter setting), the children's update arrived during the rebuild and was dropped, so the old view stayed until another change or a reload. It is now applied once the rebuild finishes. A failed rebuild no longer blocks every later update, and layout timers of a replaced graph no longer touch the destroyed instance.
+
+- Entering a node no longer stores the workspace's Show root node default on it as that node's own setting, which made later changes to the default skip every node visited in between.
+
+- Search no longer finds nodes the graph cannot show. Changing a node's workspace, from the detail panel or the context menu, moved that node alone: its descendants stayed in the old workspace, where search still found them, while no graph showed them because every tree query follows the workspace of the node it starts from. A moved child also kept its parent in the old workspace and so appeared in neither. The whole subtree now moves along, trashed members included, and a child taken out of its parent's workspace becomes a root there. Moving a node under a parent from another workspace takes the subtree into that workspace. Nodes already stranded this way show up in Lost & Found, from where they can be moved to the root.
 
 - Note text on a card starts at the same left edge as the title ([guide](docs/guides/views.md#cards-view)). The note was padded 24px on the left while the title row used the card size's own padding, so the note sat visibly right of the title. Both now take their horizontal padding from one per-size value. Ordered-list numbers in a card note render inside the note box: a line such as `260720. The root disk ...` is an ordered list in Markdown, and with the marker outside the box a six-digit number hung past the card's left edge.
 
@@ -71,10 +71,6 @@ All notable changes to Graph Core are documented here. The format follows [Keep 
 - The table section is no taller than its contents. It reserved 200px, 300px in fullscreen, which left an empty area under a short table and around the Add Table button, and in fullscreen it forced a horizontal scrollbar on the sections below the notes.
 
 - A node shown in the graph because it is linked from the current container displays its note preview ([guide](docs/guides/linking.md#in-graph-view)). Linked nodes from elsewhere in the hierarchy are added to the graph by a separate code path, which left out the flag that says previews are on, so such a node showed its title only, whatever its notes held.
-
-### Added
-
-- The Tasks view is a Kanban board ([guide](docs/guides/views.md#tasks-view)), replacing its table. Done holds the completed tasks; In progress holds tasks marked so by dragging them there, a mark stored on the task and kept through a CSV export and import. A drag into In progress also sets the start date to today, and a drag into Done completes the task, which stamps the end date as completing elsewhere does. Moves can be undone.
 
 ## [1.19.0] - 2026-09-24
 
