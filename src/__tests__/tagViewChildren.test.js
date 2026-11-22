@@ -52,3 +52,23 @@ describe('tag views show children', () => {
     expect(titles(nav.children.value[0].children)).not.toContain('Nested tag')
   })
 })
+
+describe('type listing without repeats', () => {
+  const doneProject = { ...project, completed: true }
+
+  it('a listed node is not repeated beneath another listed node', async () => {
+    const nav = setup({
+      getNodesOfType: vi.fn().mockResolvedValue([task, subtask]),
+      getDescendants: vi.fn(async id => (id === 8 ? [subtask] : [])),
+    })
+    await nav.loadChildren('type:task')
+    expect(titles(nav.children.value)).toEqual(['Task', 'Subtask'])
+    expect(titles(nav.children.value[0].children)).toEqual([])
+  })
+
+  it('children of a completed listed node show as completed', async () => {
+    const nav = setup({ getNodesOfType: vi.fn().mockResolvedValue([doneProject]) })
+    await nav.loadChildren('type:project')
+    expect(nav.children.value[0].children[0].inheritedCompleted).toBe(true)
+  })
+})
