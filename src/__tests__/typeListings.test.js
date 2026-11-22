@@ -100,6 +100,7 @@ describe('navigating into a type listing', () => {
       getNode: vi.fn(),
       getChildren: vi.fn().mockResolvedValue([]),
       getDescendants: vi.fn().mockResolvedValue([]),
+      getDescendantsBatch: vi.fn(async ids => new Map(ids.map(id => [id, []]))),
       getAncestors: vi.fn().mockResolvedValue([]),
       getRoots: vi.fn().mockResolvedValue([]),
       getNodesOfType: vi.fn().mockResolvedValue([
