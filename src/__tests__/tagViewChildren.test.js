@@ -23,6 +23,9 @@ function setup(extra) {
     getNodesOfType: vi.fn().mockResolvedValue([project]),
     ...extra,
   }
+  api.getDescendantsBatch ??= vi.fn(
+    async ids => new Map(await Promise.all(ids.map(async id => [id, await api.getDescendants(id)])))
+  )
   return useNavigation({ api, workspace: ref('work') })
 }
 
@@ -70,5 +73,20 @@ describe('type listing without repeats', () => {
     const nav = setup({ getNodesOfType: vi.fn().mockResolvedValue([doneProject]) })
     await nav.loadChildren('type:project')
     expect(nav.children.value[0].children[0].inheritedCompleted).toBe(true)
+  })
+})
+
+describe('subtrees load in one request', () => {
+  it('a list of many nodes fetches all their children in a single batch call', async () => {
+    const getDescendants = vi.fn(async id => (id === 7 ? [task, subtask] : []))
+    const getDescendantsBatch = vi.fn(async ids => new Map(ids.map(id => [id, id === 7 ? [task, subtask] : []])))
+    const nav = setup({
+      getNodesOfType: vi.fn().mockResolvedValue([project, { ...project, id: 11 }, { ...project, id: 12 }]),
+      getDescendants,
+      getDescendantsBatch,
+    })
+    await nav.loadChildren('type:project')
+    expect(getDescendants).not.toHaveBeenCalled()
+    expect(titles(nav.children.value[0].children)).toEqual(['Task'])
   })
 })

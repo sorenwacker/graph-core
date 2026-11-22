@@ -11,6 +11,7 @@ describe('useNavigation composable', () => {
       getNode: vi.fn().mockResolvedValue({ id: 1, title: 'Test', parent_id: null }),
       getChildren: vi.fn().mockResolvedValue([]),
       getDescendants: vi.fn().mockResolvedValue([]),
+      getDescendantsBatch: vi.fn(async ids => new Map(ids.map(id => [id, []]))),
       getAncestors: vi.fn().mockResolvedValue([]),
       getRoots: vi.fn().mockResolvedValue([]),
     }

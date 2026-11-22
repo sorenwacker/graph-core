@@ -174,14 +174,14 @@ export function useNavigation({
   async function withSubtrees(nodes: Node[]): Promise<TreeNode[]> {
     const buildFn = externalBuildChildTree || internalBuildChildTree
     const rowIds = new Set(nodes.map(n => n.id))
-    return Promise.all(
-      nodes.map(async node => {
-        const descendants = ((await api.getDescendants(node.id)) || []).filter(
-          d => d && d.type !== 'tag' && !rowIds.has(d.id)
-        ) as Node[]
-        return { ...node, children: buildFn(descendants, node.id, !!node.completed) } as TreeNode
-      })
-    )
+    // One query for every row's subtree; a request per row grows with the list.
+    const byRow = nodes.length ? await api.getDescendantsBatch(nodes.map(n => n.id)) : new Map()
+    return nodes.map(node => {
+      const descendants = (byRow.get(node.id) || []).filter(
+        (d: Node | null) => d && d.type !== 'tag' && !rowIds.has(d.id)
+      ) as Node[]
+      return { ...node, children: buildFn(descendants, node.id, !!node.completed) } as TreeNode
+    })
   }
 
   /**
