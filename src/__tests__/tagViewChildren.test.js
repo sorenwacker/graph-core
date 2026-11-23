@@ -23,6 +23,9 @@ function setup(extra) {
     getNodesOfType: vi.fn().mockResolvedValue([project]),
     ...extra,
   }
+  api.getDescendantsBatch ??= vi.fn(
+    async ids => new Map(await Promise.all(ids.map(async id => [id, await api.getDescendants(id)])))
+  )
   return useNavigation({ api, workspace: ref('work') })
 }
 
@@ -50,5 +53,40 @@ describe('tag views show children', () => {
     const nav = setup()
     await nav.loadChildren(5)
     expect(titles(nav.children.value[0].children)).not.toContain('Nested tag')
+  })
+})
+
+describe('type listing without repeats', () => {
+  const doneProject = { ...project, completed: true }
+
+  it('a listed node is not repeated beneath another listed node', async () => {
+    const nav = setup({
+      getNodesOfType: vi.fn().mockResolvedValue([task, subtask]),
+      getDescendants: vi.fn(async id => (id === 8 ? [subtask] : [])),
+    })
+    await nav.loadChildren('type:task')
+    expect(titles(nav.children.value)).toEqual(['Task', 'Subtask'])
+    expect(titles(nav.children.value[0].children)).toEqual([])
+  })
+
+  it('children of a completed listed node show as completed', async () => {
+    const nav = setup({ getNodesOfType: vi.fn().mockResolvedValue([doneProject]) })
+    await nav.loadChildren('type:project')
+    expect(nav.children.value[0].children[0].inheritedCompleted).toBe(true)
+  })
+})
+
+describe('subtrees load in one request', () => {
+  it('a list of many nodes fetches all their children in a single batch call', async () => {
+    const getDescendants = vi.fn(async id => (id === 7 ? [task, subtask] : []))
+    const getDescendantsBatch = vi.fn(async ids => new Map(ids.map(id => [id, id === 7 ? [task, subtask] : []])))
+    const nav = setup({
+      getNodesOfType: vi.fn().mockResolvedValue([project, { ...project, id: 11 }, { ...project, id: 12 }]),
+      getDescendants,
+      getDescendantsBatch,
+    })
+    await nav.loadChildren('type:project')
+    expect(getDescendants).not.toHaveBeenCalled()
+    expect(titles(nav.children.value[0].children)).toEqual(['Task'])
   })
 })

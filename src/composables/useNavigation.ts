@@ -165,24 +165,28 @@ export function useNavigation({
   let lastLoadedContainerId: ContainerId = null
 
   /**
-   * Build a nested tree from flat descendants (internal version).
-   */
-  /**
    * Each node with its own subtree beneath it, as the top level shows each
    * root: used by a tag view and a type listing, whose rows are not children
    * of the container but still have children of their own. Tag nodes stay
-   * hidden among them.
+   * hidden among them, and a node that is itself a row is not repeated
+   * beneath another row.
    */
   async function withSubtrees(nodes: Node[]): Promise<TreeNode[]> {
     const buildFn = externalBuildChildTree || internalBuildChildTree
-    return Promise.all(
-      nodes.map(async node => {
-        const descendants = ((await api.getDescendants(node.id)) || []).filter(d => d && d.type !== 'tag') as Node[]
-        return { ...node, children: buildFn(descendants, node.id) } as TreeNode
-      })
-    )
+    const rowIds = new Set(nodes.map(n => n.id))
+    // One query for every row's subtree; a request per row grows with the list.
+    const byRow = nodes.length ? await api.getDescendantsBatch(nodes.map(n => n.id)) : new Map()
+    return nodes.map(node => {
+      const descendants = (byRow.get(node.id) || []).filter(
+        (d: Node | null) => d && d.type !== 'tag' && !rowIds.has(d.id)
+      ) as Node[]
+      return { ...node, children: buildFn(descendants, node.id, !!node.completed) } as TreeNode
+    })
   }
 
+  /**
+   * Build a nested tree from flat descendants (internal version).
+   */
   function internalBuildChildTree(flatNodes: Node[], parentId: number, parentCompleted = false): TreeNode[] {
     if (!flatNodes) return []
     const childNodes = flatNodes.filter(n => n && n.parent_id === parentId)
