@@ -22,9 +22,10 @@ Object.defineProperty(window, 'matchMedia', {
 
 const NODE = { id: 1, title: 'A note', type: 'note', notes: '', children: [] }
 
-function render() {
+function render(attrs = {}) {
   return mount(DetailPanel, {
     props: { node: NODE, width: 400, workspaces: [] },
+    attrs,
     global: {
       stubs: {
         NotesEditor: true,
@@ -136,15 +137,16 @@ describe('what a save asks the app to do', () => {
  */
 describe('leaving an edit unfinished', () => {
   it('saves text still waiting on the autosave timer when the panel closes', () => {
-    const w = render()
+    // A listener, not w.emitted(): the event history is cleared on unmount.
+    const onUpdate = vi.fn()
+    const w = render({ onUpdate })
     editor(w).vm.$emit('update:model-value', 'not yet written')
 
     w.unmount()
 
-    const saves = w.emitted('update')
-    expect(saves).toHaveLength(1)
-    expect(saves[0][0]).toMatchObject({ notes: 'not yet written' })
-    expect(saves[0][1]).toEqual({ refresh: true })
+    expect(onUpdate).toHaveBeenCalledTimes(1)
+    expect(onUpdate.mock.calls[0][0]).toMatchObject({ notes: 'not yet written' })
+    expect(onUpdate.mock.calls[0][1]).toEqual({ refresh: true })
   })
 
   it('asks for a reload when the editor is left for another tab', async () => {
