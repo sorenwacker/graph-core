@@ -111,9 +111,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   hideCapture: () => ipcRenderer.invoke(C.CAPTURE_HIDE),
   captureGetConfig: () => ipcRenderer.invoke(C.CAPTURE_GET_CONFIG),
   captureSetConfig: config => ipcRenderer.invoke(C.CAPTURE_SET_CONFIG, config),
-  onCaptureSaved: callback => {
-    ipcRenderer.on(C.CAPTURE_SAVED_EVENT, callback)
-    return () => ipcRenderer.removeListener(C.CAPTURE_SAVED_EVENT, callback)
+  mcpGetStatus: () => ipcRenderer.invoke(C.MCP_GET_STATUS),
+  mcpSetEnabled: enabled => ipcRenderer.invoke(C.MCP_SET_ENABLED, enabled),
+  mcpSetOpenWorkspace: workspaceId => ipcRenderer.invoke(C.MCP_SET_OPEN_WORKSPACE, workspaceId),
+  onMcpStatus: callback => {
+    const listener = (_event, status) => callback(status)
+    ipcRenderer.on(C.MCP_STATUS_EVENT, listener)
+    return () => ipcRenderer.removeListener(C.MCP_STATUS_EVENT, listener)
+  },
+  onDataChanged: callback => {
+    ipcRenderer.on(C.DATA_CHANGED_EVENT, callback)
+    return () => ipcRenderer.removeListener(C.DATA_CHANGED_EVENT, callback)
   },
   restoreBackup: backupPath => ipcRenderer.invoke(C.DB_RESTORE_BACKUP, backupPath),
   reload: () => ipcRenderer.invoke(C.DB_RELOAD),

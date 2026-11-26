@@ -574,15 +574,18 @@ const {
   },
 })
 
-// Refresh the current view when the quick-capture window saves a note
-// (docs/guides/quick-capture.md), so the new root item appears.
-let unsubCaptureSaved = null
+// Refresh the current view after a write made outside this window: quick
+// capture (docs/guides/quick-capture.md) or an MCP client (docs/architecture/mcp.md).
+let unsubDataChanged = null
 onMounted(() => {
-  unsubCaptureSaved = window.electronAPI?.onCaptureSaved?.(() => {
+  unsubDataChanged = window.electronAPI?.onDataChanged?.(() => {
     refreshAfterChange()
   })
 })
-onUnmounted(() => unsubCaptureSaved?.())
+onUnmounted(() => unsubDataChanged?.())
+
+// MCP clients that have not chosen a workspace follow this one (docs/architecture/mcp.md)
+watch(currentWorkspace, id => api.mcpSetOpenWorkspace?.(String(id)), { immediate: true })
 
 // Refresh operations
 const {

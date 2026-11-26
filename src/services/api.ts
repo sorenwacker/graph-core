@@ -66,6 +66,8 @@ export interface SensitiveStatus {
   touchId: boolean
 }
 
+import type { McpStatus } from '../types/api'
+
 export interface CaptureConfig {
   enabled: boolean
   accelerator: string
@@ -147,7 +149,11 @@ interface ElectronAPI {
   hideCapture(): Promise<void>
   captureGetConfig(): Promise<CaptureConfig>
   captureSetConfig(config: CaptureConfig): Promise<SecurityResult>
-  onCaptureSaved(callback: () => void): () => void
+  onDataChanged(callback: () => void): () => void
+  mcpGetStatus(): Promise<McpStatus>
+  mcpSetEnabled(enabled: boolean): Promise<McpStatus>
+  mcpSetOpenWorkspace(workspaceId: string): Promise<void>
+  onMcpStatus(callback: (status: McpStatus) => void): () => void
   backup(suffix?: string): Promise<{ path: string } | { error: string }>
   listBackups(): Promise<BackupInfo[]>
   restoreBackup(backupPath: string): Promise<{ success: boolean } | { error: string }>
@@ -612,7 +618,17 @@ const webApi: Api = {
   async captureSetConfig(): Promise<SecurityResult> {
     return { success: false, error: 'Quick capture is only available in the desktop app' }
   },
-  onCaptureSaved(): () => void {
+  onDataChanged(): () => void {
+    return () => {}
+  },
+  async mcpGetStatus(): Promise<McpStatus> {
+    return { enabled: false, running: false, clients: 0, clientConfig: { command: '', args: [], env: {} } }
+  },
+  async mcpSetEnabled(): Promise<McpStatus> {
+    throw new Error('The MCP server is only available in the desktop app')
+  },
+  async mcpSetOpenWorkspace(): Promise<void> {},
+  onMcpStatus(): () => void {
     return () => {}
   },
 
@@ -941,7 +957,11 @@ const electronApi: Api = {
   hideCapture: (): Promise<void> => window.electronAPI!.hideCapture(),
   captureGetConfig: (): Promise<CaptureConfig> => window.electronAPI!.captureGetConfig(),
   captureSetConfig: (config: CaptureConfig): Promise<SecurityResult> => window.electronAPI!.captureSetConfig(config),
-  onCaptureSaved: (callback: () => void): (() => void) => window.electronAPI!.onCaptureSaved(callback),
+  onDataChanged: (callback: () => void): (() => void) => window.electronAPI!.onDataChanged(callback),
+  mcpGetStatus: (): Promise<McpStatus> => window.electronAPI!.mcpGetStatus(),
+  mcpSetEnabled: (enabled: boolean): Promise<McpStatus> => window.electronAPI!.mcpSetEnabled(enabled),
+  mcpSetOpenWorkspace: (workspaceId: string): Promise<void> => window.electronAPI!.mcpSetOpenWorkspace(workspaceId),
+  onMcpStatus: (callback: (status: McpStatus) => void): (() => void) => window.electronAPI!.onMcpStatus(callback),
 
   // Database Backups & Reload
   backup: (suffix?: string): Promise<{ path: string } | { error: string }> => window.electronAPI!.backup(suffix),

@@ -188,9 +188,17 @@ const SENSITIVE_LOCK = 'sensitive:lock'
 const SENSITIVE_DISABLE = 'sensitive:disable'
 const SENSITIVE_LOCKED_EVENT = 'sensitive:locked'
 
+// Sent to all windows after a write made outside the renderer (quick capture, MCP)
+const DATA_CHANGED_EVENT = 'data:changed'
+
+// MCP server (docs/architecture/mcp.md)
+const MCP_GET_STATUS = 'mcp:getStatus'
+const MCP_SET_ENABLED = 'mcp:setEnabled'
+const MCP_SET_OPEN_WORKSPACE = 'mcp:setOpenWorkspace'
+const MCP_STATUS_EVENT = 'mcp:status'
+
 // Quick capture
 const CAPTURE_HIDE = 'capture:hide'
-const CAPTURE_SAVED_EVENT = 'capture:saved'
 const CAPTURE_GET_CONFIG = 'capture:getConfig'
 const CAPTURE_SET_CONFIG = 'capture:setConfig'
 
@@ -343,9 +351,13 @@ module.exports = {
   SENSITIVE_DISABLE,
   SENSITIVE_LOCKED_EVENT,
   CAPTURE_HIDE,
-  CAPTURE_SAVED_EVENT,
+  DATA_CHANGED_EVENT,
   CAPTURE_GET_CONFIG,
   CAPTURE_SET_CONFIG,
+  MCP_GET_STATUS,
+  MCP_SET_ENABLED,
+  MCP_SET_OPEN_WORKSPACE,
+  MCP_STATUS_EVENT,
 
   // App
   APP_QUIT_SAVE_DONE,
