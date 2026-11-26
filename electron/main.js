@@ -12,6 +12,7 @@ const {
 
 // IPC Handler Modules
 const { registerDatabaseHandlers } = require('./ipc/database')
+const { registerMcpHandlers } = require('./ipc/mcp')
 const { registerOllamaHandlers } = require('./ipc/ollama')
 const { registerOpenaiHandlers } = require('./ipc/openai')
 const { registerAgentHandlers } = require('./ipc/agent')
@@ -24,15 +25,17 @@ const { createSensitiveSession } = require('./database/sensitiveSession')
 const {
   SENSITIVE_LOCKED_EVENT,
   CAPTURE_HIDE,
-  CAPTURE_SAVED_EVENT,
+  DATA_CHANGED_EVENT,
   CAPTURE_GET_CONFIG,
   CAPTURE_SET_CONFIG,
+  MCP_STATUS_EVENT,
 } = require('./ipcChannels')
 const { createQuickCapture, DEFAULT_ACCELERATOR } = require('./quickCapture')
 const { isEncrypted } = require('./database/encryption')
 
 let mainWindow
 let db
+let mcp = null
 
 // =========================================
 // TWO-PHASE QUIT / CLOSE SAVE
@@ -323,6 +326,18 @@ app.whenReady().then(async () => {
       db.sensitiveSession = sensitiveSession
     }
     registerDatabaseHandlers(ipcMain, db)
+    // MCP bridge (docs/architecture/mcp.md): needs the unlocked database
+    mcp = registerMcpHandlers(ipcMain, {
+      db,
+      connectionFile: path.join(app.getPath('userData'), 'mcp.json'),
+      executable: process.execPath,
+      sendDataChanged: () => {
+        for (const w of BrowserWindow.getAllWindows()) w.webContents.send(DATA_CHANGED_EVENT)
+      },
+      sendStatus: status => {
+        for (const w of BrowserWindow.getAllWindows()) w.webContents.send(MCP_STATUS_EVENT, status)
+      },
+    })
     setupQuickCapture()
     return db
   }
@@ -343,7 +358,7 @@ app.whenReady().then(async () => {
     ipcMain.handle(CAPTURE_HIDE, () => {
       quickCapture.hide()
       // Tell the main window to refresh so the captured note appears.
-      for (const w of BrowserWindow.getAllWindows()) w.webContents.send(CAPTURE_SAVED_EVENT)
+      for (const w of BrowserWindow.getAllWindows()) w.webContents.send(DATA_CHANGED_EVENT)
     })
     ipcMain.handle(CAPTURE_GET_CONFIG, () => ({
       enabled: db.getSetting('quickCaptureEnabled') !== 'false',
@@ -454,6 +469,10 @@ app.whenReady().then(async () => {
 app.on('will-quit', () => {
   const { globalShortcut } = require('electron')
   globalShortcut.unregisterAll()
+  // Remove mcp.json synchronously, before the process exits, so an MCP client
+  // reports the app as not running rather than failing to connect
+  require('fs').rmSync(path.join(app.getPath('userData'), 'mcp.json'), { force: true })
+  mcp?.stop()
 })
 
 app.on('window-all-closed', () => {

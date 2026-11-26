@@ -15,6 +15,8 @@ vi.mock('../services/api.js', () => ({
     }),
     sensitiveStatus: vi.fn().mockResolvedValue({ available: false, enabled: false, unlocked: false }),
     captureGetConfig: vi.fn().mockResolvedValue({ enabled: false, accelerator: 'CommandOrControl+Shift+N' }),
+    mcpGetStatus: vi.fn().mockResolvedValue({ enabled: false, running: false, clients: 0, clientConfig: {} }),
+    onMcpStatus: vi.fn(() => () => {}),
     onSensitiveLocked: vi.fn(() => () => {}),
   },
 }))

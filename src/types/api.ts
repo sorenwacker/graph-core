@@ -306,7 +306,11 @@ export interface Api {
   hideCapture(): Promise<void>
   captureGetConfig(): Promise<{ enabled: boolean; accelerator: string }>
   captureSetConfig(config: { enabled: boolean; accelerator: string }): Promise<{ success: boolean; error?: string }>
-  onCaptureSaved(callback: () => void): () => void
+  onDataChanged(callback: () => void): () => void
+  mcpGetStatus(): Promise<McpStatus>
+  mcpSetEnabled(enabled: boolean): Promise<McpStatus>
+  mcpSetOpenWorkspace(workspaceId: string): Promise<void>
+  onMcpStatus(callback: (status: McpStatus) => void): () => void
 
   backup?(suffix?: string): Promise<{ path: string } | { error: string }>
   listBackups?(): Promise<BackupInfo[]>
@@ -336,4 +340,12 @@ export interface Api {
 
   // Wikipedia lookup (agent loop with the Wikipedia tools)
   wikipediaLookup?(options: WikipediaLookupOptions): Promise<string>
+}
+
+/** Settings > MCP server (docs/guides/mcp.md) */
+export interface McpStatus {
+  enabled: boolean
+  running: boolean
+  clients: number
+  clientConfig: { command: string; args: string[]; env: Record<string, string> }
 }

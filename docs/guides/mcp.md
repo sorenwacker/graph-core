@@ -5,16 +5,16 @@ Graph Core includes a Model Context Protocol (MCP) server. An MCP client such as
 ## Prerequisites
 
 - Graph Core is running. The MCP server reaches the database through the app; with the app closed, every tool reports that Graph Core is not running.
-- The MCP server is enabled in **Settings > MCP server**. It is off by default.
+- The MCP server is enabled in **Settings > General > MCP server**. It is off by default.
 
 ## Connect a client
 
-1. Open **Settings > MCP server** and turn on **Enable MCP server**.
-2. Click **Copy client configuration**. The clipboard now holds a JSON entry that starts the `graph-core-mcp` command.
+1. Open **Settings > General > MCP server** and turn on **Enable MCP server**.
+2. Click **Copy client configuration**. The clipboard now holds a JSON entry that runs the MCP server bundled with the app, using the app's own executable; no separate installation is needed.
 3. Add the entry to the client's MCP configuration: for Claude Code, run `claude mcp add-json graph-core '<pasted JSON>'`; for Claude Desktop, add it under `mcpServers` in `claude_desktop_config.json`.
 4. Restart the client.
 
-The settings section shows **Connected clients: 1** once the client has connected.
+The settings section shows **Connected clients: 1** once the client has connected. The configuration contains the path of the installed app; after moving the app, copy it again.
 
 ## Tools
 
