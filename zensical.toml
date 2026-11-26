@@ -26,6 +26,7 @@ nav = [
     { "Workspaces" = "guides/workspaces.md" },
     { "Demo Workspace" = "guides/demo-workspace.md" },
     { "AI Notes" = "guides/ai-notes.md" },
+    { "Connecting an AI agent (MCP)" = "guides/mcp.md" },
     { "Import and Export" = "guides/import-export.md" },
   ] },
   { "Reference" = [
@@ -42,6 +43,7 @@ nav = [
     { "Encryption" = "architecture/encryption.md" },
     { "Sensitive notes" = "architecture/sensitive-notes.md" },
     { "Editing a node" = "architecture/editing.md" },
+    { "MCP server" = "architecture/mcp.md" },
   ] },
   { "Contributing" = [
     { "Development" = "contributing/development.md" },
