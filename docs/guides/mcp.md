@@ -30,6 +30,14 @@ The settings section shows **Connected clients: 1** once the client has connecte
 | `link_nodes`, `unlink_nodes` | Add or remove a link between two nodes |
 | `delete_node` | Move a node to the trash. It can be restored from the Trash view |
 
-## Sensitive notes
+## Sensitive nodes
 
-The notes of a node marked sensitive are never returned over MCP, whether sensitive notes are locked or unlocked in the app. The node's title and other fields are returned; its `notes` field is withheld. `update_node` refuses to change the notes of a sensitive node. See [Sensitive notes](../architecture/sensitive-notes.md).
+An MCP client can see that a node marked sensitive exists and can move it, but cannot read its content or change it, whether sensitive notes are locked or unlocked in the app:
+
+- Every tool returns a sensitive node in reduced form: `id`, `title`, `type`, `parent_id`, `workspace_id` and `sensitive: true`. Its notes, dates, tags, contact fields and other content are left out.
+- `move_node` moves it, and other nodes can be moved or created under it.
+- `update_node`, `delete_node`, `link_nodes` and `unlink_nodes` refuse it with an error that names it as sensitive.
+- `search_nodes` matches it on its title only.
+- Its children are not sensitive by inheritance.
+
+See [Sensitive notes](../architecture/sensitive-notes.md).

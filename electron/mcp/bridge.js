@@ -7,7 +7,7 @@
  * without Electron.
  */
 
-/** Node fields an agent may set. notes_sensitive is excluded: clearing it decrypts a note. */
+/** Node fields an agent may set. notes_sensitive is excluded: clearing it would expose the node. */
 const WRITABLE_FIELDS = [
   'title',
   'type',
@@ -30,6 +30,27 @@ const WRITABLE_FIELDS = [
 ]
 
 class McpBridgeError extends Error {}
+
+/** Fields of a sensitive node an agent may see; everything else is content. */
+const SENSITIVE_VISIBLE_FIELDS = ['id', 'title', 'type', 'parent_id', 'workspace_id']
+
+/**
+ * Reduce every sensitive node in a result to its identity, at any depth.
+ * @param {*} value - A bridge result
+ * @returns {*} The result with sensitive nodes reduced
+ */
+function withholdSensitive(value) {
+  if (Array.isArray(value)) return value.map(withholdSensitive)
+  if (!value || typeof value !== 'object') return value
+  if (value.notes_withheld) {
+    const reduced = { sensitive: true }
+    for (const key of SENSITIVE_VISIBLE_FIELDS) reduced[key] = value[key] ?? null
+    return reduced
+  }
+  const out = {}
+  for (const [key, inner] of Object.entries(value)) out[key] = withholdSensitive(inner)
+  return out
+}
 
 /**
  * Keep only the fields an agent may set.
@@ -56,6 +77,14 @@ function createMcpBridge({ db, onDataChanged, getOpenWorkspace }) {
   const requireNode = id => {
     const node = db.getNode(id)
     if (!node || node.deleted_at) throw new McpBridgeError(`Node ${id} not found`)
+    return node
+  }
+
+  /** A node an agent may change: present and not sensitive. */
+  const requireEditable = id => {
+    const node = requireNode(id)
+    if (node.notes_withheld)
+      throw new McpBridgeError(`Node ${id} is sensitive; it can be moved but not changed over MCP`)
     return node
   }
 
@@ -100,8 +129,8 @@ function createMcpBridge({ db, onDataChanged, getOpenWorkspace }) {
     get_node: ({ id }) => requireNode(id),
     search_nodes: ({ query, type, limit }, connection) => {
       const q = String(query ?? '').toLowerCase()
-      // A withheld note matched on its text would confirm what the text
-      // contains; such a node is returned only when its title matches
+      // A sensitive node matched on its content would confirm what the
+      // content contains; such a node is returned only when its title matches
       return db
         .search(query, type || null, workspaceOf(connection), { limit })
         .filter(n => !n.notes_withheld || String(n.title).toLowerCase().includes(q))
@@ -123,11 +152,8 @@ function createMcpBridge({ db, onDataChanged, getOpenWorkspace }) {
       )
     },
     update_node: ({ id, ...fields }) => {
-      const node = requireNode(id)
+      requireEditable(id)
       const data = pickWritable(fields)
-      if (data.notes !== undefined && node.notes_withheld) {
-        throw new McpBridgeError(`Node ${id} has sensitive notes; they cannot be changed over MCP`)
-      }
       if (Object.keys(data).length === 0) throw new McpBridgeError('No writable fields given')
       return write(db.updateNode(id, data))
     },
@@ -142,13 +168,17 @@ function createMcpBridge({ db, onDataChanged, getOpenWorkspace }) {
       return write(db.moveNode(id, parent_id ?? null))
     },
     link_nodes: ({ source_id, target_id }) => {
-      requireNode(source_id)
-      requireNode(target_id)
+      requireEditable(source_id)
+      requireEditable(target_id)
       return write(db.linkNodes(source_id, target_id))
     },
-    unlink_nodes: ({ source_id, target_id }) => write(db.unlinkNodes(source_id, target_id)),
+    unlink_nodes: ({ source_id, target_id }) => {
+      requireEditable(source_id)
+      requireEditable(target_id)
+      return write(db.unlinkNodes(source_id, target_id))
+    },
     delete_node: ({ id }) => {
-      requireNode(id)
+      requireEditable(id)
       return write(db.deleteNode(id, false))
     },
   }
@@ -163,7 +193,8 @@ function createMcpBridge({ db, onDataChanged, getOpenWorkspace }) {
   function handle(method, params, connection) {
     const handler = handlers[method]
     if (!handler) throw new McpBridgeError(`Unknown method "${method}"`)
-    return handler(params || {}, connection)
+    // Sensitive nodes leave in reduced form whatever the handler returned
+    return withholdSensitive(handler(params || {}, connection))
   }
 
   return { handle, METHODS: Object.keys(handlers) }

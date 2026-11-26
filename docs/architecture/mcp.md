@@ -35,17 +35,18 @@ Every write the bridge performs sends the data-changed event (`data:changed`) to
 
 A connection follows the workspace open in the app until it calls `set_workspace`; from then on its reads are filtered to that workspace and its created nodes are assigned to it. The scope belongs to the connection and ends when it disconnects.
 
-## Sensitive notes
+## Sensitive nodes
 
-The bridge never calls `getNodeNotes`, the one operation that returns a sensitive note's text; every read it uses returns such a node with `notes: null` and `notes_withheld: true`, whether sensitive notes are locked or unlocked in the app. Unlocking is a decision the user makes for themselves, not for an agent. Further:
+A node is sensitive for the bridge when the database reads return it with `notes_withheld: true`, the rule that already keeps its notes out of every renderer read ([Read path](sensitive-notes.md#read-path)). The rules below hold whether sensitive notes are locked or unlocked in the app: unlocking is a decision the user makes for themselves, not for an agent.
 
-- An update that would change a sensitive node's notes is refused.
-- `notes_sensitive` is not a writable field: clearing it would decrypt the note.
-- A search match on a withheld note is returned only when the title also matches, so a query cannot confirm what the hidden text contains.
+- Every result the bridge returns passes one function that reduces each sensitive node to `id`, `title`, `type`, `parent_id`, `workspace_id` and `sensitive: true`, so a new read tool cannot forget it. The fields are an allowlist: a column added to the schema later is withheld until it is added to the list.
+- Moving changes the node's place, not its content, so `move_node` accepts it. Every other write resolves its ids through one lookup that refuses a sensitive node.
+- `notes_sensitive` is not a writable field: clearing it would expose the node, and setting it is left to the user.
+- A search match on a sensitive node counts only when the title matches, so a query cannot confirm what its content contains.
 
 ## Gates
 
 - A test enumerates the tools `electron/mcp/tools.js` declares and the methods the bridge handles; each tool has a handler and each handler a tool.
-- A test asserts that no read tool returns a sensitive node's notes, that its notes and its sensitive flag cannot be changed, and that search does not match on its hidden text.
+- A test asserts that no read tool returns a sensitive node's content, that `move_node` moves it, and that every other write refuses it.
 - A test asserts that every write handler sends the data-changed event.
 - A test asserts that the bridge refuses a connection without the token.

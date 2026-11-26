@@ -50,7 +50,8 @@ const TOOLS = [
   { name: 'get_ancestors', description: 'Ancestors of a node, root first.', inputSchema: schema({ id }, ['id']) },
   {
     name: 'get_node',
-    description: 'One node. Notes of a sensitive node are withheld (notes_withheld: true).',
+    description:
+      'One node. A sensitive node is returned as id, title, type, parent_id, workspace_id and sensitive: true; its content is withheld.',
     inputSchema: schema({ id }, ['id']),
   },
   {
@@ -81,7 +82,7 @@ const TOOLS = [
   },
   {
     name: 'update_node',
-    description: 'Change fields of a node. Notes of a sensitive node cannot be changed.',
+    description: 'Change fields of a node. A sensitive node cannot be changed.',
     inputSchema: schema({ id, ...nodeFields }, ['id']),
   },
   {
@@ -101,7 +102,8 @@ const TOOLS = [
   },
   {
     name: 'delete_node',
-    description: 'Move a node to the trash. It can be restored from the Trash view.',
+    description:
+      'Move a node to the trash. It can be restored from the Trash view. A sensitive node cannot be deleted.',
     inputSchema: schema({ id }, ['id']),
   },
 ]

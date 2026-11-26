@@ -81,34 +81,85 @@ describe('MCP bridge', () => {
     })
   })
 
-  describe('sensitive notes', () => {
+  describe('sensitive nodes', () => {
     let secret
+    let parent
 
     beforeEach(() => {
-      secret = factory.note({ title: 'Diary', notes: 'the secret text', notes_sensitive: 1 })
+      parent = factory.project({ title: 'Folder' })
+      secret = factory.person({
+        title: 'Diary',
+        notes: 'the secret text',
+        email: 'someone@example.org',
+        due_date: '2026-12-01',
+        tags: ['private-tag'],
+        notes_sensitive: 1,
+        parent_id: parent.id,
+      })
     })
 
-    it('never returns the notes of a sensitive node', () => {
+    const REDUCED = {
+      id: expect.any(Number),
+      title: 'Diary',
+      type: 'person',
+      parent_id: expect.anything(),
+      workspace_id: 'work',
+      sensitive: true,
+    }
+
+    it('returns a sensitive node reduced to its identity, from every read tool', () => {
       const responses = [
         call('get_node', { id: secret.id }),
-        call('get_roots'),
+        call('get_children', { id: parent.id }),
         call('get_tree'),
+        call('get_tree', { root_id: parent.id }),
         call('search_nodes', { query: 'Diary' }),
-        call('get_nodes_of_type', { type: 'note' }),
+        call('get_nodes_of_type', { type: 'person' }),
       ]
-      expect(JSON.stringify(responses)).not.toContain('the secret text')
+      const text = JSON.stringify(responses)
+      for (const content of ['the secret text', 'someone@example.org', '2026-12-01', 'private-tag']) {
+        expect(text).not.toContain(content)
+      }
+      expect(call('get_node', { id: secret.id })).toEqual(REDUCED)
     })
 
-    it('does not confirm text of a sensitive note through search', () => {
+    it('withholds a sensitive node among ancestors and links', () => {
+      const child = factory.note({ title: 'Child', parent_id: secret.id })
+      const other = factory.note({ title: 'Other' })
+      db.linkNodes(other.id, secret.id)
+      const ancestors = call('get_ancestors', { id: child.id })
+      const links = call('get_links', { id: other.id })
+      expect(ancestors.find(n => n.id === secret.id)).toEqual(REDUCED)
+      expect(links.find(n => n.id === secret.id)).toEqual(REDUCED)
+    })
+
+    it('does not confirm content of a sensitive node through search', () => {
       expect(call('search_nodes', { query: 'secret text' })).toEqual([])
     })
 
-    it('refuses to change the notes of a sensitive node', () => {
-      expect(() => call('update_node', { id: secret.id, notes: 'overwritten' })).toThrow(/sensitive/)
+    it('moves a sensitive node', () => {
+      call('move_node', { id: secret.id, parent_id: null })
+      expect(db.getNode(secret.id).parent_id).toBeNull()
     })
 
-    it('ignores an attempt to clear the sensitive flag', () => {
-      expect(() => call('update_node', { id: secret.id, notes_sensitive: 0 })).toThrow(/No writable fields/)
+    it('creates a node under a sensitive node', () => {
+      expect(call('create_node', { title: 'Under', parent_id: secret.id }).parent_id).toBe(secret.id)
+    })
+
+    it('refuses every other write to a sensitive node', () => {
+      const other = factory.note({ title: 'Other' })
+      expect(() => call('update_node', { id: secret.id, title: 'Renamed' })).toThrow(/sensitive/)
+      expect(() => call('delete_node', { id: secret.id })).toThrow(/sensitive/)
+      expect(() => call('link_nodes', { source_id: other.id, target_id: secret.id })).toThrow(/sensitive/)
+      expect(() => call('unlink_nodes', { source_id: secret.id, target_id: other.id })).toThrow(/sensitive/)
+      const stored = db.getNode(secret.id)
+      expect(stored.title).toBe('Diary')
+      expect(stored.deleted_at).toBeFalsy()
+    })
+
+    it('cannot clear the sensitive flag', () => {
+      const other = factory.note({ title: 'Plain' })
+      expect(() => call('update_node', { id: other.id, notes_sensitive: 0 })).toThrow(/No writable fields/)
       expect(db.getNode(secret.id).notes_withheld).toBe(true)
     })
   })
